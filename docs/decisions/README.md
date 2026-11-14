@@ -14,3 +14,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | ADR | Titel | Status | Aufgabe |
 |---|---|---|---|
 | [ADR-001](ADR-001-stack.md) | Technischer Stack | Angenommen | CHAOS-5 |
+| [ADR-002](ADR-002-workspace-tooling.md) | Workspace-Aufbau und Werkzeuge | Angenommen | CHAOS-6 |

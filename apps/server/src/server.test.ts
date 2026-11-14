@@ -1,0 +1,92 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { request } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PROTOCOL_VERSION } from '@chaos-party/protocol';
+import { createChaosServer, type ChaosServer } from './server.ts';
+
+let server: ChaosServer;
+let baseUrl: string;
+let workDir: string;
+
+beforeAll(async () => {
+  workDir = await mkdtemp(join(tmpdir(), 'chaos-server-'));
+  const staticDir = join(workDir, 'dist');
+  await mkdir(join(staticDir, 'assets'), { recursive: true });
+  await writeFile(join(staticDir, 'index.html'), '<!doctype html><title>Controller</title>');
+  await writeFile(join(staticDir, 'assets', 'app.js'), 'console.log(1);');
+  await writeFile(join(workDir, 'secret.txt'), 'geheim');
+
+  server = createChaosServer({ staticDir });
+  const address = await server.listen(0, '127.0.0.1');
+  baseUrl = `http://127.0.0.1:${String(address.port)}`;
+});
+
+afterAll(async () => {
+  await server.close();
+  await rm(workDir, { recursive: true, force: true });
+});
+
+/** Roher Request, damit `..` im Pfad nicht vom Client normalisiert wird. */
+function rawGet(path: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = request(`${baseUrl}/`, { path, method: 'GET' }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => {
+        body += chunk;
+      });
+      res.on('end', () => {
+        resolve({ status: res.statusCode ?? 0, body });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+describe('Chaos-Party-Server', () => {
+  it('meldet Gesundheit und Protokollversion', async () => {
+    const res = await fetch(`${baseUrl}/health`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok', protocolVersion: PROTOCOL_VERSION });
+  });
+
+  it('liefert die Controller-App unter /', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(await res.text()).toContain('<title>Controller</title>');
+  });
+
+  it('liefert Assets mit passendem MIME-Typ', async () => {
+    const res = await fetch(`${baseUrl}/assets/app.js`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/javascript');
+  });
+
+  it('fällt bei App-Routen auf index.html zurück', async () => {
+    const res = await fetch(`${baseUrl}/join/ABCD`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<title>Controller</title>');
+  });
+
+  it('antwortet 404 für fehlende Assets', async () => {
+    const res = await fetch(`${baseUrl}/assets/fehlt.js`);
+    expect(res.status).toBe(404);
+  });
+
+  it.each(['/../secret.txt', '/%2e%2e/secret.txt', '/assets/../../secret.txt'])(
+    'liefert keine Dateien außerhalb des Verzeichnisses (%s)',
+    async (path) => {
+      const res = await rawGet(path);
+      expect(res.body).not.toContain('geheim');
+    },
+  );
+
+  it('lehnt andere Methoden als GET/HEAD ab', async () => {
+    const res = await fetch(`${baseUrl}/`, { method: 'POST' });
+    expect(res.status).toBe(405);
+  });
+});

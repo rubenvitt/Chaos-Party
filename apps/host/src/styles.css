@@ -1,0 +1,20 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #14121f;
+  color: #f4f1ff;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.host {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  text-align: center;
+}
