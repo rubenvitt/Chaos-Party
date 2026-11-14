@@ -17,3 +17,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-002](ADR-002-workspace-tooling.md) | Workspace-Aufbau und Werkzeuge | Angenommen | CHAOS-6 |
 | [ADR-003](ADR-003-protokoll.md) | Controller-Protokoll (typisiert, versioniert, laufzeitvalidiert) | Angenommen | CHAOS-7 |
 | [ADR-004](ADR-004-host-szene.md) | Host-Szene mit Babylon.js und Havok – WASM-Laden, Eingabe-Naht, Testmodus | Angenommen | CHAOS-8 |
+| [ADR-005](ADR-005-session-server.md) | Lokaler autoritativer Session-Server | Angenommen | CHAOS-9 |
