@@ -11,6 +11,8 @@ const ALLOWED = new Set([
   '0BSD',
   'BlueOak-1.0.0',
   'CC0-1.0',
+  // SIL Open Font License: freie Schriften (z. B. Nunito), dürfen eingebettet und weitergegeben werden.
+  'OFL-1.1',
 ]);
 
 const output = execFileSync('pnpm', ['-r', 'licenses', 'list', '--prod', '--json'], {

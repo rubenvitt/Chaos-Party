@@ -13,7 +13,7 @@
   --frame: 10px;
 
   color-scheme: light;
-  font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
+  font-family: 'Nunito Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
   color: var(--ink);
   background: #9fd8ff;
 

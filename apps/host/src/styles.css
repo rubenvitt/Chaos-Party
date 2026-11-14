@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
+  font-family: 'Nunito Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
   color: #1b1530;
   /* Hintergrund des Spiels: der Canvas ist transparent und liegt darüber. */
   background: #8fd8ff;
