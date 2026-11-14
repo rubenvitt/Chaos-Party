@@ -7,6 +7,8 @@
  *   Plätzen, je Platz eine Spielerzone. `?mode=ipad` ohne `seats` bedeutet 2 Plätze.
  *   Fehlt beides (oder `seats=1`), ist es der iPhone-Modus mit genau einem Platz.
  *   Ungültige Werte fallen auf den iPhone-Modus bzw. bei `mode=ipad` auf 2 zurück.
+ * - `?debug=1` – Debug-Anzeige mit Rundlaufzeit und Eingaberate für den Gerätetest
+ *   (CHAOS-45, ADR-010). Herzschlag dann jede Sekunde statt alle 5 s.
  */
 import { JoinCodeSchema } from '@chaos-party/protocol';
 
@@ -27,6 +29,8 @@ export interface LaunchParams {
   joinCode: string | null;
   /** Anzahl Plätze dieser Verbindung: 1 (iPhone) oder 2–4 (geteiltes iPad). */
   seats: number;
+  /** Debug-Anzeige (`?debug=1` oder `?debug=true`). */
+  debug: boolean;
 }
 
 /** Großbuchstaben, nur `A–Z0–9`, höchstens `maxLength` Zeichen – für Eingabe und URL. */
@@ -50,7 +54,13 @@ export function parseLaunchParams(search: string): LaunchParams {
   return {
     joinCode: isValidJoinCode(candidate) ? candidate : null,
     seats: parseSeats(params),
+    debug: isFlag(params.get('debug')),
   };
+}
+
+function isFlag(value: string | null): boolean {
+  const v = value?.trim().toLowerCase();
+  return v === '1' || v === 'true';
 }
 
 function parseSeats(params: URLSearchParams): number {

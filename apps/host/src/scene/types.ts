@@ -55,6 +55,18 @@ export interface GameSceneOptions {
   readonly testMode?: boolean;
 }
 
+/** Grafik-Infos für die Debug-Anzeige (CHAOS-45): was der Browser über die GPU verrät. */
+export interface RendererInfo {
+  /** WebGL-Version (1 oder 2). */
+  readonly webgl: number;
+  /** Grafikkarte/Treiber laut WebGL (ggf. unmaskiert), z. B. „ANGLE (NVIDIA …)“. */
+  readonly renderer: string;
+  readonly vendor: string;
+  /** Render-Auflösung in Pixeln (inkl. Gerätepixelverhältnis). */
+  readonly width: number;
+  readonly height: number;
+}
+
 /** Empfänger von Spielereingaben – die Naht zwischen Eingabequelle und Szene. */
 export interface PlayerInputSink {
   applyInput(slot: PlayerSlot, input: PlayerInput): void;
@@ -74,5 +86,12 @@ export interface GameScene extends PlayerInputSink {
   stepFrames(n: number): void;
   /** Aktuelle Positionen aller Spielfiguren (Weltkoordinaten, y = oben). */
   getPlayerPositions(): PlayerPosition[];
+  /**
+   * Meldet das Ende jedes gerenderten Frames (Render-Schleife und `stepFrames`), für die
+   * Debug-Messung (CHAOS-45). Liefert die Abmeldung.
+   */
+  onFrameRendered(listener: () => void): () => void;
+  /** WebGL-Version, Grafikkarte und Auflösung (Debug-Anzeige, CHAOS-45). */
+  getRendererInfo(): RendererInfo;
   dispose(): void;
 }

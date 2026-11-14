@@ -27,6 +27,7 @@ import {
   type ControllerState,
 } from '../state/reducer.ts';
 import type { UiErrorCode } from '../state/errors.ts';
+import type { LatencyMeter } from '../debug/latencyMeter.ts';
 import { backoffDelay } from './backoff.ts';
 import {
   browserSocketFactory,
@@ -40,6 +41,8 @@ import { browserWakeSource, type WakeSource } from './wake.ts';
 
 /** Abstand der Herzschläge (Rundlaufzeit, Lebenszeichen für den Server, der nach 15 s trennt). */
 export const HEARTBEAT_INTERVAL_MS = 5000;
+/** Herzschlag-Abstand mit `?debug=1`: mehr RTT-Messwerte für die Debug-Anzeige (CHAOS-45). */
+export const DEBUG_HEARTBEAT_INTERVAL_MS = 1000;
 /** So lange darf der Verbindungsaufbau dauern (iOS wartet bei unerreichbarem PC sonst ewig). */
 export const CONNECT_TIMEOUT_MS = 5000;
 /** Ohne jede Server-Nachricht (Herzschlag-Antwort alle 5 s) gilt die Verbindung danach als tot. */
@@ -70,6 +73,11 @@ export interface ControllerSessionOptions {
   now?: () => number;
   /** Meldet verworfene Server-Nachrichten (Standard: `console.warn`). */
   warn?: (text: string) => void;
+  /**
+   * Messer für die Debug-Anzeige (`?debug=1`, CHAOS-45): bekommt jede Herzschlag-Probe,
+   * jede Antwort und jede gesendete Slot-Eingabe. Ohne Messer wird nichts gemessen.
+   */
+  latency?: LatencyMeter;
 }
 
 export interface ControllerSession {
@@ -100,6 +108,7 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
   const probeTimeoutMs = options.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
   const random = options.random ?? Math.random;
   const now = options.now ?? (() => performance.now());
+  const latency = options.latency;
   const warn =
     options.warn ??
     ((text: string) => {
@@ -152,6 +161,7 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     clearWatchdog();
     client?.close();
     client = null;
+    latency?.connectionLost();
   }
 
   /** Verbindung ist weg: Zustand melden und den nächsten Versuch planen. */
@@ -203,7 +213,7 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
             current.send(createMessage('join', { joinCode, seats: options.seats }));
           }
           heartbeat = setInterval(() => {
-            current.send(createMessage('heartbeat', { t: now() }));
+            sendHeartbeat(current);
           }, heartbeatMs);
           armWatchdog(deadAfterMs);
         },
@@ -230,7 +240,14 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     armWatchdog(connectTimeoutMs);
   }
 
+  /** Herzschlag mit der eigenen Uhr; der Server spiegelt `t` zurück (RTT, ADR-003). */
+  function sendHeartbeat(target: ControllerClient) {
+    const t = now();
+    if (target.send(createMessage('heartbeat', { t }))) latency?.probeSent(t);
+  }
+
   function handleMessage(joinCode: string, message: ServerToControllerMessage) {
+    if (message.type === 'heartbeat-ack') latency?.ackReceived(message.t, now());
     if (message.type === 'welcome') {
       attempt = 0;
       options.tokens.save(joinCode, message.sessionToken);
@@ -274,7 +291,7 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     if (disposed || stopped || state.joinCode === null) return;
     if (client?.isOpen) {
       // Der Socket kann nach dem Einfrieren „offen“ wirken, aber tot sein: Herzschlag als Probe.
-      client.send(createMessage('heartbeat', { t: now() }));
+      sendHeartbeat(client);
       armWatchdog(probeTimeoutMs);
       return;
     }
@@ -306,7 +323,9 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     },
     sendIntent(intent) {
       if (!state.welcomed) return false;
-      return client?.sendIntent(intent) ?? false;
+      const sent = client?.sendIntent(intent) ?? false;
+      if (sent) latency?.inputSent(now());
+      return sent;
     },
     dismissNotice(id) {
       dispatch({ type: 'notice-dismissed', id });

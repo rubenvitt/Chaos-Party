@@ -44,6 +44,7 @@ import type {
   PlayerInput,
   PlayerPosition,
   PlayerSlot,
+  RendererInfo,
   ScenePlayer,
 } from './types.ts';
 
@@ -506,6 +507,24 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       for (let i = 0; i < n; i++) {
         scene.render();
       }
+    },
+    onFrameRendered(listener) {
+      const observer = scene.onAfterRenderObservable.add(() => {
+        listener();
+      });
+      return () => {
+        scene.onAfterRenderObservable.remove(observer);
+      };
+    },
+    getRendererInfo(): RendererInfo {
+      const gl = engine.getGlInfo();
+      return {
+        webgl: engine.webGLVersion,
+        renderer: gl.renderer,
+        vendor: gl.vendor,
+        width: engine.getRenderWidth(),
+        height: engine.getRenderHeight(),
+      };
     },
     getPlayerPositions(): PlayerPosition[] {
       return [...characters.values()]

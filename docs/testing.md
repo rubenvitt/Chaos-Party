@@ -1,13 +1,13 @@
 # Tests in Chaos Party
 
-Stand: CHAOS-14 (M1). Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
+Stand: CHAOS-45 (M1). Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
 
 ## Überblick
 
-| Suite | Werkzeug | Umfang (Stand CHAOS-14) | Start |
+| Suite | Werkzeug | Umfang (Stand CHAOS-45) | Start |
 |---|---|---|---|
-| Unit- und Integrationstests | Vitest | 458 Tests in 34 Dateien | `pnpm test` |
-| E2E (Browser) | Playwright 1.63, nur Chromium | 51 Tests in 6 Specs, 5 Projekte | `pnpm test:e2e` |
+| Unit- und Integrationstests | Vitest | 505 Tests in 39 Dateien | `pnpm test` |
+| E2E (Browser) | Playwright 1.63, nur Chromium | 54 Tests in 7 Specs, 5 Projekte | `pnpm test:e2e` |
 | Statische Prüfungen | `tsc` strict, ESLint, Prettier, Lizenzprüfung | – | `pnpm check` (inkl. `pnpm test` und `pnpm build`) |
 
 Vitest-Tests nach Paket:
@@ -17,6 +17,7 @@ Vitest-Tests nach Paket:
 - `apps/controller` (112): Joystick-Mathematik, Drosselung der `move`-Nachrichten, Touch-Zonen (Geometrie, Finger-Zuordnung, Zonen-Tracker), Client/Session mit Fake-Socket und Fake-Timern (Backoff, Wachhund, Token), Reducer, Fehlertexte.
 - `apps/host` (53): Bewegung/Dash-Mathematik, Spawn-Punkte aus dem Seed, Tastatur- und Netzwerk-Eingabequelle, Host-Verbindung, Verbindungsmeldungen, Join-Link je Gerät (`joinLink.test.ts`).
 - `packages/game-core` (6): deterministischer Zufall (Seed).
+- `packages/metrics` (CHAOS-45): Ringpuffer, Median/p95 (Nearest-Rank), Formatierung, User-Agent-Kurzform; dazu Messer in Controller (RTT) und Host (Bildabstand, Eingabe→Frame).
 
 ## E2E-Aufbau
 
@@ -32,7 +33,7 @@ Vitest-Tests nach Paket:
 
 | Projekt | Specs | Emulation |
 |---|---|---|
-| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich` | Desktop 1280×720, WebGL über SwiftShader (Software) |
+| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich`, `debug-anzeige` | Desktop 1280×720, WebGL über SwiftShader (Software) |
 | `iphone-hoch`, `iphone-quer` | `controller-ui` | iPhone 13 hoch/quer |
 | `ipad-quer`, `ipad-hoch` | `ipad-zonen` | iPad Pro 11 quer/hoch |
 
@@ -44,6 +45,7 @@ Vitest-Tests nach Paket:
 | `host-lobby.spec.ts` (5) | echter Server, synthetische WebSocket-Controller | QR-Code/Join-Code/Link, Firewall-Hinweis nach Wartezeit, **Umschalter iPhone/iPad** (Link mit `seats=2`), „Andere Adresse“, zweites Host-Fenster wartet, Beitritt/Bereit/Start, `move` bewegt nur die eigene Figur, Schubser, Trennung sichtbar; Screenshot der Lobby. |
 | `m1-durchstich.spec.ts` (3) | echter Server, **echte Host- und Controller-Seiten** | (1) Zwei iPhones öffnen den Link aus der Lobby, bekommen verschiedene Plätze/Farben (Handy und Host), tippen „Bereit!“, Host startet; beide ziehen **gleichzeitig** ihren Joystick (rechts/oben) → jede Figur läuft in ihre Richtung und nicht in die der anderen; Knopf A → Schubser nur bei Figur 2; Handy 1 verliert das Netz → Host „getrennt“, Handy-Overlay; wieder online → automatisch **derselbe Platz**, Joystick steuert wieder die eigene Figur. (2) Geteiltes iPad über den iPad-Link: zwei Zonen, zwei neue Spieler am Host, zwei Finger gleichzeitig (eine `touchMove`-Folge für beide) steuern zwei Figuren unabhängig; Joystick in Zone 1 + Knopf A in Zone 2 zugleich. (3) Gemischt: 1 iPhone + iPad(2) = drei Spieler (Slots 1–3) bewegen sich gleichzeitig unabhängig; Screenshot der Szene mit drei Figuren. |
 | `reconnect-slot.spec.ts` (4) | echter Server, iPhone-/iPad-Seiten, Verbindung über `routeWebSocket` steuerbar | Abbruch → Overlay mit Versuchszähler → automatischer Reconnect auf denselben Platz, Host-Meldungen „verloren“/„wieder da“; Neuladen behält den Platz; zweiter Tab übernimmt ohne Hin und Her; iPad: alle Plätze kommen zurück, gehaltener Joystick wird beim Abriss losgelassen. |
+| `debug-anzeige.spec.ts` (3, CHAOS-45) | echter Server, echte Host-/Controller-Seiten, Host **ohne** Testmodus | `?debug=1`: Host zeigt Bildrate, Bildabstand-p95, Grafikkarte und nach Joystick-Eingaben Eingabe→Frame als Zahlen; iPhone und geteiltes iPad zeigen RTT-Median/p95 (Herzschlag 1 s); ohne `debug` keine Anzeige. Prüft nur „Zahlen erscheinen“, keine Schwellen. |
 | `controller-ui.spec.ts` (9 × 2 Lagen) | nachgebauter Session-Server | Beitritt per `?code=`, Code-Eingabe und Fehlertexte, Lobby → Spiel-Layout, Joystick-Vektoren und Drosselung, Knöpfe auch gleichzeitig mit dem Joystick, `seq` steigt, Layout folgt dem Kontext, Release beim Verschwinden, freundliche Fehler, Reconnect per Token, kein Scrollen/Zoomen bei Gesten; Screenshots Lobby/Spiel. |
 | `ipad-zonen.spec.ts` (8 × 2 Lagen) | nachgebauter Session-Server | Zwei Zonen über eine Verbindung, gedrehte Zone im Hochformat, gleichzeitige Finger in verschiedenen Zonen mit richtigem Slot, `touchcancel`, Finger über die Zonengrenze, Drehen mitten im Spiel, vier Zonen mit vier Fingern, iPad-Modus in der Code-Eingabe; Screenshot mit zwei Zonen. |
 
@@ -65,9 +67,19 @@ Umgebungsvariablen:
 - `E2E_WORKERS=<n>` – Zahl der Worker (Standard 2). Die Host-Seiten rendern per Software; mehr als 2 Worker bringen auf 4 Kernen wenig.
 - Belege für Abnahmeberichte (ungemaskierte Screenshots nach `docs/screenshots/`): `HOST_SZENE_BELEG=1`, `HOST_LOBBY_BELEG=1`, `HOST_SPIEL_BELEG=1`, `CONTROLLER_BELEG=1`.
 
-Dauer: ein vollständiger Lauf (Build + 51 Tests) braucht auf 4 Kernen gut 1,2 Minuten; die drei Durchstich-Tests sind mit je 10–22 s die längsten (Software-Rendering, ~250 Physik-Frames). Sie haben ein eigenes Zeitlimit von 120 s.
+Dauer: ein vollständiger Lauf (Build + 54 Tests) braucht auf 4 Kernen gut 1,5 Minuten; die drei Durchstich-Tests sind mit je 10–22 s die längsten (Software-Rendering, ~250 Physik-Frames). Sie haben ein eigenes Zeitlimit von 120 s.
 
 Browser: Playwright ist auf 1.63.0 gepinnt; Chromium wird mit `pnpm exec playwright install chromium` passend installiert (CI: mit `--with-deps`).
+
+## Messanzeige für den Gerätetest (`?debug=1`, CHAOS-45)
+
+Bildrate und Latenz lassen sich automatisch nicht sinnvoll belegen (Chromium-Emulation, Software-Rendering, localhost). Dafür gibt es eine Messanzeige, die beim Gerätetest abgelesen wird (Entscheidung und Grenzen: [ADR-010](decisions/ADR-010-messanzeige.md)):
+
+- **Host:** `http://localhost:8787/host/?debug=1` – unten rechts fps, Bildabstand (Median/p95), **Eingabe→Frame** (Eingang einer Controller-Eingabe bis Ende des nächsten gerenderten Frames, Median/p95, Anzahl), Pausen der Render-Schleife, WebGL-Version, Grafikkarte, Auflösung, Browser.
+- **Controller:** Join-Link um `&debug=1` ergänzen (iPhone und iPad, z. B. `…/?code=ABCD&seats=2&debug=1`) – Rundlaufzeit Controller ↔ Server (Median/p95/letzte, Anzahl der letzten 60), unbeantwortete Proben, gesendete Eingaben/s, Gerät. Herzschlag dann jede Sekunde statt alle 5 s.
+- **Kopieren:** Der Knopf legt eine Zeile mit allen Werten, Gerät und vollem User-Agent in die Zwischenablage. Im LAN ohne HTTPS (Handy) erscheint sie markiert in einem Textfeld zum manuellen Kopieren.
+- Es gibt **keine Schwellen**: Werte notieren, zusammen mit Bedingungen (Gerät, WLAN, Abstand zum Router, Zahl der Spieler). Schwellen entstehen aus diesen M1-Baselines.
+- Unit-Tests: `packages/metrics` (Ringpuffer, Median, p95, Formatierung), `apps/controller/src/debug/latencyMeter.test.ts` und Sitzung mit Messer (`session.test.ts`, künstliche Uhr + Fake-Socket), `apps/host/src/debug/frameMeter.test.ts` (vorgegebene Zeitstempel).
 
 ## Screenshot-Baselines
 

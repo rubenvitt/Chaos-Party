@@ -1,0 +1,13 @@
+{
+  "name": "@chaos-party/metrics",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reine Messhelfer (Ringpuffer, Median/p95, Formatierung) für die Debug-Anzeigen von Host und Controller.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

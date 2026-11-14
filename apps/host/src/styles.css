@@ -522,3 +522,52 @@ body,
     animation: none;
   }
 }
+
+/* Messanzeige, nur mit ?debug=1 (CHAOS-45, ADR-010): klein, unten rechts, halbtransparent. */
+.debug-overlay {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  max-width: 440px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgb(20 16 40 / 72%);
+  color: #f4f1ff;
+  font:
+    12px/1.35 ui-monospace,
+    'SF Mono',
+    Menlo,
+    Consolas,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
+.debug-overlay b {
+  color: #ffd23f;
+}
+
+.debug-device {
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.debug-copy {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.debug-manual {
+  width: 100%;
+  font: inherit;
+}

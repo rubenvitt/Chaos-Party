@@ -17,6 +17,11 @@ export interface HostConfig {
    * „Firewall/WLAN prüfen“ (`?joinHint=`, Standard 30, Annahme B2).
    */
   readonly joinHintSeconds: number;
+  /**
+   * Debug-Anzeige (`?debug=1`, CHAOS-45, ADR-010): Bildrate, Bildabstand und Zeit von einer
+   * Controller-Eingabe bis zum nächsten Bild, dazu Browser und Grafikkarte.
+   */
+  readonly debug: boolean;
 }
 
 export const DEFAULT_CONFIG: HostConfig = {
@@ -25,6 +30,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   seed: 2026,
   test: false,
   joinHintSeconds: 30,
+  debug: false,
 };
 
 function flag(value: string | null): boolean {
@@ -45,6 +51,7 @@ export function parseHostConfig(search: string): HostConfig {
       Number.isInteger(joinHint) && joinHint >= 0
         ? Math.min(joinHint, 3600)
         : DEFAULT_CONFIG.joinHintSeconds,
+    debug: flag(params.get('debug')),
   };
 }
 
