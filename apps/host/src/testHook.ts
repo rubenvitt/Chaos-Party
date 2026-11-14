@@ -12,6 +12,11 @@ export interface ChaosTestHook {
   /** Simuliert und rendert `n` Frames à 1/60 s. */
   stepFrames(n: number): void;
   getPlayerPositions(): PlayerPosition[];
+  /**
+   * Zahl der vom Server empfangenen und auf die Szene angewandten Eingaben (CHAOS-11).
+   * E2E-Tests warten darauf, bevor sie `stepFrames` aufrufen.
+   */
+  networkInputs: number;
 }
 
 declare global {

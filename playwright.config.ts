@@ -1,24 +1,28 @@
 import { defineConfig, devices } from '@playwright/test';
-
-const HOST_PORT = 4173;
-/** Production-Build des Controllers (`vite preview`, ADR-006). */
-const CONTROLLER_PORT = 4174;
+import { E2E_JOIN_CODE, E2E_PORT } from './tests/e2e/host-env.ts';
 
 /**
  * Controller-Tests laufen mit iPhone-13-Emulation (Viewport, Touch, DPR 3, iOS-User-Agent)
  * in Chromium: CI installiert nur Chromium, und nur Chromium erlaubt echte Touch-Ereignisse
  * per CDP (Mehrfinger-Tests). Echtes iOS-Safari-Verhalten prüft die Gerätecheckliste.
+ * Sie laden den Controller-Build vom selben Node-Server, fangen `/ws` aber per
+ * `page.routeWebSocket` ab (nachgebauter Session-Server, ADR-006) und berühren die
+ * echte Session daher nicht.
  */
 const controllerUse = {
   browserName: 'chromium' as const,
-  baseURL: `http://localhost:${CONTROLLER_PORT}`,
 };
 
 /**
- * E2E-Tests gegen die **Production-Builds** von Host (Annahme C1: Havok-WASM lädt
- * im gebauten Bundle, ADR-004) und Controller (iPhone-Emulation, nachgebauter
- * Session-Server, ADR-006). Screenshot-Baselines sind plattformabhängig; eingecheckt
- * ist nur die Linux-Variante (`*-<projekt>-linux.png`), passend zu CI.
+ * E2E-Tests gegen die **Production-Builds**, ausgeliefert vom echten Node-Server
+ * wie bei `pnpm start` (ADR-007): Controller unter `/`, Host unter `/host/`,
+ * WebSocket unter `/ws` – ein Prozess, ein Port. Damit prüft jeder Lauf auch C1
+ * (Havok-WASM mit `application/wasm` vom Node-Server). Screenshot-Baselines sind
+ * plattformabhängig; eingecheckt ist nur die Linux-Variante (`*-chromium-linux.png`),
+ * passend zu CI (ADR-004).
+ *
+ * Der Server hält **eine** Session für den ganzen Lauf; Specs, die beitreten oder
+ * starten, laufen deshalb seriell und rechnen mit dem Zustand vorheriger Tests.
  */
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -40,7 +44,8 @@ export default defineConfig({
   snapshotPathTemplate:
     '{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
   use: {
-    baseURL: `http://localhost:${HOST_PORT}`,
+    // 127.0.0.1 statt localhost: Der Server lauscht nur auf IPv4-Loopback.
+    baseURL: `http://127.0.0.1:${String(E2E_PORT)}`,
     trace: 'off',
     screenshot: 'only-on-failure',
   },
@@ -75,20 +80,20 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @chaos-party/host build && pnpm --filter @chaos-party/host preview',
-      url: `http://localhost:${HOST_PORT}`,
+      // Alle Apps bauen, dann den Server wie `pnpm start` starten – nur auf Loopback,
+      // mit festem Join-Code und Join-Link auf 127.0.0.1 (Handys gibt es im Test nicht).
+      command: 'pnpm build && node apps/server/dist/main.js',
+      url: `http://127.0.0.1:${String(E2E_PORT)}/health`,
+      env: {
+        PORT: String(E2E_PORT),
+        HOST: '127.0.0.1',
+        PUBLIC_HOST: '127.0.0.1',
+        JOIN_CODE: E2E_JOIN_CODE,
+        TERMINAL_QR: '0',
+      },
       // Immer frisch bauen und starten, damit nie ein veralteter Build getestet wird.
       reuseExistingServer: false,
-      timeout: 120_000,
-      stdout: 'ignore',
-      stderr: 'pipe',
-    },
-    {
-      command:
-        'pnpm --filter @chaos-party/controller build && pnpm --filter @chaos-party/controller preview',
-      url: `http://localhost:${CONTROLLER_PORT}`,
-      reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 180_000,
       stdout: 'ignore',
       stderr: 'pipe',
     },

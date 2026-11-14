@@ -222,6 +222,19 @@ describe('Session: Beitreten', () => {
     expect(() => new Session({ joinCode: 'ab' })).toThrow(/Join-Code/);
     expect(() => new Session({ joinCode: CODE, joinUrl: 'ftp://x' })).toThrow(/Join-URL/);
   });
+
+  it('übernimmt alternative Join-Links in die Lobby (CHAOS-11) und prüft sie', () => {
+    const t = setup({
+      joinUrl: 'http://192.168.0.2:8787/?code=ABCD',
+      joinUrlAlternatives: ['http://10.0.0.2:8787/?code=ABCD'],
+    });
+    const lobby = lastLobby(t.host());
+    expect(lobby.joinUrlAlternatives).toEqual(['http://10.0.0.2:8787/?code=ABCD']);
+    expect('joinUrlAlternatives' in lastLobby(setup().host())).toBe(false);
+    expect(
+      () => new Session({ joinCode: CODE, joinUrlAlternatives: ['javascript:alert(1)'] }),
+    ).toThrow(/alternative/);
+  });
 });
 
 describe('Session: Host', () => {

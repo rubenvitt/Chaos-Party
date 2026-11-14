@@ -24,9 +24,10 @@ function collectProblems(page: Page): Problems {
   return problems;
 }
 
-async function openScene(page: Page, query = 'test=1&players=2&seed=2026') {
+/** Eigenständiger Tastatur-Modus (`local=1`): ohne Server-Verbindung und Lobby (ADR-007). */
+async function openScene(page: Page, query = 'local=1&test=1&players=2&seed=2026') {
   const wasm = page.waitForResponse((r) => r.url().endsWith('.wasm'));
-  await page.goto(`/?${query}`);
+  await page.goto(`/host/?${query}`);
   const wasmResponse = await wasm;
   await expect(page.locator('main.host')).toHaveAttribute('data-physics', 'ready');
   await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready');
@@ -49,14 +50,15 @@ test.describe('Host-Szene (Production-Build)', () => {
     const problems = collectProblems(page);
     const { wasmResponse } = await openScene(page);
 
-    // C1: WASM kommt aus dem Build mit korrektem MIME-Typ.
+    // C1: WASM kommt aus dem Build, ausgeliefert vom Node-Server, mit korrektem MIME-Typ.
     expect(wasmResponse.status()).toBe(200);
     expect(wasmResponse.headers()['content-type']).toContain('application/wasm');
     expect(await page.evaluate(() => window.__chaos?.physicsReady)).toBe(true);
 
-    // HUD: ein Chip pro Spieler, verbunden.
-    await expect(page.getByTestId('player-chip-1')).toContainText('Spieler 1');
-    await expect(page.getByTestId('player-chip-2')).toContainText('Spieler 2');
+    // HUD: ein Chip pro Spieler mit Farbname aus dem Protokoll (PLAYER_SLOTS), verbunden.
+    await expect(page.getByTestId('player-chip-1')).toContainText('Blau');
+    await expect(page.getByTestId('player-chip-2')).toContainText('Orange');
+    await expect(page.getByTestId('connection')).toHaveCount(0);
     await expect(page.getByTestId('player-chip-3')).toHaveCount(0);
 
     await stepFrames(page, SETTLE_FRAMES);
@@ -137,11 +139,11 @@ test.describe('Host-Szene (Production-Build)', () => {
   });
 
   test('zeigt vier Figuren bei ?players=4', async ({ page }) => {
-    await openScene(page, 'test=1&players=4&seed=2026');
+    await openScene(page, 'local=1&test=1&players=4&seed=2026');
     await stepFrames(page, SETTLE_FRAMES);
     const all = await positions(page);
     expect(all.map((p) => p.slot)).toEqual([1, 2, 3, 4]);
-    await expect(page.getByTestId('player-chip-4')).toContainText('Spieler 4');
+    await expect(page.getByTestId('player-chip-4')).toContainText('Rosa');
   });
 
   test('Screenshot der Startszene bleibt stabil', async ({ page }) => {
@@ -154,7 +156,9 @@ test.describe('Host-Szene (Production-Build)', () => {
     // Texte maskiert: Schriften unterscheiden sich zwischen Rechnern/CI-Runnern,
     // 3D-Szene, Chips und Farben werden verglichen. Texte prüfen die DOM-Assertions.
     await expect(page).toHaveScreenshot('host-szene.png', {
-      mask: [page.locator('.hud-title, .player-label, .player-state, .player-keys')],
+      mask: [
+        page.locator('.hud-title, .player-label, .player-state, .player-keys, .player-symbol'),
+      ],
     });
   });
 });

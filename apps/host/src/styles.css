@@ -46,8 +46,39 @@ body,
   padding: 20px 24px;
 }
 
-.hud-title {
-  align-self: flex-start;
+.hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hud-connection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 3px solid #1b1530;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.hud-connection-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e69f00;
+}
+
+.hud-connection[data-status='connected'] .hud-connection-dot {
+  background: #009e73;
+}
+
+.hud-connection[data-status='disconnected'] .hud-connection-dot,
+.hud-connection[data-status='host-taken'] .hud-connection-dot {
+  background: #d55e00;
 }
 
 .hud-title h1 {
@@ -108,11 +139,20 @@ body,
 
 .player-dot {
   grid-row: span 3;
+  display: grid;
+  place-items: center;
   width: 26px;
   height: 26px;
   border: 3px solid #1b1530;
   border-radius: 50%;
   background: var(--player-color);
+}
+
+/* Farbunabhängige Kennung (●▲■★) aus dem Protokoll. */
+.player-symbol {
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
 }
 
 .player-label {
@@ -130,4 +170,226 @@ body,
   font-size: 12px;
   font-weight: 600;
   opacity: 0.8;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Lobby (CHAOS-11): QR-Code, Join-Code, Spielerliste, Start                  */
+/* ------------------------------------------------------------------------- */
+
+.lobby {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 88px 24px 24px;
+  background: rgb(27 21 48 / 35%);
+}
+
+.lobby-card {
+  display: grid;
+  grid-template-columns: auto minmax(280px, 360px);
+  gap: 32px;
+  max-height: 100%;
+  padding: 24px 28px;
+  border: 4px solid #1b1530;
+  border-radius: 28px;
+  background: #fffaf0;
+  box-shadow: 0 8px 0 #1b1530;
+  overflow: auto;
+}
+
+.lobby-card--waiting {
+  display: block;
+  max-width: 560px;
+}
+
+.lobby-card h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.lobby-card code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #efe6ff;
+  font-size: 0.95em;
+}
+
+.lobby-join {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.lobby-lead {
+  margin: 0 0 12px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.qr-code {
+  display: block;
+  border: 4px solid #1b1530;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.join-code {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.join-code span {
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+}
+
+.join-code strong {
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.join-url {
+  margin: 4px 0 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.join-address {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.join-address select {
+  font: inherit;
+}
+
+.lobby-warning {
+  font-weight: 800;
+  color: #a33a00;
+}
+
+.lobby-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lobby-count {
+  font-size: 18px;
+  opacity: 0.6;
+}
+
+.lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lobby-player {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+  border: 3px solid #1b1530;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.lobby-player .player-dot {
+  grid-row: auto;
+}
+
+.lobby-player[data-connected='false'] {
+  opacity: 0.55;
+}
+
+.lobby-player-label {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.lobby-player-state {
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0.7;
+}
+
+.lobby-player[data-ready='true'] .lobby-player-state {
+  color: #00734f;
+  opacity: 1;
+}
+
+.lobby-empty {
+  padding: 14px;
+  border: 3px dashed #1b1530;
+  border-radius: 16px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+.start-button {
+  margin-top: 6px;
+  padding: 12px 20px;
+  border: 4px solid #1b1530;
+  border-radius: 18px;
+  background: #ffc83d;
+  box-shadow: 0 5px 0 #1b1530;
+  color: #1b1530;
+  font: inherit;
+  font-size: 24px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.start-button:disabled {
+  background: #ddd6e8;
+  box-shadow: 0 3px 0 #1b1530;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.start-button:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #1b1530;
+}
+
+.start-hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.join-help {
+  padding: 10px 14px;
+  border: 3px solid #d55e00;
+  border-radius: 14px;
+  background: #fff1e6;
+  font-size: 13px;
+}
+
+.join-help ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.join-help p {
+  margin: 0;
 }
