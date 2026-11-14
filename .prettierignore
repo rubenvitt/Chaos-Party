@@ -4,3 +4,4 @@ coverage/
 node_modules/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
+.claude/
