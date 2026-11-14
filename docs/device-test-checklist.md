@@ -10,6 +10,7 @@ Diese Liste prüft, was Browser-Automatisierung **nicht** beweisen kann: echtes 
 - Nachweis: Foto, Bildschirmaufnahme, kurze Notiz oder Terminal-Ausgabe. Dateien gern nach `docs/acceptance/m1-nachweise/` legen oder in Zunder an CHAOS-16 hängen.
 - Spalte „Annahme“ verweist auf [`assumptions.md`](assumptions.md). Ergebnisse dort mit Datum nachtragen.
 - Ablauf zum Starten: [M1-Demo-Anleitung](m1-demo.md). Netzwerkprobleme: [network-setup.md](network-setup.md).
+- Messwerte: `?debug=1` (Host) bzw. `&debug=1` (Controller) blendet eine Messanzeige mit „Kopieren“ ein ([ADR-010](decisions/ADR-010-messanzeige.md)). Es gibt bewusst keine Grenzwerte; die Werte dieser Liste sind die M1-Baseline.
 
 ## 1. Testumgebung
 
@@ -49,13 +50,13 @@ Diese Liste prüft, was Browser-Automatisierung **nicht** beweisen kann: echtes 
 |---|---|---|---|---|---|
 | P1 | – | Beide Personen bewegen gleichzeitig ihren Joystick in verschiedene Richtungen | jede Figur folgt **nur** ihrem iPhone; Richtung stimmt (Joystick hoch = Figur vom Betrachter weg) | | |
 | P2 | – | Taste A (Schubser) auf beiden, auch gleichzeitig, Figuren gegeneinander | Figuren stoßen sich sichtbar, Physik wirkt plausibel | | |
-| P3 | B6 | Gefühlte Latenz: schnelle Richtungswechsel, Antippen | Bewertung 1 (unspielbar) – 5 (wie Konsole): ___ ; optional Zeitlupenvideo (240 fps): Bilder zwischen Fingerbewegung und Figurbewegung zählen → ___ ms | | |
+| P3 | B6 | Gefühlte Latenz: schnelle Richtungswechsel, Antippen. Dazu Controller mit `&debug=1` öffnen (Link um `&debug=1` ergänzen) und nach 1 min Spielen „Kopieren“ bzw. die Zeile abschreiben | Bewertung 1 (unspielbar) – 5 (wie Konsole): ___ ; Rundlaufzeit Controller↔Server Median/p95: ___ / ___ ms; optional Zeitlupenvideo (240 fps): Bilder zwischen Fingerbewegung und Figurbewegung → ___ ms | | |
 | P4 | E5 | Lesbarkeit: Wer bin ich? Was kann ich drücken? | Spielerfarbe/-symbol und Knöpfe ohne Erklärung verständlich; Knöpfe groß genug | | |
 | P5 | A4 | Hämmern auf A/B, Doppeltipp, Zwei-Finger-Zoom, langes Halten, über den Rand ziehen | kein Zoom, kein Scrollen, keine Textauswahl, keine Lupe, kein Kontextmenü | | |
 | P6 | A5 | Vom linken Rand nach rechts wischen; oben nach unten ziehen | keine Zurück-Navigation, kein Neuladen – oder: Seite kommt nach Reload sofort wieder in denselben Slot (R3) | | |
 | P7 | A6 | iPhone mitten im Spiel zwischen Hoch- und Querformat drehen, auch während der Joystick gehalten wird | Layout passt sich an, nichts „klemmt“ (Figur läuft nicht weiter, wenn losgelassen) | | |
 | P8 | A7 | Ältestes verfügbares iPhone mitspielen lassen | Controller reagiert flüssig | | |
-| P9 | C2 | Host-Bildrate am PC (subjektiv; optional Chrome-DevTools → Rendering → FPS-Anzeige) | flüssig mit 2 (und testweise 4) Figuren: ___ fps | | |
+| P9 | C2 | Host-Bildrate am PC: Host mit `http://localhost:8787/host/?debug=1` öffnen, 1 min mit 2 (testweise 4) Figuren spielen, Messzeile kopieren | fps: ___ ; Frame-Zeit Median/p95: ___ / ___ ms; Eingabe→Frame Median/p95: ___ / ___ ms; GPU/WebGL laut Anzeige: ___ | | |
 
 ## 4. Geteiltes iPad (2 Zonen)
 
