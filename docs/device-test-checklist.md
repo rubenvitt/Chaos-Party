@@ -59,7 +59,7 @@ Diese Liste prüft, was Browser-Automatisierung **nicht** beweisen kann: echtes 
 
 ## 4. Geteiltes iPad (2 Zonen)
 
-Beitritt: In der Host-Lobby den Link für das iPad verwenden (siehe [M1-Demo-Anleitung](m1-demo.md#ipad)) oder auf dem iPad `http://<LAN-IP>:8787/?code=XXXX&seats=2` öffnen, alternativ ohne Code öffnen und „2 Spieler · iPad“ wählen.
+Beitritt: In der Host-Lobby den Link für das iPad verwenden (siehe [M1-Demo-Anleitung](m1-demo.md#5-ipad-als-geteilter-controller-2-spieler)) oder auf dem iPad `http://<LAN-IP>:8787/?code=XXXX&seats=2` öffnen, alternativ ohne Code öffnen und „2 Spieler · iPad“ wählen.
 
 | ID | Annahme | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|---|

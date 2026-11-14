@@ -2,6 +2,8 @@
 
 Chaotisches 3D-Party-Brettspiel für 2–4 Personen im selben Raum. Das Spiel läuft auf dem PC; iPhones bzw. ein geteiltes iPad dienen per Browser als Controller.
 
+**M1 ausprobieren:** [docs/m1-demo.md](docs/m1-demo.md) – Start auf dem PC, QR-Join mit iPhones und iPad, was zu testen ist. Ergebnisse in die [Gerätecheckliste](docs/device-test-checklist.md).
+
 ## Entwicklung
 
 ### Voraussetzungen
@@ -20,15 +22,13 @@ pnpm dev
 
 | App | Pfad | Adresse | Zweck |
 |---|---|---|---|
-| Host | `apps/host` | http://localhost:5173 | Das Spiel auf dem PC (Babylon.js + React) |
-| Controller | `apps/controller` | http://localhost:5174 | Controller für iPhone/iPad (Vite zeigt zusätzlich die LAN-Adresse an) |
-| Server | `apps/server` | http://localhost:8787 | Lokaler Session-Server; `GET /health` |
+| Host | `apps/host` | http://localhost:5173/host/ | Das Spiel auf dem PC (Babylon.js + React); `/ws` wird an den Server weitergeleitet |
+| Controller | `apps/controller` | http://localhost:5174 | Controller für iPhone/iPad (Vite zeigt zusätzlich die LAN-Adresse an; `?code=…`, iPad: `&seats=2`) |
+| Server | `apps/server` | http://localhost:8787 | Session-Server mit WebSocket `/ws`; `GET /health` |
 
-Production-Build lokal starten: `pnpm build && pnpm start` – der Server liefert dann den gebauten Controller unter http://localhost:8787 aus (ein Port für Controller und, ab CHAOS-9, WebSocket). `PORT` und `HOST` sind per Umgebungsvariable einstellbar.
+**Production-Build (so wird gespielt):** `pnpm build && pnpm start`. Ein Prozess auf Port 8787 liefert den Host unter http://localhost:8787/host/, den Controller unter `/` und den WebSocket unter `/ws`. Das Terminal zeigt den LAN-Link mit Join-Code und QR-Code. Umgebungsvariablen: `PORT`, `HOST`, `JOIN_CODE` (fester Code), `PUBLIC_HOST`/`PUBLIC_PORT` (Adresse im QR erzwingen), `TERMINAL_QR=0`. Netzwerkprobleme: [docs/network-setup.md](docs/network-setup.md).
 
-**Host-Szene allein ausprobieren** (ohne Handys): http://localhost:5173 öffnen. Steuerung per Tastatur – Spieler 1 WASD + Leertaste (Schubser), Spieler 2 Pfeiltasten + Enter, Spieler 3 IJKL + O, Spieler 4 Ziffernblock 8/4/5/6 + 0. URL-Parameter: `?players=1–4` (Standard 2), `?seed=` (Standard 2026), `?test=1` für den deterministischen Testmodus (Details in [ADR-004](docs/decisions/ADR-004-host-szene.md)).
-
-QR-Join, LAN-Adresse und Firewall-Hinweise folgen mit CHAOS-11.
+**Host-Szene allein ausprobieren** (ohne Handys und ohne Server): `/host/?local=1` öffnen. Steuerung per Tastatur – Spieler 1 WASD + Leertaste (Schubser), Spieler 2 Pfeiltasten + Enter, Spieler 3 IJKL + O, Spieler 4 Ziffernblock 8/4/5/6 + 0. URL-Parameter: `?players=1–4` (Standard 2), `?seed=` (Standard 2026), `?test=1` für den deterministischen Testmodus (Details in [ADR-004](docs/decisions/ADR-004-host-szene.md)).
 
 ### Prüfungen (Quality Gates)
 
@@ -41,18 +41,19 @@ QR-Join, LAN-Adresse und Firewall-Hinweise folgen mit CHAOS-11.
 | `pnpm build` | Production-Build von Host, Controller und Server |
 | `pnpm check:licenses` | Lizenzen der Laufzeit-Abhängigkeiten gegen Positivliste |
 | `pnpm check` | alles oben in dieser Reihenfolge |
-| `pnpm test:e2e` | Playwright (Chromium) gegen den Production-Build des Hosts: Havok lädt, Szene rendert, Tastatur bewegt Figuren, Screenshot-Vergleich. Separat, weil langsamer (~30 s). Browser einmalig: `pnpm exec playwright install chromium` |
+| `pnpm test:e2e` | Playwright (Chromium) gegen die Production-Builds und den echten Node-Server: Host-Szene und Havok, Lobby/QR, iPhone- und iPad-Controller (Emulation, synthetisches Multitouch), Reconnect, Screenshot-Vergleiche. Separat, weil langsamer. Browser einmalig: `pnpm exec playwright install chromium`. Details: [docs/testing.md](docs/testing.md) |
 
 Dieselben Schritte laufen in CI (`.github/workflows/ci.yml`) nach `pnpm install --frozen-lockfile`, danach `pnpm test:e2e`. Screenshot-Baselines liegen unter `tests/e2e/__screenshots__/` (nur Linux); nach gewollten Optikänderungen mit `pnpm test:e2e --update-snapshots` neu erzeugen.
+
 ### Aufbau
 
 ```text
 apps/
   host/         PC-Spiel: Babylon.js/Havok-Szene (src/scene), React-HUD, Eingabequellen (src/input)
-  controller/   Browser-Controller für iPhone und geteiltes iPad (Vite + React)
-  server/       Node-Server: Controller-Auslieferung, ab CHAOS-9 WebSocket
+  controller/   Browser-Controller für iPhone und geteiltes iPad (Vite + React; src/net, src/state, src/zones)
+  server/       Node-Server: Session (Join-Code, Slots, Tokens, Reconnect), WebSocket, LAN-Adresswahl, Auslieferung
 packages/
-  protocol/     Typisierte, versionierte Nachrichten (ab CHAOS-7 mit Validierung)
+  protocol/     Typisierte, versionierte Nachrichten mit zod-Validierung
   game-core/    Reine Spielregeln, Seeded RNG
 tests/
   e2e/          Playwright-Tests (Konfiguration: playwright.config.ts)
@@ -73,6 +74,10 @@ Interne Pakete werden als TypeScript-Quelle importiert (`@chaos-party/protocol`,
 - [`docs/assumptions.md`](docs/assumptions.md) – zu validierende Annahmen mit Validierungsweg
 - [`docs/decisions/`](docs/decisions/README.md) – Architekturentscheidungen (ADRs)
 - [`docs/experiments.md`](docs/experiments.md) – Experiment-Log
+- [`docs/m1-demo.md`](docs/m1-demo.md) – M1 auf echten Geräten ausprobieren
+- [`docs/device-test-checklist.md`](docs/device-test-checklist.md) – Gerätecheckliste für die Abnahme
+- [`docs/network-setup.md`](docs/network-setup.md) – Firewall, WLAN, Adresswahl
+- [`docs/ipad-zonen.md`](docs/ipad-zonen.md) – geteiltes iPad: Layouts und Grenzen
 
 Aufgaben werden in Zunder im Projekt **Chaos Party** (Kennung `CHAOS-…`) geführt.
 
