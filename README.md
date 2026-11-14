@@ -10,3 +10,14 @@ Chaotisches 3D-Party-Brettspiel für 2–4 Personen im selben Raum. Das Spiel l�
 - [`CLAUDE.md`](CLAUDE.md) – Arbeitsanweisungen für Claude Code
 
 Aufgaben werden in Zunder im Projekt **Chaos Party** (Kennung `CHAOS-…`) geführt.
+
+## Arbeitsweise mit Claude Code
+
+Claude Code arbeitet die Zunder-Aufgaben Meilenstein für Meilenstein ab; jeder Meilenstein endet mit einer menschlichen Abnahme. Regeln stehen in `CLAUDE.md` („Task management with Zunder“), die Abläufe als Projekt-Skills in `.claude/skills/`:
+
+| Skill | Zweck |
+|---|---|
+| `aufgabe-umsetzen` | `CHAOS-…`-Aufgabe oder die nächste freie Aufgabe umsetzen |
+| `meilenstein-abnahme` | Abnahme vorbereiten, Entscheidung eintragen |
+| `experiment-protokollieren` | Varianten-Vergleiche nach Experiment-Protokoll festhalten |
+| `blocker-eskalieren` | Nach drei Fehlversuchen oder bei Freigabebedarf sauber eskalieren |
