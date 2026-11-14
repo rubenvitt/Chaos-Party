@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures/test.ts';
 import { FakeSession, FAKE_TOKEN, VALID_CODE } from './fixtures/fakeSession.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
 
@@ -275,7 +276,7 @@ test('Fehler erscheinen als freundliche Texte; Verbindungsverlust → automatisc
 
   await expect(page.getByTestId('connection-status')).toHaveAttribute('data-state', 'online');
   // Server trennt: Der Controller verbindet sich ohne Zutun mit dem Token neu (CHAOS-12).
-  // Overlay und Versuchszähler prüft `reconnect-controller.spec.ts` am echten Server.
+  // Overlay und Versuchszähler prüft `reconnect-slot.spec.ts` am echten Server.
   await fake.drop();
   await expect.poll(() => fake.connections).toBe(2);
   await expect(page.getByTestId('connection-status')).toHaveAttribute('data-state', 'online');

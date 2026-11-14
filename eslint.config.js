@@ -15,6 +15,7 @@ export default defineConfig(
       '**/node_modules/**',
       '.claude/**',
       'test-results/**',
+      'playwright-report/**',
     ],
   },
   js.configs.recommended,
