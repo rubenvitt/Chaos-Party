@@ -39,19 +39,21 @@ QR-Join, LAN-Adresse und Firewall-Hinweise folgen mit CHAOS-11.
 | `pnpm build` | Production-Build von Host, Controller und Server |
 | `pnpm check:licenses` | Lizenzen der Laufzeit-Abhängigkeiten gegen Positivliste |
 | `pnpm check` | alles oben in dieser Reihenfolge |
+| `pnpm test:e2e` | Playwright (Chromium) gegen den Production-Build des Hosts: Havok lädt, Szene rendert, Tastatur bewegt Figuren, Screenshot-Vergleich. Separat, weil langsamer (~30 s). Browser einmalig: `pnpm exec playwright install chromium` |
 
-Dieselben Schritte laufen in CI (`.github/workflows/ci.yml`) nach `pnpm install --frozen-lockfile`.
-
+Dieselben Schritte laufen in CI (`.github/workflows/ci.yml`) nach `pnpm install --frozen-lockfile`, danach `pnpm test:e2e`. Screenshot-Baselines liegen unter `tests/e2e/__screenshots__/` (nur Linux); nach gewollten Optikänderungen mit `pnpm test:e2e --update-snapshots` neu erzeugen.
 ### Aufbau
 
 ```text
 apps/
-  host/         PC-Spiel (Vite + React, ab CHAOS-8 Babylon.js/Havok)
+  host/         PC-Spiel: Babylon.js/Havok-Szene (src/scene), React-HUD, Eingabequellen (src/input)
   controller/   Browser-Controller für iPhone und geteiltes iPad (Vite + React)
   server/       Node-Server: Controller-Auslieferung, ab CHAOS-9 WebSocket
 packages/
   protocol/     Typisierte, versionierte Nachrichten (ab CHAOS-7 mit Validierung)
   game-core/    Reine Spielregeln, Seeded RNG
+tests/
+  e2e/          Playwright-Tests (Konfiguration: playwright.config.ts)
 ```
 
 Interne Pakete werden als TypeScript-Quelle importiert (`@chaos-party/protocol`, `@chaos-party/game-core`), ohne eigenen Build. Begründung und Alternativen: [ADR-002](docs/decisions/ADR-002-workspace-tooling.md).
