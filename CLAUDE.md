@@ -23,17 +23,54 @@ Build Chaos Party with **highly autonomous, experimental, code-first development
 
 ## Development cycle
 
-1. **Orient:** inspect repository and documents; identify current milestone, blockers and last validated state.
-2. **Plan:** create a short task plan with explicit acceptance criteria and dependencies. Prefer the smallest complete vertical feature.
+1. **Orient:** inspect repository and documents; identify current milestone, blockers and last validated state. In Zunder: find the next unblocked `CHAOS-…` task of the current milestone (skill `aufgabe-umsetzen`).
+2. **Plan:** create a short task plan with explicit acceptance criteria and dependencies. Prefer the smallest complete vertical feature. Claim the task, set it `in_progress` and write the plan into its `plan` field.
 3. **Implement:** work code-first, preserve clear module boundaries, use small reviewable changes.
 4. **Verify:** run relevant checks and tests; inspect runtime behavior and visual output when applicable.
 5. **Repair:** diagnose failures, fix root causes, rerun checks; do not disable tests to get green.
-6. **Record:** update decision log, experiment log, progress and remaining risks.
+6. **Record:** update decision log, experiment log, progress and remaining risks. In Zunder: result comment, `pr_url`, status `review`, release the claim; follow-ups as new tasks.
 7. **Continue:** advance autonomously until milestone acceptance is required or a blocker demands intervention.
+
+## Task management with Zunder
+
+All work is tracked in **Zunder** (MCP server `Zunder`, tools `mcp__Zunder__*`), project **Chaos Party**, key **`CHAOS`**, repo `rubenvitt/Chaos-Party`. Zunder is the source of truth for *what* is being done and its status; the repository docs remain the source of truth for *product, architecture and decisions*. The general Zunder dev workflow (claims, fields, status trail, follow-ups) is described in the user-level skill `zunder-dev`; the project skills in `.claude/skills/` add the Chaos-Party-specific rules. Write all Zunder content (titles, descriptions, comments, plans) in **German**.
+
+### Structure
+
+| Ref | Meaning |
+|---|---|
+| `CHAOS-1` … `CHAOS-4` | Milestone epics M1–M4. Their subtasks are the milestone's work items, linked via `blocked_by` in dependency order. |
+| `CHAOS-16`, `CHAOS-25`, `CHAOS-35`, `CHAOS-43` | **Human acceptance gates** for M1–M4. Each next milestone epic and its first tasks are `blocked_by` the previous gate. |
+| `CHAOS-44` | Deferred backlog: ideas and features outside the current milestone (see ROADMAP "Prioritization and scope control"). |
+
+Always resolve the project ID freshly via `list_structure` (match `repo`); never copy IDs from notes. Refs (`CHAOS-12`) are stable and may be used anywhere.
+
+### Rules
+
+- **Pick work by dependency, not by number.** Only start tasks whose status is `open` and whose `blocked_by` are all done. Never start a task of a milestone whose gate predecessor is not done.
+- **Claim before work.** `claim_task` with agent name `claude-code@<place>` (cloud: `claude-code@cloud-<word>-<word>` from the harness branch). Never break someone else's valid claim.
+- **Field discipline.** `description` = the ticket, do not overwrite (only append Ruben's decisions under `## Notizen` with date). `plan` = current state in 1–3 sentences, overwrite as it changes. Progress, results, deviations from acceptance criteria and questions → `add_comment`. Set `branch` and `pr_url` as soon as known.
+- **Status trail:** `open → in_progress → review → done`; `blocked` while waiting for Ruben or another task (prefer `blocked_by`/`waiting_on` over prose); `dropped` with a reason instead of deleting. Never `delete_task` without explicit confirmation.
+- **Commits and PRs** name the ref (`CHAOS-12`) in the commit body and PR description. PR base is `main` unless stated otherwise.
+- **Gates are Ruben's.** Claude prepares the acceptance report and comments it on the gate task (skill `meilenstein-abnahme`), but sets a gate task to `done` **only** after Ruben explicitly approves in chat or in a Zunder comment, quoting that decision. "Changes requested" becomes new tasks under the milestone epic that the gate is `blocked_by`.
+- **Scope control.** Anything not needed for the current milestone or its testability goes as a subtask under `CHAOS-44`, not into the current milestone. Ideas that would need approval (see "Escalate or obtain explicit approval") are only recorded there, never implemented.
+- **Follow-ups** (bugs, tech debt, open questions found on the way) are created autonomously in the project, under the matching milestone epic, with `## Kontext / ## Zu tun / ## Akzeptanzkriterien / ## Referenzen`. List created tasks at the end of the reply.
+- **Experiments** are logged in `docs/experiments.md` *and* summarized as a comment on the task that triggered them (skill `experiment-protokollieren`).
+- **Blockers** after the failure policy's three attempts: status `blocked` plus `waiting_on: "Ruben"`, the smallest question as a comment, entry in `docs/blockers.md` (skill `blocker-eskalieren`).
+- **Do not set** `due`, `remind_at`, `phoenix`, `weight` or flames on tasks unless Ruben asks.
+
+### Project skills
+
+| Skill | Use when |
+|---|---|
+| `aufgabe-umsetzen` | Implementing a `CHAOS-…` task, or "do the next task" |
+| `meilenstein-abnahme` | All work tasks of a milestone are done; preparing or recording a gate decision |
+| `experiment-protokollieren` | A gameplay/art/tech experiment needs hypothesis, variants, results and decision recorded |
+| `blocker-eskalieren` | Three serious attempts failed, or a decision outside Claude's authority is needed |
 
 ## Agent delegation and concurrency
 
-Parallelize **independent, well-bounded** work only (e.g., controller UI, game rules, asset pipeline, test harness). Give each subagent ownership of files/interfaces and acceptance criteria. Avoid simultaneous edits to the same files. Use isolated branches/worktrees where available; integrate through a designated coordinator. Keep shared contracts stable, run integration tests after merging, and avoid creating agents merely to maximize agent count.
+Parallelize **independent, well-bounded** work only (e.g., controller UI, game rules, asset pipeline, test harness). Give each subagent ownership of files/interfaces and acceptance criteria. Avoid simultaneous edits to the same files. Use isolated branches/worktrees where available; integrate through a designated coordinator. Keep shared contracts stable, run integration tests after merging, and avoid creating agents merely to maximize agent count. Subagents and workflow workers **do not write to Zunder**; the coordinator owns claims, status, comments and follow-ups.
 
 ## Quality gates (mandatory when relevant)
 
@@ -67,7 +104,7 @@ You may choose the winning variant **within the approved vision**. Do not mistak
 
 ## Failure and blocker policy
 
-Try a bounded series of materially different fixes (default maximum **three** serious attempts per root cause), then summarize evidence, options and the smallest question needed from the human. Do not loop indefinitely, mask failures, weaken acceptance criteria or silently drop scope. Maintain a `docs/blockers.md` if needed.
+Try a bounded series of materially different fixes (default maximum **three** serious attempts per root cause), then summarize evidence, options and the smallest question needed from the human. Do not loop indefinitely, mask failures, weaken acceptance criteria or silently drop scope. Maintain a `docs/blockers.md` if needed, and mirror every blocker on the Zunder task (status `blocked`, `waiting_on`, question as comment).
 
 ## Working artifacts
 
@@ -76,7 +113,10 @@ Maintain:
 - `docs/experiments.md` for gameplay and art experiments.
 - `docs/progress.md` for milestone status, validated commands and next steps.
 - `docs/device-test-checklist.md` for actual iPhone/iPad verification.
+- `docs/acceptance/M<n>.md` for each milestone acceptance report (template in `ROADMAP.md`).
+
+Division of labour: Zunder holds task status, current plan, per-task progress comments and follow-ups. The repository holds durable knowledge (ADRs, experiment log, progress snapshot, checklists, acceptance reports). Link both ways: refs (`CHAOS-12`) in docs, file paths in Zunder comments.
 
 ## First assignment
 
-Start **M1** from `ROADMAP.md`. Scaffold the smallest maintainable pnpm TypeScript monorepo. Prove the controller-to-PC path, a basic Babylon.js/Havok scene, and a two-player shared-iPad multitouch UI. Provide executable tests, QR joining instructions, real-device test checklist and a concise M1 acceptance report. **Do not start M2 until M1 is explicitly approved by the human.**
+Start **M1** from `ROADMAP.md` via Zunder: `CHAOS-5` (assumptions + working artifacts) and `CHAOS-6` (monorepo) are the first unblocked tasks; continue along the `blocked_by` chain of `CHAOS-1` up to the gate `CHAOS-16`. Scaffold the smallest maintainable pnpm TypeScript monorepo. Prove the controller-to-PC path, a basic Babylon.js/Havok scene, and a two-player shared-iPad multitouch UI. Provide executable tests, QR joining instructions, real-device test checklist and a concise M1 acceptance report. **Do not start M2 until M1 is explicitly approved by the human.**
