@@ -1,17 +1,12 @@
 /**
- * Gemeinsamer Vertrag zwischen Controller, Server und Host.
+ * Gemeinsamer Vertrag zwischen Controller, Server und Host (CHAOS-7).
  *
- * Nachrichtentypen, Schemas und Laufzeitvalidierung folgen in CHAOS-7.
- * Hier steht vorerst nur die Protokollversion, damit alle Apps denselben
- * Vertrag importieren und der Workspace-Verbund getestet ist.
+ * Aufbau und Begründung: `docs/decisions/ADR-003-protokoll.md`.
  */
-
-/** Ganzzahlige Protokollversion. Erhöhen bei jeder inkompatiblen Änderung. */
-export const PROTOCOL_VERSION = 1;
-
-export type ProtocolVersion = typeof PROTOCOL_VERSION;
-
-/** Prüft, ob eine Gegenstelle dieselbe Protokollversion spricht. */
-export function isCompatibleVersion(version: unknown): version is ProtocolVersion {
-  return version === PROTOCOL_VERSION;
-}
+export * from './version.ts';
+export * from './players.ts';
+export * from './schemas.ts';
+export type * from './types.ts';
+export * from './parse.ts';
+export * from './phase.ts';
+export * from './seq.ts';
