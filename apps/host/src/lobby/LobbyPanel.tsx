@@ -2,6 +2,7 @@ import { MAX_PLAYERS, type LobbyMessage } from '@chaos-party/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
+import { joinUrlForDevice, type JoinDevice } from './joinLink.ts';
 import { QrCode } from './QrCode.tsx';
 
 interface LobbyPanelProps {
@@ -11,6 +12,11 @@ interface LobbyPanelProps {
   readonly joinHintSeconds: number;
   readonly onStart: () => boolean;
 }
+
+const DEVICE_OPTIONS: readonly { device: JoinDevice; label: string; seats: string }[] = [
+  { device: 'phone', label: 'iPhone', seats: '1 Spieler' },
+  { device: 'ipad', label: 'iPad', seats: '2 Spieler' },
+];
 
 /** Hostname eines Join-Links für die Adressauswahl (`[fd00::1]` bleibt geklammert). */
 function hostLabel(url: string): string {
@@ -24,12 +30,15 @@ function hostLabel(url: string): string {
 /**
  * Lobby am PC (CHAOS-11): QR-Code + Join-Code + Link, Spielerliste, Start-Knopf,
  * Hinweis bei ausbleibenden Controllern (Annahmen B1/B2) und Umschalten auf eine
- * andere LAN-Adresse, falls der Server mehrere kennt (ADR-007).
+ * andere LAN-Adresse, falls der Server mehrere kennt (ADR-007). Ein Umschalter
+ * „iPhone / iPad“ zeigt für das geteilte iPad denselben Link mit `seats=2` (CHAOS-14).
  */
 export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }: LobbyPanelProps) {
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
-  const joinUrl = chosenUrl !== null && urls.includes(chosenUrl) ? chosenUrl : urls[0];
+  const baseUrl = chosenUrl !== null && urls.includes(chosenUrl) ? chosenUrl : urls[0];
+  const [device, setDevice] = useState<JoinDevice>('phone');
+  const joinUrl = baseUrl === undefined ? undefined : joinUrlForDevice(baseUrl, device);
 
   const connectedCount = players.filter((p) => p.connected).length;
   const canStart = status === 'connected' && connectedCount > 0;
@@ -67,7 +76,30 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
       <div className="lobby-card">
         <div className="lobby-join">
           <h2>Mitspielen!</h2>
-          <p className="lobby-lead">Handy-Kamera auf den Code – gleiches WLAN wie dieser PC.</p>
+          {baseUrl !== undefined && (
+            <div className="join-device" role="group" aria-label="Womit spielt ihr?">
+              {DEVICE_OPTIONS.map((option) => (
+                <button
+                  key={option.device}
+                  type="button"
+                  className="join-device-option"
+                  data-testid={`join-device-${option.device}`}
+                  aria-pressed={device === option.device}
+                  onClick={() => {
+                    setDevice(option.device);
+                  }}
+                >
+                  <span className="join-device-label">{option.label}</span>
+                  <span className="join-device-seats">{option.seats}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="lobby-lead" data-testid="join-lead">
+            {device === 'ipad'
+              ? 'iPad-Kamera auf den Code – zwei Spieler teilen sich ein iPad.'
+              : 'Handy-Kamera auf den Code – gleiches WLAN wie dieser PC.'}
+          </p>
           {joinUrl ? (
             <QrCode value={joinUrl} size={260} />
           ) : (
@@ -89,7 +121,7 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
               Andere Adresse:{' '}
               <select
                 data-testid="join-address"
-                value={joinUrl}
+                value={baseUrl}
                 onChange={(event) => {
                   setChosenUrl(event.target.value);
                 }}

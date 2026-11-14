@@ -1,36 +1,40 @@
 import { defineConfig, devices } from '@playwright/test';
-import { E2E_JOIN_CODE, E2E_PORT } from './tests/e2e/host-env.ts';
 
 /**
  * Controller-Tests laufen mit iPhone-13-Emulation (Viewport, Touch, DPR 3, iOS-User-Agent)
  * in Chromium: CI installiert nur Chromium, und nur Chromium erlaubt echte Touch-Ereignisse
  * per CDP (Mehrfinger-Tests). Echtes iOS-Safari-Verhalten prüft die Gerätecheckliste.
- * Sie laden den Controller-Build vom selben Node-Server, fangen `/ws` aber per
- * `page.routeWebSocket` ab (nachgebauter Session-Server, ADR-006) und berühren die
- * echte Session daher nicht.
+ * Sie laden den Controller-Build vom Server ihres Tests, fangen `/ws` aber per
+ * `page.routeWebSocket` ab (nachgebauter Session-Server, ADR-006).
  */
 const controllerUse = {
   browserName: 'chromium' as const,
 };
 
 /**
- * E2E-Tests gegen die **Production-Builds**, ausgeliefert vom echten Node-Server
- * wie bei `pnpm start` (ADR-007): Controller unter `/`, Host unter `/host/`,
- * WebSocket unter `/ws` – ein Prozess, ein Port. Damit prüft jeder Lauf auch C1
- * (Havok-WASM mit `application/wasm` vom Node-Server). Screenshot-Baselines sind
- * plattformabhängig; eingecheckt ist nur die Linux-Variante (`*-chromium-linux.png`),
- * passend zu CI (ADR-004).
+ * E2E-Tests gegen die **Production-Builds**, ausgeliefert vom echten Node-Server wie bei
+ * `pnpm start` (ADR-007): Controller unter `/`, Host unter `/host/`, WebSocket unter `/ws`
+ * – ein Prozess, ein Port. Damit prüft jeder Lauf auch C1 (Havok-WASM mit
+ * `application/wasm` vom Node-Server). Screenshot-Baselines sind plattformabhängig;
+ * eingecheckt ist nur die Linux-Variante (`*-<projekt>-linux.png`), passend zu CI (ADR-004).
  *
- * Der Server hält **eine** Session für den ganzen Lauf; Specs, die beitreten oder
- * starten, laufen deshalb seriell und rechnen mit dem Zustand vorheriger Tests.
+ * Isolation (CHAOS-14): `global-setup.ts` baut einmal, danach startet die Fixture
+ * `chaosServer` (`tests/e2e/fixtures/test.ts`) **pro Test** einen eigenen Server mit
+ * frischer Session auf freiem Port und setzt `baseURL` darauf. Keine Spec hängt vom
+ * Zustand einer anderen ab; Tests laufen parallel. Zwei Worker: Host-Seiten rendern per
+ * Software (SwiftShader) und sind CPU-hungrig; mehr Worker machen den Lauf kaum schneller,
+ * aber lokal empfindlicher (siehe docs/testing.md).
  */
 export default defineConfig({
   testDir: 'tests/e2e',
-  fullyParallel: false,
+  globalSetup: './tests/e2e/global-setup.ts',
+  fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
-  workers: 1,
-  reporter: process.env.CI ? [['list'], ['github']] : 'list',
+  workers: Number(process.env.E2E_WORKERS ?? 2),
+  reporter: process.env.CI
+    ? [['list'], ['github'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
+    : 'list',
   timeout: 60_000,
   expect: {
     timeout: 15_000,
@@ -44,8 +48,7 @@ export default defineConfig({
   snapshotPathTemplate:
     '{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
   use: {
-    // 127.0.0.1 statt localhost: Der Server lauscht nur auf IPv4-Loopback.
-    baseURL: `http://127.0.0.1:${String(E2E_PORT)}`,
+    // `baseURL` setzt die Fixture `chaosServer` je Test (http://127.0.0.1:<freier Port>).
     trace: 'off',
     screenshot: 'only-on-failure',
   },
@@ -88,26 +91,6 @@ export default defineConfig({
       name: 'ipad-hoch',
       testMatch: /ipad-.*\.spec\.ts/,
       use: { ...devices['iPad Pro 11'], ...controllerUse },
-    },
-  ],
-  webServer: [
-    {
-      // Alle Apps bauen, dann den Server wie `pnpm start` starten – nur auf Loopback,
-      // mit festem Join-Code und Join-Link auf 127.0.0.1 (Handys gibt es im Test nicht).
-      command: 'pnpm build && node apps/server/dist/main.js',
-      url: `http://127.0.0.1:${String(E2E_PORT)}/health`,
-      env: {
-        PORT: String(E2E_PORT),
-        HOST: '127.0.0.1',
-        PUBLIC_HOST: '127.0.0.1',
-        JOIN_CODE: E2E_JOIN_CODE,
-        TERMINAL_QR: '0',
-      },
-      // Immer frisch bauen und starten, damit nie ein veralteter Build getestet wird.
-      reuseExistingServer: false,
-      timeout: 180_000,
-      stdout: 'ignore',
-      stderr: 'pipe',
     },
   ],
 });

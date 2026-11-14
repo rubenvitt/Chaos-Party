@@ -70,6 +70,7 @@ export function App({ config }: AppProps) {
           },
           getPlayerPositions: () => scene.getPlayerPositions(),
           networkInputs: 0,
+          lastMoves: {},
         }
       : undefined;
     if (hook) window.__chaos = hook;
@@ -78,8 +79,10 @@ export function App({ config }: AppProps) {
     const stopKeyboard = createKeyboardInputSource(window).start(scene);
     const stopNetwork = local
       ? undefined
-      : createWebSocketInputSource(hub, () => {
-          if (hook) hook.networkInputs++;
+      : createWebSocketInputSource(hub, ({ slot, input }) => {
+          if (!hook) return;
+          hook.networkInputs++;
+          if (input.type === 'move') hook.lastMoves[slot] = { x: input.x, y: input.y };
         }).start(scene);
 
     scene.physicsReady.then(

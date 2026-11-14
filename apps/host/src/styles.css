@@ -233,6 +233,49 @@ body,
   text-align: center;
 }
 
+/* Gerätewahl (CHAOS-14): iPhone = 1 Platz, geteiltes iPad = 2 Plätze (`seats=2`). */
+.join-device {
+  display: flex;
+  gap: 0;
+  margin: 2px 0 10px;
+  border: 3px solid #1b1530;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 0 #1b1530;
+}
+
+.join-device-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 128px;
+  padding: 6px 16px;
+  border: 0;
+  background: #fff;
+  color: #1b1530;
+  font: inherit;
+  cursor: pointer;
+}
+
+.join-device-option + .join-device-option {
+  border-left: 3px solid #1b1530;
+}
+
+.join-device-option[aria-pressed='true'] {
+  background: #ffc83d;
+}
+
+.join-device-label {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.join-device-seats {
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.7;
+}
+
 .lobby-lead {
   margin: 0 0 12px;
   font-weight: 700;

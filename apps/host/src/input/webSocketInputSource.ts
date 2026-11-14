@@ -57,11 +57,12 @@ export function createIntentHub(): IntentHub {
 
 /**
  * Netzwerk-Eingaben als `InputSource` (ADR-004-Naht): Jede `input`-Nachricht des Servers
- * wird übersetzt und an die Szene gegeben. `onApplied` zählt angewandte Eingaben (Testhaken).
+ * wird übersetzt und an die Szene gegeben. `onApplied` bekommt jede angewandte Eingabe
+ * (Testhaken: Zähler und letzter Stick je Slot, CHAOS-14).
  */
 export function createWebSocketInputSource(
   hub: Pick<IntentHub, 'subscribe'>,
-  onApplied?: () => void,
+  onApplied?: (applied: MappedInput) => void,
 ): InputSource {
   return {
     start(sink) {
@@ -69,7 +70,7 @@ export function createWebSocketInputSource(
         const mapped = intentToPlayerInput(intent);
         if (!mapped) return;
         sink.applyInput(mapped.slot, mapped.input);
-        onApplied?.();
+        onApplied?.(mapped);
       });
     },
   };

@@ -56,6 +56,29 @@ export class TouchScreen {
   }
 
   /**
+   * Mehrere Finger gleiten **gleichzeitig**: Jeder Schritt ist ein einziges `touchMove`
+   * mit allen bewegten Fingern (wie zwei Daumen, die zur selben Zeit schieben; CHAOS-14).
+   */
+  async moveAll(targets: ReadonlyMap<number, Point>, steps = 8) {
+    const starts = new Map<number, Point>();
+    for (const id of targets.keys()) {
+      const from = this.active.get(id);
+      if (!from) throw new Error(`Finger ${String(id)} liegt nicht auf`);
+      starts.set(id, from);
+    }
+    for (let i = 1; i <= steps; i++) {
+      for (const [id, to] of targets) {
+        const from = starts.get(id) ?? to;
+        this.active.set(id, {
+          x: from.x + ((to.x - from.x) * i) / steps,
+          y: from.y + ((to.y - from.y) * i) / steps,
+        });
+      }
+      await this.dispatch('touchMove');
+    }
+  }
+
+  /**
    * Finger `id` hebt ab. CDP kann keinen einzelnen Finger anheben, solange andere
    * liegen (`touchEnd` beendet immer alle) – dafür gibt es {@link upAll}.
    */

@@ -48,16 +48,38 @@ jobs:
       - name: Lizenzen
         run: pnpm check:licenses
 
+      # Browser-Cache je Playwright-Version (in package.json fest gepinnt). Bei einem
+      # Treffer fehlen nur die System-Bibliotheken, die `install-deps` nachzieht.
+      - name: Playwright-Version bestimmen
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Playwright-Browser aus dem Cache
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
       - name: Playwright-Browser installieren
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Playwright-Systempakete installieren
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      # Baut einmal (global-setup), dann je Test ein eigener Server im Testprozess.
       - name: E2E (Production-Build, Chromium)
-        run: pnpm test:e2e
+        run: pnpm test:e2e --trace off
 
       - name: E2E-Ergebnisse hochladen
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results
-          path: test-results/
+          name: playwright-ergebnisse
+          path: |
+            test-results/
+            playwright-report/
           retention-days: 7
+          if-no-files-found: ignore

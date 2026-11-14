@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures/test.ts';
 import { FakeSession, FAKE_TOKEN, VALID_CODE } from './fixtures/fakeSession.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
 

@@ -41,7 +41,10 @@ describe('createWebSocketInputSource', () => {
     hub.emit({ type: 'move', slot: 1, seq: 1, x: 1, y: 0 });
     hub.emit({ type: 'gesture', slot: 1, seq: 2, kind: 'swipe-left' });
     expect(sink.applyInput).toHaveBeenCalledExactlyOnceWith(1, { type: 'move', x: 1, y: 0 });
-    expect(applied).toHaveBeenCalledOnce();
+    expect(applied).toHaveBeenCalledExactlyOnceWith({
+      slot: 1,
+      input: { type: 'move', x: 1, y: 0 },
+    });
 
     stop();
     hub.emit({ type: 'move', slot: 1, seq: 3, x: 0, y: 1 });

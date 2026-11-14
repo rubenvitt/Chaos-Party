@@ -1,4 +1,4 @@
-import type { PlayerPosition } from './scene/types.ts';
+import type { PlayerPosition, PlayerSlot } from './scene/types.ts';
 
 /**
  * Test-Schnittstelle unter `window.__chaos`, nur im Testmodus (`?test=1`).
@@ -17,6 +17,12 @@ export interface ChaosTestHook {
    * E2E-Tests warten darauf, bevor sie `stepFrames` aufrufen.
    */
   networkInputs: number;
+  /**
+   * Letzter vom Server angewandter Stick je Slot (`move`, CHAOS-14). E2E-Tests warten
+   * darauf, dass die Stellung eines echten Controllers am Host angekommen ist, bevor
+   * sie `stepFrames` aufrufen – statt auf feste Zeiten.
+   */
+  lastMoves: Partial<Record<PlayerSlot, { x: number; y: number }>>;
 }
 
 declare global {

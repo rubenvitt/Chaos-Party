@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures/test.ts';
 import type {} from '../../apps/host/src/testHook.ts';
 
 /** Frames, bis die Figuren nach dem Spawn sicher ruhen (1/60 s pro Frame). */
