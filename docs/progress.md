@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-14 · **Aktueller Meilenstein:** M1 – Technischer Durchstich (`CHAOS-1`)
+**Stand:** 2026-11-14 (CHAOS-6) · **Aktueller Meilenstein:** M1 – Technischer Durchstich (`CHAOS-1`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -17,8 +17,8 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 
 | Aufgabe | Inhalt | Stand |
 |---|---|---|
-| CHAOS-5 | Annahmenliste + Arbeitsartefakte | Review (PR offen) |
-| CHAOS-6 | pnpm-Monorepo + Pipelines | offen, als Nächstes |
+| CHAOS-5 | Annahmenliste + Arbeitsartefakte | erledigt |
+| CHAOS-6 | pnpm-Monorepo + Pipelines | Review (PR offen) |
 | CHAOS-7 | Typisiertes WebSocket-Protokoll | blockiert durch CHAOS-6 |
 | CHAOS-8 | Babylon.js-Szene + Havok | blockiert durch CHAOS-6 |
 | CHAOS-9 | Session-Server | blockiert durch CHAOS-7 |
@@ -32,14 +32,28 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 
 ## Validierte Befehle
 
-Noch keine: Es gibt noch keinen Code. Ab CHAOS-6 stehen hier die Befehle, die tatsächlich lokal und in CI grün gelaufen sind (Install, typecheck, lint, format, test, build, dev).
+Stand CHAOS-6 (2026-11-14), lokal geprüft mit Node 22.23 / pnpm 10.28; CI läuft mit Node 24 (`.nvmrc`).
+
+| Befehl | Ergebnis |
+|---|---|
+| `pnpm install --frozen-lockfile` | ok |
+| `pnpm typecheck` | ok (Root + 5 Pakete) |
+| `pnpm lint` | ok, 0 Warnungen |
+| `pnpm format:check` | ok |
+| `pnpm test` | ok, 3 Testdateien / 22 Tests (protocol, game-core RNG, Server-Auslieferung) |
+| `pnpm build` | ok (Host, Controller, Server) |
+| `pnpm check:licenses` | ok (react, react-dom, scheduler: MIT) |
+| `pnpm dev` | Host :5173, Controller :5174, Server :8787 starten; Host und Controller rendern ohne Konsolenfehler (Playwright-Rauchtest, nicht im Repo) |
+| `pnpm build && pnpm start` | Server liefert Controller-Build und `/health` auf einem Port |
+
+Details zu Werkzeugen und Paketschnitt: [ADR-002](decisions/ADR-002-workspace-tooling.md).
 
 ## Arbeitsartefakte
 
 | Datei | Zweck |
 |---|---|
 | [`assumptions.md`](assumptions.md) | Zu validierende Annahmen mit Validierungsweg und zuständiger Aufgabe |
-| [`decisions/`](decisions/README.md) | Architekturentscheidungen (ADR-001: Stack) |
+| [`decisions/`](decisions/README.md) | Architekturentscheidungen (ADR-001: Stack, ADR-002: Workspace/Werkzeuge) |
 | [`experiments.md`](experiments.md) | Experiment-Log mit Vorlage |
 | `device-test-checklist.md` | folgt in CHAOS-15 |
 | `acceptance/M1.md` | folgt in CHAOS-15 |
@@ -47,8 +61,8 @@ Noch keine: Es gibt noch keinen Code. Ab CHAOS-6 stehen hier die Befehle, die ta
 
 ## Nächste Schritte
 
-1. CHAOS-6: Monorepo-Gerüst mit `apps/host`, `apps/controller`, `apps/server`, `packages/protocol`, `packages/game-core`; typecheck/lint/format/test/build lokal und in CI. Prüft Annahmen D1, B9.
-2. Danach parallel möglich: CHAOS-7 (Protokoll) und CHAOS-8 (Babylon/Havok, Annahmen C1–C5).
+1. CHAOS-6 abschließen: PR-Review und Merge (CI-Lauf auf GitHub belegt D1).
+2. Danach parallel möglich: CHAOS-7 (Protokoll, Schema-Bibliothek wählen) und CHAOS-8 (Babylon/Havok, Annahmen C1–C5).
 
 ## Offene Risiken (Kurzfassung)
 

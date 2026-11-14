@@ -40,7 +40,7 @@ Diese Liste sammelt alles, was die Projektdokumente voraussetzen, aber noch nich
 | B6 | WebSockets über das LAN liefern eine **tolerierbare Eingabelatenz** für Brettspiel und einfache Reflex-Minispiele. Schwellenwerte werden aus M1-Messungen abgeleitet, nicht vorab erfunden. | hoch | Auto: Latenz-Instrumentierung (Sendezeit Controller → Empfang Server → Frame auf Host) mit Rundlauf-Messung. Gerät: gefühlte Latenz + gemessene Werte im Checklisten-Protokoll. | CHAOS-8, CHAOS-9, CHAOS-15 | offen |
 | B7 | iOS sperrt den Bildschirm bzw. friert Hintergrund-Tabs ein → WebSocket bricht ab. **Reconnect** mit Session-Token stellt den Slot zuverlässig wieder her. Screen Wake Lock (braucht Secure Context) steht über HTTP voraussichtlich nicht zur Verfügung. | hoch | Auto: Integrationstests Abbruch/Rejoin/abgelaufener/fremder Token. Gerät: Bildschirm sperren, App wechseln, WLAN kurz aus, Reload. | CHAOS-12 | offen |
 | B8 | Client-Uhren sind nicht synchron und nicht vertrauenswürdig; veraltete Inputs werden über **Sequenznummern** und Server-Empfangszeit erkannt, nicht über Client-Zeitstempel. | mittel | Auto: Protokolltests mit vertauschten/doppelten/alten Sequenzen. | CHAOS-7 | offen |
-| B9 | Ein einziger Node-Prozess auf einem Port kann Controller-App (statisch) **und** WebSocket ausliefern; das vereinfacht QR-URL und Firewall-Freigabe. | niedrig | Spike beim Monorepo-Setup; Entscheidung im Server-Aufbau festhalten. | CHAOS-6, CHAOS-9 | offen |
+| B9 | Ein einziger Node-Prozess auf einem Port kann Controller-App (statisch) **und** WebSocket ausliefern; das vereinfacht QR-URL und Firewall-Freigabe. | niedrig | Spike beim Monorepo-Setup; Entscheidung im Server-Aufbau festhalten. | CHAOS-6, CHAOS-9 | teilweise: statische Auslieferung + `/health` auf einem Port getestet (CHAOS-6, ADR-002); WebSocket auf demselben Port folgt in CHAOS-9 |
 | B10 | Kurze Join-Codes und Controller-Tokens reichen als Schutz im lokalen Netz (kein Account-System); Spoofing, Doppel-Join und Flooding werden serverseitig abgewiesen. | mittel | Auto: Missbrauchsfälle als Integrationstests (fremde Spieler-ID, doppelter Join, Rate-Limit, kaputte Nachrichten). | CHAOS-7, CHAOS-9 | offen |
 
 ## C. PC-Host, 3D und Physik
@@ -58,7 +58,7 @@ Diese Liste sammelt alles, was die Projektdokumente voraussetzen, aber noch nich
 
 | ID | Annahme | Risiko | Validierungsweg | Aufgabe | Status |
 |---|---|---|---|---|---|
-| D1 | pnpm-Workspace mit TypeScript strict, Lint, Format, Vitest und Production-Build läuft lokal und in GitHub Actions mit `pnpm install --frozen-lockfile`. | niedrig | Auto: CI-Workflow grün. | CHAOS-6 | offen |
+| D1 | pnpm-Workspace mit TypeScript strict, Lint, Format, Vitest und Production-Build läuft lokal und in GitHub Actions mit `pnpm install --frozen-lockfile`. | niedrig | Auto: CI-Workflow grün. | CHAOS-6 | teilweise: alle Gates lokal grün (2026-11-14); CI-Nachweis im PR zu CHAOS-6 |
 | D2 | Playwright kann **mehrere Controller-Clients** und einen Host parallel steuern; Multitouch lässt sich in Chromium über CDP (`Input.dispatchTouchEvent`) synthetisch erzeugen. Das ersetzt **nicht** den Gerätetest. | mittel | Auto: E2E mit 2 Controllern + iPad-Zonen. | CHAOS-14 | offen |
 | D3 | Die WebKit-Engine von Playwright (Linux) bildet iOS-Safari nur grob ab; Ergebnisse sind Hinweise, keine Bestätigung. | mittel | Design-Regel; Abweichungen in der Gerätecheckliste notieren. | CHAOS-14, CHAOS-15 | offen |
 | D4 | Spielregeln lassen sich als reine TypeScript-Zustandsmaschine mit **Seeded RNG** formulieren und vollständig ohne Rendering testen. | niedrig | Auto: Unit-/Integrationstests ab M2; in M1 mindestens das Paketgerüst. | CHAOS-6 (Gerüst), CHAOS-17 | offen |
@@ -86,3 +86,4 @@ Diese Angaben machen Gerätetests und Leistungsziele konkret. Sie blockieren die
 | Datum | Änderung | Aufgabe |
 |---|---|---|
 | 2026-11-14 | Erstfassung aus den vier Projektdokumenten | CHAOS-5 |
+| 2026-11-14 | B9, D1 auf „teilweise“ (Monorepo-Gerüst) | CHAOS-6 |

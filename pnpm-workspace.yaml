@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Lieferketten-Schutz: neue Paketversionen erst nach 7 Tagen installieren.
+minimumReleaseAge: 10080
+
+# Nur diese Pakete dürfen Install-Skripte ausführen.
+onlyBuiltDependencies:
+  - esbuild
