@@ -4,8 +4,13 @@
  */
 import type { ErrorCode } from '@chaos-party/protocol';
 
-/** Fehler, die nur im Controller entstehen (Verbindung). */
-export type ClientErrorCode = 'connection-failed' | 'connection-lost';
+/**
+ * Fehler, die nur im Controller entstehen (Verbindung, CHAOS-12):
+ * - `connection-failed` / `connection-lost`: Texte für die Wiederverbinden-Anzeige,
+ * - `replaced`: Derselbe Platz wurde von einem anderen Tab/Gerät übernommen (Close 4003),
+ * - `game-running`: Neubeitritt während des Spiels nicht möglich (altes Token abgelaufen).
+ */
+export type ClientErrorCode = 'connection-failed' | 'connection-lost' | 'replaced' | 'game-running';
 
 export type UiErrorCode = ErrorCode | ClientErrorCode;
 
@@ -69,6 +74,14 @@ const PRESENTATION: Readonly<Record<UiErrorCode, ErrorPresentation>> = {
     text: 'Der Spiel-PC ist nicht erreichbar. Bist du im selben WLAN?',
   },
   'connection-lost': { severity: 'blocking', text: 'Die Verbindung zum Spiel-PC ist weg.' },
+  replaced: {
+    severity: 'blocking',
+    text: 'Dein Platz wird gerade in einem anderen Fenster oder auf einem anderen Gerät gespielt.',
+  },
+  'game-running': {
+    severity: 'blocking',
+    text: 'Das Spiel läuft schon. Neue Spieler können erst wieder in der Lobby beitreten.',
+  },
 };
 
 export function errorText(code: UiErrorCode): string {

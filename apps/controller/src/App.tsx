@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import type { SlotIntent } from './net/client.ts';
 import type { ControllerSession } from './net/session.ts';
 import { selectCodeEntryError, selectScreen } from './state/reducer.ts';
+import { ConnectionStatus } from './ui/ConnectionStatus.tsx';
 import { CodeEntry, ConnectingScreen, ErrorScreen, Toast } from './ui/screens.tsx';
 import { SlotController } from './ui/SlotController.tsx';
 import { ZoneBoard } from './ui/ZoneBoard.tsx';
@@ -71,6 +72,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange }: AppProps) {
         ) : (
           <ConnectingScreen />
         ))}
+      <ConnectionStatus session={session} />
       {state.notice !== null && screen === 'controller' && (
         <Toast key={state.notice.id} notice={state.notice} onDismiss={dismiss} />
       )}

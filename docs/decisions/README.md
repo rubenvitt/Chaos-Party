@@ -21,3 +21,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-006](ADR-006-controller-ui.md) | iPhone-Controller: Client/Reducer/UI-Schnitt, Joystick per Pointer Events, iOS-Härtung, Test mit nachgebautem Server | Angenommen | CHAOS-10 |
 | [ADR-007](ADR-007-lan-join.md) | QR-Join über eine LAN-Adresse, ein Prozess für Host und Controller | Angenommen | CHAOS-11 |
 | [ADR-008](ADR-008-ipad-zonen.md) | Geteiltes iPad: Spielerzonen, Touch Events mit Zonen-Tracker, Drehen | Angenommen | CHAOS-13 |
+| [ADR-009](ADR-009-reconnect.md) | Reconnect und Verbindungsanzeige: Herzschlag, Timeouts, Token-/Slot-Politik, Client-Backoff | Angenommen | CHAOS-12 |

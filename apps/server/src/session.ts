@@ -10,6 +10,10 @@
  * Ablauf und Prüfreihenfolge je Nachricht:
  * Rate-Limit → Parser (Größe, JSON, Version, Schema) → Rolle → Phase →
  * Slot-Besitz → angebotene Aktion → Sequenznummer → Wirkung.
+ *
+ * Zeitabhängiges (CHAOS-12, ADR-009) erledigt `tick()`, das der Adapter
+ * regelmäßig aufruft: Handshake-Timeout, Herzschlag-Timeout für Controller und
+ * Host sowie die Freigabe reservierter Slots nach der Lobby-Schonfrist.
  */
 import {
   createError,
@@ -48,7 +52,17 @@ export type ConnectionId = number;
 /** Aktion, die der Adapter nach einem Ereignis ausführt. */
 export type Outgoing =
   | { kind: 'send'; to: ConnectionId; message: ServerMessage }
-  | { kind: 'close'; to: ConnectionId; code: number; reason: string };
+  | {
+      kind: 'close';
+      to: ConnectionId;
+      code: number;
+      reason: string;
+      /**
+       * Gegenstelle gilt als tot (Herzschlag-Timeout): Socket sofort abbrechen, statt
+       * bis zu 30 s auf den Close-Handshake zu warten.
+       */
+      terminate?: true;
+    };
 
 /** WebSocket-Close-Codes der Anwendung (4000–4999). */
 export const CLOSE_CODES = {
@@ -58,9 +72,35 @@ export const CLOSE_CODES = {
   hostTaken: 4002,
   /** Dieselben Slots wurden per `reconnect` von einer neuen Verbindung übernommen. */
   replaced: 4003,
+  /** Innerhalb von `handshakeMs` kam kein `join`/`reconnect`/`host-hello` (CHAOS-12). */
+  handshakeTimeout: 4004,
+  /** Zu lange still: kein Herzschlag und keine andere Nachricht (CHAOS-12). */
+  heartbeatTimeout: 4005,
   /** Zu viele ungültige Nachrichten oder anhaltendes Fluten. */
   abuse: 4008,
 } as const;
+
+/**
+ * Zeitgrenzen der Session in ms (ADR-009). Alle sind injizierbar, damit Tests mit
+ * künstlicher Uhr laufen.
+ */
+export interface SessionTimeouts {
+  /** Verbindung ohne gültigen Handshake wird nach dieser Zeit geschlossen. */
+  handshakeMs: number;
+  /** Controller ohne jede Nachricht (Herzschlag alle 5 s) gilt danach als getrennt. */
+  controllerSilenceMs: number;
+  /** Host ohne jede Nachricht gilt danach als getrennt (großzügiger: Hintergrund-Tab am PC). */
+  hostSilenceMs: number;
+  /** In der Lobby bleibt der Slot eines getrennten Controllers so lange reserviert. */
+  lobbyGraceMs: number;
+}
+
+export const DEFAULT_TIMEOUTS: Readonly<SessionTimeouts> = {
+  handshakeMs: 5_000,
+  controllerSilenceMs: 15_000,
+  hostSilenceMs: 30_000,
+  lobbyGraceMs: 60_000,
+};
 
 /** Nach so vielen ungültigen Nachrichten wird eine Verbindung geschlossen. */
 export const DEFAULT_MAX_INVALID_MESSAGES = 20;
@@ -78,6 +118,8 @@ export interface SessionOptions {
   createToken?: (() => string) | undefined;
   rateLimit?: Partial<RateLimitOptions> | undefined;
   maxInvalidMessages?: number | undefined;
+  /** Zeitgrenzen für Handshake, Herzschlag und Lobby-Schonfrist (CHAOS-12). */
+  timeouts?: Partial<SessionTimeouts> | undefined;
   /** Protokoll für unerwartete Fehler (Standard: `console.error`). */
   logError?: ((error: unknown) => void) | undefined;
 }
@@ -89,6 +131,10 @@ interface Connection {
   token: string | undefined;
   seq: SeqGuard;
   bucket: TokenBucket;
+  /** Zeitpunkt des Verbindungsaufbaus (Handshake-Timeout). */
+  readonly openedAt: number;
+  /** Letzte Nachricht dieser Verbindung, egal welche (Herzschlag-Timeout). */
+  lastSeenAt: number;
   invalid: number;
   rejected: number;
   limitedSince: number | undefined;
@@ -104,8 +150,10 @@ interface Player {
   /** Aktuelle Verbindung oder `null`, solange der Controller getrennt ist (Slot bleibt reserviert). */
   connectionId: ConnectionId | null;
   ready: boolean;
-  /** Letzte Nachricht dieses Slots (Server-Uhr); Grundlage für Timeouts in CHAOS-12. */
+  /** Letzte Nachricht dieses Slots (Server-Uhr). */
   lastSeenAt: number;
+  /** Seit wann der Slot ohne Verbindung ist (`null` = verbunden); Lobby-Schonfrist. */
+  disconnectedAt: number | null;
 }
 
 export interface SessionPlayerSnapshot {
@@ -115,6 +163,7 @@ export interface SessionPlayerSnapshot {
   ready: boolean;
   connectionId: ConnectionId | null;
   lastSeenAt: number;
+  disconnectedAt: number | null;
 }
 
 export interface SessionSnapshot {
@@ -156,6 +205,7 @@ export class Session {
   private readonly createToken: () => string;
   private readonly rate: RateLimitOptions;
   private readonly maxInvalid: number;
+  private readonly timeouts: SessionTimeouts;
   private readonly logError: (error: unknown) => void;
 
   /** Gesammelte Aktionen des laufenden Ereignisses. */
@@ -186,6 +236,7 @@ export class Session {
     this.createToken = options.createToken ?? generateToken;
     this.rate = { ...DEFAULT_RATE_LIMIT, ...options.rateLimit };
     this.maxInvalid = options.maxInvalidMessages ?? DEFAULT_MAX_INVALID_MESSAGES;
+    this.timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
     this.logError =
       options.logError ??
       ((error: unknown) => {
@@ -213,6 +264,8 @@ export class Session {
         token: undefined,
         seq: createSeqGuard(),
         bucket: new TokenBucket(this.rate.ratePerSecond, this.rate.burstSeconds, now),
+        openedAt: now,
+        lastSeenAt: now,
         invalid: 0,
         rejected: 0,
         limitedSince: undefined,
@@ -228,6 +281,8 @@ export class Session {
       const conn = this.connections.get(id);
       if (!conn) return;
       const now = this.now();
+      // Jede Nachricht ist ein Lebenszeichen – auch ungültige oder gedrosselte.
+      conn.lastSeenAt = now;
       if (!this.withinRateLimit(conn, now)) return;
       switch (conn.role) {
         case 'pending':
@@ -250,6 +305,32 @@ export class Session {
     });
   }
 
+  /**
+   * Zeitabhängige Prüfungen (CHAOS-12, ADR-009); der Adapter ruft das etwa
+   * sekündlich auf. Schließt Verbindungen ohne Handshake und stille Verbindungen
+   * (→ Spieler `connected: false`) und gibt in der Lobby Slots frei, deren
+   * Controller länger als die Schonfrist weg ist (Token wird ungültig).
+   */
+  tick(): Outgoing[] {
+    return this.run(null, () => {
+      const now = this.now();
+      for (const conn of [...this.connections.values()]) {
+        if (conn.role === 'pending') {
+          if (now - conn.openedAt >= this.timeouts.handshakeMs) {
+            this.kick(conn, CLOSE_CODES.handshakeTimeout, 'handshake-timeout');
+          }
+          continue;
+        }
+        const limit =
+          conn.role === 'host' ? this.timeouts.hostSilenceMs : this.timeouts.controllerSilenceMs;
+        if (now - conn.lastSeenAt >= limit) {
+          this.kick(conn, CLOSE_CODES.heartbeatTimeout, 'heartbeat-timeout', true);
+        }
+      }
+      if (this.phaseValue === 'lobby') this.releaseExpiredSlots(now);
+    });
+  }
+
   /** Lesender Zustand für Tests, Diagnose und spätere Spiellogik. */
   snapshot(): SessionSnapshot {
     return {
@@ -263,6 +344,7 @@ export class Session {
         ready: player.ready,
         connectionId: player.connectionId,
         lastSeenAt: player.lastSeenAt,
+        disconnectedAt: player.disconnectedAt,
       })),
       droppedInputs: this.droppedInputs,
     };
@@ -387,6 +469,7 @@ export class Session {
         connectionId: conn.id,
         ready: false,
         lastSeenAt: now,
+        disconnectedAt: null,
       });
     });
     this.tokens.set(token, slots);
@@ -412,6 +495,7 @@ export class Session {
       if (player) {
         player.connectionId = conn.id;
         player.lastSeenAt = now;
+        player.disconnectedAt = null;
       }
     }
     this.attach(conn, message.sessionToken, slots, now);
@@ -562,9 +646,38 @@ export class Session {
   // Hilfen
   // -------------------------------------------------------------------------
 
-  private kick(conn: Connection, code: number, reason: string): void {
-    this.out.push({ kind: 'close', to: conn.id, code, reason });
+  private kick(conn: Connection, code: number, reason: string, terminate = false): void {
+    this.out.push(
+      terminate
+        ? { kind: 'close', to: conn.id, code, reason, terminate: true }
+        : { kind: 'close', to: conn.id, code, reason },
+    );
     this.detach(conn.id);
+  }
+
+  /**
+   * Lobby: Slots, deren Controller länger als `lobbyGraceMs` getrennt ist, werden
+   * frei; das Token wird ungültig (`reconnect` → `bad-token`). Ein Token hält alle
+   * Slots einer Verbindung (iPad), sie werden gemeinsam frei. Im Spiel bleiben
+   * Reservierungen bis zum Ende der Partie (M1: kein Ende) bestehen.
+   */
+  private releaseExpiredSlots(now: number): void {
+    for (const [token, slots] of [...this.tokens]) {
+      const players = slots.flatMap((slot) => {
+        const player = this.players.get(slot);
+        return player ? [player] : [];
+      });
+      const expired = players.every(
+        (player) =>
+          player.connectionId === null &&
+          player.disconnectedAt !== null &&
+          now - player.disconnectedAt >= this.timeouts.lobbyGraceMs,
+      );
+      if (!expired) continue;
+      for (const slot of slots) this.players.delete(slot);
+      this.tokens.delete(token);
+      this.lobbyDirty = true;
+    }
   }
 
   private detach(id: ConnectionId): void {
@@ -575,9 +688,13 @@ export class Session {
       this.hostId = null;
     }
     if (conn.role === 'controller') {
+      const now = this.now();
       for (const slot of conn.slots) {
         const player = this.players.get(slot);
-        if (player?.connectionId === id) player.connectionId = null;
+        if (player?.connectionId === id) {
+          player.connectionId = null;
+          player.disconnectedAt = now;
+        }
       }
       this.lobbyDirty = true;
     }
@@ -645,13 +762,13 @@ export class Session {
   }
 
   /** Führt ein Ereignis aus; Ausnahmen werden protokolliert und als `internal` gemeldet. */
-  private run(id: ConnectionId, handler: () => void): Outgoing[] {
+  private run(id: ConnectionId | null, handler: () => void): Outgoing[] {
     // `out` und `lobbyDirty` sind zwischen Ereignissen immer leer bzw. false.
     try {
       handler();
     } catch (error) {
       this.logError(error);
-      if (this.connections.has(id)) {
+      if (id !== null && this.connections.has(id)) {
         this.send(id, createError('internal', 'Interner Serverfehler'));
       }
     }

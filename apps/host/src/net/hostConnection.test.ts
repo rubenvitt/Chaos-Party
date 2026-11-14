@@ -52,6 +52,7 @@ function setup(handlers: HostConnectionHandlers = {}) {
   const timers: { cb: () => void; ms: number; cleared: boolean }[] = [];
   const statuses: ConnectionStatus[] = [];
   const warnings: string[] = [];
+  let wakeListener: (() => void) | null = null;
   const connection = connectHost(
     'ws://pc:8787/ws',
     {
@@ -69,8 +70,19 @@ function setup(handlers: HostConnectionHandlers = {}) {
         timers.push(timer);
         return timer;
       },
+      // Gelöschte Timer fallen aus der Liste: `timers` enthält nur noch geplante.
       clearTimer: (handle) => {
-        (handle as { cleared: boolean }).cleared = true;
+        const timer = handle as { cleared: boolean };
+        timer.cleared = true;
+        const index = timers.indexOf(timer as (typeof timers)[number]);
+        if (index >= 0) timers.splice(index, 1);
+      },
+      now: () => 42,
+      wake: (listener) => {
+        wakeListener = listener;
+        return () => {
+          wakeListener = null;
+        };
       },
       warn: (message) => warnings.push(message),
     },
@@ -83,7 +95,29 @@ function setup(handlers: HostConnectionHandlers = {}) {
   const fireTimers = () => {
     for (const timer of timers.splice(0)) if (!timer.cleared) timer.cb();
   };
-  return { connection, sockets, timers, statuses, warnings, last, fireTimers };
+  /** Nur die Timer mit dieser Dauer auslösen (Herzschlag 5000, Wachhund 15000/2000, Retry 2000). */
+  const fire = (ms: number) => {
+    for (const timer of timers.filter((t) => t.ms === ms)) {
+      timers.splice(timers.indexOf(timer), 1);
+      timer.cb();
+    }
+  };
+  const wake = () => {
+    wakeListener?.();
+  };
+  const hasWakeListener = () => wakeListener !== null;
+  return {
+    connection,
+    sockets,
+    timers,
+    statuses,
+    warnings,
+    last,
+    fireTimers,
+    fire,
+    wake,
+    hasWakeListener,
+  };
 }
 
 describe('connectHost', () => {
@@ -165,8 +199,10 @@ describe('connectHost', () => {
     const t = setup();
     t.last().open();
     t.last().drop();
+    const retry = t.timers[0];
     t.connection.close();
-    expect(t.timers[0]?.cleared).toBe(true);
+    expect(retry?.cleared).toBe(true);
+    expect(t.hasWakeListener()).toBe(false);
     t.fireTimers();
     expect(t.sockets).toHaveLength(1);
 
@@ -188,6 +224,54 @@ describe('connectHost', () => {
     expect(socket.sent).toEqual([]);
   });
 
+  it('sendet alle 5 s einen Herzschlag, solange die Verbindung offen ist', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    t.fire(5000);
+    t.fire(5000);
+    const heartbeat = encode(createMessage('heartbeat', { t: 42 }));
+    expect(t.last().sent.filter((m) => m === heartbeat)).toHaveLength(2);
+    t.last().drop();
+    expect(t.timers.map((timer) => timer.ms)).toEqual([2000]);
+  });
+
+  it('gilt nach 15 s ohne Server-Nachricht als getrennt und verbindet neu (CHAOS-12)', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    // Jede Nachricht stellt den Wachhund neu.
+    t.last().receive(encode(createMessage('heartbeat-ack', { t: 42 })));
+    expect(t.timers.filter((timer) => timer.ms === 15_000)).toHaveLength(1);
+    const dead = t.last();
+    t.fire(15_000);
+    expect(dead.closedWith).toBe(1000);
+    expect(t.connection.status).toBe('disconnected');
+    expect(t.warnings.at(-1)).toContain('antwortet nicht');
+    // Ein spätes `onclose` des alten Sockets plant keinen zweiten Versuch.
+    dead.drop();
+    expect(t.timers.map((timer) => timer.ms)).toEqual([2000]);
+    t.fire(2000);
+    expect(t.sockets).toHaveLength(2);
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    expect(t.statuses).toEqual(['connected', 'disconnected', 'connected']);
+  });
+
+  it('Seite wieder sichtbar: Probe-Herzschlag; ohne Antwort nach 2 s neu verbinden', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    t.wake();
+    expect(t.last().sent.at(-1)).toBe(encode(createMessage('heartbeat', { t: 42 })));
+    t.fire(2000);
+    expect(t.connection.status).toBe('disconnected');
+    // Während der Wartezeit sichtbar geworden: sofort neu versuchen.
+    t.wake();
+    expect(t.sockets).toHaveLength(2);
+    expect(t.timers.filter((timer) => timer.ms === 2000)).toHaveLength(0);
+  });
+
   it('plant einen neuen Versuch, wenn schon das Anlegen des Sockets scheitert', () => {
     const timers: (() => void)[] = [];
     let attempts = 0;
@@ -200,6 +284,7 @@ describe('connectHost', () => {
           throw new Error('kaputt');
         },
         setTimer: (cb) => timers.push(cb),
+        wake: null,
         warn: () => undefined,
       },
     );

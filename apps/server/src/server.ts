@@ -6,7 +6,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { PROTOCOL_VERSION } from '@chaos-party/protocol';
 import { generateJoinCode } from './ids.ts';
 import type { RateLimitOptions } from './rate-limit.ts';
-import { Session } from './session.ts';
+import { Session, type SessionTimeouts } from './session.ts';
 import { attachWebSocket } from './socket.ts';
 
 export interface ChaosServerOptions {
@@ -29,6 +29,10 @@ export interface ChaosServerOptions {
   createToken?: (() => string) | undefined;
   rateLimit?: Partial<RateLimitOptions> | undefined;
   maxInvalidMessages?: number | undefined;
+  /** Zeitgrenzen für Handshake, Herzschlag und Lobby-Schonfrist (CHAOS-12, ADR-009). */
+  timeouts?: Partial<SessionTimeouts> | undefined;
+  /** Takt der Timeout-Prüfung in ms (Standard 1000). */
+  tickMs?: number | undefined;
 }
 
 export interface ChaosServer {
@@ -80,6 +84,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     createToken: options.createToken,
     rateLimit: options.rateLimit,
     maxInvalidMessages: options.maxInvalidMessages,
+    timeouts: options.timeouts,
   });
 
   const server = createServer((req, res) => {
@@ -93,7 +98,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     });
   });
 
-  const sockets = attachWebSocket(server, session);
+  const sockets = attachWebSocket(server, session, { tickMs: options.tickMs });
   let closing: Promise<void> | undefined;
 
   return {

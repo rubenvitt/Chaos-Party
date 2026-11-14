@@ -365,3 +365,90 @@ describe('WebSocket-Server (CHAOS-9)', () => {
     // afterEach schließt erneut: muss harmlos sein.
   });
 });
+
+describe('Reconnect und Herzschlag (CHAOS-12)', () => {
+  /** Kurze Zeitgrenzen für echte Sockets; die Zahlenwerte selbst prüft `session.test.ts`. */
+  const FAST = { tickMs: 20 };
+
+  it('Abbruch per terminate → Host sieht getrennt → Reconnect mit Token → Eingaben fließen wieder', async () => {
+    await startServer();
+    const hostClient = await host();
+    const { client, welcome } = await controller();
+    await startGame(hostClient, [client]);
+    client.send(createMessage('move', { slot: 1, seq: 41, x: 0.5, y: 0 }));
+    expect((await hostClient.next('input')).intent).toMatchObject({ slot: 1, seq: 41 });
+
+    // Harter Abbruch ohne Close-Frame (WLAN weg, Safari eingefroren und beendet).
+    client.ws.terminate();
+    await hostClient.next('lobby', (lobby) => lobby.players[0]?.connected === false);
+
+    const again = await open();
+    again.send(createMessage('reconnect', { sessionToken: welcome.sessionToken }));
+    expect(await again.next('welcome')).toEqual(welcome);
+    expect(await again.next('context')).toMatchObject({ slot: 1, layout: 'joystick-buttons' });
+    await hostClient.next('lobby', (lobby) => lobby.players[0]?.connected === true);
+    // Neue Verbindung, neuer Sequenzwächter: seq 1 ist wieder gültig.
+    again.send(createMessage('move', { slot: 1, seq: 1, x: -0.5, y: 0 }));
+    expect((await hostClient.next('input')).intent).toMatchObject({ slot: 1, seq: 1, x: -0.5 });
+  });
+
+  it('trennt stille Controller per Herzschlag-Timeout und meldet es dem Host', async () => {
+    await startServer({ ...FAST, timeouts: { controllerSilenceMs: 150 } });
+    // Der Host hat die Standard-Grenze (30 s); der Controller schweigt nach dem Beitritt.
+    const hostClient = await host();
+    const { client } = await controller();
+    await hostClient.next('lobby', (lobby) => lobby.players[0]?.connected === true);
+    // Der Server bricht ab (terminate) → beim Client kommt 1006 an.
+    expect((await client.closed).code).toBe(1006);
+    await hostClient.next('lobby', (lobby) => lobby.players[0]?.connected === false);
+    expect(server.session.snapshot().players[0]?.connected).toBe(false);
+  });
+
+  it('hält Controller mit Herzschlag dauerhaft verbunden', async () => {
+    await startServer({ ...FAST, timeouts: { controllerSilenceMs: 150 } });
+    const { client } = await controller();
+    for (let i = 0; i < 8; i++) {
+      client.send(createMessage('heartbeat', { t: i }));
+      expect((await client.next('heartbeat-ack')).t).toBe(i);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(client.ws.readyState).toBe(WebSocket.OPEN);
+  });
+
+  it('schließt Verbindungen ohne Handshake mit 4004', async () => {
+    await startServer({ ...FAST, timeouts: { handshakeMs: 100 } });
+    const client = await open();
+    expect(await client.closed).toEqual({
+      code: CLOSE_CODES.handshakeTimeout,
+      reason: 'handshake-timeout',
+    });
+  });
+
+  it('Reconnect nach Ablauf der Lobby-Schonfrist → bad-token, Neubeitritt bekommt den Platz', async () => {
+    await startServer({ ...FAST, timeouts: { lobbyGraceMs: 100 } });
+    const hostClient = await host();
+    const { client, welcome } = await controller();
+    await hostClient.next('lobby', (lobby) => lobby.players.length === 1);
+    client.close();
+    await hostClient.next('lobby', (lobby) => lobby.players[0]?.connected === false);
+    await hostClient.next('lobby', (lobby) => lobby.players.length === 0);
+
+    const late = await open();
+    late.send(createMessage('reconnect', { sessionToken: welcome.sessionToken }));
+    await late.error('bad-token');
+    late.send(createMessage('join', { joinCode: CODE, seats: 1 }));
+    const fresh = await late.next('welcome');
+    expect(slotsOf(fresh)).toEqual([1]);
+    expect(fresh.sessionToken).not.toBe(welcome.sessionToken);
+  });
+
+  it('weist ein Token eines früheren Servers (Neustart) ab', async () => {
+    await startServer();
+    const { welcome } = await controller();
+    await server.close();
+    await startServer();
+    const client = await open();
+    client.send(createMessage('reconnect', { sessionToken: welcome.sessionToken }));
+    await client.error('bad-token');
+  });
+});

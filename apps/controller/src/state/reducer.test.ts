@@ -4,6 +4,7 @@ import {
   createInitialState,
   reduce,
   selectCodeEntryError,
+  selectLink,
   selectScreen,
   type ControllerEvent,
   type ControllerState,
@@ -109,14 +110,67 @@ describe('reduce', () => {
     expect(state.fatal).toBe('version-mismatch');
   });
 
-  it('Verbindungsverlust nach dem Beitritt → connection-lost, vorher → connection-failed', () => {
+  it('Verbindungsverlust nach dem Beitritt: Controller bleibt, Overlay statt Fehlerseite', () => {
     const lost = reduce(joined, { type: 'socket-closed' });
-    expect(lost.fatal).toBe('connection-lost');
-    expect(selectScreen(lost)).toBe('error');
+    expect(lost.fatal).toBeNull();
+    expect(lost.welcomed).toBe(false);
     expect(lost.sessionToken).toBe(TOKEN);
+    expect(selectScreen(lost)).toBe('controller');
+    expect(selectLink(lost)).toEqual({ kind: 'reconnecting', attempt: 0, hadSession: true });
+    const scheduled = reduce(lost, { type: 'reconnect-scheduled', attempt: 3 });
+    expect(selectLink(scheduled)).toEqual({ kind: 'reconnecting', attempt: 3, hadSession: true });
+    // Gleicher Versuch erneut gemeldet: kein neuer Zustand.
+    expect(reduce(scheduled, { type: 'reconnect-scheduled', attempt: 3 })).toBe(scheduled);
+    expect(reduce(lost, { type: 'socket-closed' })).toBe(lost);
 
-    const failed = run([{ type: 'connect', joinCode: 'ABCD' }, { type: 'socket-closed' }]);
-    expect(failed.fatal).toBe('connection-failed');
+    // Vor dem ersten Beitritt bleibt es beim Verbinden-Bildschirm.
+    const failed = run([
+      { type: 'connect', joinCode: 'ABCD' },
+      { type: 'socket-closed' },
+      { type: 'reconnect-scheduled', attempt: 1 },
+    ]);
+    expect(selectScreen(failed)).toBe('connecting');
+    expect(selectLink(failed)).toEqual({ kind: 'reconnecting', attempt: 1, hadSession: false });
+  });
+
+  it('welcome beendet das Wiederverbinden', () => {
+    const state = run(
+      [
+        { type: 'socket-closed' },
+        { type: 'reconnect-scheduled', attempt: 2 },
+        { type: 'connect', joinCode: 'ABCD' },
+        { type: 'socket-open' },
+        server(welcome),
+      ],
+      joined,
+    );
+    expect(state.attempt).toBe(0);
+    expect(selectLink(state)).toEqual({ kind: 'online', rttMs: null });
+  });
+
+  it('Aufgeben zeigt den Grund als Fehlerseite', () => {
+    const state = run(
+      [
+        { type: 'reconnect-scheduled', attempt: 4 },
+        { type: 'gave-up', reason: 'replaced' },
+      ],
+      joined,
+    );
+    expect(state.fatal).toBe('replaced');
+    expect(state.attempt).toBe(0);
+    expect(selectScreen(state)).toBe('error');
+    expect(selectLink(state)).toEqual({ kind: 'hidden' });
+  });
+
+  it('Verbindungsanzeige: verborgen ohne Code, verbinden beim ersten Aufbau, online mit Rundlaufzeit', () => {
+    expect(selectLink(createInitialState())).toEqual({ kind: 'hidden' });
+    expect(selectLink(reduce(createInitialState(), { type: 'connect', joinCode: 'ABCD' }))).toEqual(
+      {
+        kind: 'connecting',
+      },
+    );
+    const withRtt = reduce(joined, server(createMessage('heartbeat-ack', { t: 10 }), 25));
+    expect(selectLink(withRtt)).toEqual({ kind: 'online', rttMs: 15 });
   });
 
   it('Wiederverbinden mit gleichem Code behält Spieler und Kontext bis zum neuen welcome', () => {
@@ -125,11 +179,32 @@ describe('reduce', () => {
     const again = reduce(lost, { type: 'connect', joinCode: 'ABCD' });
     expect(again.fatal).toBeNull();
     expect(again.contexts[2]?.layout).toBe('joystick-buttons');
-    expect(selectScreen(again)).toBe('connecting');
+    expect(selectScreen(again)).toBe('controller');
+    expect(selectLink(again)).toMatchObject({ kind: 'reconnecting' });
 
     const other = reduce(lost, { type: 'connect', joinCode: 'WXYZ' });
     expect(other.players).toEqual([]);
     expect(other.contexts).toEqual({});
+  });
+
+  it('Neubeitritt mit anderem Slot verwirft Kontexte fremder Slots', () => {
+    const playing = run(
+      [server(play), server(createMessage('feedback', { slot: 2, kind: 'hit' }))],
+      joined,
+    );
+    const rejoined = reduce(
+      playing,
+      server(
+        createMessage('welcome', {
+          sessionToken: 'tok_NEU_ABCDEFGHIJKL',
+          players: [{ slot: 1, color: '#0072B2', label: 'Blau' }],
+        }),
+      ),
+    );
+    expect(rejoined.contexts).toEqual({});
+    expect(rejoined.feedback).toEqual({});
+    // Gleicher Slot: Kontext bleibt bis zum neuen `context`.
+    expect(reduce(playing, server(welcome)).contexts[2]?.layout).toBe('joystick-buttons');
   });
 
   it('misst die Rundlaufzeit aus heartbeat-ack', () => {

@@ -259,7 +259,7 @@ test('Knopf verschwindet beim Halten → release wird trotzdem gesendet', async 
   await touch.up(1);
 });
 
-test('Fehler erscheinen als freundliche Texte; Verbindungsverlust → Neu verbinden per Token', async ({
+test('Fehler erscheinen als freundliche Texte; Verbindungsverlust → automatisch neu per Token', async ({
   page,
 }) => {
   await joinAndPlay(page);
@@ -273,11 +273,14 @@ test('Fehler erscheinen als freundliche Texte; Verbindungsverlust → Neu verbin
   fake.sendError('stale-seq', 'alt', 1);
   await expect(toast).toHaveAttribute('data-code', 'out-of-phase');
 
+  await expect(page.getByTestId('connection-status')).toHaveAttribute('data-state', 'online');
+  // Server trennt: Der Controller verbindet sich ohne Zutun mit dem Token neu (CHAOS-12).
+  // Overlay und Versuchszähler prüft `reconnect-controller.spec.ts` am echten Server.
   await fake.drop();
-  await expect(page.getByTestId('error-screen')).toHaveAttribute('data-code', 'connection-lost');
-  await expect(page.getByTestId('error-screen')).toContainText('Verbindung zum Spiel-PC ist weg');
-
-  await page.getByTestId('error-action').tap();
+  await expect.poll(() => fake.connections).toBe(2);
+  await expect(page.getByTestId('connection-status')).toHaveAttribute('data-state', 'online');
+  await expect(page.getByTestId('connection-overlay')).toHaveCount(0);
+  await expect(page.getByTestId('error-screen')).toHaveCount(0);
   await expect(slot(page)).toHaveAttribute('data-layout', 'joystick-buttons');
   expect(fake.handshakes.at(-1)).toEqual({ v: 1, type: 'reconnect', sessionToken: FAKE_TOKEN });
 });
