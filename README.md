@@ -9,6 +9,13 @@ Chaotisches 3D-Party-Brettspiel für 2–4 Personen im selben Raum. Das Spiel l�
 - [`ROADMAP.md`](ROADMAP.md) – Meilensteine M1–M4 mit Abnahme-Gates
 - [`CLAUDE.md`](CLAUDE.md) – Arbeitsanweisungen für Claude Code
 
+## Arbeitsartefakte (`docs/`)
+
+- [`docs/progress.md`](docs/progress.md) – Meilensteinstand, geprüfte Befehle, nächste Schritte
+- [`docs/assumptions.md`](docs/assumptions.md) – zu validierende Annahmen mit Validierungsweg
+- [`docs/decisions/`](docs/decisions/README.md) – Architekturentscheidungen (ADRs)
+- [`docs/experiments.md`](docs/experiments.md) – Experiment-Log
+
 Aufgaben werden in Zunder im Projekt **Chaos Party** (Kennung `CHAOS-…`) geführt.
 
 ## Arbeitsweise mit Claude Code
