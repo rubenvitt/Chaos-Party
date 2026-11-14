@@ -2,7 +2,7 @@
   "name": "@chaos-party/server",
   "version": "0.0.0",
   "private": true,
-  "description": "Lokaler Session-Server auf dem PC: liefert die Controller-App aus und (ab CHAOS-9) die WebSocket-Verbindung.",
+  "description": "Lokaler Session-Server auf dem PC: liefert die Controller-App aus und betreibt die autoritative Session per WebSocket (/ws).",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
@@ -11,10 +11,12 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@chaos-party/protocol": "workspace:*"
+    "@chaos-party/protocol": "workspace:*",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.15"
   }

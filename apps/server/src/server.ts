@@ -4,15 +4,33 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { PROTOCOL_VERSION } from '@chaos-party/protocol';
+import { generateJoinCode } from './ids.ts';
+import type { RateLimitOptions } from './rate-limit.ts';
+import { Session } from './session.ts';
+import { attachWebSocket } from './socket.ts';
 
 export interface ChaosServerOptions {
   /** Verzeichnis mit der gebauten Controller-App (`apps/controller/dist`). */
   staticDir: string;
+  /** Fester Join-Code (4–8 Zeichen `A–Z0–9`), sonst zufällig mit 4 Zeichen. */
+  joinCode?: string | undefined;
+  /** LAN-URL für QR-Code/Lobby (CHAOS-11); ohne sie sendet `lobby` kein `joinUrl`. */
+  joinUrl?: string | undefined;
+  /** Monotone Uhr in ms für Session und Rate-Limit (Tests). */
+  now?: (() => number) | undefined;
+  /** Token-Erzeugung (Tests). */
+  createToken?: (() => string) | undefined;
+  rateLimit?: Partial<RateLimitOptions> | undefined;
+  maxInvalidMessages?: number | undefined;
 }
 
 export interface ChaosServer {
   listen(port: number, host: string): Promise<AddressInfo>;
   close(): Promise<void>;
+  /** Join-Code der (einzigen) Session dieses Prozesses. */
+  readonly joinCode: string;
+  /** Die autoritative Session (lesend für Diagnose und Tests). */
+  readonly session: Session;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -29,11 +47,19 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 /**
- * Ein Prozess, ein Port: Controller-App (statisch) und Health-Check,
- * ab CHAOS-9 zusätzlich die WebSocket-Verbindung (Annahme B9).
+ * Ein Prozess, ein Port: Controller-App (statisch), Health-Check und die
+ * WebSocket-Verbindung unter `/ws` (Annahme B9, ADR-005).
  */
 export function createChaosServer(options: ChaosServerOptions): ChaosServer {
   const root = resolve(options.staticDir);
+  const session = new Session({
+    joinCode: options.joinCode ?? generateJoinCode(),
+    joinUrl: options.joinUrl,
+    now: options.now,
+    createToken: options.createToken,
+    rateLimit: options.rateLimit,
+    maxInvalidMessages: options.maxInvalidMessages,
+  });
 
   const server = createServer((req, res) => {
     handleRequest(root, req, res).catch((error: unknown) => {
@@ -46,7 +72,12 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     });
   });
 
+  const sockets = attachWebSocket(server, session);
+  let closing: Promise<void> | undefined;
+
   return {
+    joinCode: session.joinCode,
+    session,
     listen(port, host) {
       return new Promise((resolveListen, reject) => {
         server.once('error', reject);
@@ -56,14 +87,20 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
         });
       });
     },
+    /** Beendet alle WebSockets und HTTP-Verbindungen; mehrfacher Aufruf ist harmlos. */
     close() {
-      return new Promise((resolveClose, reject) => {
-        server.close((error) => {
-          if (error) reject(error);
-          else resolveClose();
+      closing ??= (async () => {
+        await sockets.close();
+        if (!server.listening) return;
+        await new Promise<void>((resolveClose, reject) => {
+          server.close((error) => {
+            if (error) reject(error);
+            else resolveClose();
+          });
+          server.closeAllConnections();
         });
-        server.closeAllConnections();
-      });
+      })();
+      return closing;
     },
   };
 }
