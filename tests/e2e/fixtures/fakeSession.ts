@@ -20,6 +20,7 @@ import {
   type Layout,
   type Phase,
   type ServerToControllerMessage,
+  type SlotNumber,
 } from '../../../packages/protocol/src/index.ts';
 
 export const VALID_CODE = 'ABCD';
@@ -40,6 +41,9 @@ export class FakeSession {
   private socket: WebSocketRoute | null = null;
   private firstOfConnection = false;
   private phase: Phase = 'lobby';
+  /** Plätze der Verbindung aus `join { seats }` (geteiltes iPad: 2–4, CHAOS-13). */
+  private seats = 1;
+  private readonly readySlots = new Set<SlotNumber>();
 
   static async attach(page: Page): Promise<FakeSession> {
     const fake = new FakeSession();
@@ -79,6 +83,7 @@ export class FakeSession {
           this.sendError('bad-join-code', 'Unbekannter Join-Code');
           return;
         }
+        this.seats = message.seats;
         this.welcome();
         return;
       case 'reconnect':
@@ -89,8 +94,15 @@ export class FakeSession {
         this.welcome();
         return;
       case 'ready':
+        // Erst wenn alle Plätze bereit sind, beginnt das Spiel (bei einem Platz sofort).
+        this.readySlots.add(message.slot);
+        if (this.readySlots.size < this.seats) {
+          this.sendContext('lobby', 'wait', [], message.slot);
+          return;
+        }
         this.phase = 'play';
-        this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS);
+        for (const slot of this.slots())
+          this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS, slot);
         return;
       case 'heartbeat':
         this.send(createMessage('heartbeat-ack', { t: message.t }));
@@ -100,21 +112,30 @@ export class FakeSession {
     }
   }
 
+  /** Slots dieser Verbindung (1 … seats). */
+  slots(): SlotNumber[] {
+    return ([1, 2, 3, 4] as const).slice(0, this.seats);
+  }
+
   private welcome() {
-    const { color, label } = PLAYER_SLOTS[1];
-    this.send(
-      createMessage('welcome', { sessionToken: FAKE_TOKEN, players: [{ slot: 1, color, label }] }),
-    );
-    if (this.phase === 'lobby') this.sendContext('lobby', 'lobby', LOBBY_ACTIONS);
-    else this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS);
+    const players = this.slots().map((slot) => {
+      const { color, label } = PLAYER_SLOTS[slot];
+      return { slot, color, label };
+    });
+    this.send(createMessage('welcome', { sessionToken: FAKE_TOKEN, players }));
+    for (const slot of this.slots()) {
+      if (this.phase === 'play') this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS, slot);
+      else if (this.readySlots.has(slot)) this.sendContext('lobby', 'wait', [], slot);
+      else this.sendContext('lobby', 'lobby', LOBBY_ACTIONS, slot);
+    }
   }
 
   send(message: ServerToControllerMessage) {
     this.socket?.send(encode(message));
   }
 
-  sendContext(phase: Phase, layout: Layout, actions: Action[]) {
-    this.send(createMessage('context', { slot: 1, phase, layout, actions }));
+  sendContext(phase: Phase, layout: Layout, actions: Action[], slot: SlotNumber = 1) {
+    this.send(createMessage('context', { slot, phase, layout, actions }));
   }
 
   sendError(code: ErrorCode, text: string, seq?: number) {

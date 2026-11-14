@@ -6,6 +6,10 @@ import type { Notice } from '../state/reducer.ts';
 interface CodeEntryProps {
   error: UiErrorCode | null;
   onSubmit: (code: string) => void;
+  /** Aktuelle Platzzahl (1 = iPhone, 2–4 = geteiltes iPad). */
+  seats?: number;
+  /** Modus wechseln; ohne Handler wird keine Auswahl angezeigt. */
+  onSeatsChange?: (seats: number) => void;
 }
 
 /**
@@ -13,7 +17,7 @@ interface CodeEntryProps {
  * (iOS-Tastatur, Großbuchstaben); sobald vier Zeichen da sind, wird gesendet.
  * Schriftgröße ≥ 16 px, sonst zoomt iOS beim Fokussieren.
  */
-export function CodeEntry({ error, onSubmit }: CodeEntryProps) {
+export function CodeEntry({ error, onSubmit, seats = 1, onSeatsChange }: CodeEntryProps) {
   const [value, setValue] = useState('');
   const input = useRef<HTMLInputElement>(null);
 
@@ -65,6 +69,32 @@ export function CodeEntry({ error, onSubmit }: CodeEntryProps) {
           </p>
         )}
       </form>
+      {onSeatsChange && (
+        <div className="mode-choice" role="group" aria-label="Wie wird gespielt?">
+          <button
+            type="button"
+            className="mode-option"
+            data-testid="mode-phone"
+            aria-pressed={seats <= 1}
+            onClick={() => {
+              if (seats > 1) onSeatsChange(1);
+            }}
+          >
+            <span className="ui-text">1 Spieler · iPhone</span>
+          </button>
+          <button
+            type="button"
+            className="mode-option"
+            data-testid="mode-ipad"
+            aria-pressed={seats > 1}
+            onClick={() => {
+              if (seats <= 1) onSeatsChange(2);
+            }}
+          >
+            <span className="ui-text">{`${String(Math.max(seats, 2))} Spieler · iPad`}</span>
+          </button>
+        </div>
+      )}
     </main>
   );
 }

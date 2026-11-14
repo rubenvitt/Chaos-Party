@@ -73,6 +73,28 @@ export class TouchScreen {
     await this.dispatch('touchEnd');
   }
 
+  /**
+   * Nur Finger `id` hebt ab, die anderen bleiben liegen (CHAOS-13). Gemessen mit
+   * Chromium/Playwright 1.63: `touchEnd` beendet genau die **übergebenen** Punkte
+   * (leere Liste = alle); ein danach gesendetes `touchMove` mit nur einem Teil der
+   * Finger lässt die übrigen liegen.
+   */
+  async lift(id: number) {
+    const point = this.active.get(id);
+    if (!point) throw new Error(`Finger ${String(id)} liegt nicht auf`);
+    this.active.delete(id);
+    await this.cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [{ id, x: point.x, y: point.y, radiusX: 8, radiusY: 8 }],
+    });
+  }
+
+  /** Das System bricht alle Berührungen ab (`touchcancel`, z. B. Systemgeste, Drehen). */
+  async cancelAll() {
+    this.active.clear();
+    await this.cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  }
+
   async tap(point: Point, id = 1) {
     await this.down(id, point);
     await this.up(id);
