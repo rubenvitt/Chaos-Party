@@ -26,6 +26,8 @@ pnpm dev
 
 Production-Build lokal starten: `pnpm build && pnpm start` – der Server liefert dann den gebauten Controller unter http://localhost:8787 aus (ein Port für Controller und, ab CHAOS-9, WebSocket). `PORT` und `HOST` sind per Umgebungsvariable einstellbar.
 
+**Host-Szene allein ausprobieren** (ohne Handys): http://localhost:5173 öffnen. Steuerung per Tastatur – Spieler 1 WASD + Leertaste (Schubser), Spieler 2 Pfeiltasten + Enter, Spieler 3 IJKL + O, Spieler 4 Ziffernblock 8/4/5/6 + 0. URL-Parameter: `?players=1–4` (Standard 2), `?seed=` (Standard 2026), `?test=1` für den deterministischen Testmodus (Details in [ADR-004](docs/decisions/ADR-004-host-szene.md)).
+
 QR-Join, LAN-Adresse und Firewall-Hinweise folgen mit CHAOS-11.
 
 ### Prüfungen (Quality Gates)

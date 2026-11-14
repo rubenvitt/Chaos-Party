@@ -47,18 +47,18 @@ Diese Liste sammelt alles, was die Projektdokumente voraussetzen, aber noch nich
 
 | ID | Annahme | Risiko | Validierungsweg | Aufgabe | Status |
 |---|---|---|---|---|---|
-| C1 | **Havok-WASM** (`@babylonjs/havok`) lädt im Dev-Server **und** im Production-Build (richtiger Pfad, MIME-Typ `application/wasm`, Bundler kopiert die Datei). | mittel | Auto: E2E prüft, dass die Physik-Engine im Production-Build initialisiert ist; Screenshot. | CHAOS-8 | offen |
+| C1 | **Havok-WASM** (`@babylonjs/havok`) lädt im Dev-Server **und** im Production-Build (richtiger Pfad, MIME-Typ `application/wasm`, Bundler kopiert die Datei). | mittel | Auto: E2E prüft, dass die Physik-Engine im Production-Build initialisiert ist; Screenshot. | CHAOS-8 | teilweise: E2E prüft Production-Build (WASM 200 + `application/wasm`, `data-physics="ready"`), Dev-Server manuell geprüft (CHAOS-8, ADR-004); CI-Lauf in PR #4 |
 | C2 | Babylon.js (WebGL2, optional WebGPU) läuft in einem aktuellen Desktop-Browser auf Rubens PC mit flüssiger Bildrate für eine einfache Szene mit 4 Spielerobjekten. | mittel | Auto: FPS-Messung im Headless-Browser nur als grober Rauchtest. Gerät: echte Bildrate auf Rubens PC (Hardware im Protokoll). | CHAOS-8, CHAOS-15 | offen |
-| C3 | Headless-Chromium in CI kann die Szene rendern (Software-GL), sodass **Screenshot-Tests** stabil sind – mit fester Kamera, festem Seed, festen Zeitschritten und Toleranz. | mittel | Spike: zweimal hintereinander gleiche Screenshots in CI; bei Flakiness Toleranz/Maskierung, dokumentiert. | CHAOS-8, CHAOS-14 | offen |
-| C4 | Havok ist **nicht** bitgenau deterministisch über Plattformen hinweg; Tests prüfen Invarianten und Ergebnisse, nicht exakte Positionen. | niedrig | Design-Regel; in Tests umgesetzt (keine Positions-Snapshots von Physikobjekten). | CHAOS-8 | offen |
-| C5 | React-UI-Overlay und Babylon-Canvas lassen sich ohne Render-Konflikte kombinieren (React rendert DOM, Babylon den Canvas; Zustand fließt einseitig). | niedrig | Umsetzung + E2E. | CHAOS-8 | offen |
+| C3 | Headless-Chromium in CI kann die Szene rendern (Software-GL), sodass **Screenshot-Tests** stabil sind – mit fester Kamera, festem Seed, festen Zeitschritten und Toleranz. | mittel | Spike: zweimal hintereinander gleiche Screenshots in CI; bei Flakiness Toleranz/Maskierung, dokumentiert. | CHAOS-8, CHAOS-14 | teilweise: lokal 3× stabile Screenshots mit SwiftShader, HUD-Text maskiert, 2 % Toleranz (CHAOS-8); CI-Runner-Nachweis in PR #4 |
+| C4 | Havok ist **nicht** bitgenau deterministisch über Plattformen hinweg; Tests prüfen Invarianten und Ergebnisse, nicht exakte Positionen. | niedrig | Design-Regel; in Tests umgesetzt (keine Positions-Snapshots von Physikobjekten). | CHAOS-8 | teilweise: Design-Regel umgesetzt – Tests prüfen Bewegung mit Toleranz, keine Positions-Snapshots (CHAOS-8) |
+| C5 | React-UI-Overlay und Babylon-Canvas lassen sich ohne Render-Konflikte kombinieren (React rendert DOM, Babylon den Canvas; Zustand fließt einseitig). | niedrig | Umsetzung + E2E. | CHAOS-8 | teilweise: React-HUD über Babylon-Canvas ohne Konflikte, E2E ohne Konsolenfehler (CHAOS-8) |
 | C6 | Ein **Browser als Host** reicht (Vollbild, kein Tauri/Electron nötig). | niedrig | Beobachtung bei M1-Abnahme; Wechsel nur mit ADR und Freigabe. | CHAOS-16 | offen |
 
 ## D. Tooling und Qualität
 
 | ID | Annahme | Risiko | Validierungsweg | Aufgabe | Status |
 |---|---|---|---|---|---|
-| D1 | pnpm-Workspace mit TypeScript strict, Lint, Format, Vitest und Production-Build läuft lokal und in GitHub Actions mit `pnpm install --frozen-lockfile`. | niedrig | Auto: CI-Workflow grün. | CHAOS-6 | teilweise: alle Gates lokal grün (2026-11-14); CI-Nachweis im PR zu CHAOS-6 |
+| D1 | pnpm-Workspace mit TypeScript strict, Lint, Format, Vitest und Production-Build läuft lokal und in GitHub Actions mit `pnpm install --frozen-lockfile`. | niedrig | Auto: CI-Workflow grün. | CHAOS-6 | bestätigt: CI grün in PR #3 (Node 24, 2026-11-14) |
 | D2 | Playwright kann **mehrere Controller-Clients** und einen Host parallel steuern; Multitouch lässt sich in Chromium über CDP (`Input.dispatchTouchEvent`) synthetisch erzeugen. Das ersetzt **nicht** den Gerätetest. | mittel | Auto: E2E mit 2 Controllern + iPad-Zonen. | CHAOS-14 | offen |
 | D3 | Die WebKit-Engine von Playwright (Linux) bildet iOS-Safari nur grob ab; Ergebnisse sind Hinweise, keine Bestätigung. | mittel | Design-Regel; Abweichungen in der Gerätecheckliste notieren. | CHAOS-14, CHAOS-15 | offen |
 | D4 | Spielregeln lassen sich als reine TypeScript-Zustandsmaschine mit **Seeded RNG** formulieren und vollständig ohne Rendering testen. | niedrig | Auto: Unit-/Integrationstests ab M2; in M1 mindestens das Paketgerüst. | CHAOS-6 (Gerüst), CHAOS-17 | offen |
@@ -87,3 +87,4 @@ Diese Angaben machen Gerätetests und Leistungsziele konkret. Sie blockieren die
 |---|---|---|
 | 2026-11-14 | Erstfassung aus den vier Projektdokumenten | CHAOS-5 |
 | 2026-11-14 | B9, D1 auf „teilweise“ (Monorepo-Gerüst) | CHAOS-6 |
+| 2026-11-14 | D1 bestätigt (CI grün in PR #3); C1, C3–C5 auf „teilweise“ (Host-Szene) | CHAOS-6, CHAOS-8 |
