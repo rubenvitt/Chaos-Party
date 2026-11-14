@@ -1,30 +1,561 @@
+/*
+ * Controller-Stil: verspielt wie der Host (Himmelverlauf, dicke Tinte-Kontur,
+ * harte Schatten), große Ziele (≥ 64 px), Spielerfarbe als Rahmen und Akzent.
+ * Kein Canvas/WebGL (A7).
+ */
 :root {
-  color-scheme: dark;
-  font-family: system-ui, sans-serif;
-  background: #14121f;
-  color: #f4f1ff;
-  /* Grundschutz gegen iOS-Zoom, Auswahl und Callouts; Feinschliff in CHAOS-10. */
+  --ink: #1b1530;
+  --paper: #fffaf0;
+  --sun: #ffd23f;
+  --mint: #7be0c3;
+  --player: #8f86c9;
+  --on-player: #ffffff;
+  --frame: 10px;
+
+  color-scheme: light;
+  font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
+  color: var(--ink);
+  background: #9fd8ff;
+
+  /* iOS-Schutz (A4): keine Zoom-/Scroll-Gesten, keine Auswahl, kein Callout, keine Lupe. */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
 body,
-#root {
+#root,
+.app {
   margin: 0;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
 }
 
-.controller {
-  display: grid;
-  place-content: center;
+body {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 120%, #fff4c9 0%, transparent 55%),
+    linear-gradient(180deg, #7ccfff 0%, #b9b2ff 70%, #f0b6ff 100%);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Allgemeine Bildschirme (Code-Eingabe, Verbinden, Fehler)
+ * ------------------------------------------------------------------------- */
+
+.screen {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
   text-align: center;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+
+.logo {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 900;
+  color: #fff;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--ink);
+  transform: rotate(-3deg);
+}
+
+.code-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.code-label {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.code-input {
+  width: min(280px, 80vw);
+  min-height: 88px;
+  padding: 8px 12px 8px 26px;
+  border: 4px solid var(--ink);
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 6px 0 var(--ink);
+  color: var(--ink);
+  /* ≥ 16 px, sonst zoomt iOS beim Fokussieren. */
+  font:
+    900 48px/1 ui-monospace,
+    'SF Mono',
+    Menlo,
+    monospace;
+  letter-spacing: 18px;
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+  caret-color: var(--ink);
+  /* Eingabe darf ausgewählt werden (iOS-Tastatur, Einfügen). */
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+.code-input::placeholder {
+  color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.code-input:focus {
+  border-color: #6a4cff;
+}
+
+.code-input[aria-invalid='true'] {
+  border-color: #d7263d;
+}
+
+.code-error {
+  max-width: 300px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #fff;
+  border: 3px solid #d7263d;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.panel-lead {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  max-width: 320px;
+}
+
+.error-face {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 4px solid var(--ink);
+  background: var(--sun);
+  box-shadow: 0 6px 0 var(--ink);
+  font-size: 40px;
+  font-weight: 900;
+}
+
+/* Drei hüpfende Punkte: ruhiges Warten. */
+.wait-dots {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.wait-dots i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: var(--player);
+  animation: hop 1.2s ease-in-out infinite;
+}
+
+.wait-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.wait-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes hop {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-14px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Großer Knopf (Bereit, Neu verbinden)
+ * ------------------------------------------------------------------------- */
+
+.ready-button {
+  min-width: 220px;
+  min-height: 96px;
+  padding: 0 36px;
+  border: 5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  box-shadow: 0 8px 0 var(--ink);
+  font-size: 34px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out;
+}
+
+.ready-button:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+ * Spielerplatz
+ * ------------------------------------------------------------------------- */
+
+.slot {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  /* Spielerfarbe als dicker Rahmen: auch aus dem Augenwinkel erkennbar. */
+  box-shadow: inset 0 0 0 var(--frame) var(--player);
+  padding: calc(max(var(--frame), env(safe-area-inset-top)) + 10px)
+    calc(max(var(--frame), env(safe-area-inset-right)) + 10px)
+    calc(max(var(--frame), env(safe-area-inset-bottom)) + 10px)
+    calc(max(var(--frame), env(safe-area-inset-left)) + 10px);
+}
+
+.player-badge {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 18px 6px 6px;
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: 0 5px 0 var(--ink);
+  font-weight: 900;
+  font-size: 22px;
+}
+
+.player-symbol {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: #fff;
+  color: var(--player);
+  font-size: 24px;
+  line-height: 1;
+  -webkit-text-stroke: 1px var(--ink);
+}
+
+.panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.ready-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.ready-check {
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 5px solid var(--ink);
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: 0 8px 0 var(--ink);
+  font-size: 60px;
+  font-weight: 900;
+}
+
+/* ---------------------------------------------------------------------------
+ * Spielen: Joystick + Knöpfe
+ * Hochformat: Knöpfe oben rechts, Joystick unten (Daumen erreicht beides).
+ * Querformat: Joystick links, Knöpfe rechts wie ein Gamepad.
+ * ------------------------------------------------------------------------- */
+
+.play-panel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    'buttons'
+    'stick';
+  gap: 12px;
+  align-items: stretch;
+  justify-items: stretch;
+  /* `.panel` zentriert; hier sollen die Spuren die ganze Fläche füllen. */
+  align-content: stretch;
+  justify-content: stretch;
+  width: 100%;
+  height: 100%;
+}
+
+.stick-area {
+  grid-area: stick;
+  position: relative;
+  min-height: 0;
+}
+
+.button-area {
+  grid-area: buttons;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    '. b'
+    'a .';
+  place-items: center;
+  min-height: 0;
+}
+
+.button-area[data-count='1'] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: 'a';
+}
+
+.joystick-zone {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  border: 4px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+  background: color-mix(in srgb, #fff 28%, transparent);
+  touch-action: none;
+  overflow: visible;
+}
+
+.joystick-base {
+  --size: clamp(120px, 34vmin, 170px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--size);
+  height: var(--size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 5px solid var(--ink);
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #e9e4ff 70%);
+  box-shadow: 0 6px 0 var(--ink);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.joystick-knob {
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  border: 5px solid var(--ink);
+  background: var(--player);
+  box-shadow:
+    inset 0 -6px 0 color-mix(in srgb, var(--ink) 25%, transparent),
+    0 4px 0 var(--ink);
+  will-change: transform;
+}
+
+.joystick-zone[data-active='true'] .joystick-hint {
+  opacity: 0;
+}
+
+.joystick-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.action-button {
+  display: grid;
+  place-items: center;
+  border: 5px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 0 8px 0 var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 40ms ease-out,
+    box-shadow 40ms ease-out;
+}
+
+.action-a {
+  grid-area: a;
+  width: clamp(96px, 30vmin, 132px);
+  height: clamp(96px, 30vmin, 132px);
+  background: var(--sun);
+  font-size: 52px;
+}
+
+.action-b {
+  grid-area: b;
+  width: clamp(80px, 24vmin, 108px);
+  height: clamp(80px, 24vmin, 108px);
+  background: var(--mint);
+  font-size: 42px;
+}
+
+.action-button[data-pressed='true'] {
+  transform: translateY(6px) scale(0.96);
+  box-shadow: 0 2px 0 var(--ink);
+  filter: brightness(0.92);
+}
+
+.action-letter {
+  pointer-events: none;
+}
+
+@media (orientation: landscape) {
+  :root {
+    --frame: 8px;
+  }
+
+  .slot {
+    grid-template-rows: 1fr;
+  }
+
+  /* Kompakte Plakette oben rechts über den Knöpfen; der Joystick nutzt die volle Höhe. */
+  .player-badge {
+    position: absolute;
+    top: calc(max(var(--frame), env(safe-area-inset-top)) + 6px);
+    right: calc(max(var(--frame), env(safe-area-inset-right)) + 12px);
+    z-index: 2;
+    font-size: 18px;
+    padding: 4px 14px 4px 4px;
+  }
+
+  .player-symbol {
+    width: 32px;
+    height: 32px;
+    font-size: 19px;
+  }
+
+  /* Lobby/Warten: Plakette mittig, Inhalt darunter. */
+  .layout-lobby .player-badge,
+  .layout-wait .player-badge {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .layout-lobby .panel,
+  .layout-wait .panel {
+    padding-top: 52px;
+  }
+
+  .play-panel {
+    grid-template-rows: 1fr;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas: 'stick buttons';
+    gap: 16px;
+  }
+
+  .button-area {
+    padding-top: 44px;
+  }
+
+  .joystick-base {
+    --size: clamp(120px, 44vmin, 170px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Rückmeldung und Hinweise
+ * ------------------------------------------------------------------------- */
+
+.feedback {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Ohne Animation (reduzierte Bewegung) bleibt der Blitz unsichtbar. */
+  opacity: 0;
+  animation: flash 380ms ease-out;
+}
+
+.feedback-confirm,
+.feedback-win {
+  background: color-mix(in srgb, var(--player) 45%, transparent);
+}
+
+.feedback-hit,
+.feedback-lose {
+  background: color-mix(in srgb, #ff3b30 40%, transparent);
+}
+
+.feedback-miss {
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 8px);
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: min(90vw, 360px);
+  padding: 10px 18px;
+  border-radius: 16px;
+  border: 3px solid var(--ink);
+  background: #fff;
+  box-shadow: 0 4px 0 var(--ink);
+  font-weight: 800;
+  font-size: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-dots i,
+  .feedback {
+    animation: none;
+  }
 }
