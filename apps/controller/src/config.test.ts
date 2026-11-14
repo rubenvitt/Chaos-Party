@@ -11,7 +11,7 @@ import { contrastRatio, readableTextColor } from './ui/color.ts';
 
 describe('parseLaunchParams', () => {
   it('liest einen gültigen Code aus der URL (auch klein geschrieben)', () => {
-    expect(parseLaunchParams('?code=ABCD')).toEqual({ joinCode: 'ABCD', seats: 1 });
+    expect(parseLaunchParams('?code=ABCD')).toEqual({ joinCode: 'ABCD', seats: 1, debug: false });
     expect(parseLaunchParams('?code=ab12').joinCode).toBe('AB12');
     expect(parseLaunchParams('?code=%20ABCD%20').joinCode).toBe('ABCD');
   });
@@ -31,10 +31,26 @@ describe('parseLaunchParams', () => {
   });
 
   it('seats=2–4 schaltet das geteilte iPad ein (CHAOS-13)', () => {
-    expect(parseLaunchParams('?code=ABCD&seats=2')).toEqual({ joinCode: 'ABCD', seats: 2 });
+    expect(parseLaunchParams('?code=ABCD&seats=2')).toEqual({
+      joinCode: 'ABCD',
+      seats: 2,
+      debug: false,
+    });
     expect(parseLaunchParams('?seats=3').seats).toBe(3);
     expect(parseLaunchParams('?seats=4').seats).toBe(4);
     expect(parseLaunchParams('?seats=1').seats).toBe(1);
+  });
+
+  it('debug=1 schaltet die Debug-Anzeige ein (CHAOS-45), sonst aus', () => {
+    expect(parseLaunchParams('?code=ABCD&debug=1').debug).toBe(true);
+    expect(parseLaunchParams('?debug=true&seats=2')).toEqual({
+      joinCode: null,
+      seats: 2,
+      debug: true,
+    });
+    expect(parseLaunchParams('?code=ABCD').debug).toBe(false);
+    expect(parseLaunchParams('?debug=0').debug).toBe(false);
+    expect(parseLaunchParams('?debug=ja').debug).toBe(false);
   });
 
   it('mode=ipad ohne seats bedeutet zwei Plätze', () => {

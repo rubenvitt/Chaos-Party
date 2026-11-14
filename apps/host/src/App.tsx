@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { serverWebSocketUrl, type HostConfig } from './config.ts';
+import { DebugOverlay } from './debug/DebugOverlay.tsx';
+import { createFrameMeter, type FrameMeter } from './debug/frameMeter.ts';
 import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
 import { createWebSocketInputSource } from './input/webSocketInputSource.ts';
@@ -29,7 +31,9 @@ const NO_PLAYERS: readonly HostPlayer[] = [];
  * - **Lokal** (`?local=1`): keine Verbindung, `?players=` Demo-Spieler per Tastatur.
  */
 export function App({ config }: AppProps) {
-  const { seed, test, local } = config;
+  const { seed, test, local, debug } = config;
+  // Nur mit `?debug=1` (CHAOS-45): Bildrate und Eingabe→Frame messen.
+  const [meter] = useState<FrameMeter | null>(() => (debug ? createFrameMeter() : null));
   const session = useHostSession(local ? null : serverWebSocketUrl(window.location));
   const [localPlayers] = useState(() => createLocalPlayers(config.players));
   const lobbyPlayers = session.lobby?.players;
@@ -75,6 +79,19 @@ export function App({ config }: AppProps) {
       : undefined;
     if (hook) window.__chaos = hook;
 
+    // Messung (nur Debug): Frame-Ende aus der Szene, Eingang jeder Server-Eingabe aus dem
+    // Verteiler – synchron im `message`-Ereignis der WebSocket-Verbindung.
+    const stopFrameMeter = meter
+      ? scene.onFrameRendered(() => {
+          meter.frameEnded(performance.now());
+        })
+      : undefined;
+    const stopInputMeter = meter
+      ? hub.subscribe(() => {
+          meter.inputReceived(performance.now());
+        })
+      : undefined;
+
     // Tastatur immer (lokal: Demo-Spieler; mit Server: beigetretene Slots), dazu Netzwerk.
     const stopKeyboard = createKeyboardInputSource(window).start(scene);
     const stopNetwork = local
@@ -113,12 +130,16 @@ export function App({ config }: AppProps) {
       active = false;
       stopKeyboard();
       stopNetwork?.();
+      stopFrameMeter?.();
+      stopInputMeter?.();
       scene.dispose();
       canvas.remove();
       sceneRef.current = null;
       if (hook && window.__chaos === hook) delete window.__chaos;
     };
-  }, [seed, test, local, hub]);
+  }, [seed, test, local, hub, meter]);
+
+  const getRenderer = useCallback(() => sceneRef.current?.getRendererInfo() ?? null, []);
 
   useEffect(() => {
     playersRef.current = players;
@@ -142,6 +163,7 @@ export function App({ config }: AppProps) {
         connection={session.status}
       />
       <PlayerToasts players={players} enabled={!local} />
+      {meter && <DebugOverlay meter={meter} getRenderer={getRenderer} testMode={test} />}
       {!local && phase === 'lobby' && session.status !== null && (
         <LobbyPanel
           lobby={session.lobby}

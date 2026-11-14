@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createError, createMessage } from '@chaos-party/protocol';
 import { selectLink, selectScreen } from '../state/reducer.ts';
 import { fakeSocketFactory, type FakeSocket } from './fakeSocket.test-util.ts';
-import { CLOSE_REPLACED, createControllerSession } from './session.ts';
+import { createLatencyMeter } from '../debug/latencyMeter.ts';
+import {
+  CLOSE_REPLACED,
+  createControllerSession,
+  type ControllerSessionOptions,
+} from './session.ts';
 import { createMemoryTokenStore } from './tokenStore.ts';
 import type { WakeReason } from './wake.ts';
 
@@ -12,7 +17,7 @@ const welcome = createMessage('welcome', {
   players: [{ slot: 1, color: '#0072B2', label: 'Blau' }],
 });
 
-function setup() {
+function setup(extra: Partial<ControllerSessionOptions> = {}) {
   const { factory, sockets } = fakeSocketFactory();
   const tokens = createMemoryTokenStore();
   const warn = vi.fn();
@@ -33,6 +38,7 @@ function setup() {
     },
     now: () => Date.now(),
     warn,
+    ...extra,
   });
   const socket = (i: number): FakeSocket => {
     const s = sockets[i];
@@ -342,5 +348,71 @@ describe('createControllerSession', () => {
     expect(hasWakeListener()).toBe(false);
     vi.advanceTimersByTime(60_000);
     expect(sockets).toHaveLength(1);
+  });
+});
+
+describe('createControllerSession mit Messer (CHAOS-45)', () => {
+  function sentHeartbeats(socket: FakeSocket): number[] {
+    return socket
+      .sentMessages()
+      .filter((m) => m.type === 'heartbeat')
+      .map((m) => m.t as number);
+  }
+
+  it('misst die RTT jedes beantworteten Herzschlags mit der eigenen Uhr', () => {
+    const latency = createLatencyMeter();
+    const { joined, socket } = setup({ latency });
+    joined();
+    // Herzschlag nach 1 s, Antwort 25 ms später; zweiter nach 2 s, Antwort 40 ms später.
+    vi.advanceTimersByTime(1000);
+    const [first] = sentHeartbeats(socket(0));
+    expect(first).toBeDefined();
+    vi.advanceTimersByTime(25);
+    socket(0).receive(createMessage('heartbeat-ack', { t: first ?? 0 }));
+    vi.advanceTimersByTime(975);
+    const second = sentHeartbeats(socket(0))[1] ?? 0;
+    vi.advanceTimersByTime(40);
+    socket(0).receive(createMessage('heartbeat-ack', { t: second }));
+
+    const snap = latency.snapshot(Date.now());
+    expect(snap.rtt).toMatchObject({ count: 2, min: 25, max: 40, median: 32.5 });
+    expect(snap.lastRtt).toBe(40);
+    expect(snap.pending).toBe(0);
+  });
+
+  it('ignoriert Antworten mit fremdem t und zählt Proben einer verlorenen Verbindung', () => {
+    const latency = createLatencyMeter();
+    const { joined, socket } = setup({ latency });
+    joined();
+    vi.advanceTimersByTime(1000);
+    socket(0).receive(createMessage('heartbeat-ack', { t: 12_345 }));
+    expect(latency.snapshot(Date.now()).rtt).toBeNull();
+    expect(latency.snapshot(Date.now()).pending).toBe(1);
+    socket(0).drop();
+    expect(latency.snapshot(Date.now())).toMatchObject({ pending: 0, lost: 1 });
+  });
+
+  it('die Aufwach-Probe zählt ebenfalls als Messung', () => {
+    const latency = createLatencyMeter();
+    const { joined, socket, wake } = setup({ latency });
+    joined();
+    wake();
+    const [probe] = sentHeartbeats(socket(0));
+    vi.advanceTimersByTime(15);
+    socket(0).receive(createMessage('heartbeat-ack', { t: probe ?? 0 }));
+    expect(latency.snapshot(Date.now()).lastRtt).toBe(15);
+  });
+
+  it('zählt nur tatsächlich gesendete Eingaben', () => {
+    const latency = createLatencyMeter();
+    const { session, joined, socket } = setup({ latency });
+    expect(session.sendIntent({ type: 'ready', slot: 1 })).toBe(false);
+    joined();
+    expect(session.sendIntent({ type: 'move', slot: 1, x: 1, y: 0 })).toBe(true);
+    expect(session.sendIntent({ type: 'move', slot: 1, x: 0, y: 0 })).toBe(true);
+    expect(latency.snapshot(Date.now()).inputsPerSecond).toBe(2);
+    socket(0).drop();
+    expect(session.sendIntent({ type: 'move', slot: 1, x: 1, y: 0 })).toBe(false);
+    expect(latency.snapshot(Date.now()).inputsPerSecond).toBe(2);
   });
 });

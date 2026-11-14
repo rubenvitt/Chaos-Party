@@ -47,6 +47,9 @@ importers:
 
   apps/controller:
     dependencies:
+      '@chaos-party/metrics':
+        specifier: workspace:*
+        version: link:../../packages/metrics
       '@chaos-party/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -84,6 +87,9 @@ importers:
       '@chaos-party/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@chaos-party/metrics':
+        specifier: workspace:*
+        version: link:../../packages/metrics
       '@chaos-party/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -139,6 +145,8 @@ importers:
         version: 4.23.15
 
   packages/game-core: {}
+
+  packages/metrics: {}
 
   packages/protocol:
     dependencies:

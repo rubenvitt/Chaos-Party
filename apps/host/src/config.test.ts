@@ -9,14 +9,18 @@ describe('parseHostConfig', () => {
     expect(DEFAULT_CONFIG.local).toBe(false);
   });
 
-  it('liest local, players, seed, test und joinHint', () => {
-    expect(parseHostConfig('?local=1&players=4&seed=7&test=1&joinHint=5')).toEqual({
+  it('liest local, players, seed, test, joinHint und debug', () => {
+    expect(parseHostConfig('?local=1&players=4&seed=7&test=1&joinHint=5&debug=1')).toEqual({
       local: true,
       players: 4,
       seed: 7,
       test: true,
       joinHintSeconds: 5,
+      debug: true,
     });
+    expect(DEFAULT_CONFIG.debug).toBe(false);
+    expect(parseHostConfig('?debug=true').debug).toBe(true);
+    expect(parseHostConfig('?debug=0').debug).toBe(false);
   });
 
   it('begrenzt players auf 1–4 und ignoriert Unsinn', () => {

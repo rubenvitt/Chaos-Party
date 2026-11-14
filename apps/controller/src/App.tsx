@@ -1,4 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { DebugOverlay } from './debug/DebugOverlay.tsx';
+import type { LatencyMeter } from './debug/latencyMeter.ts';
 import type { SlotIntent } from './net/client.ts';
 import type { ControllerSession } from './net/session.ts';
 import { selectCodeEntryError, selectScreen } from './state/reducer.ts';
@@ -15,6 +17,8 @@ interface AppProps {
   seats: number;
   /** Modus in der Code-Eingabe wechseln (iPhone ↔ iPad). */
   onSeatsChange: (seats: number) => void;
+  /** Nur mit `?debug=1`: Messer und Herzschlag-Abstand für die Messanzeige (CHAOS-45). */
+  debug?: { readonly meter: LatencyMeter; readonly heartbeatMs: number } | undefined;
 }
 
 /**
@@ -22,7 +26,7 @@ interface AppProps {
  * Ein Platz aus `welcome` → iPhone-Ansicht (`SlotController`); mehrere Plätze →
  * geteiltes iPad mit einer Zone pro Platz (`ZoneBoard`, CHAOS-13).
  */
-export function App({ session, onCodeSubmit, seats, onSeatsChange }: AppProps) {
+export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppProps) {
   const state = useSyncExternalStore(session.subscribe, session.getState);
   const screen = selectScreen(state);
   const send = useCallback(
@@ -73,6 +77,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange }: AppProps) {
           <ConnectingScreen />
         ))}
       <ConnectionStatus session={session} />
+      {debug && <DebugOverlay meter={debug.meter} seats={seats} heartbeatMs={debug.heartbeatMs} />}
       {state.notice !== null && screen === 'controller' && (
         <Toast key={state.notice.id} notice={state.notice} onDismiss={dismiss} />
       )}
