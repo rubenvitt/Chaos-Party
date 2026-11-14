@@ -17,8 +17,12 @@ beforeAll(async () => {
   await writeFile(join(staticDir, 'index.html'), '<!doctype html><title>Controller</title>');
   await writeFile(join(staticDir, 'assets', 'app.js'), 'console.log(1);');
   await writeFile(join(workDir, 'secret.txt'), 'geheim');
+  const hostDir = join(workDir, 'host-dist');
+  await mkdir(join(hostDir, 'assets'), { recursive: true });
+  await writeFile(join(hostDir, 'index.html'), '<!doctype html><title>Host</title>');
+  await writeFile(join(hostDir, 'assets', 'HavokPhysics-abc.wasm'), new Uint8Array([0, 97, 115]));
 
-  server = createChaosServer({ staticDir });
+  server = createChaosServer({ staticDir, hostDir });
   const address = await server.listen(0, '127.0.0.1');
   baseUrl = `http://127.0.0.1:${String(address.port)}`;
 });
@@ -85,8 +89,72 @@ describe('Chaos-Party-Server', () => {
     },
   );
 
+  it('liefert die Host-App unter /host/ (CHAOS-11)', async () => {
+    const res = await fetch(`${baseUrl}/host/?test=1`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-cache');
+    expect(await res.text()).toContain('<title>Host</title>');
+  });
+
+  it('leitet /host auf /host/ um und behält die Query', async () => {
+    const res = await fetch(`${baseUrl}/host?local=1`, { redirect: 'manual' });
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/host/?local=1');
+  });
+
+  it('fällt bei Host-Routen auf die Host-index.html zurück, nicht auf den Controller', async () => {
+    const res = await fetch(`${baseUrl}/host/lobby/irgendwas`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<title>Host</title>');
+  });
+
+  it('liefert Havok-WASM der Host-App mit application/wasm (C1)', async () => {
+    const res = await fetch(`${baseUrl}/host/assets/HavokPhysics-abc.wasm`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/wasm');
+  });
+
+  it('antwortet 404 für fehlende Host-Assets', async () => {
+    const res = await fetch(`${baseUrl}/host/assets/fehlt.js`);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain('pnpm build');
+  });
+
+  it('verwechselt /hostile nicht mit /host/', async () => {
+    const res = await fetch(`${baseUrl}/hostile`);
+    expect(await res.text()).toContain('<title>Controller</title>');
+  });
+
+  it.each([
+    '/host/../../secret.txt',
+    '/host/%2e%2e/%2e%2e/secret.txt',
+    '/host/..%2f..%2fsecret.txt',
+    '/host/assets/..%2f..%2f..%2fsecret.txt',
+    '/host/%2e%2e%2f%2e%2e%2fsecret.txt',
+    '/host/..%5c..%5csecret.txt',
+  ])('liefert unter /host/ keine Dateien außerhalb des Host-Verzeichnisses (%s)', async (path) => {
+    const res = await rawGet(path);
+    expect(res.body).not.toContain('geheim');
+  });
+
   it('lehnt andere Methoden als GET/HEAD ab', async () => {
     const res = await fetch(`${baseUrl}/`, { method: 'POST' });
     expect(res.status).toBe(405);
+  });
+});
+
+describe('Chaos-Party-Server ohne Host-App', () => {
+  it('antwortet unter /host/ mit 404 statt mit dem Controller', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'chaos-server-ohne-host-'));
+    await writeFile(join(dir, 'index.html'), '<!doctype html><title>Controller</title>');
+    const bare = createChaosServer({ staticDir: dir });
+    try {
+      const address = await bare.listen(0, '127.0.0.1');
+      const res = await fetch(`http://127.0.0.1:${String(address.port)}/host/`);
+      expect(res.status).toBe(404);
+    } finally {
+      await bare.close();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

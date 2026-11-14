@@ -19,3 +19,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-004](ADR-004-host-szene.md) | Host-Szene mit Babylon.js und Havok – WASM-Laden, Eingabe-Naht, Testmodus | Angenommen | CHAOS-8 |
 | [ADR-005](ADR-005-session-server.md) | Lokaler autoritativer Session-Server | Angenommen | CHAOS-9 |
 | [ADR-006](ADR-006-controller-ui.md) | iPhone-Controller: Client/Reducer/UI-Schnitt, Joystick per Pointer Events, iOS-Härtung, Test mit nachgebautem Server | Angenommen | CHAOS-10 |
+| [ADR-007](ADR-007-lan-join.md) | QR-Join über eine LAN-Adresse, ein Prozess für Host und Controller | Angenommen | CHAOS-11 |

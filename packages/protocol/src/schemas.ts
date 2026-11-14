@@ -26,6 +26,8 @@ export const MAX_NAME_LENGTH = 16;
 export const MAX_LABEL_LENGTH = 24;
 export const MAX_ERROR_MESSAGE_LENGTH = 200;
 export const MAX_JOIN_URL_LENGTH = 512;
+/** Höchstzahl alternativer Join-Links in `lobby` (weitere LAN-Adressen des PCs, CHAOS-11). */
+export const MAX_JOIN_URL_ALTERNATIVES = 8;
 
 // ---------------------------------------------------------------------------
 // Aufzählungen
@@ -350,15 +352,22 @@ export const LobbyPlayerSchema = z.strictObject({
   ready: z.boolean(),
 });
 
+/** Join-Link für den QR-Code: nur `http(s)`, begrenzte Länge. */
+export const JoinUrlSchema = z.url({ protocol: /^https?$/ }).max(MAX_JOIN_URL_LENGTH);
+
 /** Sitzungs-Schnappschuss für den Host; wird bei jeder Änderung neu gesendet (auch in `play`). */
 export const LobbyMessageSchema = z.strictObject({
   v: VersionSchema,
   type: z.literal('lobby'),
   joinCode: JoinCodeSchema,
-  joinUrl: z
-    .url({ protocol: /^https?$/ })
-    .max(MAX_JOIN_URL_LENGTH)
-    .optional(),
+  joinUrl: JoinUrlSchema.optional(),
+  /**
+   * Weitere Join-Links für andere Netzwerkadressen des PCs (CHAOS-11, ADR-007), beste zuerst.
+   * Der Host kann damit den QR-Code umschalten, ohne den Server zu fragen. Optional und
+   * additiv: `lobby` ohne das Feld bleibt gültig; der Server lässt es weg, wenn es
+   * keine Alternativen gibt.
+   */
+  joinUrlAlternatives: z.array(JoinUrlSchema).max(MAX_JOIN_URL_ALTERNATIVES).optional(),
   phase: PhaseSchema,
   players: z.array(LobbyPlayerSchema).max(MAX_PLAYERS).refine(hasUniqueSlots, 'Slots doppelt'),
 });

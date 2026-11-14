@@ -61,6 +61,13 @@ const validServerMessages: ServerMessage[] = [
     players: [{ slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false }],
   }),
   createMessage('lobby', { joinCode: 'AB12', phase: 'play', players: [] }),
+  createMessage('lobby', {
+    joinCode: 'AB12',
+    joinUrl: 'http://192.168.0.10:8787/?code=AB12',
+    joinUrlAlternatives: ['http://10.0.0.4:8787/?code=AB12', 'http://[fd00::4]:8787/?code=AB12'],
+    phase: 'lobby',
+    players: [],
+  }),
   createMessage('input', {
     intent: { type: 'move', slot: 1, seq: 3, x: 0, y: 1 },
     at: 1500.25,
@@ -316,6 +323,28 @@ describe('manipulierte Server-Nachrichten', () => {
         type: 'lobby',
         joinCode: 'AB12',
         joinUrl: 'javascript:alert(1)',
+        phase: 'lobby',
+        players: [],
+      }),
+    ],
+    [
+      'Lobby mit javascript:-Alternative',
+      JSON.stringify({
+        v: 1,
+        type: 'lobby',
+        joinCode: 'AB12',
+        joinUrlAlternatives: ['javascript:alert(1)'],
+        phase: 'lobby',
+        players: [],
+      }),
+    ],
+    [
+      'Lobby mit zu vielen Alternativen',
+      JSON.stringify({
+        v: 1,
+        type: 'lobby',
+        joinCode: 'AB12',
+        joinUrlAlternatives: Array.from({ length: 9 }, (_, i) => `http://10.0.0.${String(i)}/`),
         phase: 'lobby',
         players: [],
       }),

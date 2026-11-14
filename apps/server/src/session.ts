@@ -70,6 +70,8 @@ export interface SessionOptions {
   joinCode: string;
   /** LAN-URL für den QR-Code (CHAOS-11); fehlt sie, enthält `lobby` kein `joinUrl`. */
   joinUrl?: string | undefined;
+  /** Weitere Join-Links (andere LAN-Adressen), beste zuerst; leer → Feld fehlt in `lobby`. */
+  joinUrlAlternatives?: readonly string[] | undefined;
   /** Monotone Server-Uhr in ms (Standard: `performance.now()`). */
   now?: (() => number) | undefined;
   /** Erzeugt Controller-Tokens (Standard: 24 Zufallsbytes base64url). */
@@ -141,6 +143,7 @@ const PLAY_CONTEXT: SlotContext = {
 export class Session {
   readonly joinCode: string;
   readonly joinUrl: string | undefined;
+  readonly joinUrlAlternatives: readonly string[];
 
   private phaseValue: Phase = 'lobby';
   private hostId: ConnectionId | null = null;
@@ -170,7 +173,15 @@ export class Session {
       throw new Error(`Ungültige Join-URL: ${options.joinUrl}`);
     }
     this.joinCode = options.joinCode;
+    const alternatives = [...(options.joinUrlAlternatives ?? [])];
+    if (
+      alternatives.length > 0 &&
+      !LobbyMessageSchema.shape.joinUrlAlternatives.safeParse(alternatives).success
+    ) {
+      throw new Error(`Ungültige alternative Join-URLs: ${alternatives.join(', ')}`);
+    }
     this.joinUrl = options.joinUrl;
+    this.joinUrlAlternatives = alternatives;
     this.now = options.now ?? (() => performance.now());
     this.createToken = options.createToken ?? generateToken;
     this.rate = { ...DEFAULT_RATE_LIMIT, ...options.rateLimit };
@@ -617,14 +628,16 @@ export class Session {
       connected: player.connectionId !== null,
       ready: player.ready,
     }));
-    return this.joinUrl === undefined
-      ? createMessage('lobby', { joinCode: this.joinCode, phase: this.phaseValue, players })
-      : createMessage('lobby', {
-          joinCode: this.joinCode,
-          joinUrl: this.joinUrl,
-          phase: this.phaseValue,
-          players,
-        });
+    // Optionale Felder nur setzen, wenn vorhanden (strikte Schemas, exactOptionalPropertyTypes).
+    return createMessage('lobby', {
+      joinCode: this.joinCode,
+      ...(this.joinUrl === undefined ? {} : { joinUrl: this.joinUrl }),
+      ...(this.joinUrlAlternatives.length === 0
+        ? {}
+        : { joinUrlAlternatives: [...this.joinUrlAlternatives] }),
+      phase: this.phaseValue,
+      players,
+    });
   }
 
   private send(to: ConnectionId, message: ServerMessage): void {

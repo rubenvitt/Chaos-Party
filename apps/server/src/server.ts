@@ -10,12 +10,19 @@ import { Session } from './session.ts';
 import { attachWebSocket } from './socket.ts';
 
 export interface ChaosServerOptions {
-  /** Verzeichnis mit der gebauten Controller-App (`apps/controller/dist`). */
+  /** Verzeichnis mit der gebauten Controller-App (`apps/controller/dist`), ausgeliefert unter `/`. */
   staticDir: string;
+  /**
+   * Verzeichnis mit der gebauten Host-App (`apps/host/dist`), ausgeliefert unter `/host/`
+   * (CHAOS-11, ADR-007). Ohne Angabe antwortet `/host/` mit 404.
+   */
+  hostDir?: string | undefined;
   /** Fester Join-Code (4–8 Zeichen `A–Z0–9`), sonst zufällig mit 4 Zeichen. */
   joinCode?: string | undefined;
   /** LAN-URL für QR-Code/Lobby (CHAOS-11); ohne sie sendet `lobby` kein `joinUrl`. */
   joinUrl?: string | undefined;
+  /** Weitere Join-Links für andere LAN-Adressen des PCs (CHAOS-11), beste zuerst. */
+  joinUrlAlternatives?: readonly string[] | undefined;
   /** Monotone Uhr in ms für Session und Rate-Limit (Tests). */
   now?: (() => number) | undefined;
   /** Token-Erzeugung (Tests). */
@@ -46,15 +53,29 @@ const MIME_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
+/** Pfad, unter dem die Host-App (PC-Spiel) ausgeliefert wird. */
+export const HOST_PATH = '/host';
+
+interface StaticRoots {
+  /** Controller-App unter `/`. */
+  readonly controller: string;
+  /** Host-App unter `/host/`, falls gebaut/angegeben. */
+  readonly host: string | undefined;
+}
+
 /**
- * Ein Prozess, ein Port: Controller-App (statisch), Health-Check und die
- * WebSocket-Verbindung unter `/ws` (Annahme B9, ADR-005).
+ * Ein Prozess, ein Port: Controller-App unter `/`, Host-App unter `/host/`,
+ * Health-Check und die WebSocket-Verbindung unter `/ws` (Annahme B9, ADR-005, ADR-007).
  */
 export function createChaosServer(options: ChaosServerOptions): ChaosServer {
-  const root = resolve(options.staticDir);
+  const roots: StaticRoots = {
+    controller: resolve(options.staticDir),
+    host: options.hostDir === undefined ? undefined : resolve(options.hostDir),
+  };
   const session = new Session({
     joinCode: options.joinCode ?? generateJoinCode(),
     joinUrl: options.joinUrl,
+    joinUrlAlternatives: options.joinUrlAlternatives,
     now: options.now,
     createToken: options.createToken,
     rateLimit: options.rateLimit,
@@ -62,7 +83,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
   });
 
   const server = createServer((req, res) => {
-    handleRequest(root, req, res).catch((error: unknown) => {
+    handleRequest(roots, req, res).catch((error: unknown) => {
       console.error(error);
       if (!res.headersSent) {
         send(res, 500, 'text/plain; charset=utf-8', 'Interner Fehler');
@@ -105,7 +126,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
   };
 }
 
-async function handleRequest(root: string, req: IncomingMessage, res: ServerResponse) {
+async function handleRequest(roots: StaticRoots, req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     send(res, 405, 'text/plain; charset=utf-8', 'Methode nicht erlaubt', { Allow: 'GET, HEAD' });
     return;
@@ -123,13 +144,33 @@ async function handleRequest(root: string, req: IncomingMessage, res: ServerResp
     return;
   }
 
-  const lookup = await resolveStaticFile(root, url.pathname);
+  // `/host` ohne Schrägstrich → `/host/`, damit relative Pfade und die SPA stimmen.
+  if (url.pathname === HOST_PATH) {
+    send(res, 301, 'text/plain; charset=utf-8', 'Weiter zu /host/', {
+      Location: `${HOST_PATH}/${url.search}`,
+    });
+    return;
+  }
+
+  let root = roots.controller;
+  let pathname = url.pathname;
+  if (pathname.startsWith(`${HOST_PATH}/`)) {
+    if (roots.host === undefined) {
+      send(res, 404, 'text/plain; charset=utf-8', 'Host-App nicht konfiguriert');
+      return;
+    }
+    root = roots.host;
+    pathname = pathname.slice(HOST_PATH.length);
+  }
+
+  const lookup = await resolveStaticFile(root, pathname);
   if (lookup.kind === 'forbidden') {
     send(res, 403, 'text/plain; charset=utf-8', 'Verboten');
     return;
   }
   if (lookup.kind === 'missing') {
-    send(res, 404, 'text/plain; charset=utf-8', 'Nicht gefunden');
+    const hint = root === roots.host ? ' (Host-App gebaut? `pnpm build`)' : '';
+    send(res, 404, 'text/plain; charset=utf-8', `Nicht gefunden${hint}`);
     return;
   }
   const { file } = lookup;
