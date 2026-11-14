@@ -20,3 +20,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-005](ADR-005-session-server.md) | Lokaler autoritativer Session-Server | Angenommen | CHAOS-9 |
 | [ADR-006](ADR-006-controller-ui.md) | iPhone-Controller: Client/Reducer/UI-Schnitt, Joystick per Pointer Events, iOS-Härtung, Test mit nachgebautem Server | Angenommen | CHAOS-10 |
 | [ADR-007](ADR-007-lan-join.md) | QR-Join über eine LAN-Adresse, ein Prozess für Host und Controller | Angenommen | CHAOS-11 |
+| [ADR-008](ADR-008-ipad-zonen.md) | Geteiltes iPad: Spielerzonen, Touch Events mit Zonen-Tracker, Drehen | Angenommen | CHAOS-13 |

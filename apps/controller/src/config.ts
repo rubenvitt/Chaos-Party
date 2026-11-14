@@ -3,8 +3,10 @@
  *
  * - `?code=ABCD` – Join-Code aus dem QR-Link (`http://<lan-ip>:8787/?code=ABCD`).
  *   Fehlt er oder ist er ungültig, zeigt der Controller die Code-Eingabe.
- * - `?seats=` / `?mode=ipad` sind für CHAOS-13 (geteiltes iPad) reserviert; der
- *   iPhone-Modus nutzt immer genau einen Platz.
+ * - `?seats=2|3|4` – geteiltes iPad (CHAOS-13, ADR-008): eine Verbindung mit so vielen
+ *   Plätzen, je Platz eine Spielerzone. `?mode=ipad` ohne `seats` bedeutet 2 Plätze.
+ *   Fehlt beides (oder `seats=1`), ist es der iPhone-Modus mit genau einem Platz.
+ *   Ungültige Werte fallen auf den iPhone-Modus bzw. bei `mode=ipad` auf 2 zurück.
  */
 import { JoinCodeSchema } from '@chaos-party/protocol';
 
@@ -14,10 +16,16 @@ export const CODE_LENGTH = 4;
 /** Plätze pro Verbindung im iPhone-Modus. */
 export const PHONE_SEATS = 1;
 
+/** Standard für das geteilte iPad (`?mode=ipad` ohne `seats`). */
+export const IPAD_DEFAULT_SEATS = 2;
+
+/** Höchstzahl Plätze einer Verbindung (Protokoll: `seats` 1–4). */
+export const MAX_SEATS = 4;
+
 export interface LaunchParams {
   /** Gültiger Join-Code (großgeschrieben) oder `null`. */
   joinCode: string | null;
-  /** Anzahl Plätze dieser Verbindung; heute immer 1 (iPhone). */
+  /** Anzahl Plätze dieser Verbindung: 1 (iPhone) oder 2–4 (geteiltes iPad). */
   seats: number;
 }
 
@@ -41,8 +49,24 @@ export function parseLaunchParams(search: string): LaunchParams {
   const candidate = raw === null ? '' : raw.trim().toUpperCase();
   return {
     joinCode: isValidJoinCode(candidate) ? candidate : null,
-    seats: PHONE_SEATS,
+    seats: parseSeats(params),
   };
+}
+
+function parseSeats(params: URLSearchParams): number {
+  const fallback =
+    params.get('mode')?.trim().toLowerCase() === 'ipad' ? IPAD_DEFAULT_SEATS : PHONE_SEATS;
+  const raw = params.get('seats')?.trim();
+  if (raw === undefined || !/^[1-4]$/.test(raw)) return fallback;
+  return Number(raw);
+}
+
+/** Neue Such-Zeichenkette mit gesetzter Platzzahl (`mode` entfällt, andere Parameter bleiben). */
+export function withSeats(search: string, seats: number): string {
+  const params = new URLSearchParams(search);
+  params.delete('mode');
+  params.set('seats', String(Math.min(Math.max(Math.trunc(seats), PHONE_SEATS), MAX_SEATS)));
+  return `?${params.toString()}`;
 }
 
 /** Neue Such-Zeichenkette mit gesetztem Code, andere Parameter bleiben erhalten. */

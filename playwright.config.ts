@@ -52,7 +52,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /controller-.*\.spec\.ts/,
+      testIgnore: /(controller|ipad)-.*\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 720 },
@@ -76,6 +76,18 @@ export default defineConfig({
       name: 'iphone-quer',
       testMatch: /controller-.*\.spec\.ts/,
       use: { ...devices['iPhone 13 landscape'], ...controllerUse },
+    },
+    // Geteiltes iPad (CHAOS-13, ADR-008): iPad-Pro-11-Emulation in Chromium, gleicher
+    // nachgebauter Session-Server; beweist kein echtes iPadOS-Multitouch (A1–A3).
+    {
+      name: 'ipad-quer',
+      testMatch: /ipad-.*\.spec\.ts/,
+      use: { ...devices['iPad Pro 11 landscape'], ...controllerUse },
+    },
+    {
+      name: 'ipad-hoch',
+      testMatch: /ipad-.*\.spec\.ts/,
+      use: { ...devices['iPad Pro 11'], ...controllerUse },
     },
   ],
   webServer: [

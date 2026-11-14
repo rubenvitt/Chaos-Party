@@ -1,10 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
-import { parseLaunchParams, withJoinCode } from './config.ts';
+import { parseLaunchParams, withJoinCode, withSeats } from './config.ts';
 import { controllerSocketUrl } from './net/client.ts';
 import { createControllerSession } from './net/session.ts';
 import { createBrowserTokenStore } from './net/tokenStore.ts';
+import { scopeTokenStore } from './tokenScope.ts';
 import { installIosGuards } from './ui/iosGuards.ts';
 import './styles.css';
 
@@ -20,7 +21,8 @@ const params = parseLaunchParams(window.location.search);
 const session = createControllerSession({
   url: controllerSocketUrl(window.location),
   seats: params.seats,
-  tokens: createBrowserTokenStore(),
+  // Geteiltes iPad: Token getrennt nach Platzzahl (CHAOS-13).
+  tokens: scopeTokenStore(createBrowserTokenStore(), params.seats),
 });
 if (params.joinCode !== null) session.join(params.joinCode);
 
@@ -30,8 +32,18 @@ function submitCode(code: string) {
   session.join(code);
 }
 
+function changeSeats(seats: number) {
+  // Platzzahl steht fest, sobald die Sitzung beitritt; neu laden mit `?seats=`.
+  window.location.replace(withSeats(window.location.search, seats));
+}
+
 createRoot(root).render(
   <StrictMode>
-    <App session={session} onCodeSubmit={submitCode} />
+    <App
+      session={session}
+      onCodeSubmit={submitCode}
+      seats={params.seats}
+      onSeatsChange={changeSeats}
+    />
   </StrictMode>,
 );

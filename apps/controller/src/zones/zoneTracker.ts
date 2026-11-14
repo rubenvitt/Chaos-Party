@@ -1,0 +1,248 @@
+/**
+ * Zonen-Tracker des geteilten iPads (CHAOS-13, ADR-008): ordnet jede Berührung
+ * beim Aufsetzen einer Spielerzone und darin einem Bedienelement zu und hält
+ * diese Zuordnung bis zum Abheben oder Abbrechen – auch wenn der Finger dabei
+ * über die Zonengrenze rutscht. Framework- und DOM-frei; Eingang sind
+ * Touch-Kennungen (`Touch.identifier`) und Bildschirmpunkte, Ausgang sind
+ * Effekte, die der Aufrufer in Protokoll-Intents übersetzt.
+ *
+ * Regeln:
+ * 1. Zuordnung nur beim Aufsetzen (`start`): Zone per Trefferprüfung, darin das
+ *    Bedienelement. Berührungen im Randstreifen oder außerhalb jeder Zone werden
+ *    ignoriert (auch ihre späteren Bewegungen).
+ * 2. Der Joystick einer Zone folgt nur der **ersten** Berührung, die auf ihm
+ *    aufsetzt; weitere Finger dort tun nichts. Ein Knopf folgt genau einem Finger.
+ *    Weitere Finger in derselben Zone dürfen andere Knöpfe drücken.
+ * 3. Berührungen in einer Zone, aber neben jedem Bedienelement, „gehören“ der Zone
+ *    ohne Wirkung (sie werden nicht später zum Joystick befördert).
+ * 4. `end`: Joystick → `{0, 0}`, Knopf → `release`, Bereit-Knopf → `ready`, sofern
+ *    der Finger noch auf dem Knopf liegt. `cancel` (Systemgeste, Drehen): wie `end`,
+ *    aber **ohne** `ready`.
+ * 5. `reconcile(ids)`: Berührungen, die laut Browser nicht mehr liegen, werden
+ *    abgebrochen (verlorenes `touchend`).
+ * 6. `setZones` (Kontextwechsel, Drehen, Größenänderung): Berührungen behalten ihre
+ *    Zuordnung, solange ihre Zone gleich liegt und ihr Bedienelement noch existiert;
+ *    sonst werden sie losgelassen und bis zum Abheben stillgelegt.
+ */
+import type { Button, SlotNumber } from '@chaos-party/protocol';
+import { knobOffset, stickFromOffset, ZERO_STICK, type Stick } from '../input/joystick.ts';
+import {
+  controlAt,
+  deltaToLocal,
+  rectContains,
+  sameFrame,
+  toLocal,
+  zoneAt,
+  type ControlKind,
+  type Point,
+  type ZoneFrame,
+  type ZoneGeometry,
+} from './geometry.ts';
+
+export type ZoneEffect =
+  | { readonly type: 'stick'; readonly slot: SlotNumber; readonly stick: Stick }
+  | { readonly type: 'press'; readonly slot: SlotNumber; readonly button: Button }
+  | { readonly type: 'release'; readonly slot: SlotNumber; readonly button: Button }
+  | { readonly type: 'ready'; readonly slot: SlotNumber };
+
+/** Wem eine Berührung gehört. `control: null` = Zone ohne Wirkung (oder stillgelegt). */
+export interface TouchOwner {
+  readonly slot: SlotNumber;
+  readonly control: ControlKind | null;
+}
+
+/** Anzeigezustand einer Zone (für die Darstellung, lokale Koordinaten). */
+export interface ZoneView {
+  /** Joystick gehalten: Ursprung (lokal) und Knopfversatz (lokal, auf den Radius begrenzt). */
+  readonly stick: { readonly origin: Point; readonly knob: { dx: number; dy: number } } | null;
+  readonly pressed: readonly Button[];
+  /** Ein Finger liegt auf dem Bereit-Knopf. */
+  readonly readyHeld: boolean;
+}
+
+interface Binding {
+  readonly slot: SlotNumber;
+  readonly control: ControlKind | null;
+  /** Bildschirmpunkt beim Aufsetzen (Ursprung des Joysticks). */
+  readonly origin: Point;
+  /** Letzter bekannter Bildschirmpunkt. */
+  last: Point;
+  /** Lage der Zone beim Aufsetzen. */
+  readonly frame: ZoneFrame;
+}
+
+export interface ZoneTracker {
+  /** Neue Zonen (Layout, Kontext oder Bildschirmgröße geändert). */
+  setZones(zones: readonly ZoneGeometry[]): ZoneEffect[];
+  start(id: number, point: Point): ZoneEffect[];
+  move(id: number, point: Point): ZoneEffect[];
+  end(id: number, point?: Point): ZoneEffect[];
+  cancel(id: number): ZoneEffect[];
+  /** Alles loslassen (Fokusverlust, App-Wechsel). */
+  cancelAll(): ZoneEffect[];
+  /** Berührungen abbrechen, die nicht mehr in `activeIds` stehen. */
+  reconcile(activeIds: Iterable<number>): ZoneEffect[];
+  owner(id: number): TouchOwner | null;
+  /** Anzahl verfolgter Berührungen (inklusive wirkungsloser). */
+  readonly size: number;
+  view(slot: SlotNumber): ZoneView;
+}
+
+function buttonOf(control: ControlKind | null): Button | null {
+  if (control === 'button-a') return 'a';
+  if (control === 'button-b') return 'b';
+  return null;
+}
+
+export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): ZoneTracker {
+  let zones: readonly ZoneGeometry[] = initialZones;
+  const bindings = new Map<number, Binding>();
+
+  function zoneOf(slot: SlotNumber): ZoneGeometry | undefined {
+    return zones.find((z) => z.slot === slot);
+  }
+
+  function heldBy(slot: SlotNumber, control: ControlKind): boolean {
+    for (const b of bindings.values()) {
+      if (b.slot === slot && b.control === control) return true;
+    }
+    return false;
+  }
+
+  /** Effekte beim Loslassen; `ready` nur bei echtem Abheben auf dem Knopf. */
+  function releaseEffects(binding: Binding, completed: boolean): ZoneEffect[] {
+    const { slot, control } = binding;
+    const button = buttonOf(control);
+    if (button !== null) return [{ type: 'release', slot, button }];
+    if (control === 'stick') return [{ type: 'stick', slot, stick: ZERO_STICK }];
+    if (control === 'ready' && completed) {
+      const zone = zoneOf(slot);
+      const ready = zone?.controls.find((c) => c.kind === 'ready');
+      if (zone && ready && rectContains(ready.hit, toLocal(zone, binding.last))) {
+        return [{ type: 'ready', slot }];
+      }
+    }
+    return [];
+  }
+
+  function stickFor(binding: Binding, point: Point): Stick {
+    const zone = zoneOf(binding.slot);
+    if (!zone) return ZERO_STICK;
+    const d = deltaToLocal(zone.rotation, point.x - binding.origin.x, point.y - binding.origin.y);
+    return stickFromOffset(d.x, d.y, zone.stickRadius);
+  }
+
+  function finish(id: number, completed: boolean): ZoneEffect[] {
+    const binding = bindings.get(id);
+    if (!binding) return [];
+    bindings.delete(id);
+    return releaseEffects(binding, completed);
+  }
+
+  return {
+    setZones(next) {
+      zones = next;
+      const effects: ZoneEffect[] = [];
+      for (const [id, binding] of bindings) {
+        if (binding.control === null) continue;
+        const zone = zoneOf(binding.slot);
+        const keep =
+          zone !== undefined &&
+          // Zone verschoben/gedreht: alte Punkte passen nicht mehr zur neuen Lage.
+          sameFrame(binding.frame, zone) &&
+          zone.controls.some((c) => c.kind === binding.control);
+        if (!keep) {
+          effects.push(...releaseEffects(binding, false));
+          // Stilllegen bis zum Abheben: der Finger bekommt kein neues Bedienelement.
+          bindings.set(id, { ...binding, control: null });
+        }
+      }
+      return effects;
+    },
+
+    start(id, point) {
+      // Kennung noch belegt (verlorenes Ende): alte Berührung zuerst abbrechen.
+      const effects = finish(id, false);
+      const zone = zoneAt(zones, point);
+      if (!zone) return effects;
+      const hit = controlAt(zone, toLocal(zone, point));
+      let control: ControlKind | null = hit?.kind ?? null;
+      if (control !== null && heldBy(zone.slot, control)) control = null;
+      const binding: Binding = {
+        slot: zone.slot,
+        control,
+        origin: point,
+        last: point,
+        frame: zone,
+      };
+      bindings.set(id, binding);
+      const button = buttonOf(control);
+      if (button !== null) effects.push({ type: 'press', slot: zone.slot, button });
+      return effects;
+    },
+
+    move(id, point) {
+      const binding = bindings.get(id);
+      if (!binding) return [];
+      binding.last = point;
+      if (binding.control !== 'stick') return [];
+      return [{ type: 'stick', slot: binding.slot, stick: stickFor(binding, point) }];
+    },
+
+    end(id, point) {
+      const binding = bindings.get(id);
+      if (binding && point) binding.last = point;
+      return finish(id, true);
+    },
+
+    cancel(id) {
+      return finish(id, false);
+    },
+
+    cancelAll() {
+      const effects: ZoneEffect[] = [];
+      for (const id of [...bindings.keys()]) effects.push(...finish(id, false));
+      return effects;
+    },
+
+    reconcile(activeIds) {
+      const alive = new Set(activeIds);
+      const effects: ZoneEffect[] = [];
+      for (const id of [...bindings.keys()]) {
+        if (!alive.has(id)) effects.push(...finish(id, false));
+      }
+      return effects;
+    },
+
+    owner(id) {
+      const binding = bindings.get(id);
+      return binding ? { slot: binding.slot, control: binding.control } : null;
+    },
+
+    get size() {
+      return bindings.size;
+    },
+
+    view(slot) {
+      const zone = zoneOf(slot);
+      let stick: ZoneView['stick'] = null;
+      const pressed: Button[] = [];
+      let readyHeld = false;
+      for (const b of bindings.values()) {
+        if (b.slot !== slot) continue;
+        const button = buttonOf(b.control);
+        if (button !== null) pressed.push(button);
+        if (b.control === 'ready') readyHeld = true;
+        if (b.control === 'stick' && zone) {
+          const d = deltaToLocal(zone.rotation, b.last.x - b.origin.x, b.last.y - b.origin.y);
+          stick = {
+            origin: toLocal(zone, b.origin),
+            knob: knobOffset(d.x, d.y, zone.stickRadius),
+          };
+        }
+      }
+      pressed.sort();
+      return { stick, pressed, readyHeld };
+    },
+  };
+}
