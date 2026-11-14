@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-14 (CHAOS-6) · **Aktueller Meilenstein:** M1 – Technischer Durchstich (`CHAOS-1`)
+**Stand:** 2026-11-14 (M1 abnahmebereit) · **Aktueller Meilenstein:** M1 – Technischer Durchstich (`CHAOS-1`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -8,7 +8,7 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 
 | Meilenstein | Epic | Gate | Status |
 |---|---|---|---|
-| M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | in Arbeit |
+| M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | umgesetzt, wartet auf Abnahme |
 | M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | gesperrt bis M1-Freigabe |
 | M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | gesperrt bis M2-Freigabe |
 | M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | gesperrt bis M3-Freigabe |
@@ -17,52 +17,55 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 
 | Aufgabe | Inhalt | Stand |
 |---|---|---|
-| CHAOS-5 | Annahmenliste + Arbeitsartefakte | erledigt |
-| CHAOS-6 | pnpm-Monorepo + Pipelines | Review (PR offen) |
-| CHAOS-7 | Typisiertes WebSocket-Protokoll | blockiert durch CHAOS-6 |
-| CHAOS-8 | Babylon.js-Szene + Havok | blockiert durch CHAOS-6 |
-| CHAOS-9 | Session-Server | blockiert durch CHAOS-7 |
-| CHAOS-10 | iPhone-Controller-UI | blockiert durch CHAOS-7 |
-| CHAOS-11 | QR-Join über LAN | blockiert durch CHAOS-9 |
-| CHAOS-12 | Reconnect/Disconnect | blockiert durch CHAOS-9, CHAOS-10 |
-| CHAOS-13 | Shared-iPad-Zonen | blockiert durch CHAOS-10 |
-| CHAOS-14 | Playwright + Integrationstests | blockiert durch CHAOS-8, 11, 12, 13 |
-| CHAOS-15 | Gerätecheckliste, Demo-Anleitung, Abnahmebericht | blockiert durch CHAOS-14 |
-| CHAOS-16 | **M1-Abnahme (Ruben)** | blockiert durch CHAOS-15 |
+| CHAOS-5 | Annahmenliste + Arbeitsartefakte | erledigt (PR #2) |
+| CHAOS-6 | pnpm-Monorepo + Pipelines | erledigt (PR #3) |
+| CHAOS-7 | Typisiertes WebSocket-Protokoll (ADR-003) | Review (PR #4) |
+| CHAOS-8 | Babylon.js-Szene + Havok (ADR-004) | Review (PR #4) |
+| CHAOS-9 | Session-Server (ADR-005) | Review (PR #4) |
+| CHAOS-10 | iPhone-Controller-UI (ADR-006) | Review (PR #4) |
+| CHAOS-11 | QR-Join über LAN (ADR-007) | Review (PR #4) |
+| CHAOS-12 | Reconnect/Disconnect (ADR-009) | Review (PR #4) |
+| CHAOS-13 | Shared-iPad-Zonen (ADR-008) | Review (PR #4) |
+| CHAOS-14 | Playwright + Integrationstests (`testing.md`) | Review (PR #4) |
+| CHAOS-45 | Messanzeige Latenz/Bildrate (ADR-010) | Review (PR #4) |
+| CHAOS-15 | Gerätecheckliste, Demo-Anleitung, Abnahmebericht | Review (PR #4) |
+| CHAOS-16 | **M1-Abnahme (Ruben)** | wartet auf Gerätetest und Entscheidung |
 
 ## Validierte Befehle
 
-Stand CHAOS-6 (2026-11-14), lokal geprüft mit Node 22.23 / pnpm 10.28; CI läuft mit Node 24 (`.nvmrc`).
+Stand 2026-11-14 (PR #4), lokal Node 22.23 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubuntu-latest`.
 
 | Befehl | Ergebnis |
 |---|---|
 | `pnpm install --frozen-lockfile` | ok |
-| `pnpm typecheck` | ok (Root + 5 Pakete) |
-| `pnpm lint` | ok, 0 Warnungen |
-| `pnpm format:check` | ok |
-| `pnpm test` | ok, 3 Testdateien / 22 Tests (protocol, game-core RNG, Server-Auslieferung) |
-| `pnpm build` | ok (Host, Controller, Server) |
-| `pnpm check:licenses` | ok (react, react-dom, scheduler: MIT) |
-| `pnpm dev` | Host :5173, Controller :5174, Server :8787 starten; Host und Controller rendern ohne Konsolenfehler (Playwright-Rauchtest, nicht im Repo) |
-| `pnpm build && pnpm start` | Server liefert Controller-Build und `/health` auf einem Port |
+| `pnpm check` (typecheck, lint, format, test, build, Lizenzen) | ok – 505 Unit-/Integrationstests, 10 Laufzeit-Pakete auf der Positivliste |
+| `pnpm test:e2e` | ok – 54 Tests in 7 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~1,4 min |
+| `pnpm build && pnpm start` | Host `http://localhost:8787/host/`, Controller `/`, WebSocket `/ws`; Terminal zeigt LAN-Link, Join-Code, QR |
+| `pnpm dev` | Host :5173/host/, Controller :5174 (beide leiten `/ws` an :8787 weiter), Server :8787 |
+| Manueller Durchstich (Koordinator, Chromium-Emulation) | Host + 2 iPhone-Seiten + iPad (2 Zonen) gegen echten Server: Join, Bereit, Start, Joysticks bewegen je die eigene Figur, keine Seitenfehler |
 
-Details zu Werkzeugen und Paketschnitt: [ADR-002](decisions/ADR-002-workspace-tooling.md).
+Details: [`testing.md`](testing.md).
 
 ## Arbeitsartefakte
 
 | Datei | Zweck |
 |---|---|
-| [`assumptions.md`](assumptions.md) | Zu validierende Annahmen mit Validierungsweg und zuständiger Aufgabe |
-| [`decisions/`](decisions/README.md) | Architekturentscheidungen (ADR-001: Stack, ADR-002: Workspace/Werkzeuge) |
-| [`experiments.md`](experiments.md) | Experiment-Log mit Vorlage |
-| `device-test-checklist.md` | folgt in CHAOS-15 |
-| `acceptance/M1.md` | folgt in CHAOS-15 |
-| `blockers.md` | wird bei Bedarf angelegt (Skill `blocker-eskalieren`) |
+| [`assumptions.md`](assumptions.md) | Annahmen mit Validierungsweg und Stand |
+| [`decisions/`](decisions/README.md) | ADR-001 … ADR-010 |
+| [`experiments.md`](experiments.md) | Experiment-Log (in M1 keine Gameplay-Experimente) |
+| [`testing.md`](testing.md) | Test-Suiten, Ausführen, Baselines, Abdeckung je M1-Lieferumfang |
+| [`m1-demo.md`](m1-demo.md) | M1 auf echten Geräten ausprobieren |
+| [`device-test-checklist.md`](device-test-checklist.md) | Gerätecheckliste für die Abnahme (offen) |
+| [`network-setup.md`](network-setup.md) | Firewall, WLAN, Adresswahl |
+| [`ipad-zonen.md`](ipad-zonen.md) | Geteiltes iPad: Layouts und Grenzen |
+| [`acceptance/M1.md`](acceptance/M1.md) | Abnahmebericht M1 |
+| `blockers.md` | nicht nötig (keine Blocker) |
 
 ## Nächste Schritte
 
-1. CHAOS-6 abschließen: PR-Review und Merge (CI-Lauf auf GitHub belegt D1).
-2. Danach parallel möglich: CHAOS-7 (Protokoll, Schema-Bibliothek wählen) und CHAOS-8 (Babylon/Havok, Annahmen C1–C5).
+1. **Ruben:** M1 nach [`m1-demo.md`](m1-demo.md) auf echten Geräten testen, [`device-test-checklist.md`](device-test-checklist.md) ausfüllen, Fragen aus [`acceptance/M1.md`](acceptance/M1.md) beantworten, Entscheidung an CHAOS-16.
+2. Danach PR #4 mergen und Gerätewerte in `assumptions.md` nachtragen.
+3. M2 (CHAOS-2) erst nach APPROVED.
 
 ## Offene Risiken (Kurzfassung)
 

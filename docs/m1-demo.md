@@ -56,7 +56,7 @@ Kommt das iPhone nicht durch: [network-setup.md](network-setup.md) (Firewall, G�
 
 ## 5. iPad als geteilter Controller (2 Spieler)
 
-- In der Lobby am PC auf **„iPad (2 Spieler)“** umschalten und den QR-Code mit dem iPad scannen, **oder**
+- In der Lobby am PC auf **„iPad · 2 Spieler“** umschalten und den QR-Code mit dem iPad scannen, **oder**
 - auf dem iPad den Link mit `&seats=2` öffnen (z. B. `http://192.168.178.42:8787/?code=K7MX&seats=2`), **oder**
 - auf dem iPad `http://<Adresse>:8787/` ohne Code öffnen und „2 Spieler · iPad“ wählen.
 
@@ -82,7 +82,14 @@ M1 ist ein technischer Durchstich: Es gibt kein Brett, keine Runden und kein Spi
 
 `http://localhost:8787/host/?local=1` öffnet die Arena ohne Server; Steuerung per Tastatur (Spieler 1 WASD + Leertaste, Spieler 2 Pfeiltasten + Enter, Spieler 3 IJKL + O, Spieler 4 Ziffernblock 8/4/5/6 + 0). `?players=1–4` legt die Anzahl fest.
 
-## 9. Ergebnis festhalten
+## 9. Messwerte (für die Checkliste)
+
+- Host: `http://localhost:8787/host/?debug=1` zeigt unten rechts fps, Frame-Zeit, die Zeit von einer Eingabe bis zum nächsten Bild sowie GPU und WebGL-Version.
+- Controller: den Link um `&debug=1` ergänzen (z. B. `…/?code=K7MX&debug=1`); oben erscheint die Rundlaufzeit zum Server (Median, p95).
+- „Kopieren“ legt eine Zeile mit allen Werten in die Zwischenablage. Auf dem iPhone ist die Zeile vorausgewählt und kann von Hand kopiert werden.
+- Es gibt bewusst keine Grenzwerte. Deine Werte sind die Ausgangsbasis für spätere Meilensteine.
+
+## 10. Ergebnis festhalten
 
 Die Punkte in [device-test-checklist.md](device-test-checklist.md) durchgehen und eintragen: Gerät, iOS-Version, Netz, Ergebnis, Nachweis. Am Ende die Entscheidung **APPROVED / CHANGES REQUESTED / BLOCKED** im Chat oder als Kommentar an CHAOS-16.
 
