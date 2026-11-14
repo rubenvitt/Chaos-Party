@@ -3,14 +3,21 @@
  * Reducer (Zustand) und bietet React einen abonnierbaren Zustand
  * (`subscribe`/`getState` für `useSyncExternalStore`).
  *
- * Ablauf (ADR-003/ADR-006):
+ * Ablauf (ADR-003/ADR-006/ADR-009):
  * 1. `join(code)` öffnet die Verbindung.
  * 2. Nach dem Öffnen: gemerktes Token für diesen Code → `reconnect`, sonst `join { seats }`.
  * 3. `welcome` → Token merken. `bad-token` → Token vergessen, neue Verbindung mit `join`.
- * 4. Verbindungsverlust → Zustand `connection-lost`; `retry()` verbindet neu (mit Token).
+ * 4. Verbindungsverlust (Close, keine Server-Nachricht seit 10 s, Aufbau hängt > 5 s)
+ *    → automatisch neu verbinden mit Backoff (0,5 s, 1 s, 2 s, 4 s, dann alle 5 s, ±20 %).
+ *    Sichtbar-Werden der Seite, `online` und Rückkehr aus dem Back-Forward-Cache prüfen
+ *    die Verbindung sofort (iOS-Sperrbildschirm/App-Wechsel, B7).
+ * 5. Endgültig aufgegeben wird nur, wenn Weiterversuchen nichts bringt: falscher Code,
+ *    Spiel voll, neue Version, Spiel läuft schon (Neubeitritt unmöglich) oder der Platz
+ *    wurde von einem anderen Tab/Gerät übernommen (Close 4003 – sonst verdrängten sich
+ *    zwei Tabs gegenseitig). `retry()` versucht es dann manuell erneut.
  *
- * CHAOS-12 ersetzt das manuelle `retry()` durch automatisches Wiederverbinden mit
- * Backoff – die Stelle ist mit „CHAOS-12“ markiert.
+ * Die Sitzung ist platzunabhängig: Ein geteiltes iPad (CHAOS-13) nutzt sie mit `seats` > 1;
+ * alle Slots einer Verbindung gehen gemeinsam verloren und kommen gemeinsam zurück.
  */
 import { createMessage, type ServerToControllerMessage } from '@chaos-party/protocol';
 import {
@@ -19,6 +26,8 @@ import {
   type ControllerEvent,
   type ControllerState,
 } from '../state/reducer.ts';
+import type { UiErrorCode } from '../state/errors.ts';
+import { backoffDelay } from './backoff.ts';
 import {
   browserSocketFactory,
   createClient,
@@ -27,9 +36,18 @@ import {
   type SocketFactory,
 } from './client.ts';
 import type { TokenStore } from './tokenStore.ts';
+import { browserWakeSource, type WakeSource } from './wake.ts';
 
-/** Abstand der Herzschläge (Rundlaufzeit, Lebenszeichen für den Server). */
+/** Abstand der Herzschläge (Rundlaufzeit, Lebenszeichen für den Server, der nach 15 s trennt). */
 export const HEARTBEAT_INTERVAL_MS = 5000;
+/** So lange darf der Verbindungsaufbau dauern (iOS wartet bei unerreichbarem PC sonst ewig). */
+export const CONNECT_TIMEOUT_MS = 5000;
+/** Ohne jede Server-Nachricht (Herzschlag-Antwort alle 5 s) gilt die Verbindung danach als tot. */
+export const DEAD_AFTER_MS = 10_000;
+/** Nach dem Aufwachen (Seite wieder sichtbar) muss die Antwort auf einen Herzschlag so schnell kommen. */
+export const PROBE_TIMEOUT_MS = 2000;
+/** Close-Code des Servers: Slots wurden per `reconnect` von einer anderen Verbindung übernommen. */
+export const CLOSE_REPLACED = 4003;
 
 export interface ControllerSessionOptions {
   url: string;
@@ -38,6 +56,16 @@ export interface ControllerSessionOptions {
   tokens: TokenStore;
   createSocket?: SocketFactory;
   heartbeatMs?: number;
+  connectTimeoutMs?: number;
+  deadAfterMs?: number;
+  probeTimeoutMs?: number;
+  /** Zufall für den Backoff-Jitter, Werte in [0, 1). */
+  random?: () => number;
+  /**
+   * Aufwach-Signale (Sichtbarkeit, `online`, `pageshow`). Standard: die des Browsers,
+   * außerhalb des Browsers keine. `null` schaltet sie ab.
+   */
+  wake?: WakeSource | null;
   /** Uhr für Herzschläge (ms). */
   now?: () => number;
   /** Meldet verworfene Server-Nachrichten (Standard: `console.warn`). */
@@ -49,19 +77,28 @@ export interface ControllerSession {
   readonly subscribe: (listener: () => void) => () => void;
   /** Mit einem Join-Code verbinden (auch erneut nach falschem Code). */
   readonly join: (joinCode: string) => void;
-  /** Nach Verbindungsverlust mit demselben Code (und Token) neu verbinden. */
+  /**
+   * Sofort neu verbinden („Jetzt neu verbinden“, Fehlerbildschirm): bricht die Wartezeit
+   * ab und nimmt nach einem Aufgeben das automatische Wiederverbinden wieder auf.
+   */
   readonly retry: () => void;
-  /** Slot-Eingabe senden; `false`, wenn gerade keine Verbindung besteht. */
+  /** Slot-Eingabe senden; `false`, solange keine beigetretene Verbindung besteht. */
   readonly sendIntent: (intent: SlotIntent) => boolean;
   /** Toast schließen. */
   readonly dismissNotice: (id: number) => void;
-  /** Verbindung schließen und Timer stoppen. */
+  /** Verbindung schließen, Timer und Aufwach-Signale abmelden. */
   readonly dispose: () => void;
 }
+
+type Timer = ReturnType<typeof setTimeout>;
 
 export function createControllerSession(options: ControllerSessionOptions): ControllerSession {
   const createSocket = options.createSocket ?? browserSocketFactory;
   const heartbeatMs = options.heartbeatMs ?? HEARTBEAT_INTERVAL_MS;
+  const connectTimeoutMs = options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
+  const deadAfterMs = options.deadAfterMs ?? DEAD_AFTER_MS;
+  const probeTimeoutMs = options.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
+  const random = options.random ?? Math.random;
   const now = options.now ?? (() => performance.now());
   const warn =
     options.warn ??
@@ -73,7 +110,15 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
   const listeners = new Set<() => void>();
   let client: ControllerClient | null = null;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
+  /** Wachhund: Aufbau-Timeout bzw. „keine Server-Nachricht“. */
+  let watchdog: Timer | null = null;
+  let retryTimer: Timer | null = null;
   let handshake: 'join' | 'reconnect' = 'join';
+  /** Zähler automatischer Versuche seit dem letzten `welcome`. */
+  let attempt = 0;
+  /** Nach endgültigem Fehler kein automatisches Wiederverbinden mehr (bis `join`/`retry`). */
+  let stopped = false;
+  let disposed = false;
 
   function dispatch(event: ControllerEvent) {
     const next = reduce(state, event);
@@ -82,19 +127,67 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     for (const listener of listeners) listener();
   }
 
-  function stopHeartbeat() {
-    if (heartbeat !== null) clearInterval(heartbeat);
-    heartbeat = null;
+  function clearWatchdog() {
+    if (watchdog !== null) clearTimeout(watchdog);
+    watchdog = null;
+  }
+
+  function armWatchdog(ms: number) {
+    clearWatchdog();
+    watchdog = setTimeout(() => {
+      watchdog = null;
+      // Socket hängt (Aufbau) oder ist still gestorben (iOS hat den Tab eingefroren).
+      lose();
+    }, ms);
+  }
+
+  function clearRetry() {
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    retryTimer = null;
   }
 
   function closeClient() {
-    stopHeartbeat();
+    if (heartbeat !== null) clearInterval(heartbeat);
+    heartbeat = null;
+    clearWatchdog();
     client?.close();
     client = null;
   }
 
-  function open(joinCode: string) {
+  /** Verbindung ist weg: Zustand melden und den nächsten Versuch planen. */
+  function lose() {
     closeClient();
+    dispatch({ type: 'socket-closed' });
+    scheduleReconnect();
+  }
+
+  function scheduleReconnect() {
+    const joinCode = state.joinCode;
+    if (disposed || stopped || joinCode === null || retryTimer !== null) return;
+    attempt += 1;
+    dispatch({ type: 'reconnect-scheduled', attempt });
+    retryTimer = setTimeout(
+      () => {
+        retryTimer = null;
+        open(joinCode);
+      },
+      backoffDelay(attempt, random),
+    );
+  }
+
+  function giveUp(reason: UiErrorCode | null) {
+    stopped = true;
+    attempt = 0;
+    clearRetry();
+    closeClient();
+    if (reason !== null) dispatch({ type: 'gave-up', reason });
+    else dispatch({ type: 'socket-closed' });
+  }
+
+  function open(joinCode: string) {
+    if (disposed) return;
+    closeClient();
+    clearRetry();
     dispatch({ type: 'connect', joinCode });
     const current = createClient(
       options.url,
@@ -112,15 +205,20 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
           heartbeat = setInterval(() => {
             current.send(createMessage('heartbeat', { t: now() }));
           }, heartbeatMs);
+          armWatchdog(deadAfterMs);
         },
         onMessage(message) {
+          armWatchdog(deadAfterMs);
           handleMessage(joinCode, message);
         },
-        onClose() {
-          stopHeartbeat();
+        onClose(info) {
           client = null;
-          dispatch({ type: 'socket-closed' });
-          // CHAOS-12: hier automatisch mit Backoff neu verbinden (Token liegt im Speicher).
+          if (info.code === CLOSE_REPLACED) {
+            // Ein anderer Tab/ein anderes Gerät spielt jetzt diesen Platz: nicht zurückdrängeln.
+            giveUp('replaced');
+            return;
+          }
+          lose();
         },
         onInvalid(error) {
           warn(`Ungültige Server-Nachricht verworfen (${error.code}): ${error.message}`);
@@ -129,29 +227,65 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
       createSocket,
     );
     client = current;
+    armWatchdog(connectTimeoutMs);
   }
 
   function handleMessage(joinCode: string, message: ServerToControllerMessage) {
     if (message.type === 'welcome') {
+      attempt = 0;
       options.tokens.save(joinCode, message.sessionToken);
     }
-    if (message.type === 'error') {
-      if (message.code === 'bad-token' && handshake === 'reconnect') {
-        // Altes Token gilt nicht mehr (Server neu gestartet, Platz vergeben): neu beitreten.
-        options.tokens.clear();
-        open(joinCode);
-        return;
-      }
-      if (message.code === 'bad-join-code' || message.code === 'session-full') {
-        options.tokens.clear();
-        dispatch({ type: 'server', message, receivedAt: now() });
-        closeClient();
-        dispatch({ type: 'socket-closed' });
-        return;
+    if (message.type === 'error' && !state.welcomed) {
+      switch (message.code) {
+        case 'bad-token':
+          if (handshake === 'reconnect') {
+            // Altes Token gilt nicht mehr (Server neu gestartet, Platz freigegeben): neu beitreten.
+            options.tokens.clear();
+            open(joinCode);
+            return;
+          }
+          break;
+        case 'bad-join-code':
+        case 'session-full':
+          options.tokens.clear();
+          dispatch({ type: 'server', message, receivedAt: now() });
+          giveUp(null);
+          return;
+        case 'version-mismatch':
+          dispatch({ type: 'server', message, receivedAt: now() });
+          giveUp(null);
+          return;
+        case 'out-of-phase':
+          if (handshake === 'join') {
+            // Beitreten geht nur in der Lobby; das Spiel läuft bereits.
+            giveUp('game-running');
+            return;
+          }
+          break;
+        default:
+          break;
       }
     }
     dispatch({ type: 'server', message, receivedAt: now() });
   }
+
+  /** Seite wieder sichtbar / Netz zurück: Verbindung sofort prüfen bzw. sofort neu versuchen. */
+  function wake() {
+    if (disposed || stopped || state.joinCode === null) return;
+    if (client?.isOpen) {
+      // Der Socket kann nach dem Einfrieren „offen“ wirken, aber tot sein: Herzschlag als Probe.
+      client.send(createMessage('heartbeat', { t: now() }));
+      armWatchdog(probeTimeoutMs);
+      return;
+    }
+    if (client === null) open(state.joinCode);
+    // Sonst läuft gerade ein Aufbau; dessen Timeout greift.
+  }
+
+  const wakeSource = options.wake === undefined ? browserWakeSource() : options.wake;
+  const stopWake = wakeSource?.(() => {
+    wake();
+  });
 
   return {
     getState: () => state,
@@ -162,19 +296,26 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
       };
     },
     join(joinCode) {
+      stopped = false;
+      attempt = 0;
       open(joinCode);
     },
     retry() {
+      stopped = false;
       if (state.joinCode !== null) open(state.joinCode);
     },
     sendIntent(intent) {
+      if (!state.welcomed) return false;
       return client?.sendIntent(intent) ?? false;
     },
     dismissNotice(id) {
       dispatch({ type: 'notice-dismissed', id });
     },
     dispose() {
+      disposed = true;
+      clearRetry();
       closeClient();
+      stopWake?.();
     },
   };
 }

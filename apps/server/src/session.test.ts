@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   CLOSE_CODES,
+  DEFAULT_TIMEOUTS,
   Session,
   type ConnectionId,
   type Outgoing,
@@ -591,5 +592,212 @@ describe('Session: Missbrauchsschutz', () => {
     const t = setup();
     expect(t.send(99, createMessage('heartbeat', { t: 0 }))).toEqual([]);
     expect(t.disconnect(99)).toEqual([]);
+  });
+});
+
+describe('Session: Herzschlag, Timeouts und Token-Politik (CHAOS-12)', () => {
+  const tokenOf = (out: Outgoing[], id: ConnectionId) =>
+    ofType(out, id, 'welcome')[0]?.sessionToken ?? '';
+  const heartbeat = (t = 1) => createMessage('heartbeat', { t });
+  const reconnect = (sessionToken: string) => createMessage('reconnect', { sessionToken });
+  const joinMessage = () => createMessage('join', { joinCode: CODE, seats: 1 });
+
+  it('nutzt die dokumentierten Standardwerte', () => {
+    expect(DEFAULT_TIMEOUTS).toEqual({
+      handshakeMs: 5000,
+      controllerSilenceMs: 15000,
+      hostSilenceMs: 30000,
+      lobbyGraceMs: 60000,
+    });
+  });
+
+  it('schließt Verbindungen ohne Handshake nach 5 s', () => {
+    const t = setup();
+    t.connect(1);
+    t.advance(4999);
+    expect(t.session.tick()).toEqual([]);
+    t.advance(1);
+    expect(closes(t.session.tick())).toEqual([
+      { kind: 'close', to: 1, code: CLOSE_CODES.handshakeTimeout, reason: 'handshake-timeout' },
+    ]);
+    expect(t.session.snapshot().connections).toBe(0);
+    // Ein späterer Handshake auf der geschlossenen Verbindung wirkt nicht mehr.
+    expect(t.send(1, joinMessage())).toEqual([]);
+  });
+
+  it('erkennt stille Controller nach 15 s, bricht den Socket ab und meldet connected:false', () => {
+    const t = setup();
+    t.host();
+    t.join(1);
+    t.advance(10_000);
+    t.send(HOST, heartbeat());
+    t.send(1, heartbeat());
+    t.advance(14_999);
+    t.send(HOST, heartbeat());
+    expect(closes(t.session.tick())).toEqual([]);
+    t.advance(1);
+    const out = t.session.tick();
+    expect(closes(out)).toEqual([
+      {
+        kind: 'close',
+        to: 1,
+        code: CLOSE_CODES.heartbeatTimeout,
+        reason: 'heartbeat-timeout',
+        terminate: true,
+      },
+    ]);
+    expect(lastLobby(out).players.map((p) => p.connected)).toEqual([false]);
+    expect(t.session.snapshot().players[0]).toMatchObject({
+      connected: false,
+      disconnectedAt: t.clock,
+    });
+  });
+
+  it('wertet jede Nachricht als Lebenszeichen, auch ungültige', () => {
+    const t = setup();
+    t.join(1);
+    for (let i = 0; i < 3; i++) {
+      t.advance(10_000);
+      t.raw(1, 'kaputt');
+      expect(closes(t.session.tick())).toEqual([]);
+    }
+    expect(t.session.snapshot().players[0]?.connected).toBe(true);
+  });
+
+  it('gibt einem stillen Host 30 s; danach darf ein neuer Host übernehmen', () => {
+    const t = setup();
+    t.host();
+    t.advance(29_999);
+    expect(t.session.tick()).toEqual([]);
+    t.connect(101);
+    expect(errorCodes(t.send(101, createMessage('host-hello', {})), 101)).toEqual(['host-taken']);
+    t.advance(1);
+    expect(closes(t.session.tick())).toEqual([
+      {
+        kind: 'close',
+        to: HOST,
+        code: CLOSE_CODES.heartbeatTimeout,
+        reason: 'heartbeat-timeout',
+        terminate: true,
+      },
+    ]);
+    expect(t.session.snapshot().hostConnected).toBe(false);
+    t.connect(102);
+    expect(ofType(t.send(102, createMessage('host-hello', {})), 102, 'lobby')).toHaveLength(1);
+  });
+
+  it('gibt in der Lobby den Slot nach 60 s Trennung frei; das Token wird ungültig', () => {
+    const t = setup();
+    t.host();
+    const token = tokenOf(t.join(1), 1);
+    t.join(2);
+    t.disconnect(1);
+    t.advance(59_999);
+    t.send(HOST, heartbeat());
+    t.send(2, heartbeat());
+    expect(ofType(t.session.tick(), HOST, 'lobby')).toEqual([]);
+    t.advance(1);
+    const out = t.session.tick();
+    expect(lastLobby(out).players.map((p) => p.slot)).toEqual([2]);
+
+    t.connect(3);
+    expect(errorCodes(t.send(3, reconnect(token)), 3)).toEqual(['bad-token']);
+    // Der Platz ist wieder frei: Ein neuer Spieler bekommt Slot 1 mit neuem Token.
+    const [welcome] = ofType(t.send(3, joinMessage()), 3, 'welcome');
+    expect(welcome?.players.map((p) => p.slot)).toEqual([1]);
+    expect(welcome?.sessionToken).not.toBe(token);
+  });
+
+  it('beginnt die Schonfrist nach jedem Reconnect neu', () => {
+    const t = setup();
+    const token = tokenOf(t.join(1), 1);
+    t.disconnect(1);
+    t.advance(50_000);
+    t.connect(2);
+    expect(ofType(t.send(2, reconnect(token)), 2, 'welcome')).toHaveLength(1);
+    t.disconnect(2);
+    t.advance(50_000);
+    t.session.tick();
+    t.connect(3);
+    expect(ofType(t.send(3, reconnect(token)), 3, 'welcome')).toHaveLength(1);
+  });
+
+  it('gibt alle Slots eines iPad-Tokens gemeinsam frei', () => {
+    const t = setup();
+    t.host();
+    t.join(1, 3);
+    t.disconnect(1);
+    t.advance(60_000);
+    t.send(HOST, heartbeat());
+    expect(lastLobby(t.session.tick()).players).toEqual([]);
+    expect(t.session.snapshot().players).toEqual([]);
+  });
+
+  it('hält Slots im Spiel für die ganze Partie reserviert, auch aus der Lobby Getrennte', () => {
+    const t = setup();
+    t.host();
+    const lobbyToken = tokenOf(t.join(1), 1);
+    const playToken = tokenOf(t.join(2), 2);
+    t.disconnect(1);
+    t.send(HOST, start());
+    t.disconnect(2);
+    for (let i = 0; i < 600; i++) {
+      t.advance(1000);
+      t.send(HOST, heartbeat());
+      t.session.tick();
+    }
+    expect(t.session.snapshot().players.map((p) => [p.slot, p.connected])).toEqual([
+      [1, false],
+      [2, false],
+    ]);
+    t.connect(3);
+    const back = t.send(3, reconnect(playToken));
+    expect(ofType(back, 3, 'context')[0]).toMatchObject({ slot: 2, layout: 'joystick-buttons' });
+    t.connect(4);
+    expect(ofType(t.send(4, reconnect(lobbyToken)), 4, 'welcome')).toHaveLength(1);
+    // Neue Spieler können im Spiel nicht beitreten (M1).
+    t.connect(5);
+    expect(errorCodes(t.send(5, joinMessage()), 5)).toEqual(['out-of-phase']);
+  });
+
+  it('weist fremde (andere Server-Instanz) und kaputte Tokens ab', () => {
+    const other = setup({ createToken: () => 'anderer-server-token-0001' });
+    const foreign = tokenOf(other.join(1), 1);
+    const t = setup();
+    t.join(1);
+    t.connect(2);
+    expect(errorCodes(t.send(2, reconnect(foreign)), 2)).toEqual(['bad-token']);
+    // Kein gültiges Token-Format → Schemafehler.
+    expect(errorCodes(t.send(2, { v: 1, type: 'reconnect', sessionToken: 'kurz' }), 2)).toEqual([
+      'bad-message',
+    ]);
+    const script = { v: 1, type: 'reconnect', sessionToken: '<script>alert(1)</script>' };
+    expect(errorCodes(t.send(2, script), 2)).toEqual(['bad-message']);
+    // Die Verbindung darf es danach noch richtig versuchen.
+    expect(ofType(t.send(2, reconnect('token-0000000000000001')), 2, 'welcome')).toHaveLength(1);
+  });
+
+  it('beginnt nach einem Reconnect im Spiel mit frischem Sequenzwächter', () => {
+    const t = playing(1);
+    expect(ofType(t.send(1, move(1, 500)), HOST, 'input')).toHaveLength(1);
+    t.disconnect(1);
+    t.connect(2);
+    t.send(2, reconnect('token-0000000000000001'));
+    const out = t.send(2, move(1, 1));
+    expect(errorCodes(out, 2)).toEqual([]);
+    expect(ofType(out, HOST, 'input')[0]?.intent).toMatchObject({ slot: 1, seq: 1 });
+  });
+
+  it('lässt die übernommene alte Verbindung nicht mehr in den Timeout laufen', () => {
+    const t = playing(1);
+    t.connect(2);
+    t.send(2, reconnect('token-0000000000000001'));
+    t.advance(10_000);
+    t.send(2, heartbeat());
+    t.send(HOST, heartbeat());
+    t.advance(10_000);
+    // Verbindung 1 ist längst ersetzt; nur die neue zählt und ist lebendig.
+    expect(closes(t.session.tick())).toEqual([]);
+    expect(t.session.snapshot().players[0]).toMatchObject({ connected: true, connectionId: 2 });
   });
 });

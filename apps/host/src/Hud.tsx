@@ -41,7 +41,7 @@ const KEY_LABELS: Record<string, string> = {
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
   connecting: 'Server: verbinde …',
   connected: 'Server: verbunden',
-  disconnected: 'Server: getrennt – neuer Versuch alle 2 s',
+  disconnected: 'Server: getrennt – verbinde neu …',
   'host-taken': 'Anderes Spielfenster ist schon verbunden – warte …',
 };
 
@@ -90,7 +90,14 @@ export function Hud({ players, physics, showKeyHints, showPlayers, connection }:
                 <span className="player-symbol">{p.symbol}</span>
               </span>
               <span className="player-label">{p.label}</span>
-              <span className="player-state">{p.connected ? 'verbunden' : 'getrennt'}</span>
+              <span className="player-state">
+                {!p.connected && (
+                  <span className="player-warn" aria-hidden="true">
+                    ⚠{' '}
+                  </span>
+                )}
+                {p.connected ? 'verbunden' : 'getrennt'}
+              </span>
               {showKeyHints && <span className="player-keys">{keyHint(p)}</span>}
             </li>
           ))}

@@ -126,7 +126,7 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
                 </span>
                 <span className="lobby-player-label">{p.label}</span>
                 <span className="lobby-player-state">
-                  {!p.connected ? 'getrennt' : p.ready ? 'bereit ✓' : 'verbunden'}
+                  {!p.connected ? '⚠ getrennt' : p.ready ? 'bereit ✓' : 'verbunden'}
                 </span>
               </li>
             ))}

@@ -15,6 +15,13 @@ export const WS_PATH = '/ws';
 export const MAX_PAYLOAD_BYTES = 16 * 1024;
 /** Obergrenze gleichzeitiger WebSocket-Verbindungen (4 Controller + Host + Reserve für Reconnects). */
 export const MAX_CONNECTIONS = 64;
+/** Takt, in dem `Session.tick()` Timeouts prüft (CHAOS-12, ADR-009). */
+export const DEFAULT_TICK_MS = 1000;
+
+export interface SocketAdapterOptions {
+  /** Takt für `Session.tick()` in ms (Standard 1000). */
+  tickMs?: number | undefined;
+}
 
 export interface SocketAdapter {
   /** Schließt alle Verbindungen sofort und beendet den WebSocket-Server. */
@@ -22,7 +29,11 @@ export interface SocketAdapter {
   readonly connectionCount: number;
 }
 
-export function attachWebSocket(server: Server, session: Session): SocketAdapter {
+export function attachWebSocket(
+  server: Server,
+  session: Session,
+  options: SocketAdapterOptions = {},
+): SocketAdapter {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
   const sockets = new Map<ConnectionId, WebSocket>();
   let nextId: ConnectionId = 1;
@@ -35,10 +46,22 @@ export function attachWebSocket(server: Server, session: Session): SocketAdapter
         if (socket.readyState === socket.OPEN) socket.send(encode(action.message));
       } else {
         sockets.delete(action.to);
-        socket.close(action.code, action.reason);
+        // Tote Gegenstelle (Herzschlag-Timeout): sofort abbrechen statt auf den Close-Handshake
+        // zu warten. Die Session hat die Verbindung bereits gelöst; das spätere `close`-Ereignis
+        // ist dort idempotent.
+        if (action.terminate) socket.terminate();
+        else socket.close(action.code, action.reason);
       }
     }
   };
+
+  // Herzschlag-/Handshake-Timeouts und Lobby-Schonfrist (Session.tick). Ping/Pong auf
+  // Transportebene wird bewusst nicht genutzt: Browser beantworten Pings auch, wenn die
+  // Seite eingefroren ist (iOS-Hintergrund) – ein solcher Controller wäre nicht bedienbar.
+  const ticker = setInterval(() => {
+    apply(session.tick());
+  }, options.tickMs ?? DEFAULT_TICK_MS);
+  ticker.unref();
 
   const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
@@ -75,6 +98,7 @@ export function attachWebSocket(server: Server, session: Session): SocketAdapter
       return sockets.size;
     },
     close() {
+      clearInterval(ticker);
       server.off('upgrade', onUpgrade);
       for (const ws of wss.clients) ws.terminate();
       return new Promise((resolve) => {

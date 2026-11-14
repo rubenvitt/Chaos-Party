@@ -28,7 +28,8 @@ export function createLocalPlayers(count: number): HostPlayer[] {
 /**
  * Spieler aus dem `lobby`-Schnappschuss des Servers: nur beigetretene Slots,
  * Farbe und Bezeichnung so, wie der Server sie vergeben hat. Getrennte Spieler
- * bleiben sichtbar (halbtransparent, ohne Eingaben), bis CHAOS-12 Timeouts regelt.
+ * bleiben sichtbar (halbtransparent mit „!“, ohne Eingaben), bis sie zurückkommen oder
+ * der Server ihren Platz in der Lobby nach der Schonfrist freigibt (CHAOS-12).
  */
 export function playersFromLobby(players: readonly LobbyPlayer[]): HostPlayer[] {
   return [...players]

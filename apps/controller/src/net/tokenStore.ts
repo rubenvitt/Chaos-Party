@@ -1,10 +1,16 @@
 /**
- * Merkt sich das Sitzungs-Token, damit ein Neuladen der Seite per `reconnect`
- * denselben Platz zurückbekommt (Grundlage für CHAOS-12).
+ * Merkt sich das Sitzungs-Token, damit Neuladen, ein neuer Tab nach erneutem
+ * QR-Scan oder ein von iOS verworfener Tab per `reconnect` denselben Platz
+ * zurückbekommt (CHAOS-12, ADR-009).
  *
- * `sessionStorage`: übersteht Neuladen und das Verwerfen von Hintergrund-Tabs,
- * gilt aber nur für diesen Tab – zwei Tabs auf einem Gerät teilen sich so kein
- * Token. Speicherzugriffe können werfen (privater Modus, gesperrte Website-Daten);
+ * `localStorage` (seit CHAOS-12, vorher `sessionStorage`): Die iOS-Kamera öffnet
+ * jeden QR-Scan in einem **neuen** Tab – mit `sessionStorage` wäre das Token dort
+ * weg und ein Spieler käme während des Spiels nicht mehr auf seinen Platz. Öffnen
+ * zwei Tabs dasselbe Token, übernimmt der neuere den Platz; der ältere bekommt
+ * Close 4003 und verbindet sich nicht von selbst zurück (`session.ts`).
+ *
+ * Das Token gilt nur für denselben Join-Code (die Platzzahl trennt `tokenScope.ts`,
+ * CHAOS-13). Speicherzugriffe können werfen (privater Modus, gesperrte Website-Daten);
  * dann arbeitet der Controller einfach ohne gemerktes Token.
  */
 
@@ -70,9 +76,9 @@ export function createTokenStore(getStorage: () => StorageLike | null): TokenSto
   };
 }
 
-/** Speicher des Browsers (Tab-bezogen). */
+/** Speicher des Browsers (gerätebezogen, übersteht neue Tabs). */
 export function createBrowserTokenStore(): TokenStore {
-  return createTokenStore(() => globalThis.sessionStorage);
+  return createTokenStore(() => globalThis.localStorage);
 }
 
 /** Flüchtiger Speicher, z. B. für Tests. */

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { ERROR_CODES } from '@chaos-party/protocol';
 import { errorRemedy, errorSeverity, errorText, type UiErrorCode } from './errors.ts';
 
-const ALL: readonly UiErrorCode[] = [...ERROR_CODES, 'connection-failed', 'connection-lost'];
+const ALL: readonly UiErrorCode[] = [
+  ...ERROR_CODES,
+  'connection-failed',
+  'connection-lost',
+  'replaced',
+  'game-running',
+];
 
 describe('Fehlertexte', () => {
   it('hat für jeden Protokoll- und Verbindungsfehler einen deutschen Text', () => {

@@ -76,6 +76,9 @@ interface Character {
   antenna: Mesh;
   aggregate: PhysicsAggregate;
   material: StandardMaterial;
+  /** Rotes „!“ über dem Kopf, nur sichtbar, solange der Controller getrennt ist (CHAOS-12). */
+  marker: TransformNode;
+  markerMaterial: StandardMaterial;
   stick: { x: number; y: number };
   dashQueued: boolean;
   lastDashAt: number;
@@ -341,6 +344,26 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       shadows?.addShadowCaster(mesh, false);
     }
 
+    // Getrennt-Marker (CHAOS-12): ein „!“ in Warnorange schwebt über dem Kopf – vom Sofa aus
+    // erkennbar, wer gerade keine Verbindung hat. Kein Schattenwerfer, standardmäßig aus.
+    const marker = new TransformNode(`spieler-${player.slot}-getrennt`, scene);
+    marker.parent = root;
+    marker.position.y = CHARACTER.height / 2 + 1.0;
+    const markerMaterial = material(`spieler-${player.slot}-getrennt-mat`, '#d55e00', 0.6);
+    const bar = CreateCylinder(
+      'getrennt-strich',
+      { diameterTop: 0.2, diameterBottom: 0.12, height: 0.5, tessellation: 12 },
+      scene,
+    );
+    bar.parent = marker;
+    bar.position.y = 0.2;
+    bar.material = markerMaterial;
+    const dot = CreateSphere('getrennt-punkt', { diameter: 0.18, segments: 10 }, scene);
+    dot.parent = marker;
+    dot.position.y = -0.17;
+    dot.material = markerMaterial;
+    marker.setEnabled(false);
+
     const character: Character = {
       player,
       root,
@@ -348,6 +371,8 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       antenna,
       aggregate,
       material: mat,
+      marker,
+      markerMaterial,
       stick: { x: 0, y: 0 },
       dashQueued: false,
       lastDashAt: Number.NEGATIVE_INFINITY,
@@ -367,6 +392,10 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     for (const child of root.getChildMeshes()) {
       child.visibility = alpha;
     }
+    character.marker.setEnabled(!player.connected);
+    for (const child of character.marker.getChildMeshes()) {
+      child.visibility = 1;
+    }
   }
 
   function disposeCharacter(character: Character): void {
@@ -375,6 +404,7 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     }
     character.aggregate.dispose();
     character.material.dispose();
+    character.markerMaterial.dispose();
     character.root.dispose(false, false);
   }
 

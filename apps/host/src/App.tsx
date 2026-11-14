@@ -4,6 +4,7 @@ import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
 import { createWebSocketInputSource } from './input/webSocketInputSource.ts';
 import { LobbyPanel } from './lobby/LobbyPanel.tsx';
+import { PlayerToasts } from './lobby/PlayerToasts.tsx';
 import { useHostSession } from './net/useHostSession.ts';
 import { createLocalPlayers, playersFromLobby, type HostPlayer } from './players.ts';
 import { createGameScene } from './scene/createGameScene.ts';
@@ -137,6 +138,7 @@ export function App({ config }: AppProps) {
         showPlayers={local || phase === 'play'}
         connection={session.status}
       />
+      <PlayerToasts players={players} enabled={!local} />
       {!local && phase === 'lobby' && session.status !== null && (
         <LobbyPanel
           lobby={session.lobby}

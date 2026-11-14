@@ -3,9 +3,16 @@
  *
  * Meldet sich mit `host-hello` an, liefert `lobby`-Schnappschüsse und geprüfte
  * Eingaben (`input`) an die App und versucht es nach einer Trennung alle 2 s
- * erneut. Vollständige Reconnect-/Heartbeat-Logik (Timeouts) folgt mit CHAOS-12.
- * Ohne DOM-Abhängigkeit (Socket-Fabrik und Timer injizierbar), damit Unit-Tests
- * in Node laufen.
+ * erneut. Nach dem Wiederverbinden schickt der Server sofort die aktuelle `lobby`
+ * (Phase und Spieler), damit ist der Stand wiederhergestellt.
+ *
+ * Herzschlag (CHAOS-12, ADR-009): alle 5 s `heartbeat`; der Server trennt einen Host
+ * nach 30 s Stille. Kommt umgekehrt 15 s lang keine Server-Nachricht (Antworten auf
+ * den Herzschlag), gilt die Verbindung als tot und wird neu aufgebaut. Wird die Seite
+ * wieder sichtbar, prüft ein sofortiger Herzschlag die Verbindung.
+ *
+ * Ohne DOM-Abhängigkeit (Socket-Fabrik, Timer und Aufwach-Signale injizierbar), damit
+ * Unit-Tests in Node laufen.
  */
 import {
   createMessage,
@@ -27,6 +34,31 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'ho
 /** WebSocket-Close-Code des Servers „Host bereits vergeben“ (ADR-005). */
 export const CLOSE_HOST_TAKEN = 4002;
 export const DEFAULT_RETRY_MS = 2000;
+/** Herzschlag des Hosts (CHAOS-12). */
+export const HOST_HEARTBEAT_MS = 5000;
+/** Ohne Server-Nachricht so lange → Verbindung gilt als tot. */
+export const HOST_DEAD_AFTER_MS = 15_000;
+/** Nach dem Aufwachen muss die Antwort auf den Probe-Herzschlag so schnell kommen. */
+export const HOST_PROBE_TIMEOUT_MS = 2000;
+
+/** Abonniert „Seite wieder sichtbar/Netz zurück“; liefert die Abmeldung. */
+export type HostWakeSource = (onWake: () => void) => () => void;
+
+/** Aufwach-Signale des Browsers; `null` außerhalb des Browsers. */
+export function browserHostWakeSource(): HostWakeSource | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+  return (onWake) => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') onWake();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', onWake);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onWake);
+    };
+  };
+}
 
 /** Teilmenge der Browser-WebSocket-API, die wir nutzen. */
 export interface SocketLike {
@@ -51,6 +83,13 @@ export interface HostConnectionOptions {
   readonly retryMs?: number;
   readonly setTimer?: (callback: () => void, ms: number) => unknown;
   readonly clearTimer?: (handle: unknown) => void;
+  readonly heartbeatMs?: number;
+  readonly deadAfterMs?: number;
+  readonly probeTimeoutMs?: number;
+  /** Uhr für `heartbeat.t` (Standard: `performance.now()`). */
+  readonly now?: () => number;
+  /** Aufwach-Signale; Standard: die des Browsers, `null` schaltet sie ab. */
+  readonly wake?: HostWakeSource | null;
   /** Für ungültige Server-Nachrichten (Standard: `console.warn`). */
   readonly warn?: (message: string) => void;
 }
@@ -85,11 +124,61 @@ export function connectHost(
     ((message: string) => {
       console.warn(message);
     });
+  const heartbeatMs = options.heartbeatMs ?? HOST_HEARTBEAT_MS;
+  const deadAfterMs = options.deadAfterMs ?? HOST_DEAD_AFTER_MS;
+  const probeTimeoutMs = options.probeTimeoutMs ?? HOST_PROBE_TIMEOUT_MS;
+  const now = options.now ?? (() => performance.now());
 
   let status: ConnectionStatus = 'connecting';
   let socket: SocketLike | undefined;
   let retryTimer: unknown;
+  let heartbeatTimer: unknown;
+  let watchdogTimer: unknown;
   let closed = false;
+
+  const stopLiveness = () => {
+    if (heartbeatTimer !== undefined) clearTimer(heartbeatTimer);
+    if (watchdogTimer !== undefined) clearTimer(watchdogTimer);
+    heartbeatTimer = undefined;
+    watchdogTimer = undefined;
+  };
+
+  const sendHeartbeat = (current: SocketLike) => {
+    if (current.readyState === OPEN) current.send(encode(createMessage('heartbeat', { t: now() })));
+  };
+
+  const scheduleHeartbeat = (current: SocketLike) => {
+    heartbeatTimer = setTimer(() => {
+      heartbeatTimer = undefined;
+      if (socket !== current) return;
+      sendHeartbeat(current);
+      scheduleHeartbeat(current);
+    }, heartbeatMs);
+  };
+
+  /** Ohne Server-Nachricht innerhalb von `ms` gilt die Verbindung als tot. */
+  const armWatchdog = (current: SocketLike, ms: number) => {
+    if (watchdogTimer !== undefined) clearTimer(watchdogTimer);
+    watchdogTimer = setTimer(() => {
+      watchdogTimer = undefined;
+      if (socket !== current) return;
+      warn('Server antwortet nicht mehr – verbinde neu');
+      // Wie ein Close behandeln; den alten Socket abkoppeln, damit sein spätes `onclose` nichts tut.
+      socket = undefined;
+      current.onclose = null;
+      current.onmessage = null;
+      current.close(1000, 'Host: keine Antwort');
+      lost(1006);
+    }, ms);
+  };
+
+  /** Verbindung weg: Status setzen, Herzschlag stoppen, neuen Versuch planen. */
+  const lost = (code: number) => {
+    stopLiveness();
+    if (closed) return;
+    setStatus(code === CLOSE_HOST_TAKEN ? 'host-taken' : 'disconnected');
+    scheduleRetry();
+  };
 
   const setStatus = (next: ConnectionStatus) => {
     if (next === status) return;
@@ -123,9 +212,14 @@ export function connectHost(
       // Als verbunden gilt der Host erst mit dem ersten `lobby`: Ist schon ein anderer
       // Host da, schließt der Server sofort mit 4002, ohne Lobby.
       current.send(encode(createMessage('host-hello', {})));
+      scheduleHeartbeat(current);
+      armWatchdog(current, deadAfterMs);
     };
     current.onmessage = (event) => {
-      if (socket !== current || typeof event.data !== 'string') return;
+      if (socket !== current) return;
+      // Jede Server-Nachricht (auch eine ungültige) beweist, dass die Verbindung lebt.
+      armWatchdog(current, deadAfterMs);
+      if (typeof event.data !== 'string') return;
       const parsed = parseServerToHostMessage(event.data);
       if (!parsed.ok) {
         warn(`Ungültige Server-Nachricht ignoriert: ${parsed.error.message}`);
@@ -153,11 +247,26 @@ export function connectHost(
     current.onclose = (event) => {
       if (socket !== current) return;
       socket = undefined;
-      if (closed) return;
-      setStatus(event.code === CLOSE_HOST_TAKEN ? 'host-taken' : 'disconnected');
-      scheduleRetry();
+      lost(event.code);
     };
   }
+
+  /** Seite wieder sichtbar: Verbindung prüfen bzw. sofort neu versuchen statt zu warten. */
+  const wake = () => {
+    if (closed) return;
+    if (socket?.readyState === OPEN) {
+      sendHeartbeat(socket);
+      armWatchdog(socket, probeTimeoutMs);
+      return;
+    }
+    if (socket === undefined && retryTimer !== undefined) {
+      clearTimer(retryTimer);
+      retryTimer = undefined;
+      open();
+    }
+  };
+  const wakeSource = options.wake === undefined ? browserHostWakeSource() : options.wake;
+  const stopWake = wakeSource?.(wake);
 
   open();
 
@@ -172,6 +281,8 @@ export function connectHost(
     },
     close() {
       closed = true;
+      stopLiveness();
+      stopWake?.();
       if (retryTimer !== undefined) {
         clearTimer(retryTimer);
         retryTimer = undefined;

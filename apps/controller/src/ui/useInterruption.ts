@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+/**
+ * Wird auf `window` ausgelöst, wenn die Verbindung zum Spiel-PC abreißt (CHAOS-12,
+ * `ConnectionStatus`): Joysticks und Knöpfe lassen dann los wie bei einem Fokusverlust.
+ */
+export const CONNECTION_INTERRUPTED_EVENT = 'chaos:connection-interrupted';
+
 /** Stabile Funktion, die immer die zuletzt gerenderte Version von `fn` aufruft. */
 export function useStableCallback<A extends unknown[]>(
   fn: (...args: A) => void,
@@ -28,10 +34,12 @@ export function useInterruption(onInterrupt: () => void): void {
     };
     window.addEventListener('blur', handle);
     window.addEventListener('pagehide', handle);
+    window.addEventListener(CONNECTION_INTERRUPTED_EVENT, handle);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('blur', handle);
       window.removeEventListener('pagehide', handle);
+      window.removeEventListener(CONNECTION_INTERRUPTED_EVENT, handle);
       document.removeEventListener('visibilitychange', onVisibility);
       handle();
     };
