@@ -95,7 +95,10 @@ export function MinigameIntro({
   );
 }
 
-/** Eigenes Ergebnis: Platz groß, Punkte mit Einheit; bei Abbruch ein klarer Hinweis. */
+/**
+ * Eigenes Ergebnis: Platz groß (bei Gleichstand ausdrücklich „Geteilter Platz“), Punkte mit
+ * Einheit, Münzen aus `reward` (CHAOS-55); bei Abbruch ein klarer Hinweis statt Wertung.
+ */
 export function MinigameResult({
   minigame,
   compact = false,
@@ -110,6 +113,7 @@ export function MinigameResult({
       data-testid="minigame-result"
       data-kind={view.kind}
       data-place={view.kind === 'placed' ? view.place : ''}
+      data-tied={view.kind === 'placed' && view.tied ? 'true' : 'false'}
       data-compact={compact}
     >
       <p className="minigame-kicker ui-text">
@@ -118,7 +122,12 @@ export function MinigameResult({
       </p>
       {view.kind === 'placed' ? (
         <>
-          <div className="result-place" data-testid="result-place" data-place={view.place}>
+          <div
+            className="result-place"
+            data-testid="result-place"
+            data-place={view.place}
+            data-tied={view.tied ? 'true' : 'false'}
+          >
             {view.place === 1 && <Icon name="trophy" size={compact ? 36 : 52} />}
             <b className="ui-text">{view.headline}</b>
           </div>
@@ -126,6 +135,12 @@ export function MinigameResult({
           {view.score !== null && (
             <p className="result-score ui-text" data-testid="result-score">
               {view.score}
+            </p>
+          )}
+          {view.reward !== null && (
+            <p className="result-reward" data-testid="result-reward">
+              <Icon name="coin" size={compact ? 22 : 28} />
+              <b className="ui-text">{view.reward}</b>
             </p>
           )}
           <p className="minigame-lead ui-text">{RESULTS_LEAD}</p>

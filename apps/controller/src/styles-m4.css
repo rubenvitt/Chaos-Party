@@ -1,0 +1,885 @@
+/*
+ * M4 (CHAOS-36/37/38/55): Lobby mit Charakterwahl, Pause, Endstand, Minispiel-Münzen.
+ * Gleiche Sprache wie „Glas & Licht“ (styles.css, CHAOS-59): Mattglas-Karten, feine Kanten,
+ * die Spielerfarbe als Leuchten. Porträts sitzen in einem hellen „Lichtfenster“ (die Figuren
+ * haben dunkle Konturen). iPhone hoch: untereinander; quer: Karten links, „Bereit!“ rechts.
+ * iPad-Zone: absolut an den Rechtecken aus `zones/geometry.ts` (dieselben prüft der Tracker).
+ */
+
+/* ---------------------------------------------------------------------------
+ * Lobby mit Charakterwahl
+ * ------------------------------------------------------------------------- */
+
+.character-lobby {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.lobby-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.lobby-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.lobby-rounds {
+  flex: none;
+  padding: 4px 14px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-small);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.character-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Figurenkarte: Glas, Porträt im Lichtfenster, Name; ≥ 44 pt hoch und breit. */
+.character-card {
+  --owner: rgba(255, 255, 255, 0.35);
+  --on-owner: var(--ink);
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid var(--glass-line);
+  border-radius: 22px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-small);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 80ms ease-out,
+    box-shadow 120ms ease-out,
+    opacity 120ms ease-out;
+}
+
+.character-card:active:not([aria-disabled='true']),
+.character-card[data-pressed='true'] {
+  transform: scale(0.96);
+}
+
+.character-window {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 1;
+  max-height: 128px;
+  max-width: 100%;
+  border-radius: 18px;
+  /* Lichtfenster: helles Glas, damit die dunklen Konturen der Figuren lesbar bleiben. */
+  background: linear-gradient(180deg, #fff6df 0%, #d8efff 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 6px 18px rgba(0, 0, 0, 0.25);
+  /* Akzent der Figur (`currentColor`) in der eigenen Farbe: so sähe sie im Spiel aus. */
+  color: var(--player);
+}
+
+.portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.portrait svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.character-name {
+  max-width: 100%;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  /* Namen nie mitten im Wort trennen („Schra-ubi“); lieber zwei Zeilen an Leerzeichen. */
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.character-tag {
+  max-width: 100%;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Eigene Wahl: leuchtet in der Spielerfarbe, Haken am Fenster. */
+.character-card[data-state='mine'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--player) 34%, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    0 0 0 3px var(--player),
+    var(--glow);
+}
+
+.character-card[data-state='mine'] .character-tag {
+  background: var(--player);
+  color: var(--on-player);
+}
+
+.character-card[data-pending='true'] .character-tag {
+  animation: pick-pulse 0.9s ease-in-out infinite;
+}
+
+.character-check {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--glass-line);
+  border-radius: 50%;
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: var(--shadow-small);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Vergeben: ausgegraut; sitzt der Besitzer am selben Gerät, in seiner Farbe umrandet. */
+.character-card[data-state='taken'] {
+  cursor: default;
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 2px var(--owner);
+}
+
+.character-card[data-state='taken'] .character-window {
+  color: var(--owner);
+  filter: grayscale(0.85) brightness(0.8);
+}
+
+.character-card[data-state='taken'][data-owner=''] .character-window {
+  color: #9aa09a;
+}
+
+.character-card[data-state='taken']:not([data-owner='']) {
+  opacity: 0.7;
+}
+
+.character-card[data-state='taken']:not([data-owner='']) .character-window {
+  filter: grayscale(0.4) brightness(0.85);
+}
+
+.character-card[data-state='taken']:not([data-owner='']) .character-tag {
+  background: var(--owner);
+  color: var(--on-owner);
+}
+
+.character-owner.player-symbol {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  width: 32px;
+  height: 32px;
+  background: var(--owner);
+  color: var(--on-owner);
+  font-size: 18px;
+}
+
+.lobby-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lobby-hint {
+  margin: 0;
+  max-width: 340px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.lobby-ready {
+  min-height: 88px;
+}
+
+.lobby-sending {
+  margin: 0;
+  min-height: 88px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.lobby-ready-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-small);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.lobby-ready-done .ready-check {
+  width: 64px;
+  height: 64px;
+  font-size: 36px;
+}
+
+@keyframes pick-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Quer: Karten links (2×2), Kopf, Hinweis und „Bereit!“ rechts. */
+@media (orientation: landscape) {
+  .slot.screen-lobby .panel {
+    padding-top: 46px;
+  }
+
+  .character-lobby {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'grid head'
+      'grid foot';
+    column-gap: 18px;
+    row-gap: 10px;
+  }
+
+  .character-lobby .lobby-head {
+    grid-area: head;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .character-lobby .character-grid {
+    grid-area: grid;
+    gap: 10px;
+  }
+
+  .character-lobby .lobby-foot {
+    grid-area: foot;
+    justify-content: center;
+  }
+
+  .slot .character-card {
+    gap: 4px;
+    padding: 8px 8px 6px;
+  }
+
+  .slot .character-card .character-window {
+    max-height: 74px;
+  }
+
+  .slot .character-card .character-name {
+    font-size: 16px;
+  }
+
+  .slot .character-card .character-tag {
+    font-size: 12px;
+  }
+
+  .lobby-title {
+    font-size: 22px;
+  }
+}
+
+/* iPad-Zone: Kopf, Karten und Fuß absolut; Karten kompakter. */
+.zone-lobby-head,
+.zone-lobby-foot,
+.zone .zone-character {
+  position: absolute;
+}
+
+.zone-lobby-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zone-lobby-head .lobby-head {
+  flex-wrap: nowrap;
+}
+
+.zone-lobby-head .lobby-title {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.zone-lobby-head .lobby-rounds {
+  font-size: 14px;
+  padding: 2px 12px;
+}
+
+.zone .zone-character {
+  padding: 8px 6px;
+  gap: 4px;
+  border-radius: 18px;
+}
+
+.zone .zone-character .character-window {
+  max-height: 120px;
+}
+
+.zone .zone-character .character-name {
+  font-size: 16px;
+}
+
+.zone .zone-character .character-tag {
+  font-size: 12px;
+}
+
+.zone .zone-character .character-check {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+
+.zone .zone-character .character-owner.player-symbol {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+
+.zone .lobby-ready {
+  min-height: 0;
+  font-size: 30px;
+}
+
+.zone-lobby-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.lobby-ready-done[data-compact='true'] {
+  flex: none;
+  min-height: 56px;
+  padding: 0 20px 0 8px;
+  font-size: 22px;
+}
+
+.lobby-ready-done[data-compact='true'] .ready-check {
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+}
+
+.zone-lobby-hint {
+  margin: 0;
+  max-width: 260px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-dim);
+}
+
+.zone-lobby-foot .lobby-sending {
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Pause: ruhige Glas-Karte mit großem Pausenzeichen; Eingaben gibt es keine.
+ * ------------------------------------------------------------------------- */
+
+.pause-panel-wrap {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  justify-items: center;
+}
+
+.pause-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 34px;
+  max-width: 360px;
+  border: 1px solid var(--glass-line);
+  border-radius: 30px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.pause-glyph {
+  display: inline-flex;
+  gap: 16px;
+  padding: 22px 28px;
+  border-radius: 50%;
+  background: var(--primary-bg);
+  box-shadow: var(--glow);
+}
+
+.pause-glyph i {
+  width: 18px;
+  height: 56px;
+  border-radius: 8px;
+  background: var(--on-player);
+}
+
+.pause-title {
+  margin: 4px 0 0;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+
+.pause-lead {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pause-hint {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.pause-card[data-compact='true'] {
+  gap: 6px;
+  padding: 16px 22px;
+  border-radius: 24px;
+}
+
+.pause-card[data-compact='true'] .pause-glyph {
+  gap: 10px;
+  padding: 14px 18px;
+}
+
+.pause-card[data-compact='true'] .pause-glyph i {
+  width: 12px;
+  height: 36px;
+}
+
+.pause-card[data-compact='true'] .pause-title {
+  font-size: 30px;
+}
+
+.pause-card[data-compact='true'] .pause-lead {
+  font-size: 17px;
+}
+
+.zone .zone-waiting:has(.pause-card) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (orientation: landscape) {
+  .slot.screen-pause .panel {
+    padding-top: 44px;
+  }
+
+  .pause-panel-wrap {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
+
+  .pause-panel-wrap .board-status {
+    align-self: start;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .pause-panel-wrap .stat-items {
+    flex-basis: auto;
+    justify-content: flex-start;
+  }
+
+  /* Quer ist wenig Höhe: Karte kompakter, damit nichts abgeschnitten wird. */
+  .slot .pause-card {
+    gap: 6px;
+    padding: 16px 28px;
+  }
+
+  .slot .pause-glyph {
+    gap: 12px;
+    padding: 14px 20px;
+  }
+
+  .slot .pause-glyph i {
+    width: 14px;
+    height: 40px;
+  }
+
+  .slot .pause-title {
+    font-size: 34px;
+  }
+
+  .slot .pause-lead {
+    font-size: 20px;
+  }
+
+  .slot .pause-hint {
+    font-size: 15px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Endstand: eigene Figur, Platz (auch geteilt), Trophäen, Münzen, Minispiel-Siege.
+ * ------------------------------------------------------------------------- */
+
+.final-panel {
+  width: 100%;
+  height: 100%;
+}
+
+.final-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.final-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.final-portrait {
+  flex: none;
+  width: 132px;
+  height: 132px;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #fff6df 0%, #d8efff 100%);
+  box-shadow:
+    0 0 0 3px var(--player),
+    var(--glow);
+  color: var(--player);
+  animation: minigame-pop 420ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.final-headings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.final-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  /* Groß wie bisher (≥ 80 px): aus dem Augenwinkel lesbar. */
+  padding: 16px 28px;
+  border: 1px solid var(--glass-line);
+  border-radius: 26px;
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: var(--shadow);
+}
+
+.final-place[data-place='1'] {
+  background: var(--primary-bg);
+  box-shadow: var(--glow);
+}
+
+.final-place b {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.final-place[data-tied='true'] b {
+  font-size: 32px;
+}
+
+.final-headline {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.final-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.final-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 4px 18px 4px 8px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-small);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.final-stat-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.final-card[data-compact='true'] .final-stat-label {
+  font-size: 12px;
+}
+
+.final-note {
+  margin: 0;
+  padding: 6px 16px;
+  border: 1px dashed var(--glass-line);
+  border-radius: 14px;
+  background: var(--glass);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.final-rematch {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+@media (orientation: landscape) {
+  .slot.screen-final .panel {
+    padding-top: 40px;
+  }
+
+  .slot .final-card {
+    max-width: none;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'hero stats'
+      'hero note'
+      'hero rematch';
+    align-content: center;
+    column-gap: 28px;
+    row-gap: 12px;
+    text-align: left;
+  }
+
+  .slot .final-card:not([data-ended-early='true']) {
+    grid-template-areas:
+      'hero stats'
+      'hero rematch';
+  }
+
+  .slot .final-card .final-hero {
+    grid-area: hero;
+    align-self: center;
+  }
+
+  .slot .final-card .final-stats {
+    grid-area: stats;
+    justify-content: flex-start;
+  }
+
+  .slot .final-card .final-stat-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+
+  .final-card[data-compact='true'] .final-stat-label {
+    font-size: 12px;
+  }
+
+  .final-note {
+    grid-area: note;
+    justify-self: start;
+  }
+
+  .slot .final-card .final-rematch {
+    grid-area: rematch;
+  }
+
+  .slot .final-portrait {
+    width: 104px;
+    height: 104px;
+  }
+}
+
+/* Zone: kompakt; breite Zonen mit Figur links neben dem Platz. */
+.zone-final {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+
+.final-card[data-compact='true'] {
+  gap: 10px;
+}
+
+.final-card[data-compact='true'] .final-hero {
+  gap: 10px;
+}
+
+.final-card[data-compact='true'] .final-portrait {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+}
+
+.final-card[data-compact='true'] .final-place {
+  padding: 6px 18px;
+}
+
+.final-card[data-compact='true'] .final-place b {
+  font-size: 32px;
+}
+
+.final-card[data-compact='true'] .final-place[data-tied='true'] b {
+  font-size: 24px;
+}
+
+.final-card[data-compact='true'] .final-headline {
+  font-size: 22px;
+}
+
+.final-card[data-compact='true'] .final-stat {
+  min-height: 40px;
+  padding: 2px 14px 2px 6px;
+  font-size: 20px;
+}
+
+.final-card[data-compact='true'] .final-note,
+.final-card[data-compact='true'] .final-rematch {
+  font-size: 14px;
+}
+
+@container (min-aspect-ratio: 3 / 2) {
+  .final-card[data-compact='true'] .final-hero {
+    flex-direction: row;
+    text-align: left;
+  }
+
+  .final-card[data-compact='true'] .final-headings {
+    align-items: flex-start;
+  }
+
+  .final-card[data-compact='true'] .final-portrait {
+    width: 76px;
+    height: 76px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Minispiel-Ergebnis (CHAOS-55): geteilter Platz ausdrücklich, Münzen aus `reward`.
+ * ------------------------------------------------------------------------- */
+
+.result-place[data-tied='true'] b {
+  font-size: 40px;
+  white-space: normal;
+  text-align: center;
+}
+
+.minigame-card[data-compact='true'] .result-place[data-tied='true'] b {
+  font-size: 28px;
+}
+
+.result-reward {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 18px 4px 8px;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-small);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.minigame-card[data-compact='true'] .result-reward {
+  font-size: 17px;
+  padding: 2px 14px 2px 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-card[data-pending='true'] .character-tag,
+  .final-portrait {
+    animation: none;
+  }
+}

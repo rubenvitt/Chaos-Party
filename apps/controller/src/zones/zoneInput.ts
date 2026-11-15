@@ -1,11 +1,12 @@
 /**
  * Vom Server-Kontext einer Zone zu dem, was sie anzeigen soll (rein, ohne DOM).
  */
-import type { SlotNumber } from '@chaos-party/protocol';
+import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import { describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
+import { describeLobby, type SiblingCharacter } from '../lobby/view.ts';
 import { offeredActions } from '../minigame/view.ts';
 import type { PendingChoice, SlotContext } from '../state/reducer.ts';
-import type { ZoneChoicesInput, ZoneControlsInput } from './geometry.ts';
+import type { ZoneChoicesInput, ZoneControlsInput, ZoneLobbyInput } from './geometry.ts';
 
 /** Kennung eines Kontexts; ein neuer Kontext setzt „Bereit gesendet“ zurück (wie `LobbyPanel`). */
 export function contextKey(context: SlotContext): string {
@@ -30,6 +31,28 @@ export function zoneChoicesInput(
   };
 }
 
+/** Figurenkarten und „Bereit!“ einer Zone in der Lobby (CHAOS-36) oder `undefined`. */
+export function zoneLobbyInput(
+  context: SlotContext | undefined,
+  readySent: boolean,
+  pick?: CharacterId,
+  siblings: readonly SiblingCharacter[] = [],
+): ZoneLobbyInput | undefined {
+  const view = describeLobby(context, pick, siblings);
+  if (!view) return undefined;
+  return {
+    characters: view.cards.map((card) => ({ id: card.id, selectable: card.selectable })),
+    showReady: view.canReady && !view.ready && !readySent,
+  };
+}
+
+/** Zusatzangaben je Zone: gesendete Wahl (Brett), vorgemerkte Figur und Nachbarplätze (Lobby). */
+export interface ZoneExtras {
+  readonly pending?: PendingChoice | undefined;
+  readonly pick?: CharacterId | undefined;
+  readonly siblings?: readonly SiblingCharacter[];
+}
+
 /**
  * Eingabe für {@link layoutZoneControls}. Ohne Kontext wartet die Zone.
  * `readySentFor` ist der Kontext, in dem diese Zone `ready` gesendet hat;
@@ -40,14 +63,18 @@ export function zoneControlsInput(
   readySentFor: string | undefined,
   slot?: SlotNumber,
   pending?: PendingChoice,
+  extras: Omit<ZoneExtras, 'pending'> = {},
 ): ZoneControlsInput {
   if (!context) return { layout: 'wait', actions: [] };
   const choices = slot === undefined ? undefined : zoneChoicesInput(slot, context, pending);
+  const readySent = readySentFor !== undefined && readySentFor === contextKey(context);
+  const lobby = zoneLobbyInput(context, readySent, extras.pick, extras.siblings);
   return {
     layout: context.layout,
     // Minispiel (CHAOS-33): nur Elemente, die der Steckbrief auch beschriftet.
     actions: context.layout === 'joystick-buttons' ? offeredActions(context) : context.actions,
-    readySent: readySentFor !== undefined && readySentFor === contextKey(context),
+    readySent,
     ...(choices !== undefined && { choices }),
+    ...(lobby !== undefined && { lobby }),
   };
 }

@@ -110,12 +110,16 @@ export type ResultView =
   | {
       readonly kind: 'placed';
       readonly place: number;
-      /** „Platz 1!“ */
+      /** Platz mit jemandem geteilt (CHAOS-55). */
+      readonly tied: boolean;
+      /** „Platz 1!“ bzw. „Geteilter Platz 1!“ */
       readonly headline: string;
       /** Kurzer Zuruf je Platz. */
       readonly cheer: string;
       /** „42 Pumpstöße“ oder `null`, wenn der Server keine Punkte schickt. */
       readonly score: string | null;
+      /** „+5 Münzen“, „Keine Münzen“ oder `null`, wenn der Server keine Belohnung schickt. */
+      readonly reward: string | null;
     }
   | { readonly kind: 'aborted'; readonly headline: string; readonly lead: string };
 
@@ -126,24 +130,35 @@ const CHEERS: Readonly<Record<number, string>> = {
   4: 'Nächstes Mal!',
 };
 
-/**
- * Ergebnis aus dem Kontext. Fehlt `place`, wurde das Minispiel abgebrochen (keine Wertung).
- * Gleichstand: Der Server vergibt denselben Platz (1, 1, 3); beide sehen „Platz 1!“.
- */
-export function describeResult(minigame: ControllerMinigameInfo): ResultView {
-  if (minigame.place === undefined) {
-    return { kind: 'aborted', headline: ABORTED_HEADLINE, lead: ABORTED_LEAD };
-  }
-  return {
-    kind: 'placed',
-    place: minigame.place,
-    headline: `Platz ${String(minigame.place)}!`,
-    cheer: CHEERS[minigame.place] ?? 'Gut gespielt!',
-    score: minigame.score === undefined ? null : formatScore(minigame.score, minigame.scoreUnit),
-  };
+const NUMBER_FORMAT = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+
+/** Münzbelohnung aus dem Ergebnis (`reward`) als Text. */
+export function rewardText(reward: number | undefined): string | null {
+  if (reward === undefined) return null;
+  if (reward === 0) return 'Keine Münzen';
+  return reward === 1 ? '+1 Münze' : `+${NUMBER_FORMAT.format(reward)} Münzen`;
 }
 
-const NUMBER_FORMAT = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+/**
+ * Ergebnis aus dem Kontext. Abgebrochen (`aborted`, CHAOS-55) oder ohne Platz: keine Wertung.
+ * Gleichstand (`tied`): Der Server vergibt denselben Platz (1, 1, 3); beide sehen ausdrücklich
+ * „Geteilter Platz 1!“.
+ */
+export function describeResult(minigame: ControllerMinigameInfo): ResultView {
+  if (minigame.aborted || minigame.place === undefined) {
+    return { kind: 'aborted', headline: ABORTED_HEADLINE, lead: ABORTED_LEAD };
+  }
+  const { place, tied } = minigame;
+  return {
+    kind: 'placed',
+    place,
+    tied,
+    headline: tied ? `Geteilter Platz ${String(place)}!` : `Platz ${String(place)}!`,
+    cheer: tied && place === 1 ? 'Gemeinsam gewonnen!' : (CHEERS[place] ?? 'Gut gespielt!'),
+    score: minigame.score === undefined ? null : formatScore(minigame.score, minigame.scoreUnit),
+    reward: rewardText(minigame.reward),
+  };
+}
 
 /** „1.234 Pumpstöße“, „-3 Punkte“ (deutsche Tausenderpunkte). */
 export function formatScore(score: number, unit: string): string {
