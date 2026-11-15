@@ -1,10 +1,16 @@
 {
-  "$comment": "CHAOS-56/57 Look-Dev: CC0-Assets von Poly Haven (https://polyhaven.com/license). Abruf mit `node scripts/fetch-lookdev-assets.mjs` nach apps/host/public/lookdev-assets/ (nicht eingecheckt). Ins Asset-Manifest kommt erst die gewählte Auswahl.",
+  "$comment": "CHAOS-56/57/60 Look-Dev: CC0-Assets von Poly Haven (https://polyhaven.com/license). Abruf mit `node scripts/fetch-lookdev-assets.mjs` nach apps/host/public/lookdev-assets/ (nicht eingecheckt). Ins Asset-Manifest kommt erst die gewählte Auswahl.",
   "license": "CC0-1.0",
   "hdris": [
     { "id": "qwantani_mid_morning_puresky", "resolution": "1k" },
     { "id": "qwantani_late_afternoon_puresky", "resolution": "1k" },
-    { "id": "kloofendal_48d_partly_cloudy_puresky", "resolution": "1k" }
+    { "id": "kloofendal_48d_partly_cloudy_puresky", "resolution": "1k" },
+    { "id": "qwantani_noon_puresky", "resolution": "1k" },
+    { "id": "qwantani_dusk_2_puresky", "resolution": "1k" },
+    { "id": "qwantani_dusk_1_puresky", "resolution": "1k" },
+    { "id": "qwantani_moonrise_puresky", "resolution": "1k" },
+    { "id": "qwantani_night_puresky", "resolution": "1k" },
+    { "id": "qwantani_moon_noon_puresky", "resolution": "1k" }
   ],
   "textures": [
     { "id": "leafy_grass", "resolution": "1k" },

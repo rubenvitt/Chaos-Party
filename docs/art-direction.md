@@ -3,7 +3,9 @@
 **Stand:** M3 (CHAOS-27, CHAOS-28), Figuren neu in CHAOS-58 (Blender, ADR-013, Look
 „Stilisierte Natur“ aus EXP-009). Gilt für Figuren, Brett, Minispiele, Effekte und UI. Die
 Abschnitte zu Licht, Farbe und Brett beschreiben noch den M3-Stand, bis der Natur-Look
-umgesetzt ist (CHAOS-56).
+umgesetzt ist (CHAOS-56). Lichtstimmungen des Natur-Looks stehen als Daten in
+`apps/host/src/lighting/moods.ts` (CHAOS-60, EXP-010): Nachtstimmungen lassen Feld-Einlagen und
+Slot-Ringe von innen leuchten, damit Slot-Farbe und Symbol lesbar bleiben.
 Belege: `docs/screenshots/m3-figuren-*.png`. Quelle der Wahrheit für Produkt und Stil bleibt `VISION.md`.
 
 ## Leitbild

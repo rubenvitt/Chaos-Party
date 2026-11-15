@@ -23,6 +23,7 @@ import { defaultCharacterFor, type Slot } from '@chaos-party/minigame-sdk';
 import { CHARACTER_ANIMATIONS } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { loadCharacters, type HostCharacterHandle } from '../characters/index.ts';
+import { LIGHT_MOOD_IDS, LIGHT_MOODS } from '../lighting/moods.ts';
 import { buildArena, buildBoard } from './content.ts';
 import { LOOK_IDS, LOOKS, type Look, type LookId } from './looks.ts';
 import {
@@ -139,22 +140,10 @@ function restyle(handle: HostCharacterHandle): void {
  * `figuren=neu` (CHAOS-58): neu modellierte Figuren aus Blender (`packages/assets/blender/`),
  * erzeugt nach `apps/host/public/lookdev-figures/`; PBR-Materialien bleiben erhalten.
  */
-const newFigures = params.get('figuren') === 'neu';
-const FIGURE_SUFFIX = import.meta.env.VITE_LOOKDEV_PACKED === '1' ? '.wasm' : '';
-const library = await loadCharacters(
-  scene,
-  newFigures
-    ? {
-        keepPbr: true,
-        sources: Object.fromEntries(
-          (['robot', 'cactus', 'raccoon', 'sock'] as const).map((id) => [
-            id,
-            `${import.meta.env.BASE_URL}lookdev-figures/${id}.glb${FIGURE_SUFFIX}`,
-          ]),
-        ),
-      }
-    : {},
-);
+// Seit CHAOS-58 sind die neuen Figuren Standard im Asset-Paket; die Natur-Welt zeigt sie
+// immer mit ihren PBR-Materialien (`figuren=neu` bleibt als Alias für alte Links).
+const newFigures = params.get('figuren') === 'neu' || natureVariant !== null;
+const library = await loadCharacters(scene, newFigures ? { keepPbr: true } : {});
 const handles: HostCharacterHandle[] = [];
 
 function placeFigure(slot: Slot, at: Vector3, yaw: number): HostCharacterHandle {
@@ -343,7 +332,6 @@ function buildSwitcher(): void {
   const nav = document.getElementById('switcher');
   if (!nav || !natureVariant) return;
   document.body.dataset.interaktiv = 'ja';
-  const suffix = newFigures ? '-neu' : '';
   const row = (
     entries: readonly (readonly [string, string])[],
     current: string,
@@ -366,13 +354,9 @@ function buildSwitcher(): void {
   };
   nav.append(
     row(
-      [
-        ['natur-morgen', 'Morgen'],
-        ['natur-abend', 'Goldene Stunde'],
-        ['natur-wolken', 'Bewölkt'],
-      ],
+      LIGHT_MOOD_IDS.map((id) => [`natur-${id}`, LIGHT_MOODS[id].title] as const),
       natureVariant,
-      (id) => `${id}-${shot}${suffix}`,
+      (id) => `${id}-${shot}`,
     ),
     row(
       [
@@ -381,15 +365,7 @@ function buildSwitcher(): void {
         ['minispiel', 'Minispiel'],
       ],
       shot,
-      (id) => `${natureVariant}-${id}${suffix}`,
-    ),
-    row(
-      [
-        ['alt', 'Figuren alt'],
-        ['neu', 'Figuren neu'],
-      ],
-      newFigures ? 'neu' : 'alt',
-      (id) => `${natureVariant}-${shot}${id === 'neu' ? '-neu' : ''}`,
+      (id) => `${natureVariant}-${id}`,
     ),
   );
   // Animationen ohne Neuladen abspielen (alle Figuren).
