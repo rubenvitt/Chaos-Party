@@ -148,9 +148,11 @@ export const NOTICE_MS = 3000;
 interface ToastProps {
   notice: Notice;
   onDismiss: (id: number) => void;
+  /** In einer iPad-Zone (gedreht mit der Zone) statt mittig unten auf dem Gerät. */
+  zone?: boolean;
 }
 
-export function Toast({ notice, onDismiss }: ToastProps) {
+export function Toast({ notice, onDismiss, zone = false }: ToastProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onDismiss(notice.id);
@@ -161,7 +163,13 @@ export function Toast({ notice, onDismiss }: ToastProps) {
   }, [notice.id, onDismiss]);
 
   return (
-    <div className="toast ui-text" role="status" data-testid="toast" data-code={notice.code}>
+    <div
+      className={zone ? 'toast toast--zone ui-text' : 'toast ui-text'}
+      role="status"
+      data-testid="toast"
+      data-code={notice.code}
+      data-slot={notice.slot ?? ''}
+    >
       {errorText(notice.code)}
     </div>
   );

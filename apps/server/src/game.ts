@@ -51,14 +51,23 @@ export interface BoardGameSettings {
   readonly minigames: readonly MinigameSpec[];
   /**
    * Vorschläge für die Rundenzahl in der Lobby (`lobby.settings.roundPresets`, aufsteigend).
-   * Platzhalter bis zum Balance-Pass; `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
+   * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
    */
   readonly roundPresets: readonly number[];
 }
 
-export const DEFAULT_ROUNDS = 5;
-/** Platzhalter-Vorschläge (kurz, normal, lang); der Balance-Pass justiert sie. */
-export const DEFAULT_ROUND_PRESETS: readonly number[] = [3, 5, 8];
+/**
+ * Standard-Rundenzahl (EXP-010/011, CHAOS-40): ≈ 14–16 Minuten mit 3–4 Spielern, alle drei
+ * Minispiele kommen drei- bis viermal dran, und in 63–81 % der Partien entscheiden die
+ * Trophäen (bei 5 Runden nur 49–76 %, ein Drittel der Spieler ohne Trophäe).
+ */
+export const DEFAULT_ROUNDS = 10;
+/**
+ * Vorschläge kurz/mittel/lang (EXP-010, Bot-Simulation mit gemütlichem Entscheidungstempo,
+ * Minispiel-Rotation und Finale; 3–4 Spieler): 10 ≈ 14–16 min, 16 ≈ 22–25 min,
+ * 20 ≈ 27–31 min. 40 Minuten bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20).
+ */
+export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
 
 /** Spezifikationen der Katalog-Rotation für game-core. */
 export function catalogMinigames(): MinigameSpec[] {

@@ -27,7 +27,7 @@ Host-, Controller- und Server-Arbeit sollten danach parallel laufen; dafür brau
 
 ### 2. Rundenzahl (CHAOS-36)
 
-- `lobby.settings { rounds, roundPresets }` (Pflichtfeld). `roundPresets` sind Platzhalter `[3, 5, 8]` (`DEFAULT_ROUND_PRESETS` in `apps/server/src/game.ts`), der Balance-Pass justiert sie.
+- `lobby.settings { rounds, roundPresets }` (Pflichtfeld). `roundPresets` sind Platzhalter `[3, 5, 8]` (`DEFAULT_ROUND_PRESETS` in `apps/server/src/game.ts`), der Balance-Pass justiert sie – seit Nachtrag 2: `[10, 16, 20]`, Standard 10.
 - Host → Server `configure { rounds }` (1–`MAX_ROUNDS`, nur Lobby). `start.rounds` bleibt und wird zur neuen Einstellung. Die Rundenzahl überlebt die Revanche.
 
 ### 3. Pause und vorzeitiges Ende (CHAOS-36)
@@ -118,3 +118,18 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 - Tests: `apps/server/src/hostLoss.integration.test.ts`.
 
 **iPad-Mehrfachslots (Prüfung CHAOS-38, keine Änderung).** Ein geteiltes iPad ist **eine** Verbindung mit `join { seats: n }`: n Slots, **ein** Token, **ein** `seq`-Wächter über alle Zonen, Rate-Budget 60/s je Slot (ADR-005/008). Jede Zone wählt ihre Figur und meldet sich bereit über das `slot`-Feld; `character-taken` gilt auch zwischen Zonen desselben iPads (Fehler mit `seq`, der betroffene Slot bekommt seinen Kontext neu). `reconnect` holt alle Zonen zurück. Für eine komplette Partie fehlt nichts (Test `apps/server/src/mixedSetup.integration.test.ts`); einzelne Zonen können eine Partie nicht verlassen (kein Anwendungsfall in M4).
+
+## Nachtrag 2 (2026-11-15, CHAOS-40): Besitzer vergebener Figuren, Hinweis je iPad-Zone, Runden-Vorschläge
+
+**Kontext.** Der Controller zeigte vergebene Figuren nur dann in der Farbe des Besitzers, wenn der Besitzer auf demselben Gerät saß (Nachbarzone eines geteilten iPads); `takenCharacters` nennt nur die Figuren. Auf einem iPhone stand bei fremden Figuren bloß „vergeben“. Außerdem erschien `character-taken` auf dem geteilten iPad als ein Hinweis mittig über allen Zonen, oft auf dem Kopf für die betroffene Person. Die Runden-Vorschläge waren Platzhalter (§2).
+
+**Entscheidung.**
+- **Protokoll (additiv, v4 ohne Versionssprung):** Lobby-Kontext `takenBy?: { character, slot }[]` – dieselben Figuren wie `takenCharacters` (gleiche Reihenfolge `CHARACTER_IDS`) mit Besitzer-Slot. `takenCharacters` bleibt (Prüfung „vergeben“, ältere Clients). Optional, damit ein Controller mit älterem Server weiterläuft; dann gilt der bisherige Rückfall (Nachbarzonen, sonst neutral). Changelog in `packages/protocol/src/version.ts`.
+- **Server** (`apps/server/src/session.ts`, `lobbyContextFor`) sendet `takenBy` immer. Ändert sich ein Besitzer, ändert sich der Kontext und geht neu raus (Kontextvergleich wie bisher).
+- **Controller** (`apps/controller/src/lobby/view.ts`): `ownerSlot` kommt aus `takenBy`, sonst aus den Nachbarzonen. Die Karte zeigt Farbe, Symbol und „<Farbe> hat sie“ – geräteübergreifend.
+- **Hinweis je Zone:** `Notice.slot` (Controller-Zustand) ordnet `character-taken` über die `seq` der gesendeten Figurenwahl einer Zone zu (`pickSeqs`, die letzten 8 je Verbindung; Rückfall: die einzige vorgemerkte Wahl). Das geteilte iPad zeigt den Hinweis dann in dieser Zone, mit ihr gedreht, oben unter der Plakette und mit Rand in Zonenfarbe; ohne eindeutige Zone bleibt er mittig. Das iPhone ist unverändert.
+- **Runden-Vorschläge** `10 / 16 / 20`, Standard `10` (`apps/server/src/game.ts`), begründet in EXP-010/011 (`docs/experiments.md`): ≈ 15 / 25 / 30 min mit 3–4 Spielern. 40 min bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20); das bleibt eine Frage an Ruben. Die Lobby zeigt die geschätzte Dauer nach Spielerzahl.
+
+**Betrachtete Alternative:** `takenCharacters` durch `takenBy` ersetzen (Protokoll v5). Verworfen: Bruch für alle Nutzer und Fixtures ohne Gewinn, das Feld ist klein.
+
+**Konsequenzen.** Tests: `packages/protocol/src/v4.test.ts`, `apps/server/src/session.v4.test.ts`, `apps/server/src/mixedSetup.integration.test.ts` (iPhone sieht Besitzer auf dem iPad), `apps/controller/src/lobby/view.test.ts`, `apps/controller/src/state/reducer.m4.test.ts`, E2E `controller-m4.spec.ts` und `ipad-m4.spec.ts` („Figur weggeschnappt“).

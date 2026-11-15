@@ -142,7 +142,7 @@ describe('Session: Beitreten', () => {
         phase: 'lobby',
         layout: 'lobby',
         actions: ['ready', 'pick-character'],
-        lobby: { character: null, takenCharacters: [], rounds: 5 },
+        lobby: { character: null, takenCharacters: [], takenBy: [], rounds: 10 },
       },
     ]);
   });
@@ -255,7 +255,7 @@ describe('Session: Host', () => {
       joinCode: CODE,
       phase: 'lobby',
       players: [],
-      settings: { rounds: 5, roundPresets: [3, 5, 8] },
+      settings: { rounds: 10, roundPresets: [10, 16, 20] },
     });
     expect(lastLobby(t.join(1)).players).toEqual([
       { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
@@ -330,7 +330,7 @@ describe('Session: Eingaben', () => {
         phase: 'lobby',
         layout: 'wait',
         actions: ['pick-character'],
-        lobby: { character: null, takenCharacters: [], rounds: 5 },
+        lobby: { character: null, takenCharacters: [], takenBy: [], rounds: 10 },
       },
     ]);
     expect(lastLobby(out).players[0]?.ready).toBe(true);

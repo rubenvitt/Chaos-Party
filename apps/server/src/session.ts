@@ -1083,16 +1083,24 @@ export class Session {
 
   /**
    * Lobby (v4): Figurenwahl bleibt auch nach `ready` möglich (setzt `ready` zurück).
-   * `takenCharacters` = Figuren anderer Slots in `CHARACTER_IDS`-Reihenfolge.
+   * `takenCharacters` = Figuren anderer Slots in `CHARACTER_IDS`-Reihenfolge, `takenBy`
+   * dieselben mit Besitzer-Slot (Controller färbt sie in der Besitzerfarbe, CHAOS-40).
    */
   private lobbyContextFor(player: Player): SlotContext {
-    const taken = new Set<CharacterId>();
+    const owners = new Map<CharacterId, SlotNumber>();
     for (const other of this.players.values()) {
-      if (other.slot !== player.slot && other.character !== null) taken.add(other.character);
+      if (other.slot !== player.slot && other.character !== null) {
+        owners.set(other.character, other.slot);
+      }
     }
+    const takenBy = CHARACTER_IDS.flatMap((character) => {
+      const slot = owners.get(character);
+      return slot === undefined ? [] : [{ character, slot }];
+    });
     const lobby = {
       character: player.character,
-      takenCharacters: CHARACTER_IDS.filter((id) => taken.has(id)),
+      takenCharacters: takenBy.map((entry) => entry.character),
+      takenBy,
       rounds: this.rounds,
     };
     return player.ready

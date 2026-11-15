@@ -43,6 +43,9 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
   );
 
   const player = state.players[0];
+  const shared = state.players.length > 1;
+  // Geteiltes iPad: Hinweis mit Zone erscheint gedreht in dieser Zone (CHAOS-40), sonst mittig.
+  const zoneNotice = shared && state.notice?.slot !== undefined ? state.notice : null;
 
   return (
     <div className="app" data-screen={screen}>
@@ -59,13 +62,15 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
         <ErrorScreen code={state.fatal} onRetry={session.retry} />
       )}
       {screen === 'controller' &&
-        (state.players.length > 1 ? (
+        (shared ? (
           <ZoneBoard
             players={state.players}
             contexts={state.contexts}
             feedback={state.feedback}
             choices={state.choices}
             picks={state.picks}
+            notice={zoneNotice}
+            onDismissNotice={dismiss}
             send={send}
           />
         ) : player ? (
@@ -83,7 +88,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
         ))}
       <ConnectionStatus session={session} />
       {debug && <DebugOverlay meter={debug.meter} seats={seats} heartbeatMs={debug.heartbeatMs} />}
-      {state.notice !== null && screen === 'controller' && (
+      {state.notice !== null && zoneNotice === null && screen === 'controller' && (
         <Toast key={state.notice.id} notice={state.notice} onDismiss={dismiss} />
       )}
     </div>

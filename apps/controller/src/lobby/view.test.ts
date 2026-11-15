@@ -88,8 +88,26 @@ describe('describeLobby', () => {
       { slot: 4, character: null },
     ]);
     expect(view?.cards.find((c) => c.id === 'cactus')?.ownerSlot).toBe(3);
-    // Andere Geräte: Besitzer unbekannt.
+    // Andere Geräte: Besitzer unbekannt (älterer Server ohne `takenBy`).
     expect(view?.cards.find((c) => c.id === 'sock')?.ownerSlot).toBeNull();
+  });
+
+  it('takenBy vom Server: Besitzer auch auf anderen Geräten, Vorrang vor Nachbarzonen', () => {
+    const view = describeLobby(
+      lobby({
+        takenCharacters: ['cactus', 'sock'],
+        takenBy: [
+          { character: 'cactus', slot: 3 },
+          { character: 'sock', slot: 2 },
+        ],
+      }),
+      undefined,
+      // Veralteter Nachbarstand (Zone 4 hatte kurz die Socke) – der Server hat recht.
+      [{ slot: 4, character: 'sock' }],
+    );
+    expect(view?.cards.find((c) => c.id === 'cactus')?.ownerSlot).toBe(3);
+    expect(view?.cards.find((c) => c.id === 'sock')?.ownerSlot).toBe(2);
+    expect(view?.cards.find((c) => c.id === 'robot')?.ownerSlot).toBeNull();
   });
 
   it('ohne `pick-character` (Server erlaubt es nicht mehr) ist nichts wählbar', () => {

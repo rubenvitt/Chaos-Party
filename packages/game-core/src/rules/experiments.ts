@@ -13,7 +13,7 @@
  * der Playtest bei der Abnahme.
  */
 import { WACKELWALD } from '../board/wackelwald.ts';
-import type { BoardDefinition, RuleSet, SpaceKind } from '../types.ts';
+import type { BoardDefinition, MinigameSpec, RuleSet, SpaceKind } from '../types.ts';
 import { DEFAULT_RULES, withRules, type RuleOverrides } from './defaults.ts';
 import {
   DEFAULT_BOT_POLICY,
@@ -44,6 +44,8 @@ export interface Variant {
   readonly policy?: Partial<BotPolicy>;
   /** Rundenzahl, falls abweichend vom Experiment. */
   readonly rounds?: number;
+  /** Echte Minispiele (M4-Experimente); fehlt = M2-Platzhalter. */
+  readonly minigames?: readonly MinigameSpec[];
 }
 
 export interface ExperimentSetup {
@@ -57,7 +59,7 @@ export function seedRange(count: number, first = 1): number[] {
   return Array.from({ length: count }, (_, index) => first + index);
 }
 
-/** Standard der Experimente: Seeds 1–200, 2/3/4 Spieler, 5 Runden (Server-Standard). */
+/** Standard der Experimente: Seeds 1–200, 2/3/4 Spieler, 5 Runden (Server-Standard bis CHAOS-40, seitdem 10). */
 export const DEFAULT_SETUP: ExperimentSetup = {
   seeds: seedRange(200),
   players: [2, 3, 4],
@@ -124,6 +126,7 @@ export function runVariant(
       seed,
       players,
       policy: { ...EXPERIMENT_POLICY, ...v.policy },
+      ...(v.minigames ? { minigames: v.minigames } : {}),
     }),
   );
 }
@@ -429,7 +432,7 @@ function perVariant(
   return { title, headers: ['Variante', 'Sp.', ...headers], rows };
 }
 
-function seedText(setup: Pick<ExperimentSetup, 'seeds'>): string {
+export function seedText(setup: Pick<ExperimentSetup, 'seeds'>): string {
   const first = setup.seeds[0] ?? 0;
   const last = setup.seeds[setup.seeds.length - 1] ?? 0;
   return `Seeds ${String(first)}–${String(last)} je Zeile`;

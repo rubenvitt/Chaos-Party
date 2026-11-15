@@ -303,6 +303,8 @@ export function App({ config }: AppProps) {
           <div className="stage" ref={stageRef} />
           <Hud
             players={players}
+            // Lobby vor dem Brettspiel: nicht „Schubs-Arena“ (die läuft nur dahinter, CHAOS-40).
+            subtitle={phase === 'play' || arena ? 'Schubs-Arena' : 'Party-Brettspiel'}
             physics={physics}
             showKeyHints={local}
             showPlayers={local || phase === 'play'}

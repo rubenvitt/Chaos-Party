@@ -563,6 +563,15 @@ export const ControllerLobbyInfoSchema = z.strictObject({
   character: CharacterIdSchema.nullable(),
   /** Von anderen Slots gewählte Figuren (nicht wählbar). */
   takenCharacters: z.array(CharacterIdSchema).max(MAX_PLAYERS),
+  /**
+   * v4-Nachtrag (CHAOS-40): dieselben Figuren mit Besitzer-Slot (gleiche Reihenfolge), damit
+   * der Controller vergebene Figuren geräteübergreifend in der Farbe des Besitzers zeigt.
+   * Optional für ältere Server; dann bleiben vergebene Figuren neutral.
+   */
+  takenBy: z
+    .array(z.strictObject({ character: CharacterIdSchema, slot: SlotSchema }))
+    .max(MAX_PLAYERS)
+    .optional(),
   /** Eingestellte Rundenzahl der nächsten Partie. */
   rounds: RoundsSchema,
 });

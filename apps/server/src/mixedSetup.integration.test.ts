@@ -82,6 +82,12 @@ describe('Gemischte Aufstellung: 2 iPhones + iPad mit 2 Zonen (CHAOS-38)', () =>
     h.pickCharacter(IPAD, 4, 'robot');
     h.pickCharacter(IPHONE_1, 1, 'cactus');
     expect(h.contexts.get(2)?.context.lobby?.takenCharacters).toEqual(['robot', 'cactus', 'sock']);
+    // Besitzer-Slot geräteübergreifend (CHAOS-40): iPhone 2 sieht, wem welche Figur gehört.
+    expect(h.contexts.get(2)?.context.lobby?.takenBy).toEqual([
+      { character: 'robot', slot: 4 },
+      { character: 'cactus', slot: 1 },
+      { character: 'sock', slot: 3 },
+    ]);
 
     // Bereit je Zone: erst Zone 3, dann Zone 4 – die Lobby zeigt es je Slot.
     const ipad = h.controller(IPAD);

@@ -12,6 +12,7 @@ import {
 import { describeLobby } from '../lobby/view.ts';
 import {
   createInitialState,
+  PICK_SEQ_MEMORY,
   reduce,
   selectLink,
   selectScreen,
@@ -277,6 +278,36 @@ describe('vorgemerkte Figurenwahl', () => {
     const stale = reduce(sent, server(createError('stale-seq', 'alt', 4)));
     expect(stale.picks).toEqual({});
     expect(stale.notice).toBeNull();
+  });
+
+  it('`character-taken` nennt die Zone der einzigen Vormerkung (iPad-Hinweis, CHAOS-40)', () => {
+    const one = reduce(lobbyState, { type: 'pick-sent', slot: 2, character: 'sock' });
+    expect(reduce(one, server(createError('character-taken', 'vergeben', 4))).notice).toEqual({
+      code: 'character-taken',
+      id: expect.any(Number) as number,
+      slot: 2,
+    });
+    // Zwei Zonen wählen gleichzeitig, ohne bekannte `seq`: unklar → Hinweis ohne Zone (mittig).
+    const two = reduce(one, { type: 'pick-sent', slot: 1, character: 'robot' });
+    const notice = reduce(two, server(createError('character-taken', 'vergeben', 5))).notice;
+    expect(notice?.code).toBe('character-taken');
+    expect(notice?.slot).toBeUndefined();
+  });
+
+  it('`character-taken` findet die Zone über die `seq`, auch wenn der Kontext schon kam', () => {
+    let state = reduce(lobbyState, { type: 'pick-sent', slot: 1, character: 'robot', seq: 7 });
+    state = reduce(state, { type: 'pick-sent', slot: 2, character: 'sock', seq: 8 });
+    // Kontext überholt Zone 1 (Schraubi vergeben) noch vor der Ablehnung.
+    state = reduce(state, server(lobbyMessage(1, { takenCharacters: ['robot'] })));
+    expect(state.picks).toEqual({ 2: 'sock' });
+    const taken = reduce(state, server(createError('character-taken', 'vergeben', 7)));
+    expect(taken.notice?.slot).toBe(1);
+    // Speicher ist begrenzt und wird bei neuer Verbindung geleert.
+    for (let seq = 10; seq < 30; seq++) {
+      state = reduce(state, { type: 'pick-sent', slot: 2, character: 'sock', seq });
+    }
+    expect(state.pickSeqs).toHaveLength(PICK_SEQ_MEMORY);
+    expect(reduce(state, welcome()).pickSeqs).toEqual([]);
   });
 
   it('Verbindungsverlust und neues `welcome` lösen die Vormerkung', () => {

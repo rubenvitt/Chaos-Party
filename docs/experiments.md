@@ -23,6 +23,9 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
 | EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
 | EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen |
+| EXP-010 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20 |
+| EXP-011 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
+| EXP-012 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 
 ---
 
@@ -72,7 +75,7 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 `--silent=false` ist nötig, weil Vitest die Konsolenausgabe bestandener Tests sonst ausblendet. Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test mit 2 Seeds (Teil von `pnpm test`, < 0,5 s).
 
 - **Code:** Varianten und Kennzahlen in `packages/game-core/src/rules/experiments.ts`, Bot-Partien in `packages/game-core/src/rules/simulate.ts`.
-- **Seeds:** 1–200 je Variante und Spielerzahl (2, 3, 4), also 600 Partien je Variante. **5 Runden** (Server-Standard `DEFAULT_ROUNDS`), Brett Wackelwald.
+- **Seeds:** 1–200 je Variante und Spielerzahl (2, 3, 4), also 600 Partien je Variante. **5 Runden** (damaliger Server-Standard `DEFAULT_ROUNDS`, seit EXP-010 10), Brett Wackelwald.
 - **Wiederholbarkeit:** Alle Varianten bauen auf `START_RULES`/`START_BOARD` auf (Werte vor CHAOS-24), nicht auf `DEFAULT_RULES`. Die Zeile **Z** zeigt jeweils die neuen Standardwerte. Ein Test prüft, dass die gewählten Werte (`CHOICE_RULES`, `CHOICE_BOARD`) genau `DEFAULT_RULES` und dem Wackelwald entsprechen.
 - **Bots (`EXPERIMENT_POLICY`):** Entscheidungszeit gleichverteilt 0,8–2,5 s. Items vor dem Wurf mit 50 % Wahrscheinlichkeit einsetzen. Münzklau auf die reichste Person. Trophäe immer kaufen, wenn das Geld reicht. An Gabeln zu 75 % den kürzeren Weg zur nächsten aktiven Trophäe, sonst zufällig (Menschen sehen die Trophäe am Fernseher). Reaktion zu 70 % mit 600–3600 ms (EXP-004: eigene Profile). Wie stark die Ergebnisse am Bot-Verhalten hängen, zeigt die Robustheitstabelle unter EXP-003.
 - **Dauer:** Pacing plus Bot-Entscheidungszeit. „Brett min“ ist die Partiedauer ohne die Minispielphasen. Der Platzhalter braucht 10 s je Runde (Intro, Spiel, Ergebnis, Rundenende). Echte Minispiele (M3) dauern länger.
@@ -847,3 +850,232 @@ Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Ver
 
 **Offen für Playtest:** Bildrate am Ziel-PC mit 40 000 Halmen, SSAO und Unschärfe; Lesbarkeit der Felder und Slot-Farben aus 3 m am Fernseher.
 
+---
+
+## Gemeinsamer Aufbau von EXP-010 … EXP-012 (2026-11-15, CHAOS-40)
+
+M4-Bot-Simulationen mit den **aktuellen** Regeln (`DEFAULT_RULES`, Brett Wackelwald, Stand nach EXP-001 … EXP-004) und – neu – der **echten Minispiel-Rotation** aus M3 statt des Platzhalters. Wie bei EXP-001 … 004 sind das **Näherungen**, kein Spaß-Beweis: Bots entscheiden nach festen Regeln, Minispiel-Ergebnisse sind Zufallspunkte.
+
+**Wiederholen** (≈ 8 s):
+
+```sh
+EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false
+```
+
+- **Code:** `packages/game-core/src/rules/experimentsM4.ts` (Kennzahlen, Varianten, Tabellen), Bot-Partien in `simulate.ts`. Ohne `EXPERIMENTS=m4` läuft nur ein Smoke-Test (Teil von `pnpm test`).
+- **Seeds:** 1–200 je Zeile und Spielerzahl (2, 3, 4).
+- **Minispiele:** `ROTATION_SPECS` = Sockenregen (30 s), Pudding-Gerangel (30 s), Wackelturm (35 s); ein Test prüft Gleichheit mit dem Katalog (`@chaos-party/minigames/catalog`, dafür neue devDependency von game-core). game-core zieht je Runde eines ohne Wiederholung (wie im Server). Der Bot-„Host“ meldet das Ergebnis 0,5 s nach Spielende (`minigameResultDelayMs`). Punkte je Spieler gleichverteilt 0–40 (`minigameScoreSpread`), dadurch ist der 1. Platz in 2–5 % der Minispiele geteilt, wie bei den Prototypen in EXP-005 … 007 (1–15 %). Variante „Profi“: Slot 1 bekommt +10 Punkte (`minigameSkill`).
+- **Dauer** = Pacing (`stepMs` 350 usw.) + Entscheidungszeit + je Runde Anleitung 7 s + Spielzeit + Ergebnis 6 s + Rundenende 1,5 s, dazu pauschal **20 s Finale** (Trophäenzählung 2,2 s + 2,8 s je Platz + 3,4 s Sieger, ggf. 2,6 s Gleichstand). Die Lobby (QR, Figuren) zählt nicht. Entscheidungstempo **flott** = Bot-Standard 0,8–2,5 s je Prompt, **gemütlich** = 1,5–4,5 s (Menschen reden, lachen, suchen das Handy). Beides sind Annahmen.
+- **Neu in der Simulation:** `SimulationOptions.minigames`, `BotPolicy.minigameResultDelayMs`/`minigameScoreSpread`/`minigameSkill`, `SimulationResult.midRanking` (Wertung nach Runde ⌊n/2⌋), `minigamesPlayed`, `minigameSharedWins`, `standings[].coinsEarned`. Ohne `minigames` ändert sich nichts (Platzhalter, gleiche Zufallsfolge), EXP-001 … 004 bleiben reproduzierbar.
+- **Testumgebung:** Node 22, Linux-Container, Basis-Commit `c4df936`, Ergebnisse vom Commit, der diese Einträge einführt.
+
+---
+
+## EXP-010: Partiedauer und Runden-Vorschläge mit echten Minispielen (2026-11-15, CHAOS-40)
+
+**Hypothese / gewünschtes Spielerlebnis:** Die Lobby bietet drei Vorschläge, die sich wie „kurz/mittel/lang“ anfühlen: ≈ 15, 25 und 40 Minuten. Die Platzhalter 3/5/8 Runden (CHAOS-36) sind viel zu kurz, seit jede Runde ein echtes Minispiel von 30–35 s plus Anleitung und Ergebnis hat. Die Lobby-Anzeige „≈ 3 Min./Runde“ ist geraten.
+
+**Varianten:** Rundenzahl 5, 8, 10, 12, 15, 16, 18, 20 (`MAX_ROUNDS`) × 2/3/4 Spieler × Tempo flott/gemütlich.
+
+**Objektive Messgrößen:** Partiedauer (Mittel, p90) inkl. Finale, Minuten je Runde, Anteil der Zeit außerhalb der Brettzüge (Minispiel-Phasen, Rundenwechsel).
+
+**Subjektive Playtest-Fragen (für Ruben):** Passen die angezeigten Minuten zur echten Partie (Stoppuhr)? Ist 10 Runden als Standard für die erste Partie richtig? Wie fühlt es sich an, dass mehr als die Hälfte der Zeit Minispiele sind?
+
+**Testumgebung:** siehe „Gemeinsamer Aufbau“.
+
+**Ergebnisse:**
+
+**EXP-010 Partiedauer mit Minispiel-Rotation und Finale (Seeds 1–200 je Zeile)**
+
+| Runden | Sp. | min flott | min gemütlich | p90 gemütlich | min/Runde gemütlich | Anteil ohne Brettzüge |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5 | 2 | 5,8 | 6,2 | 6,4 | 1,17 | 68 % |
+| 5 | 3 | 6,5 | 7,1 | 7,4 | 1,35 | 60 % |
+| 5 | 4 | 7,2 | 8,0 | 8,2 | 1,53 | 54 % |
+| 8 | 2 | 9,0 | 9,6 | 9,9 | 1,16 | 69 % |
+| 8 | 3 | 10,1 | 11,0 | 11,4 | 1,34 | 60 % |
+| 8 | 4 | 11,3 | 12,5 | 12,8 | 1,52 | 54 % |
+| 10 | 2 | 11,1 | 11,9 | 12,3 | 1,16 | 69 % |
+| 10 | 3 | 12,5 | 13,7 | 14,0 | 1,33 | 61 % |
+| 10 | 4 | 14,0 | 15,5 | 15,8 | 1,51 | 54 % |
+| 12 | 2 | 13,3 | 14,2 | 14,6 | 1,16 | 69 % |
+| 12 | 3 | 15,0 | 16,4 | 16,8 | 1,34 | 60 % |
+| 12 | 4 | 16,7 | 18,5 | 18,9 | 1,51 | 54 % |
+| 15 | 2 | 16,5 | 17,7 | 18,1 | 1,16 | 69 % |
+| 15 | 3 | 18,7 | 20,4 | 20,9 | 1,34 | 60 % |
+| 15 | 4 | 20,8 | 23,0 | 23,5 | 1,51 | 54 % |
+| 16 | 2 | 17,6 | 18,9 | 19,3 | 1,16 | 69 % |
+| 16 | 3 | 19,9 | 21,8 | 22,2 | 1,34 | 60 % |
+| 16 | 4 | 22,2 | 24,5 | 25,0 | 1,51 | 54 % |
+| 18 | 2 | 19,8 | 21,2 | 21,6 | 1,16 | 69 % |
+| 18 | 3 | 22,4 | 24,4 | 24,9 | 1,34 | 60 % |
+| 18 | 4 | 24,9 | 27,5 | 28,1 | 1,51 | 54 % |
+| 20 | 2 | 21,9 | 23,5 | 24,0 | 1,16 | 69 % |
+| 20 | 3 | 24,8 | 27,1 | 27,6 | 1,34 | 60 % |
+| 20 | 4 | 27,6 | 30,6 | 31,1 | 1,51 | 54 % |
+
+- Eine Runde dauert (gemütlich) **1,16 min mit 2, 1,34 min mit 3 und 1,51 min mit 4 Spielern**, flott etwa 8–10 % weniger. Die Streuung ist klein (p90 nur ≈ 0,3–0,5 min über dem Mittel), denn die Minispiele haben feste Längen.
+- **54–69 % der Partie** sind Minispiel-Phasen und Rundenwechsel (bei 2 Spielern mehr, weil es weniger Züge je Runde gibt). Je Runde sind ≈ 45–50 s fest: 7 s Anleitung, 30–35 s Spiel, 6 s Ergebnis, 1,5 s Rundenende.
+- **≈ 15 min:** 10 Runden (14,0–15,5 min mit 4, 12,5–13,7 mit 3 Spielern). **≈ 25 min:** 16 Runden (22,2–24,5 mit 4, 19,9–21,8 mit 3). **≈ 40 min** bräuchte 26 (4 Spieler) bis 30 (3 Spieler) Runden, also mehr als `MAX_ROUNDS` = 20. Mit 20 Runden sind es 27,6–30,6 min (4) bzw. 24,8–27,1 min (3).
+- Die bisherigen Vorschläge 3/5/8 ergeben 4–12,5 min. 3 Runden sind außerdem wertungsschwach (EXP-011).
+
+**Entscheidung:** **keep** neue Vorschläge **10 / 16 / 20** (`DEFAULT_ROUND_PRESETS`) und Standard **10** (`DEFAULT_ROUNDS`, vorher 5) in `apps/server/src/game.ts`. Begründung für den Standard: ≈ 15 min passt zu einer Couch-Party und einer ersten Partie, jedes der drei Minispiele kommt 3–4-mal dran, und die Trophäen entscheiden in 63–81 % der Partien (EXP-011; mit 5 Runden nur 49–76 %, und ein Drittel der Spieler bleibt ohne Trophäe). „Lang“ ist 20, weil `MAX_ROUNDS` ein Protokollwert ist (v4) und 26–30 Runden mit nur drei Minispielen (je 9–10-mal) eher ermüden als Spaß machen. **Frage an Ruben:** Sind „40 min“ wirklich gewollt? Dann `MAX_ROUNDS` anheben, am besten zusammen mit mehr Minispielen. Die Lobby zeigt die Dauer jetzt nach Spielerzahl (`roundsDuration(rounds, players)` in `apps/host/src/lobby/lobbyState.ts`: 1,15/1,35/1,5 min je Runde + Finale, auf 5 min gerundet; ohne Spieler wird mit 4 gerechnet).
+
+**Offen für Playtest:** Echte Dauer mit Stoppuhr (Menschen sind vermutlich langsamer als „gemütlich“: Erklären, Lachen, Nachfragen). Verdrängt der hohe Minispiel-Anteil das Brettspiel (VISION, Produktsäule 3)?
+
+**Für später (CHAOS-44):** Anleitung eines schon gespielten Minispiels kürzer zeigen (spart ≈ 4 s je Runde). Längere Partien erst mit mehr Minispielen und höherem `MAX_ROUNDS`.
+
+---
+
+## EXP-011: Wertung, Gleichstandsregel, Aufholeffekt und Trophäen-Ökonomie (2026-11-15, CHAOS-40)
+
+**Hypothese / gewünschtes Spielerlebnis:** Meistens entscheiden die Trophäen. Die Gleichstandsregel (Trophäen → Münzen → Minispiel-Siege, ADR-014) ist ein seltener, erklärbarer Sonderfall, und ein geteilter Sieg bleibt die Ausnahme. Wer zur Halbzeit führt, hat einen Vorteil, aber kein sicheres Ende („Comeback möglich“). Die Ökonomie aus EXP-002 (Preis 15, Minispiel 10/5/3/0) wurde nur mit dem Platzhalter-Minispiel und 5 Runden gemessen. Trägt sie auch längere Partien mit echter Rotation?
+
+**Varianten:**
+- Rundenzahl 3, 5, 8, 10, 16, 20 mit den Standardwerten.
+- Ökonomie bei 10 und 20 Runden: A Stand, B Preis 20, C Minispiel 8/4/2/0, D Minispiel 10/6/3/1 (Trostmünze), E Preis 20 + Minispiel 12/6/3/0, S Stand mit einem Minispiel-Profi (Slot 1, +10 Punkte).
+
+**Objektive Messgrößen:** Trophäen je Partie und des Siegers, Sieger ohne Trophäe, Spieler ohne Trophäe, womit Platz 1 entschieden wird (`decidedBy`: Trophäen, Münzen, Minispiel-Siege, geteilt), irgendein geteilter Platz, geteilter 1. Platz im Minispiel, Siegquote des alleinigen Führenden bzw. Letzten nach Runde ⌊n/2⌋ (gegen fair 1/n), Siegquote des Profis, Münzen am Ende.
+
+**Subjektive Playtest-Fragen (für Ruben):** Versteht man am PC „Gleich viele Trophäen – die Münzen haben entschieden“? Fühlt sich ein Münz-Sieg verdient an? Ist es frustrierend, dass der Halbzeit-Führende etwa doppelt so oft gewinnt wie fair? Sind 5–6 Trophäen für den Sieger in langen Partien noch etwas Besonderes?
+
+**Testumgebung:** siehe „Gemeinsamer Aufbau“.
+
+**Ergebnisse:**
+
+**EXP-011 Wertung, Gleichstand, Aufholeffekt (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
+
+| Runden | Sp. | Trophäen/Partie | Sieger-Trophäen | Sieger ohne Trophäe | Spieler ohne Trophäe | Sieg per Trophäen | per Münzen | per Minispiel-Siegen | Sieg geteilt | ein Platz geteilt | Minispiel P1 geteilt | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 3 | 2 | 0,96 | 0,80 | 26 % | 55 % | 60 % | 39 % | 1 % | 0 % | 0 % | 2 % | 65 % | 35 % | 50 % |
+| 3 | 3 | 1,25 | 0,86 | 19 % | 60 % | 51 % | 48 % | 2 % | 1 % | 1 % | 2 % | 40 % | 23 % | 33 % |
+| 3 | 4 | 1,39 | 0,90 | 14 % | 66 % | 48 % | 49 % | 2 % | 1 % | 5 % | 7 % | 42 % | 10 % | 25 % |
+| 5 | 2 | 2,44 | 1,75 | 2 % | 20 % | 76 % | 24 % | 1 % | 0 % | 0 % | 2 % | 68 % | 32 % | 50 % |
+| 5 | 3 | 3,04 | 1,65 | 1 % | 26 % | 55 % | 44 % | 1 % | 1 % | 1 % | 3 % | 54 % | 18 % | 33 % |
+| 5 | 4 | 3,31 | 1,52 | 0 % | 33 % | 49 % | 48 % | 2 % | 2 % | 4 % | 5 % | 45 % | 6 % | 25 % |
+| 8 | 2 | 4,11 | 2,77 | 1 % | 10 % | 78 % | 21 % | 1 % | 1 % | 1 % | 2 % | 78 % | 22 % | 50 % |
+| 8 | 3 | 5,04 | 2,62 | 0 % | 13 % | 65 % | 34 % | 1 % | 1 % | 2 % | 3 % | 61 % | 15 % | 33 % |
+| 8 | 4 | 5,63 | 2,41 | 0 % | 17 % | 65 % | 35 % | 0 % | 1 % | 2 % | 5 % | 60 % | 10 % | 25 % |
+| 10 | 2 | 5,01 | 3,35 | 0 % | 7 % | 81 % | 19 % | 1 % | 0 % | 0 % | 2 % | 73 % | 27 % | 50 % |
+| 10 | 3 | 6,16 | 3,18 | 0 % | 10 % | 75 % | 25 % | 1 % | 0 % | 0 % | 3 % | 59 % | 10 % | 33 % |
+| 10 | 4 | 6,77 | 2,84 | 0 % | 13 % | 63 % | 36 % | 1 % | 1 % | 3 % | 5 % | 60 % | 11 % | 25 % |
+| 16 | 2 | 9,14 | 5,82 | 0 % | 1 % | 88 % | 12 % | 0 % | 0 % | 0 % | 2 % | 74 % | 26 % | 50 % |
+| 16 | 3 | 11,88 | 5,58 | 0 % | 2 % | 79 % | 22 % | 0 % | 0 % | 0 % | 3 % | 62 % | 12 % | 33 % |
+| 16 | 4 | 13,29 | 5,01 | 0 % | 2 % | 72 % | 28 % | 1 % | 1 % | 1 % | 5 % | 56 % | 7 % | 25 % |
+| 20 | 2 | 11,46 | 7,12 | 0 % | 0 % | 89 % | 11 % | 0 % | 0 % | 0 % | 2 % | 73 % | 27 % | 50 % |
+| 20 | 3 | 14,93 | 6,99 | 0 % | 1 % | 88 % | 12 % | 0 % | 0 % | 0 % | 3 % | 64 % | 11 % | 33 % |
+| 20 | 4 | 17,08 | 6,22 | 0 % | 1 % | 77 % | 23 % | 1 % | 0 % | 1 % | 5 % | 62 % | 4 % | 25 % |
+
+**EXP-011 Ökonomie-Varianten mit Rotation (Seeds 1–200 je Zeile)**
+
+| Runden | Variante | Sp. | Trophäen/Partie | Sieger-Trophäen | ohne Trophäe | Sieg per Trophäen | Führender (Hälfte) gewinnt | Siege Slot 1 | Münzen Ende |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 2 | 5,01 | 3,35 | 7 % | 81 % | 73 % | 52 % | 56,2 |
+| 10 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 3 | 6,16 | 3,18 | 10 % | 75 % | 59 % | 33 % | 48,9 |
+| 10 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 4 | 6,77 | 2,84 | 13 % | 63 % | 60 % | 24 % | 39,9 |
+| 10 | B: Preis 20 | 2 | 4,37 | 2,83 | 5 % | 79 % | 69 % | 54 % | 50,2 |
+| 10 | B: Preis 20 | 3 | 5,41 | 2,68 | 8 % | 70 % | 62 % | 31 % | 43,4 |
+| 10 | B: Preis 20 | 4 | 5,74 | 2,36 | 14 % | 55 % | 58 % | 23 % | 36,6 |
+| 10 | C: Minispiel 8/4/2/0 | 2 | 4,67 | 3,06 | 6 % | 80 % | 70 % | 51 % | 43,4 |
+| 10 | C: Minispiel 8/4/2/0 | 3 | 5,87 | 2,88 | 8 % | 66 % | 65 % | 28 % | 36,6 |
+| 10 | C: Minispiel 8/4/2/0 | 4 | 6,28 | 2,59 | 11 % | 62 % | 56 % | 24 % | 31,4 |
+| 10 | D: Minispiel 10/6/3/1 | 2 | 5,09 | 3,42 | 6 % | 81 % | 75 % | 53 % | 60,5 |
+| 10 | D: Minispiel 10/6/3/1 | 3 | 6,21 | 3,21 | 10 % | 77 % | 55 % | 32 % | 51,9 |
+| 10 | D: Minispiel 10/6/3/1 | 4 | 6,94 | 2,92 | 14 % | 64 % | 57 % | 25 % | 44,3 |
+| 10 | E: Preis 20, Minispiel 12/6/3/0 | 2 | 4,67 | 3,12 | 6 % | 79 % | 69 % | 50 % | 62,0 |
+| 10 | E: Preis 20, Minispiel 12/6/3/0 | 3 | 5,71 | 2,83 | 9 % | 68 % | 68 % | 32 % | 51,4 |
+| 10 | E: Preis 20, Minispiel 12/6/3/0 | 4 | 6,04 | 2,52 | 13 % | 60 % | 57 % | 22 % | 42,8 |
+| 10 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 2 | 4,97 | 3,29 | 6 % | 80 % | 76 % | 63 % | 56,5 |
+| 10 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 3 | 6,20 | 3,10 | 9 % | 68 % | 62 % | 43 % | 48,4 |
+| 10 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 4 | 6,83 | 2,93 | 13 % | 70 % | 64 % | 46 % | 39,6 |
+| 20 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 2 | 11,46 | 7,12 | 0 % | 89 % | 73 % | 47 % | 91,8 |
+| 20 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 3 | 14,93 | 6,99 | 1 % | 88 % | 64 % | 30 % | 74,1 |
+| 20 | A: Preis 15, Minispiel 10/5/3/0 (Stand) | 4 | 17,08 | 6,22 | 1 % | 77 % | 62 % | 26 % | 56,9 |
+| 20 | B: Preis 20 | 2 | 10,60 | 6,45 | 0 % | 87 % | 67 % | 56 % | 71,7 |
+| 20 | B: Preis 20 | 3 | 13,30 | 5,79 | 0 % | 76 % | 60 % | 30 % | 60,1 |
+| 20 | B: Preis 20 | 4 | 14,63 | 5,05 | 1 % | 65 % | 52 % | 25 % | 48,0 |
+| 20 | C: Minispiel 8/4/2/0 | 2 | 11,17 | 6,80 | 0 % | 90 % | 69 % | 50 % | 63,5 |
+| 20 | C: Minispiel 8/4/2/0 | 3 | 13,94 | 6,26 | 1 % | 82 % | 63 % | 34 % | 52,5 |
+| 20 | C: Minispiel 8/4/2/0 | 4 | 15,68 | 5,43 | 1 % | 65 % | 51 % | 31 % | 41,4 |
+| 20 | D: Minispiel 10/6/3/1 | 2 | 11,61 | 7,21 | 0 % | 91 % | 77 % | 52 % | 100,4 |
+| 20 | D: Minispiel 10/6/3/1 | 3 | 15,11 | 7,05 | 1 % | 87 % | 63 % | 31 % | 79,9 |
+| 20 | D: Minispiel 10/6/3/1 | 4 | 17,29 | 6,34 | 1 % | 77 % | 63 % | 23 % | 65,6 |
+| 20 | E: Preis 20, Minispiel 12/6/3/0 | 2 | 11,22 | 6,89 | 0 % | 89 % | 71 % | 51 % | 95,5 |
+| 20 | E: Preis 20, Minispiel 12/6/3/0 | 3 | 13,84 | 6,30 | 1 % | 81 % | 61 % | 33 % | 76,6 |
+| 20 | E: Preis 20, Minispiel 12/6/3/0 | 4 | 15,67 | 5,58 | 1 % | 79 % | 49 % | 28 % | 57,9 |
+| 20 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 2 | 11,33 | 7,04 | 0 % | 91 % | 74 % | 55 % | 92,9 |
+| 20 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 3 | 14,88 | 6,72 | 0 % | 83 % | 67 % | 40 % | 74,3 |
+| 20 | S: Stand, Slot 1 Minispiel-Profi (+10 Punkte) | 4 | 16,70 | 6,13 | 1 % | 81 % | 58 % | 47 % | 57,8 |
+
+- **Kurze Partien tragen den Trophäen-Sieg nicht:** Bei 3 Runden hat der Sieger in 14–26 % der Partien **keine** Trophäe, 55–66 % der Spieler bleiben ohne, und die Münzen entscheiden fast jede zweite Partie. Ab 8 Runden hat praktisch jeder Sieger eine Trophäe. Bei 10 Runden bleiben 7–13 % der Spieler ohne, bei 16 nur noch 1–2 %.
+- **Gleichstandsregel:** Die Münzen entscheiden Platz 1 bei 10 Runden in 19–36 % der Partien (5 Runden: 24–48 %, 20 Runden: 11–23 %), am häufigsten mit vier Spielern. **Minispiel-Siege** entscheiden nur in 0–2 %, ein **geteilter Sieg** kommt in 0–2 % vor, irgendein geteilter Platz in 0–5 %. Die dritte Stufe ist also ein seltener Notnagel: gut für die Inszenierung, kein Alltag.
+- **Aufholeffekt:** Der alleinige Halbzeit-Führende gewinnt bei 10 Runden 59–73 % (fair 33–50 %), mit vier Spielern 56–62 % (fair 25 %). Der Halbzeit-Letzte gewinnt noch 10–27 % (vier Spieler: 4–11 %). Führung zählt deutlich, aber ab 8 Runden dreht sich unabhängig von der Rundenzahl noch jede dritte bis vierte Partie.
+- **Ökonomie:** Preis 20 (B, E) senkt die Trophäen und erhöht die Münz-Entscheidungen (4 Spieler, 10 Runden: Sieg per Trophäen 55–60 % statt 63 %). Weniger Minispiel-Münzen (C) wirken ebenso. Die Trostmünze (D) ändert praktisch nichts. Ein Minispiel-Profi (+10 von 40 Punkten) gewinnt mit vier Spielern 46–47 % statt fair 25 %: Können in Minispielen zahlt sich aus, ohne dass das Brett egal wird.
+
+**Entscheidung:** **keep** – Trophäenpreis 15 und Minispiel-Münzen 10/5/3/0 bleiben (`packages/game-core/src/rules/defaults.ts` unverändert). Keine Variante erhöht den Anteil der Trophäen-Siege, und die Münzen reichen auch in langen Partien (Ende Ø 40–92). Die Gleichstandsregel bleibt (ADR-014). Der wirksame Hebel ist die Rundenzahl (EXP-010: Standard 10 statt 5).
+
+**Offen für Playtest:** Verständlichkeit und Gefühl der Münz-Entscheidung, Halbzeit-Vorteil, Wert einer Trophäe in langen Partien.
+
+**Für später (CHAOS-44):** Aufholhilfe für die Letzten (z. B. Trophäe wandert bevorzugt vor die Hintersten), falls der Playtest den Halbzeit-Vorteil als zu stark empfindet.
+
+---
+
+## EXP-012: Sabotage-Häufigkeit und Item-Stärke über lange Partien (2026-11-15, CHAOS-40)
+
+**Hypothese / gewünschtes Spielerlebnis:** Sabotage (Münzklau, Falle) sorgt für Schadenfreude und Überraschung, **ohne zu frustrieren** (VISION, Produktsäule 1). Ziel aus EXP-003: Verlust je Treffer im Mittel ≤ 25 % des Bestands. Neu für M4: Der gesamte Sabotage-Verlust bleibt ein kleiner Teil der Einnahmen, und die am stärksten getroffene Person verliert über die Partie höchstens etwa eine Trophäe (15 Münzen). Erwartung: Mit dem neuen Standard von 10 Runden und den Minispiel-Münzen werden Sabotagen relativ schwächer.
+
+**Varianten** (10 und 20 Runden): A Klau 5/Falle 4 (Stand), B Klau 6/Falle 5 (Werte vor EXP-003), C Klau 7/Falle 5, D Münzklau-Gewicht 4 statt 3, E = B + D.
+
+**Objektive Messgrößen:** Sabotagen je Partie und je Runde, verlorene Münzen / alle eingenommenen Münzen, Verlust je Treffer relativ zum Bestand (Mittel, p90), Münzen je Treffer, Spitzenopfer (höchster Gesamtverlust einer Person je Partie: Münzen, p90, Anteil an ihren Einnahmen), meiste Treffer auf eine Person, Trophäen je Partie.
+
+**Subjektive Playtest-Fragen (für Ruben):** Kommt Sabotage oft genug vor, damit es sich nach Chaos anfühlt (mit vier Spielern ≈ alle 2–3 Runden)? Sind 5 geklaute Münzen witzig oder egal? Fühlt sich das Spitzenopfer gemobbt?
+
+**Testumgebung:** siehe „Gemeinsamer Aufbau“.
+
+**Ergebnisse:**
+
+**EXP-012 Sabotage mit Rotation (Seeds 1–200 je Zeile)**
+
+| Runden | Variante | Sp. | Sabotagen/Partie | je Runde | Verlust/Einnahmen | Verlust/Bestand | p90 | Münzen/Treffer | Spitzenopfer Münzen | p90 | Spitzenopfer/Einnahmen | max. Treffer auf einen | Trophäen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Klau 5, Falle 4 (Stand) | 2 | 1,77 | 0,18 | 3 % | 18 % | 36 % | 3,6 | 4,5 | 9 | 5 % | 1,19 | 5,01 |
+| 10 | A: Klau 5, Falle 4 (Stand) | 3 | 2,59 | 0,26 | 4 % | 19 % | 38 % | 3,8 | 6,0 | 10 | 8 % | 1,49 | 6,16 |
+| 10 | A: Klau 5, Falle 4 (Stand) | 4 | 3,94 | 0,39 | 5 % | 20 % | 38 % | 3,7 | 7,4 | 12 | 11 % | 1,91 | 6,77 |
+| 10 | B: Klau 6, Falle 5 | 2 | 1,76 | 0,18 | 4 % | 22 % | 41 % | 4,6 | 5,6 | 11 | 6 % | 1,19 | 5,02 |
+| 10 | B: Klau 6, Falle 5 | 3 | 2,60 | 0,26 | 5 % | 24 % | 46 % | 4,8 | 7,5 | 12 | 10 % | 1,49 | 6,13 |
+| 10 | B: Klau 6, Falle 5 | 4 | 3,94 | 0,39 | 6 % | 25 % | 46 % | 4,6 | 9,2 | 15 | 14 % | 1,90 | 6,74 |
+| 10 | C: Klau 7, Falle 5 | 2 | 1,76 | 0,18 | 4 % | 24 % | 45 % | 4,9 | 6,1 | 12 | 7 % | 1,19 | 5,02 |
+| 10 | C: Klau 7, Falle 5 | 3 | 2,61 | 0,26 | 5 % | 26 % | 54 % | 5,1 | 8,1 | 14 | 10 % | 1,49 | 6,13 |
+| 10 | C: Klau 7, Falle 5 | 4 | 3,96 | 0,40 | 7 % | 26 % | 54 % | 4,9 | 9,8 | 15 | 15 % | 1,91 | 6,78 |
+| 10 | D: Münzklau-Gewicht 4 | 2 | 1,97 | 0,20 | 3 % | 18 % | 33 % | 3,5 | 4,9 | 9 | 5 % | 1,32 | 4,98 |
+| 10 | D: Münzklau-Gewicht 4 | 3 | 2,87 | 0,29 | 4 % | 19 % | 38 % | 3,7 | 6,4 | 10 | 8 % | 1,60 | 6,09 |
+| 10 | D: Münzklau-Gewicht 4 | 4 | 4,35 | 0,43 | 6 % | 19 % | 38 % | 3,6 | 8,0 | 13 | 12 % | 2,12 | 6,72 |
+| 10 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 2 | 1,97 | 0,20 | 4 % | 22 % | 40 % | 4,5 | 6,2 | 11 | 7 % | 1,32 | 4,99 |
+| 10 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 3 | 2,88 | 0,29 | 5 % | 23 % | 46 % | 4,7 | 7,9 | 12 | 10 % | 1,59 | 6,04 |
+| 10 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 4 | 4,35 | 0,43 | 7 % | 24 % | 46 % | 4,6 | 9,9 | 16 | 15 % | 2,09 | 6,64 |
+| 20 | A: Klau 5, Falle 4 (Stand) | 2 | 3,28 | 0,16 | 3 % | 13 % | 25 % | 3,7 | 7,8 | 14 | 4 % | 2,04 | 11,46 |
+| 20 | A: Klau 5, Falle 4 (Stand) | 3 | 5,05 | 0,25 | 4 % | 14 % | 31 % | 3,8 | 10,1 | 15 | 7 % | 2,56 | 14,93 |
+| 20 | A: Klau 5, Falle 4 (Stand) | 4 | 7,17 | 0,36 | 5 % | 16 % | 33 % | 3,7 | 11,7 | 18 | 9 % | 3,07 | 17,08 |
+| 20 | B: Klau 6, Falle 5 | 2 | 3,28 | 0,16 | 4 % | 16 % | 32 % | 4,7 | 9,8 | 17 | 5 % | 2,04 | 11,48 |
+| 20 | B: Klau 6, Falle 5 | 3 | 5,12 | 0,26 | 5 % | 18 % | 38 % | 4,8 | 12,7 | 19 | 8 % | 2,58 | 14,96 |
+| 20 | B: Klau 6, Falle 5 | 4 | 7,13 | 0,36 | 6 % | 20 % | 42 % | 4,7 | 14,7 | 22 | 11 % | 3,08 | 17,06 |
+| 20 | C: Klau 7, Falle 5 | 2 | 3,28 | 0,16 | 4 % | 18 % | 35 % | 5,0 | 10,5 | 18 | 6 % | 2,04 | 11,48 |
+| 20 | C: Klau 7, Falle 5 | 3 | 5,13 | 0,26 | 5 % | 19 % | 40 % | 5,1 | 13,5 | 20 | 9 % | 2,58 | 14,93 |
+| 20 | C: Klau 7, Falle 5 | 4 | 7,12 | 0,36 | 6 % | 21 % | 44 % | 4,9 | 15,4 | 23 | 12 % | 3,02 | 17,07 |
+| 20 | D: Münzklau-Gewicht 4 | 2 | 3,60 | 0,18 | 3 % | 13 % | 25 % | 3,7 | 8,4 | 14 | 5 % | 2,21 | 11,39 |
+| 20 | D: Münzklau-Gewicht 4 | 3 | 5,53 | 0,28 | 4 % | 14 % | 29 % | 3,8 | 10,9 | 15 | 7 % | 2,79 | 15,02 |
+| 20 | D: Münzklau-Gewicht 4 | 4 | 7,57 | 0,38 | 5 % | 16 % | 33 % | 3,7 | 12,4 | 18 | 10 % | 3,33 | 17,03 |
+| 20 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 2 | 3,60 | 0,18 | 4 % | 17 % | 31 % | 4,6 | 10,6 | 17 | 6 % | 2,22 | 11,40 |
+| 20 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 3 | 5,51 | 0,28 | 5 % | 17 % | 35 % | 4,8 | 13,4 | 19 | 8 % | 2,74 | 15,10 |
+| 20 | E: Klau 6, Falle 5, Münzklau-Gewicht 4 | 4 | 7,53 | 0,38 | 6 % | 19 % | 42 % | 4,6 | 15,3 | 22 | 12 % | 3,27 | 16,97 |
+
+- **Häufigkeit:** 0,16–0,18 Sabotagen je Runde mit 2, 0,25–0,26 mit 3 und 0,36–0,39 mit 4 Spielern, bei 10 Runden also 1,8 / 2,6 / 3,9 je Partie. Das Münzklau-Gewicht 4 (D) bringt ≈ +10 %.
+- **Stärke:** Sabotage kostet insgesamt nur **3–5 % aller eingenommenen Münzen**. Ein Treffer nimmt im Mittel 18–20 % des Bestands (p90 36–38 %) bei 10 Runden und 13–16 % bei 20 Runden, weil der Bestand mit den Minispiel-Münzen wächst. Klau 6/Falle 5 (B) liegt bei 22–25 % (p90 41–46 %), Klau 7 (C) bei 24–26 % (p90 bis 54 %).
+- **Spitzenopfer:** verliert bei 10 Runden im Mittel 4,5–7,4 Münzen (p90 9–12), also weniger als eine halbe Trophäe und 5–11 % der eigenen Einnahmen; bei 20 Runden 7,8–11,7 (p90 14–18). Die meisten Treffer auf eine Person: 1,2–1,9 je 10-Runden-Partie.
+- Die Trophäen je Partie ändern sich durch keine Variante messbar (± 0,1).
+
+**Entscheidung:** **keep** Klau 5 / Falle 4 / Gewichte 3-3-3-2 (`defaults.ts` unverändert). Alle Zielwerte sind erfüllt, und nichts in den Daten zeigt Frust (kleiner Anteil am Geld, Spitzenopfer unter einer Trophäe). Ob es sich **zu zahm** anfühlt, kann nur der Playtest sagen: Die Simulation misst keine Schadenfreude. **iterate** nach dem Playtest: Ist Sabotage zu harmlos, zuerst **Klau 6 / Falle 5** (B: bleibt ab 10 Runden unter 25 % je Treffer, Spitzenopfer ≈ 9 Münzen), danach Münzklau-Gewicht 4 (D) für mehr Häufigkeit.
+
+**Offen für Playtest:** Chaos-Gefühl gegen Frust, Häufigkeit mit 2 Spielern (nur etwa alle 6 Runden eine Sabotage).
+
+**Für später (CHAOS-44):** Sabotage-Stärke mit der Partiedauer skalieren (z. B. Klau = 5 + Runde/5), falls lange Partien zahm wirken.

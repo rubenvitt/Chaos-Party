@@ -67,8 +67,9 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
     await openHost(page, '/host/?test=1&seed=2026');
     await expect(page.locator('.lobby-empty')).toBeVisible();
 
-    // Rundenwahl: Vorschläge des Servers, Standard 5.
-    await expect(page.getByTestId('rounds-5')).toHaveAttribute('aria-pressed', 'true');
+    // Rundenwahl: Vorschläge des Servers (10/16/20, EXP-010), Standard 10.
+    await expect(page.getByTestId('rounds-10')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('rounds-10')).toContainText('≈ 15 Min.');
     await expect(page.getByTestId('lobby-rounds').locator('button')).toHaveCount(3);
 
     const bots = [
@@ -107,16 +108,18 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       );
 
       // Rundenzahl per Maus …
-      await page.getByTestId('rounds-8').click();
-      await expect(page.getByTestId('rounds-8')).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.getByTestId('rounds-5')).toHaveAttribute('aria-pressed', 'false');
-      expect(session.snapshot().rounds).toBe(8);
-      await expect(start).toContainText('8 Runden');
+      await page.getByTestId('rounds-16').click();
+      await expect(page.getByTestId('rounds-16')).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.getByTestId('rounds-10')).toHaveAttribute('aria-pressed', 'false');
+      expect(session.snapshot().rounds).toBe(16);
+      await expect(start).toContainText('16 Runden');
+      // Dauer nach Spielerzahl (3 Spieler): 16 Runden ≈ 20 Min.
+      await expect(page.getByTestId('rounds-16')).toContainText('≈ 20 Min.');
       // … und per Tastatur (Fokus + Enter).
-      await page.getByTestId('rounds-3').focus();
+      await page.getByTestId('rounds-20').focus();
       await page.keyboard.press('Enter');
-      await expect(page.getByTestId('rounds-3')).toHaveAttribute('aria-pressed', 'true');
-      expect(session.snapshot().rounds).toBe(3);
+      await expect(page.getByTestId('rounds-20')).toHaveAttribute('aria-pressed', 'true');
+      expect(session.snapshot().rounds).toBe(20);
 
       // Umwählen setzt „bereit“ zurück (ADR-014) – der Host zeigt es sofort.
       bots[0]?.pick('cactus');
@@ -125,10 +128,13 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       // Der Bot tippt danach selbst wieder „bereit“.
       await expect(card(1)).toHaveAttribute('data-ready', 'true');
 
-      await page.getByTestId('rounds-3').blur();
+      await page.getByTestId('rounds-20').blur();
       await stepFrames(page, 30);
       if (process.env.HOST_LOBBY_BELEG) {
-        await page.screenshot({ path: 'docs/screenshots/m4-host-lobby.png' });
+        await page.screenshot({
+          path: 'docs/screenshots/m4-host-lobby.png',
+          animations: 'disabled',
+        });
       }
       await expect(page).toHaveScreenshot('host-lobby-figuren.png', { mask: lobbyMask(page) });
 
@@ -145,7 +151,7 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(main).toHaveAttribute('data-phase', 'board');
       await expect(main).toHaveAttribute('data-scene', 'ready');
       await page.waitForFunction(() => window.__chaos?.board?.ready === true);
-      expect(session.snapshot().game?.state.rounds).toBe(3);
+      expect(session.snapshot().game?.state.rounds).toBe(20);
       // Brett zeigt die gewählten Figuren; Slot 3 bekam beim Start seine freie Standardfigur.
       await stepFrames(page, 2);
       expect(await page.evaluate(() => window.__chaos?.board?.getPawnCharacters())).toEqual({
@@ -153,7 +159,7 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
         2: 'robot',
         3: 'raccoon',
       });
-      await expect(page.getByTestId('board-round')).toHaveText('Runde 1/3');
+      await expect(page.getByTestId('board-round')).toHaveText('Runde 1/20');
     } finally {
       for (const bot of bots) bot.close();
     }

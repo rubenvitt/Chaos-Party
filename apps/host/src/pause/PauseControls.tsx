@@ -9,6 +9,7 @@
  */
 import type { BoardView } from '@chaos-party/protocol';
 import { useEffect, useRef, useState } from 'react';
+import { soundEngine } from '../fx/audio.ts';
 import type { HostCommand } from '../net/hostConnection.ts';
 import { canPause, pauseKeyAction } from './pauseState.ts';
 import './pause.css';
@@ -29,6 +30,16 @@ export function PauseControls({ view, onCommand }: PauseControlsProps) {
   useEffect(() => {
     state.current = { view, confirming };
   });
+
+  // Klang beim Wechsel (auch Auto-Pause/Fortsetzen durch den Server), nicht beim ersten Stand.
+  const wasPaused = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (view === null) return;
+    if (wasPaused.current !== null && wasPaused.current !== paused) {
+      soundEngine().play(paused ? 'pause' : 'resume');
+    }
+    wasPaused.current = paused;
+  }, [view, paused]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

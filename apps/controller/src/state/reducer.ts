@@ -53,6 +53,11 @@ export interface PendingChoice {
 export interface Notice {
   readonly code: UiErrorCode;
   readonly id: number;
+  /**
+   * Betroffener Platz, wenn eindeutig (z. B. `character-taken` bei genau einer vorgemerkten
+   * Figurenwahl): Das geteilte iPad zeigt den Hinweis dann gedreht in dieser Zone (CHAOS-40).
+   */
+  readonly slot?: SlotNumber;
 }
 
 /** Rückmeldung an einen Slot; `id` startet die Animation neu. */
@@ -83,6 +88,11 @@ export interface ControllerState {
    * Lobby vorbei), durch jeden Fehler auf der Verbindung oder durch Verbindungsverlust.
    */
   readonly picks: Readonly<Partial<Record<SlotNumber, CharacterId>>>;
+  /**
+   * `seq` der zuletzt gesendeten Figurenwahlen mit Slot (höchstens {@link PICK_SEQ_MEMORY}):
+   * ordnet ein `character-taken` (trägt die `seq`) der richtigen iPad-Zone zu (CHAOS-40).
+   */
+  readonly pickSeqs: readonly { readonly seq: number; readonly slot: SlotNumber }[];
   /** Fehler, der den ganzen Bildschirm bestimmt (Code-Eingabe oder Fehlerseite). */
   readonly fatal: UiErrorCode | null;
   readonly notice: Notice | null;
@@ -121,7 +131,16 @@ export type ControllerEvent =
       readonly option: string;
     }
   /** Eine Figurenwahl wurde gesendet (CHAOS-36): bis zur Antwort als gewählt zeigen. */
-  | { readonly type: 'pick-sent'; readonly slot: SlotNumber; readonly character: CharacterId };
+  | {
+      readonly type: 'pick-sent';
+      readonly slot: SlotNumber;
+      readonly character: CharacterId;
+      /** Vergebene `seq` der Nachricht (für die Zuordnung einer Ablehnung). */
+      readonly seq?: number | null;
+    };
+
+/** So viele gesendete Figurenwahlen merkt sich der Zustand für die Fehler-Zuordnung. */
+export const PICK_SEQ_MEMORY = 8;
 
 export function createInitialState(joinCode: string | null = null): ControllerState {
   return {
@@ -134,6 +153,7 @@ export function createInitialState(joinCode: string | null = null): ControllerSt
     feedback: {},
     choices: {},
     picks: {},
+    pickSeqs: [],
     fatal: null,
     notice: null,
     rttMs: null,
@@ -164,7 +184,14 @@ export function reduce(state: ControllerState, event: ControllerEvent): Controll
       // Gesendete Wahlen entsperren: Ob sie ankamen, ist offen; der neue Kontext klärt es.
       return state.connection === 'closed' && !state.welcomed
         ? state
-        : { ...state, connection: 'closed', welcomed: false, choices: {}, picks: {} };
+        : {
+            ...state,
+            connection: 'closed',
+            welcomed: false,
+            choices: {},
+            picks: {},
+            pickSeqs: [],
+          };
     case 'reconnect-scheduled':
       return state.attempt === event.attempt ? state : { ...state, attempt: event.attempt };
     case 'gave-up':
@@ -183,6 +210,10 @@ export function reduce(state: ControllerState, event: ControllerEvent): Controll
       };
     }
     case 'pick-sent': {
+      if (typeof event.seq === 'number') {
+        const entry = { seq: event.seq, slot: event.slot };
+        state = { ...state, pickSeqs: [...state.pickSeqs, entry].slice(-PICK_SEQ_MEMORY) };
+      }
       // Nur in der Lobby mit Charakterwahl; eine vergebene oder schon eigene Figur nicht vormerken.
       const lobby = state.contexts[event.slot]?.lobby;
       if (lobby === undefined || lobby.character === event.character) {
@@ -227,6 +258,7 @@ function reduceServerMessage(
         feedback: keep(state.feedback),
         choices: {},
         picks: {},
+        pickSeqs: [],
         fatal: null,
         attempt: 0,
       };
@@ -271,15 +303,26 @@ function reduceServerMessage(
     }
     case 'error': {
       const severity = errorSeverity(message.code);
+      // Figur weg: Zone der Wahl mit dieser `seq`, sonst der einzigen vorgemerkten Wahl.
+      const pickSlots = Object.keys(state.picks).map((key) => Number(key) as SlotNumber);
+      const noticeSlot =
+        message.code !== 'character-taken'
+          ? undefined
+          : (state.pickSeqs.find((entry) => entry.seq === message.seq)?.slot ??
+            (pickSlots.length === 1 ? pickSlots[0] : undefined));
       // Jede Ablehnung (auch stille wie `stale-seq`) kann eine Figurenwahl betreffen:
       // Vormerkung lösen, der nächste Kontext zeigt den echten Stand (CHAOS-36).
-      if (Object.keys(state.picks).length > 0) state = { ...state, picks: {} };
+      if (pickSlots.length > 0) state = { ...state, picks: {} };
       if (severity === 'silent') return state;
       if (severity === 'toast') {
         const id = state.counter + 1;
         // Wahl abgelehnt (zu spät, veraltet): Sperre lösen, damit neu gewählt werden kann.
         const choices = message.code === 'invalid-choice' ? {} : state.choices;
-        return { ...state, counter: id, notice: { code: message.code, id }, choices };
+        const notice: Notice =
+          noticeSlot === undefined
+            ? { code: message.code, id }
+            : { code: message.code, id, slot: noticeSlot };
+        return { ...state, counter: id, notice, choices };
       }
       if (severity === 'code') {
         return {

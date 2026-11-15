@@ -23,7 +23,7 @@ import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
 import { describeLobby, HINT_READY, type SiblingCharacter } from '../lobby/view.ts';
 import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
-import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
+import type { FeedbackPulse, Notice, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { describeSlotScreen } from '../state/screen.ts';
 import {
   BADGE_STRIP,
@@ -48,6 +48,7 @@ import { FinalCard, PauseCard } from './final.tsx';
 import { CharacterFace, LobbyHead, ReadyBadge } from './lobby.tsx';
 import { cardData, ownerStyle } from './lobbyCard.ts';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
+import { Toast } from './screens.tsx';
 import { useInterruption } from './useInterruption.ts';
 
 export interface ZoneBoardProps {
@@ -58,11 +59,15 @@ export interface ZoneBoardProps {
   choices?: Readonly<Partial<Record<SlotNumber, PendingChoice>>>;
   /** Gesendete, noch unbestätigte Figurenwahl je Slot (Lobby, CHAOS-36). */
   picks?: Readonly<Partial<Record<SlotNumber, CharacterId>>>;
+  /** Hinweis für genau eine Zone (`notice.slot`), gedreht in dieser Zone (CHAOS-40). */
+  notice?: Notice | null;
+  onDismissNotice?: (id: number) => void;
   send: (intent: SlotIntent) => void;
 }
 
 const NO_CHOICES: Readonly<Partial<Record<SlotNumber, PendingChoice>>> = {};
 const NO_PICKS: Readonly<Partial<Record<SlotNumber, CharacterId>>> = {};
+const NO_DISMISS = () => undefined;
 
 /* ---------------------------------------------------------------------------
  * Größe der Spielfläche (= Layout-Viewport; die Fläche ist `position: fixed`).
@@ -165,6 +170,8 @@ export function ZoneBoard({
   feedback,
   choices = NO_CHOICES,
   picks = NO_PICKS,
+  notice = null,
+  onDismissNotice = NO_DISMISS,
   send,
 }: ZoneBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -324,6 +331,8 @@ export function ZoneBoard({
             pending={choices[zone.slot]}
             pick={picks[zone.slot]}
             siblings={siblings}
+            notice={notice?.slot === zone.slot ? notice : null}
+            onDismissNotice={onDismissNotice}
           />
         );
       })}
@@ -341,6 +350,9 @@ interface ZoneProps {
   pick: CharacterId | undefined;
   /** Figuren aller Plätze dieses Geräts (auch der eigene; wird hier herausgefiltert). */
   siblings: readonly SiblingCharacter[];
+  /** Hinweis nur für diese Zone (gedreht mit der Zone). */
+  notice: Notice | null;
+  onDismissNotice: (id: number) => void;
 }
 
 function rectStyle(rect: { x: number; y: number; width: number; height: number }): CSSProperties {
@@ -356,6 +368,8 @@ const Zone = memo(function Zone({
   pending,
   pick,
   siblings,
+  notice,
+  onDismissNotice,
 }: ZoneProps) {
   const layout = context?.layout ?? 'wait';
   const screen = describeSlotScreen(context);
@@ -525,6 +539,8 @@ const Zone = memo(function Zone({
             data-testid="feedback"
           />
         )}
+
+        {notice && <Toast key={notice.id} notice={notice} onDismiss={onDismissNotice} zone />}
       </div>
     </section>
   );

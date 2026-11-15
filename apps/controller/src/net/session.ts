@@ -342,7 +342,12 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
         });
       }
       if (sent && intent.type === 'pick-character') {
-        dispatch({ type: 'pick-sent', slot: intent.slot, character: intent.character });
+        dispatch({
+          type: 'pick-sent',
+          slot: intent.slot,
+          character: intent.character,
+          seq: client?.lastSeq ?? null,
+        });
       }
       return sent;
     },

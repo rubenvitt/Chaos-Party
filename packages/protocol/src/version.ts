@@ -11,6 +11,8 @@
  * (`RankingEntry.minigameWins`/`decidedBy`, `BoardPlayer.minigameWins`/`stats`),
  * `BoardView.minigame.rewards`, Minispiel-Kontext `tied`/`aborted`/`reward`, Bestätigung
  * `minigame-result-ack`, `game-ended.endedEarly`.
+ * v4-Nachtrag (CHAOS-40, additiv, ohne Versionssprung): Lobby-Kontext `takenBy`
+ * (vergebene Figuren mit Besitzer-Slot, optional).
  */
 export const PROTOCOL_VERSION = 4;
 

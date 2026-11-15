@@ -181,11 +181,14 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   }
 
   function buildStage(): void {
-    // Runde Grasinsel wie das Brett (Gras #8fd16a, cremiger Rand, dunkle Tinte darunter).
+    // Runde Grasinsel (cremiger Rand, dunkle Tinte darunter). Halbkugellicht + Sonne ergeben
+    // auf der Oberseite ≈ 1,25 × Grundfarbe: #72a755 erscheint so als Gras-Referenz #8fd16a
+    // (Art Direction). Mit #7cc35a lag die Insel bei (158, 243, 110) und überstrahlte die
+    // Podeste – auf echter GPU genauso, das ist Lichtrechnung, nicht SwiftShader (CHAOS-40).
     const diameter = maxX - minX + 6;
     const grass = CreateCylinder('insel', { diameter, height: 0.3, tessellation: 72 }, scene);
     grass.position.set(centerX, -0.15, 0.6);
-    grass.material = material('insel-mat', '#7cc35a', 0.03);
+    grass.material = material('insel-mat', '#72a755', 0.03);
     grass.receiveShadows = true;
     const rim = CreateCylinder(
       'insel-rand',

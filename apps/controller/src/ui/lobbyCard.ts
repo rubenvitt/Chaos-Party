@@ -7,7 +7,7 @@ import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { MINE_LABEL, TAKEN_LABEL, type CharacterCard } from '../lobby/view.ts';
 import { readableTextColor } from './color.ts';
 
-/** Farbe des Besitzers einer vergebenen Figur (nur Plätze auf diesem Gerät). */
+/** Farbe des Besitzers einer vergebenen Figur (laut Server `takenBy` oder Nachbarzone). */
 export function ownerStyle(card: CharacterCard): CSSProperties | undefined {
   if (card.ownerSlot === null) return undefined;
   const color = PLAYER_SLOTS[card.ownerSlot].color;

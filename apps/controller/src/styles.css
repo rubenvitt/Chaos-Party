@@ -601,6 +601,23 @@ button {
   pointer-events: none;
 }
 
+/*
+ * Hinweis in einer iPad-Zone (CHAOS-40): oben in der Zone unter der Plakette (über dem Titel,
+ * nicht über „Bereit!“), mit der Zone gedreht, Rand in Zonenfarbe.
+ */
+.toast--zone {
+  position: absolute;
+  top: 58px;
+  bottom: auto;
+  max-width: min(92%, 360px);
+  width: max-content;
+  border: 2px solid var(--player);
+  /* Deckend: liegt über dem Titel der Zone und muss ohne Durchscheinen lesbar sein. */
+  background: rgba(18, 24, 20, 0.94);
+  font-size: 15px;
+  z-index: 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wait-dots i,
   .feedback {

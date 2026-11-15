@@ -43,6 +43,8 @@ Gesamtlautstärke: `?volume=0…100` (Standard 70).
 | `trophy`         | Trophäe gekauft: Fanfare mit Glitzern           | `trophy-bought`                                   |
 | `turn`           | Zugbeginn: sanfter Zweiklang-Gong               | `turn-started`                                    |
 | `minigame-start` | Minispiel-Zeit: Aufwärts-Swoosh mit Tusch       | Minispiel-Bühne erscheint (Anleitung)             |
+| `pause`          | Pause: zwei sanfte, absteigende Töne            | `view.paused` wird `true` (auch Auto-Pause)       |
+| `resume`         | Weiter: zwei sanfte, aufsteigende Töne          | `view.paused` wird `false`                        |
 
 Weitere Zuordnungen am Brett: Item gefunden → `pop`, andere Items → `whoosh`, Reaktion
 „festhalten“ → `bump`, zu langsam/leerer Klau → `buzz`, Spielende → `win`. In der Anleitung tickt
