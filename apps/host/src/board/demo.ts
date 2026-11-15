@@ -55,7 +55,7 @@ export const DEMO_VIEW: BoardView = {
   turnOrder: [1, 3, 2, 4],
   activeSlot: 1,
   players: PLAYERS,
-  trophySpaces: ['s24'],
+  trophySpaces: ['s12', 's24', 's36'],
   trophyPrice: 20,
   traps: [{ spaceId: 's15', owner: 2 }],
   prompt: {
