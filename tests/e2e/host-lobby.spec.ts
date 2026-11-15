@@ -160,7 +160,7 @@ test.describe('Host-Lobby mit QR-Join (Node-Server, Production-Build)', () => {
   }) => {
     const { joinUrl } = chaosServer;
     const problems = collectProblems(page);
-    await openHost(page, '/host/?test=1&seed=2026&joinHint=1');
+    await openHost(page, '/host/?test=1&seed=2026&joinHint=1&arena=1');
 
     const qr = page.getByTestId('join-qr');
     await expect(qr).toBeVisible();
@@ -193,7 +193,7 @@ test.describe('Host-Lobby mit QR-Join (Node-Server, Production-Build)', () => {
   }) => {
     const { joinUrl } = chaosServer;
     const problems = collectProblems(page);
-    await openHost(page, '/host/?test=1&seed=2026');
+    await openHost(page, '/host/?test=1&seed=2026&arena=1');
     const qr = page.getByTestId('join-qr');
     const phone = page.getByTestId('join-device-phone');
     const ipad = page.getByTestId('join-device-ipad');
@@ -240,7 +240,7 @@ test.describe('Host-Lobby mit QR-Join (Node-Server, Production-Build)', () => {
         ws.send(JSON.stringify(data));
       });
     });
-    await openHost(page, '/host/?test=1&seed=2026');
+    await openHost(page, '/host/?test=1&seed=2026&arena=1');
 
     const qr = page.getByTestId('join-qr');
     const select = page.getByTestId('join-address');
@@ -262,9 +262,9 @@ test.describe('Host-Lobby mit QR-Join (Node-Server, Production-Build)', () => {
     page,
     context,
   }) => {
-    await openHost(page, '/host/?test=1&seed=2026');
+    await openHost(page, '/host/?test=1&seed=2026&arena=1');
     const second = await context.newPage();
-    await second.goto('/host/?test=1&seed=2026');
+    await second.goto('/host/?test=1&seed=2026&arena=1');
     await expect(second.getByTestId('connection')).toHaveAttribute('data-status', 'host-taken');
     await expect(page.getByTestId('connection')).toHaveAttribute('data-status', 'connected');
     await second.close();
@@ -276,7 +276,7 @@ test.describe('Host-Lobby mit QR-Join (Node-Server, Production-Build)', () => {
   }) => {
     const problems = collectProblems(page);
     await pinLobbyJoinUrl(page);
-    await openHost(page, '/host/?test=1&seed=2026');
+    await openHost(page, '/host/?test=1&seed=2026&arena=1');
     await expect(page.locator('.lobby-empty')).toBeVisible();
     await expect(page.getByTestId('join-qr')).toHaveAttribute('data-value', PINNED_JOIN_URL);
 

@@ -17,6 +17,10 @@ describe('parseHostConfig', () => {
       test: true,
       joinHintSeconds: 5,
       debug: true,
+      arena: false,
+      rounds: null,
+      board: false,
+      demo: false,
     });
     expect(DEFAULT_CONFIG.debug).toBe(false);
     expect(parseHostConfig('?debug=true').debug).toBe(true);
@@ -32,6 +36,21 @@ describe('parseHostConfig', () => {
     expect(parseHostConfig('?local=ja').local).toBe(false);
     expect(parseHostConfig('?joinHint=-3').joinHintSeconds).toBe(30);
     expect(parseHostConfig('?joinHint=99999').joinHintSeconds).toBe(3600);
+  });
+
+  it('liest arena, rounds, board und demo (M2)', () => {
+    expect(parseHostConfig('?arena=1&rounds=7&local=1&board=1&demo=1')).toMatchObject({
+      arena: true,
+      rounds: 7,
+      local: true,
+      board: true,
+      demo: true,
+    });
+    expect(DEFAULT_CONFIG).toMatchObject({ arena: false, rounds: null, board: false, demo: false });
+    expect(parseHostConfig('?rounds=0').rounds).toBe(1);
+    expect(parseHostConfig('?rounds=99').rounds).toBe(20);
+    expect(parseHostConfig('?rounds=viele').rounds).toBeNull();
+    expect(parseHostConfig('?arena=ja').arena).toBe(false);
   });
 });
 
