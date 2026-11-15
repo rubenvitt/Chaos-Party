@@ -172,3 +172,34 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches, nachgebauter Ser
 | iPad-Zonen mit mehreren Fingern zuverlässig? | |
 | Ergebnis sofort verständlich? | |
 | Entscheidung | |
+
+## 10. M3 – Minispiele, Figuren und Ton am PC (für CHAOS-35)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-3 · **Gate:** CHAOS-35 (nur Ruben) · **Anleitung:** [m3-demo.md](m3-demo.md)
+
+Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels headless (`packages/minigames`), Brett ↔ Minispiel über den Server (`apps/server/src/boardGame.integration.test.ts`), Bild jedes Minispiels mit festem Seed (`tests/e2e/m3-minispiele-bild.spec.ts`), Bühne mit echten Seiten (`tests/e2e/m3-minispiel-durchstich.spec.ts`). Diese Liste prüft, was nur Menschen am echten PC/Fernseher beurteilen können. Mit 2–4 Personen, `ROUNDS=3 pnpm start` (jedes Minispiel einmal).
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| P1 | Lobby mit 4 Spielern | Figur-Porträts mit Namen, klar unterscheidbar; jeder findet „seine“ Figur | | |
+| P2 | Brett mit Figuren (Fernseher, Sofa-Abstand) | Figuren erkennbar, laufen/jubeln/zucken passend; Sockel/Symbol zeigt den Slot | | |
+| P3 | Anleitung jedes Minispiels (7 s) | Alle haben vor dem Start verstanden, was zu tun ist (ohne Erklärung von außen) | | |
+| P4 | Sockenregen spielen | Socke, Goldsocke und Bügeleisen sofort unterscheidbar; Schleudergang spürbar; fühlt sich fair an | | |
+| P5 | Pudding-Gerangel spielen | Kirschfleck als Ziel klar; Kippen/Rempeln/Löffel witzig statt frustrierend; Rückkehr nach Sturz klar | | |
+| P6 | Wackelturm spielen | Wackeln früh sichtbar; Kippen nachvollziehbar (nicht „grundlos“); Klauen witzig statt gemein | | |
+| P7 | Eigene Figur im Gedränge finden | In allen drei Minispielen jederzeit klar, wer man ist (Farbe + Symbol + Figur) | | |
+| P8 | Ergebnisanzeige | Plätze, Punkte, Münzen und Gleichstand sofort klar; 6 s reichen zum Lesen | | |
+| P9 | Ton (Lautsprecher/Fernseher) | Klänge passen, nerven nicht, nicht zu laut; `?volume=` / `?mute=1` wirken | | |
+| P10 | Bildrate am PC während der Minispiele (`&debug=1`) | flüssig (Wert notieren, Rechner/Browser angeben) | | |
+| P11 | Host-Tab mitten im Minispiel neu laden | Minispiel startet mit Restzeit neu, Partie läuft weiter | | |
+
+### Gesamturteil M3 (für CHAOS-35)
+
+| Frage | Antwort |
+|---|---|
+| Versteht man jedes Minispiel schnell? | |
+| Sind die Ergebnisse klar unterscheidbar? | |
+| Macht das Chaos Spaß und bleibt fair? | |
+| Passen Figuren und Stil zur Produktrichtung? | |
+| Lieblings- und schwächstes Minispiel, warum? | |
+| Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
