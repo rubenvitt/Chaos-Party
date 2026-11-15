@@ -2,14 +2,24 @@
 import type { z } from 'zod';
 import type {
   ACTIONS,
+  BOARD_EVENT_KINDS,
+  BoardEventSchema,
+  BoardMessageSchema,
+  BoardPlayerSchema,
+  BoardViewSchema,
   BUTTONS,
+  ChooseMessageSchema,
   ClientMessageSchema,
+  COIN_REASONS,
+  ControllerBoardInfoSchema,
   ContextMessageSchema,
   ControllerMessageSchema,
   ERROR_CODES,
   ErrorMessageSchema,
   FEEDBACK_KINDS,
   FeedbackMessageSchema,
+  GAME_MODES,
+  GAME_PHASES,
   GESTURE_KINDS,
   GestureMessageSchema,
   HeartbeatAckMessageSchema,
@@ -18,6 +28,7 @@ import type {
   HostMessageSchema,
   InputIntentSchema,
   InputMessageSchema,
+  ITEM_KINDS,
   JoinMessageSchema,
   LAYOUTS,
   LobbyMessageSchema,
@@ -26,6 +37,10 @@ import type {
   PHASES,
   PlayerInfoSchema,
   PressMessageSchema,
+  PROMPT_KINDS,
+  PromptOptionSchema,
+  PromptSchema,
+  RankingEntrySchema,
   ReactionMessageSchema,
   ReadyMessageSchema,
   ReconnectMessageSchema,
@@ -44,6 +59,12 @@ export type Action = (typeof ACTIONS)[number];
 export type Layout = (typeof LAYOUTS)[number];
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
 export type ErrorCode = (typeof ERROR_CODES)[number];
+export type GameMode = (typeof GAME_MODES)[number];
+export type GamePhaseName = (typeof GAME_PHASES)[number];
+export type ItemKindName = (typeof ITEM_KINDS)[number];
+export type PromptKindName = (typeof PROMPT_KINDS)[number];
+export type BoardEventKindName = (typeof BOARD_EVENT_KINDS)[number];
+export type CoinReasonName = (typeof COIN_REASONS)[number];
 
 // Controller → Server
 export type JoinMessage = z.infer<typeof JoinMessageSchema>;
@@ -54,6 +75,7 @@ export type PressMessage = z.infer<typeof PressMessageSchema>;
 export type ReleaseMessage = z.infer<typeof ReleaseMessageSchema>;
 export type GestureMessage = z.infer<typeof GestureMessageSchema>;
 export type ReactionMessage = z.infer<typeof ReactionMessageSchema>;
+export type ChooseMessage = z.infer<typeof ChooseMessageSchema>;
 export type HeartbeatMessage = z.infer<typeof HeartbeatMessageSchema>;
 export type ControllerMessage = z.infer<typeof ControllerMessageSchema>;
 
@@ -69,6 +91,9 @@ export type ClientMessageType = ClientMessage['type'];
 export type PlayerInfo = z.infer<typeof PlayerInfoSchema>;
 export type WelcomeMessage = z.infer<typeof WelcomeMessageSchema>;
 export type ContextMessage = z.infer<typeof ContextMessageSchema>;
+export type PromptOptionInfo = z.infer<typeof PromptOptionSchema>;
+export type PromptInfo = z.infer<typeof PromptSchema>;
+export type ControllerBoardInfo = z.infer<typeof ControllerBoardInfoSchema>;
 export type FeedbackMessage = z.infer<typeof FeedbackMessageSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 export type HeartbeatAckMessage = z.infer<typeof HeartbeatAckMessageSchema>;
@@ -80,6 +105,11 @@ export type LobbyMessage = z.infer<typeof LobbyMessageSchema>;
 export type InputIntent = z.infer<typeof InputIntentSchema>;
 export type InputIntentType = InputIntent['type'];
 export type InputMessage = z.infer<typeof InputMessageSchema>;
+export type BoardPlayer = z.infer<typeof BoardPlayerSchema>;
+export type RankingEntryInfo = z.infer<typeof RankingEntrySchema>;
+export type BoardView = z.infer<typeof BoardViewSchema>;
+export type BoardEvent = z.infer<typeof BoardEventSchema>;
+export type BoardMessage = z.infer<typeof BoardMessageSchema>;
 export type ServerToHostMessage = z.infer<typeof ServerToHostMessageSchema>;
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

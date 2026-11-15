@@ -2,22 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { INPUT_INTENT_TYPES, isInputIntentType, isIntentAllowed } from './phase.ts';
 import type { ClientMessageType, Phase } from './types.ts';
 
-/** Erwartete Matrix: Nachrichtentyp → erlaubt in [lobby, play]. */
-const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean]> = {
-  join: [true, false],
-  reconnect: [true, true],
-  ready: [true, false],
-  move: [false, true],
-  press: [false, true],
-  release: [false, true],
-  gesture: [false, true],
-  reaction: [false, true],
-  heartbeat: [true, true],
-  'host-hello': [true, true],
-  start: [true, false],
+/** Erwartete Matrix: Nachrichtentyp → erlaubt in [lobby, play, board]. */
+const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean, board: boolean]> = {
+  join: [true, false, false],
+  reconnect: [true, true, true],
+  ready: [true, false, false],
+  move: [false, true, false],
+  press: [false, true, false],
+  release: [false, true, false],
+  gesture: [false, true, false],
+  reaction: [false, true, false],
+  heartbeat: [true, true, true],
+  'host-hello': [true, true, true],
+  start: [true, false, false],
+  choose: [false, false, true],
 };
 
-const PHASE_INDEX: Record<Phase, 0 | 1> = { lobby: 0, play: 1 };
+const PHASE_INDEX: Record<Phase, 0 | 1 | 2> = { lobby: 0, play: 1, board: 2 };
 
 describe('isIntentAllowed', () => {
   const cases = Object.entries(MATRIX).flatMap(([type, allowed]) =>

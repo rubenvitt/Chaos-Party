@@ -257,7 +257,7 @@ describe('WebSocket-Server (CHAOS-9)', () => {
     const { client } = await controller();
     client.send('{kaputt');
     await client.error('bad-message');
-    client.send({ v: 1, type: 'teleport' });
+    client.send({ v: 2, type: 'teleport' });
     await client.error('bad-message');
     client.send({ v: 99, type: 'heartbeat', t: 1 });
     await client.error('version-mismatch');

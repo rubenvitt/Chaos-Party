@@ -74,7 +74,7 @@ describe('createControllerSession', () => {
     session.join('ABCD');
     expect(socket(0).url).toBe('ws://pc:8787/ws');
     socket(0).open();
-    expect(socket(0).sentMessages()).toEqual([{ v: 1, type: 'join', joinCode: 'ABCD', seats: 1 }]);
+    expect(socket(0).sentMessages()).toEqual([{ v: 2, type: 'join', joinCode: 'ABCD', seats: 1 }]);
 
     socket(0).receive(welcome);
     expect(tokens.load('ABCD')).toBe(TOKEN);
@@ -88,7 +88,7 @@ describe('createControllerSession', () => {
     tokens.save('ABCD', TOKEN);
     session.join('ABCD');
     socket(0).open();
-    expect(socket(0).sentMessages()).toEqual([{ v: 1, type: 'reconnect', sessionToken: TOKEN }]);
+    expect(socket(0).sentMessages()).toEqual([{ v: 2, type: 'reconnect', sessionToken: TOKEN }]);
   });
 
   it('ignoriert ein Token eines anderen Codes', () => {
@@ -137,7 +137,7 @@ describe('createControllerSession', () => {
       .sentMessages()
       .map((m) => m.type);
     expect(types).toEqual(['join', 'ready', 'heartbeat', 'heartbeat']);
-    expect(socket(0).sentMessages()[1]).toEqual({ v: 1, type: 'ready', slot: 1, seq: 1 });
+    expect(socket(0).sentMessages()[1]).toEqual({ v: 2, type: 'ready', slot: 1, seq: 1 });
   });
 
   it('Verbindungsverlust → Controller bleibt, Overlay, automatisch neu mit Token; seq beginnt neu', () => {
@@ -160,7 +160,7 @@ describe('createControllerSession', () => {
     // Vor dem `welcome` der neuen Verbindung gehen keine Eingaben raus.
     socket(1).open();
     expect(session.sendIntent({ type: 'press', slot: 1, button: 'a' })).toBe(false);
-    expect(socket(1).sentMessages()).toEqual([{ v: 1, type: 'reconnect', sessionToken: TOKEN }]);
+    expect(socket(1).sentMessages()).toEqual([{ v: 2, type: 'reconnect', sessionToken: TOKEN }]);
     socket(1).receive(welcome);
     expect(selectLink(session.getState())).toEqual({ kind: 'online', rttMs: null });
     session.sendIntent({ type: 'press', slot: 1, button: 'a' });
@@ -332,7 +332,7 @@ describe('createControllerSession', () => {
     session.join('ABCD');
     socket(0).open();
     const before = session.getState();
-    socket(0).receive({ v: 1, type: 'welcome', sessionToken: 'kurz', players: [] });
+    socket(0).receive({ v: 2, type: 'welcome', sessionToken: 'kurz', players: [] });
     expect(warn).toHaveBeenCalledOnce();
     expect(session.getState()).toBe(before);
   });

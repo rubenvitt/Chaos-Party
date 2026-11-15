@@ -175,7 +175,7 @@ export interface SessionSnapshot {
   droppedInputs: number;
 }
 
-type InputMessage = Exclude<SlotIntentMessage, { type: 'ready' }>;
+type InputMessage = Exclude<SlotIntentMessage, { type: 'ready' } | { type: 'choose' }>;
 
 interface SlotContext {
   layout: Layout;
@@ -557,6 +557,12 @@ export class Session {
         this.sendContext(conn.id, player.slot);
         this.lobbyDirty = true;
       }
+      return;
+    }
+
+    if (message.type === 'choose') {
+      // Brettphase (M2): wird mit der Server-Integration angebunden.
+      this.reject(conn, 'out-of-phase', 'choose wird gerade nicht angeboten', seq);
       return;
     }
 

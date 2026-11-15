@@ -20,6 +20,8 @@ import { PROTOCOL_VERSION } from './version.ts';
 
 /** Größte zulässige Nachricht als JSON-Text (Zeichen). Größere werden ungelesen verworfen. */
 export const MAX_MESSAGE_LENGTH = 4096;
+/** Größte zulässige Server-Nachricht (Brett-Schnappschuss mit Ereignissen) als JSON-Text. */
+export const MAX_SERVER_MESSAGE_LENGTH = 65_536;
 /** Toleranz für die Joystick-Länge (Rundung auf dem Gerät). */
 export const STICK_EPSILON = 0.001;
 export const MAX_NAME_LENGTH = 16;
@@ -33,14 +35,55 @@ export const MAX_JOIN_URL_ALTERNATIVES = 8;
 // Aufzählungen
 // ---------------------------------------------------------------------------
 
-/** Spielphasen in M1. Später kommen Brett-, Minispiel- und Ergebnisphasen hinzu. */
-export const PHASES = ['lobby', 'play'] as const;
+/**
+ * Sitzungsphasen. `play` = M1-Arena (Schubsen mit Joystick, bleibt als Testbett für
+ * Eingabelatenz erhalten), `board` = M2-Brettspiel mit allen Unterphasen (`GAME_PHASES`).
+ */
+export const PHASES = ['lobby', 'play', 'board'] as const;
+/** Spielmodus beim Start: Brettspiel (Standard) oder M1-Arena. */
+export const GAME_MODES = ['board', 'arena'] as const;
+/** Unterphasen des Brettspiels (Spiegel von `GamePhase` in `@chaos-party/game-core`). */
+export const GAME_PHASES = [
+  'setup',
+  'turn-start',
+  'roll',
+  'choose-target',
+  'move',
+  'choose-path',
+  'trophy-offer',
+  'space-event',
+  'reaction-window',
+  'turn-end',
+  'minigame-intro',
+  'minigame-play',
+  'minigame-results',
+  'round-end',
+  'game-results',
+] as const;
+export const ITEM_KINDS = ['double-dice', 'coin-steal', 'trap', 'shield'] as const;
+export const PROMPT_KINDS = ['roll', 'target', 'path', 'trophy', 'reaction'] as const;
+export const BOARD_EVENT_KINDS = [
+  'coin-rain',
+  'gust',
+  'swap',
+  'trophy-shuffle',
+  'lucky-find',
+] as const;
+export const COIN_REASONS = ['space', 'event', 'trophy', 'steal', 'trap', 'minigame'] as const;
 export const BUTTONS = ['a', 'b'] as const;
 export const GESTURE_KINDS = ['swipe-up', 'swipe-down', 'swipe-left', 'swipe-right'] as const;
 /** Was ein Controller-Slot in der aktuellen Phase anbieten soll. */
-export const ACTIONS = ['ready', 'move', 'button-a', 'button-b', 'gesture', 'reaction'] as const;
-/** Bildschirmaufbau eines Controller-Slots. */
-export const LAYOUTS = ['wait', 'lobby', 'joystick-buttons'] as const;
+export const ACTIONS = [
+  'ready',
+  'move',
+  'button-a',
+  'button-b',
+  'gesture',
+  'reaction',
+  'choose',
+] as const;
+/** Bildschirmaufbau eines Controller-Slots. `board` = Brettphase (Status + ggf. Prompt). */
+export const LAYOUTS = ['wait', 'lobby', 'joystick-buttons', 'board'] as const;
 /** Kurze Rückmeldung an einen Slot (Vibration, Farbblitz, Ton – Darstellung entscheidet der Controller). */
 export const FEEDBACK_KINDS = ['confirm', 'hit', 'miss', 'win', 'lose'] as const;
 export const ERROR_CODES = [
@@ -56,6 +99,8 @@ export const ERROR_CODES = [
   'out-of-phase',
   'stale-seq',
   'rate-limited',
+  /** Wahl passt nicht zum aktuellen Prompt (veraltet, falsche Option, nicht dran). */
+  'invalid-choice',
   'internal',
 ] as const;
 
@@ -66,6 +111,12 @@ export const ActionSchema = z.enum(ACTIONS);
 export const LayoutSchema = z.enum(LAYOUTS);
 export const FeedbackKindSchema = z.enum(FEEDBACK_KINDS);
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
+export const GameModeSchema = z.enum(GAME_MODES);
+export const GamePhaseSchema = z.enum(GAME_PHASES);
+export const ItemKindSchema = z.enum(ITEM_KINDS);
+export const PromptKindSchema = z.enum(PROMPT_KINDS);
+export const BoardEventKindSchema = z.enum(BOARD_EVENT_KINDS);
+export const CoinReasonSchema = z.enum(COIN_REASONS);
 
 // ---------------------------------------------------------------------------
 // Bausteine
@@ -82,6 +133,16 @@ export const JoinCodeSchema = z.string().regex(/^[A-Z0-9]{4,8}$/);
 /** Undurchsichtiges, vom Server erzeugtes Token (base64url), 16–128 Zeichen. */
 export const SessionTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 export const ColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+/** ID eines Brettfelds oder Bretts (`s07`, `wackelwald`). */
+export const SpaceIdSchema = z.string().regex(/^[a-z0-9-]{1,32}$/);
+/** ID einer Prompt-Option (`roll`, `item:trap`, `slot:2`, `s12`). */
+export const OptionIdSchema = z.string().regex(/^[a-z0-9:-]{1,32}$/);
+/** Nicht-negative Ganzzahl für Münzen, Trophäen, Runden. */
+export const CountSchema = z.int().nonnegative().max(1_000_000);
+/** Höchstzahl Runden einer Partie. */
+export const MAX_ROUNDS = 20;
+/** Höchstzahl Ereignisse in einer `board`-Nachricht. */
+export const MAX_BOARD_EVENTS = 64;
 
 /**
  * Steuerzeichen (C0, DEL, C1) und Bidi-Steuerzeichen sind in Anzeigetexten
@@ -232,6 +293,15 @@ export const ReactionMessageSchema = z.strictObject({
   windowId: SeqSchema,
 });
 
+/** Wahl für den aktuellen Prompt eines Slots (Brettphase, M2). */
+export const ChooseMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('choose'),
+  ...slotSeq,
+  promptId: SeqSchema,
+  option: OptionIdSchema,
+});
+
 /** Herzschlag von Controller oder Host. `t` ist die Client-Uhr und wird nur zurückgespiegelt (B8). */
 export const HeartbeatMessageSchema = z.strictObject({
   v: VersionSchema,
@@ -248,6 +318,7 @@ const controllerMessageOptions = [
   ReleaseMessageSchema,
   GestureMessageSchema,
   ReactionMessageSchema,
+  ChooseMessageSchema,
   HeartbeatMessageSchema,
 ] as const;
 
@@ -265,6 +336,10 @@ export const HostHelloMessageSchema = z.strictObject({
 export const StartMessageSchema = z.strictObject({
   v: VersionSchema,
   type: z.literal('start'),
+  /** Fehlt = `board`. `arena` startet die M1-Arena (Phase `play`). */
+  mode: GameModeSchema.optional(),
+  /** Rundenzahl des Brettspiels (fehlt = Server-Standard). */
+  rounds: z.int().min(1).max(MAX_ROUNDS).optional(),
 });
 
 export const HostMessageSchema = z.discriminatedUnion('type', [
@@ -301,6 +376,38 @@ export const WelcomeMessageSchema = z.strictObject({
     .refine(hasUniqueSlots, 'Slots doppelt'),
 });
 
+export const PromptOptionSchema = z.strictObject({
+  id: OptionIdSchema,
+  label: displayText(32),
+  detail: displayText(48).optional(),
+  slot: SlotSchema.optional(),
+});
+
+/** Entscheidung, die ein Spieler gerade treffen soll (Brettphase). */
+export const PromptSchema = z.strictObject({
+  id: SeqSchema,
+  slot: SlotSchema,
+  kind: PromptKindSchema,
+  title: displayText(48),
+  options: z.array(PromptOptionSchema).min(1).max(8),
+  /** Restzeit bis zur Frist beim Senden (ms) oder `null` = unbegrenzt. */
+  remainingMs: z.int().nonnegative().nullable(),
+});
+
+/** Persönlicher Stand eines Slots für die Controller-Anzeige in der Brettphase. */
+export const ControllerBoardInfoSchema = z.strictObject({
+  gamePhase: GamePhaseSchema,
+  round: CountSchema,
+  rounds: CountSchema,
+  coins: CountSchema,
+  trophies: CountSchema,
+  items: z.array(ItemKindSchema).max(8),
+  /** Wer gerade dran ist (`null` im Minispiel/Ergebnis). */
+  activeSlot: SlotSchema.nullable(),
+  /** Platz im Endstand, nur in `game-results`. */
+  place: z.int().min(1).max(MAX_PLAYERS).optional(),
+});
+
 export const ContextMessageSchema = z.strictObject({
   v: VersionSchema,
   type: z.literal('context'),
@@ -308,6 +415,10 @@ export const ContextMessageSchema = z.strictObject({
   phase: PhaseSchema,
   layout: LayoutSchema,
   actions: z.array(ActionSchema).max(ACTIONS.length),
+  /** Nur in Phase `board`: offene Entscheidung dieses Slots (dann `actions` enthält `choose`). */
+  prompt: PromptSchema.optional(),
+  /** Nur in Phase `board`: eigener Stand und wer dran ist. */
+  board: ControllerBoardInfoSchema.optional(),
 });
 
 export const FeedbackMessageSchema = z.strictObject({
@@ -380,8 +491,146 @@ export const InputMessageSchema = z.strictObject({
   at: z.number().nonnegative(),
 });
 
+// ---------------------------------------------------------------------------
+// Brett-Schnappschuss Server → Host (M2, ADR-011)
+// ---------------------------------------------------------------------------
+
+export const BoardPlayerSchema = z.strictObject({
+  slot: SlotSchema,
+  name: PlayerLabelSchema,
+  spaceId: SpaceIdSchema,
+  coins: CountSchema,
+  trophies: CountSchema,
+  items: z.array(ItemKindSchema).max(8),
+  connected: z.boolean(),
+});
+
+export const RankingEntrySchema = z.strictObject({
+  slot: SlotSchema,
+  place: z.int().min(1).max(MAX_PLAYERS),
+  trophies: CountSchema,
+  coins: CountSchema,
+});
+
+/** Öffentlicher Spielstand (ohne RNG und interne Zwischenstände). */
+export const BoardViewSchema = z.strictObject({
+  boardId: SpaceIdSchema,
+  gamePhase: GamePhaseSchema,
+  round: CountSchema,
+  rounds: CountSchema,
+  turnOrder: z.array(SlotSchema).max(MAX_PLAYERS),
+  activeSlot: SlotSchema.nullable(),
+  players: z.array(BoardPlayerSchema).max(MAX_PLAYERS).refine(hasUniqueSlots, 'Slots doppelt'),
+  trophySpaces: z.array(SpaceIdSchema).max(64),
+  trophyPrice: CountSchema,
+  traps: z.array(z.strictObject({ spaceId: SpaceIdSchema, owner: SlotSchema })).max(64),
+  /** Offene Entscheidung (wer, was), damit der PC „Blau wählt einen Weg …“ zeigen kann. */
+  prompt: PromptSchema.nullable(),
+  /** Restzeit der laufenden automatischen Phase (ms) oder `null`. */
+  remainingMs: z.int().nonnegative().nullable(),
+  /** Takt je Feld beim Laufen (ms); der Host animiert damit. */
+  stepMs: CountSchema,
+  ranking: z.array(RankingEntrySchema).max(MAX_PLAYERS).nullable(),
+});
+
+const slotField = { slot: SlotSchema };
+
+/** Spiegel von `GameEvent` in `@chaos-party/game-core`. */
+export const BoardEventSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('game-started'), order: z.array(SlotSchema).max(MAX_PLAYERS) }),
+  z.strictObject({ type: z.literal('round-started'), round: CountSchema }),
+  z.strictObject({ type: z.literal('turn-started'), ...slotField, round: CountSchema }),
+  z.strictObject({
+    type: z.literal('item-used'),
+    ...slotField,
+    item: ItemKindSchema,
+    target: SlotSchema.optional(),
+  }),
+  z.strictObject({
+    type: z.literal('dice-rolled'),
+    ...slotField,
+    faces: z.array(CountSchema).min(1).max(4),
+    total: CountSchema,
+  }),
+  z.strictObject({ type: z.literal('path-chosen'), ...slotField, spaceId: SpaceIdSchema }),
+  z.strictObject({
+    type: z.literal('moved'),
+    ...slotField,
+    path: z.array(SpaceIdSchema).max(64),
+  }),
+  z.strictObject({
+    type: z.literal('coins-changed'),
+    ...slotField,
+    delta: z.int(),
+    balance: CountSchema,
+    reason: CoinReasonSchema,
+  }),
+  z.strictObject({ type: z.literal('trophy-bought'), ...slotField, spaceId: SpaceIdSchema }),
+  z.strictObject({ type: z.literal('trophy-moved'), from: SpaceIdSchema, to: SpaceIdSchema }),
+  z.strictObject({ type: z.literal('item-gained'), ...slotField, item: ItemKindSchema }),
+  z.strictObject({ type: z.literal('board-event'), ...slotField, event: BoardEventKindSchema }),
+  z.strictObject({ type: z.literal('trap-placed'), ...slotField, spaceId: SpaceIdSchema }),
+  z.strictObject({
+    type: z.literal('trap-triggered'),
+    ...slotField,
+    owner: SlotSchema,
+    spaceId: SpaceIdSchema,
+    amount: CountSchema,
+  }),
+  z.strictObject({
+    type: z.literal('reaction-opened'),
+    promptId: SeqSchema,
+    ...slotField,
+    attacker: SlotSchema,
+    item: ItemKindSchema,
+    deadline: z.number().nonnegative(),
+  }),
+  z.strictObject({
+    type: z.literal('reaction-resolved'),
+    ...slotField,
+    result: z.enum(['shield', 'brace', 'timeout']),
+  }),
+  z.strictObject({
+    type: z.literal('coins-stolen'),
+    from: SlotSchema,
+    to: SlotSchema,
+    amount: CountSchema,
+  }),
+  z.strictObject({
+    type: z.literal('player-auto'),
+    ...slotField,
+    option: OptionIdSchema,
+    reason: z.enum(['disconnected', 'timeout']),
+  }),
+  z.strictObject({ type: z.literal('turn-ended'), ...slotField }),
+  z.strictObject({ type: z.literal('minigame-started'), minigame: z.literal('placeholder') }),
+  z.strictObject({
+    type: z.literal('minigame-results'),
+    ranking: z.array(SlotSchema).max(MAX_PLAYERS),
+  }),
+  z.strictObject({ type: z.literal('round-ended'), round: CountSchema }),
+  z.strictObject({
+    type: z.literal('game-ended'),
+    ranking: z.array(RankingEntrySchema).max(MAX_PLAYERS),
+  }),
+]);
+
+/**
+ * Brett-Schnappschuss an den Host bei jeder Änderung (Phase `board`). `events` sind die seit
+ * der letzten `board`-Nachricht entstandenen Ereignisse; `eventSeq` ist die laufende Nummer
+ * des ersten davon (lückenlos, ab 0), damit der Host Doppeltes/Verpasstes erkennt.
+ */
+export const BoardMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('board'),
+  view: BoardViewSchema,
+  events: z.array(BoardEventSchema).max(MAX_BOARD_EVENTS),
+  eventSeq: SeqSchema,
+});
+
 export const ServerToHostMessageSchema = z.discriminatedUnion('type', [
   LobbyMessageSchema,
+  BoardMessageSchema,
   InputMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
@@ -392,6 +641,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ContextMessageSchema,
   FeedbackMessageSchema,
   LobbyMessageSchema,
+  BoardMessageSchema,
   InputMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
