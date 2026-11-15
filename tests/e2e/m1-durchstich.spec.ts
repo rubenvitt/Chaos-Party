@@ -38,7 +38,7 @@ import { expect, test } from './fixtures/test.ts';
 import { centerOf, TouchScreen, type Point } from './fixtures/touch.ts';
 
 /** Seed 2026: Startpunkte weit genug auseinander, keine Wege kreuzen sich (spawn.ts). */
-const HOST_URL = '/host/?test=1&seed=2026';
+const HOST_URL = '/host/?test=1&seed=2026&arena=1';
 /** Frames, bis die Figuren nach dem Spawn bzw. nach dem Loslassen ruhen. */
 const SETTLE_FRAMES = 60;
 /** 0,5 s Laufen bei vollem Ausschlag (bis 6 m/s): deutlich mehr als 1 m. */

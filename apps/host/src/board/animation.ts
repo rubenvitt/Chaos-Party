@@ -1,0 +1,143 @@
+/**
+ * Ereignis → Animationsschritt (CHAOS-19): wie lange ein Ereignis die Warteschlange des Hosts
+ * belegt und welches kurze Popup es über einer Figur oder einem Feld zeigt. Rein, ohne Babylon.
+ *
+ * Die Dauern sind bewusst kurz; der Server taktet die Brettphase selbst (`Pacing`). Gerät der
+ * Host trotzdem in Rückstand, spielt die Regie schneller ab oder springt (siehe `director.ts`).
+ */
+import type { BoardEvent, SlotNumber } from '@chaos-party/protocol';
+import { ITEM_NAMES, signedAmount, type MessageTone } from './texts.ts';
+
+export type PopupKind =
+  'coins' | 'dice' | 'item' | 'trap' | 'trophy' | 'event' | 'shield' | 'steal';
+
+export interface PopupSpec {
+  readonly kind: PopupKind;
+  /** Über dieser Figur … */
+  readonly slot: SlotNumber | null;
+  /** … oder über diesem Feld (wenn `slot` `null` ist). */
+  readonly spaceId: string | null;
+  /** Kurzer Text auf dem Popup (≤ 12 Zeichen), z. B. „+3“, „5“, „Falle!“. */
+  readonly text: string;
+  readonly tone: MessageTone;
+}
+
+export interface EventPlan {
+  /** So lange wartet die Warteschlange, bevor das nächste Ereignis startet. */
+  readonly durationMs: number;
+  readonly popup: PopupSpec | null;
+}
+
+/** Dauer, wenn `stepMs` fehlt oder 0 ist. */
+export const FALLBACK_STEP_MS = 300;
+/** So lange bleibt ein Popup sichtbar (auch wenn die Warteschlange schon weiterläuft). */
+export const POPUP_MS = 1400;
+
+const BOARD_EVENT_POPUP: Readonly<Record<string, string>> = {
+  'coin-rain': 'Münzregen!',
+  gust: 'Windböe!',
+  swap: 'Tausch!',
+  'trophy-shuffle': 'Wirbel!',
+  'lucky-find': 'Glück!',
+};
+
+function popup(
+  kind: PopupKind,
+  slot: SlotNumber | null,
+  text: string,
+  tone: MessageTone,
+  spaceId: string | null = null,
+): PopupSpec {
+  return { kind, slot, spaceId, text, tone };
+}
+
+/** Dauer eines Bewegungsabschnitts: ein Takt je betretenem Feld. */
+export function moveDuration(pathLength: number, stepMs: number): number {
+  return Math.max(0, pathLength) * (stepMs > 0 ? stepMs : FALLBACK_STEP_MS);
+}
+
+export function planEvent(event: BoardEvent, stepMs: number): EventPlan {
+  switch (event.type) {
+    case 'moved':
+      return { durationMs: moveDuration(event.path.length, stepMs), popup: null };
+    case 'dice-rolled':
+      return { durationMs: 900, popup: popup('dice', event.slot, String(event.total), 'neutral') };
+    case 'coins-changed':
+      if (event.delta === 0) return { durationMs: 0, popup: null };
+      return {
+        durationMs: 700,
+        popup: popup(
+          'coins',
+          event.slot,
+          signedAmount(event.delta),
+          event.reason === 'trophy' ? 'gold' : event.delta > 0 ? 'good' : 'bad',
+        ),
+      };
+    case 'coins-stolen':
+      return { durationMs: 900, popup: popup('steal', event.from, 'Geklaut!', 'bad') };
+    case 'item-gained':
+      return { durationMs: 900, popup: popup('item', event.slot, ITEM_NAMES[event.item], 'good') };
+    case 'item-used':
+      return {
+        durationMs: 800,
+        popup: popup('item', event.slot, ITEM_NAMES[event.item], 'neutral'),
+      };
+    case 'trap-placed':
+      return { durationMs: 700, popup: popup('trap', null, 'Falle', 'neutral', event.spaceId) };
+    case 'trap-triggered':
+      return { durationMs: 1000, popup: popup('trap', event.slot, 'Falle!', 'bad') };
+    case 'trophy-bought':
+      return { durationMs: 1300, popup: popup('trophy', event.slot, 'Trophäe!', 'gold') };
+    case 'trophy-moved':
+      return { durationMs: 900, popup: popup('trophy', null, 'Hier!', 'gold', event.to) };
+    case 'board-event':
+      return {
+        durationMs: 1000,
+        popup: popup('event', event.slot, BOARD_EVENT_POPUP[event.event] ?? 'Ereignis!', 'neutral'),
+      };
+    case 'reaction-resolved': {
+      const text =
+        event.result === 'shield'
+          ? 'Schild!'
+          : event.result === 'brace'
+            ? 'Festhalten!'
+            : 'Zu spät!';
+      return {
+        durationMs: 700,
+        popup: popup('shield', event.slot, text, event.result === 'timeout' ? 'bad' : 'good'),
+      };
+    }
+    case 'game-started':
+    case 'round-started':
+    case 'turn-started':
+    case 'path-chosen':
+    case 'reaction-opened':
+    case 'player-auto':
+    case 'turn-ended':
+    case 'minigame-started':
+    case 'minigame-results':
+    case 'round-ended':
+    case 'game-ended':
+      return { durationMs: 0, popup: null };
+  }
+}
+
+/**
+ * Lage einer Figur während eines `moved`-Abschnitts nach `elapsedMs`: von welchem Feld zu
+ * welchem sie gerade hüpft und wie weit (0…1). Jeder Sprung dauert 85 % des Takts, danach
+ * steht die Figur kurz auf dem Feld – das liest sich als „Feld für Feld“.
+ */
+export function hopAt(
+  start: string,
+  path: readonly string[],
+  stepMs: number,
+  elapsedMs: number,
+): { from: string; to: string; t: number } | null {
+  if (path.length === 0) return null;
+  const step = stepMs > 0 ? stepMs : FALLBACK_STEP_MS;
+  const index = Math.min(path.length - 1, Math.max(0, Math.floor(elapsedMs / step)));
+  const local = elapsedMs - index * step;
+  const to = path[index] ?? start;
+  const from = index === 0 ? start : (path[index - 1] ?? start);
+  return { from, to, t: Math.min(1, Math.max(0, local / (step * 0.85))) };
+}

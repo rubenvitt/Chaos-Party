@@ -1,8 +1,8 @@
 /**
  * WebSocket-Verbindung des Hosts zum Session-Server (CHAOS-11, ADR-005/ADR-007).
  *
- * Meldet sich mit `host-hello` an, liefert `lobby`-Schnappschüsse und geprüfte
- * Eingaben (`input`) an die App und versucht es nach einer Trennung alle 2 s
+ * Meldet sich mit `host-hello` an, liefert `lobby`-Schnappschüsse, Brett-Schnappschüsse
+ * (`board`, M2) und geprüfte Eingaben (`input`) an die App und versucht es nach einer Trennung alle 2 s
  * erneut. Nach dem Wiederverbinden schickt der Server sofort die aktuelle `lobby`
  * (Phase und Spieler), damit ist der Stand wiederhergestellt.
  *
@@ -18,9 +18,12 @@ import {
   createMessage,
   encode,
   parseServerToHostMessage,
+  type BoardMessage,
   type ErrorMessage,
+  type GameMode,
   type InputIntent,
   type LobbyMessage,
+  type StartMessage,
 } from '@chaos-party/protocol';
 
 /**
@@ -74,6 +77,8 @@ export interface SocketLike {
 export interface HostConnectionHandlers {
   onStatus?(status: ConnectionStatus): void;
   onLobby?(lobby: LobbyMessage): void;
+  /** Brett-Schnappschuss mit Ereignissen (Phase `board`, M2). */
+  onBoard?(board: BoardMessage): void;
   onInput?(intent: InputIntent, at: number): void;
   onServerError?(error: ErrorMessage): void;
 }
@@ -94,10 +99,24 @@ export interface HostConnectionOptions {
   readonly warn?: (message: string) => void;
 }
 
+/** Was der Start-Knopf schickt: Brettspiel (Standard) oder M1-Arena, optional Rundenzahl. */
+export interface StartOptions {
+  readonly mode?: GameMode;
+  readonly rounds?: number;
+}
+
+/** Baut die `start`-Nachricht; fehlende Optionen bleiben weg (Server-Standard). */
+export function createStartMessage(options: StartOptions = {}): StartMessage {
+  return createMessage('start', {
+    ...(options.mode === undefined ? {} : { mode: options.mode }),
+    ...(options.rounds === undefined ? {} : { rounds: options.rounds }),
+  });
+}
+
 export interface HostConnection {
   readonly status: ConnectionStatus;
   /** Sendet `start`; `false`, wenn gerade keine Verbindung besteht. */
-  sendStart(): boolean;
+  sendStart(options?: StartOptions): boolean;
   /** Trennt endgültig (kein neuer Versuch). */
   close(): void;
 }
@@ -231,6 +250,11 @@ export function connectHost(
           setStatus('connected');
           handlers.onLobby?.(message);
           break;
+        case 'board':
+          // Kommt nur nach angenommenem `host-hello`; zählt wie `lobby` als verbunden.
+          setStatus('connected');
+          handlers.onBoard?.(message);
+          break;
         case 'input':
           handlers.onInput?.(message.intent, message.at);
           break;
@@ -274,9 +298,9 @@ export function connectHost(
     get status() {
       return status;
     },
-    sendStart() {
+    sendStart(options) {
       if (socket?.readyState !== OPEN || status !== 'connected') return false;
-      socket.send(encode(createMessage('start', {})));
+      socket.send(encode(createStartMessage(options)));
       return true;
     },
     close() {

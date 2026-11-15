@@ -51,7 +51,7 @@ test.describe('Messanzeige (?debug=1)', () => {
     chaosServer,
   }) => {
     const hostProblems = collectProblems(host);
-    await openLiveHost(host, '/host/?debug=1');
+    await openLiveHost(host, '/host/?debug=1&arena=1');
     const hostOverlay = host.getByTestId('debug-overlay');
     await expect(hostOverlay).toBeVisible();
     // Render-Schleife läuft: Bildrate und Bildabstand sind Zahlen, Grafik ist bekannt.
