@@ -176,6 +176,69 @@
       "description": "Schrift Nunito (variabel) für HUD, Lobby, Brett-Texte und Controller.",
       "license": "OFL-1.1",
       "attribution": "Nunito – Copyright 2014 The Nunito Project Authors (github.com/googlefonts/nunito), SIL Open Font License 1.1; verpackt von Fontsource."
+    },
+    {
+      "id": "klaenge-minispiele",
+      "kind": "sound",
+      "source": "procedural",
+      "path": "apps/host/src/fx/sounds.ts",
+      "description": "Minispiel-Klänge (WebAudio-Synthese): tick, go, hit, bump, coin, score, fall, splash, whoosh, pop, buzz, cheer, win, lose.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "klaenge-brett",
+      "kind": "sound",
+      "source": "procedural",
+      "path": "apps/host/src/fx/sounds.ts",
+      "description": "Brett-Klänge (WebAudio-Synthese): dice, coin-gain, coin-loss, steal, trap, shield, trophy, turn, minigame-start; Zuordnung in boardSounds.ts.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "partikel",
+      "kind": "vfx",
+      "source": "procedural",
+      "path": "apps/host/src/fx/particles.ts",
+      "description": "Partikel mit berechneten Texturen: sparkle, dust, confetti, impact, splash, stars, smoke; Kamerawackeln in shake.ts.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "minispiel-sockenregen",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "packages/minigames/src/sockenregen/index.ts",
+      "description": "Minispiel „Sockenregen“: Arena, Waschmaschine Wumms, Socken, Goldsocken, Bügeleisen, Landeschatten.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "minispiel-pudding-gerangel",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "packages/minigames/src/pudding-gerangel/visuals.ts",
+      "description": "Minispiel „Pudding-Gerangel“: Wackelpudding, Kirschfleck, Rührlöffel, Sahnesee, Wackelkrone.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "minispiel-wackelturm",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "packages/minigames/src/wackelturm/index.ts",
+      "description": "Minispiel „Wackelturm“: Törtchenberg, Eck-Nester, Törtchen, Goldtörtchen, Kronen.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "minispiel-pump-parade",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "packages/minigames/src/pump-parade/index.ts",
+      "description": "Referenz-Minispiel „Pump-Parade“: Boden und Ballons.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
     }
   ]
 }

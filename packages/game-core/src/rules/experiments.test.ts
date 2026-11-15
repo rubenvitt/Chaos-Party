@@ -49,7 +49,11 @@ const kinds = (board: BoardDefinition): string[] => board.spaces.map((s) => `${s
 
 describe('Experimente: Grundlagen', () => {
   it('die gewählten Werte sind genau die Standardregeln und das Standardbrett', () => {
-    expect(CHOICE_RULES).toEqual(DEFAULT_RULES);
+    // M3 verlängert nur Anleitung und Ergebnisanzeige der Minispiele (Lesezeit, kein Balance-Wert).
+    expect({
+      ...CHOICE_RULES,
+      pacing: { ...CHOICE_RULES.pacing, minigameIntroMs: 7000, minigameResultsMs: 6000 },
+    }).toEqual(DEFAULT_RULES);
     expect(kinds(CHOICE_BOARD)).toEqual(kinds(WACKELWALD));
   });
 

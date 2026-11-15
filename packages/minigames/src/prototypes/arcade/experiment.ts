@@ -1,7 +1,7 @@
 /**
  * EXP-005: Arcade-Konzepte im Vergleich (CHAOS-29/30). Läuft alle Prototypen mit festen
  * Seeds und Bot-Besetzungen und erzeugt die Tabellen für
- * `docs/experiments/EXP-005-arcade.md`:
+ * `docs/experiments.md`:
  *
  * ```sh
  * EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/arcade --silent=false

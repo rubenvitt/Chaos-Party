@@ -1,6 +1,6 @@
 /**
  * EXP-006 Physik-Konzepte (CHAOS-29/31). Der Smoke-Test läuft immer (je Variante ein kurzer
- * Lauf); die vollen Tabellen für `docs/experiments/EXP-006-physik.md` nur mit:
+ * Lauf); die vollen Tabellen für `docs/experiments.md` nur mit:
  *
  * ```sh
  * EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/physics --silent=false

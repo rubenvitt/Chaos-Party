@@ -31,9 +31,10 @@ export const DEFAULT_RULES: RuleSet = {
     stepMs: 350,
     spaceEventMs: 1500,
     turnEndMs: 600,
-    minigameIntroMs: 2500,
+    // M3: Zeit zum Lesen der Anleitung bzw. der Ergebniskarte (Platzhalter-Minispiel: 3 s Spiel).
+    minigameIntroMs: 7000,
     minigamePlayMs: 3000,
-    minigameResultsMs: 3000,
+    minigameResultsMs: 6000,
     roundEndMs: 1500,
     reactionWindowMs: 3000,
     disconnectGraceMs: 15000,

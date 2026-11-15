@@ -1,6 +1,6 @@
 /**
  * EXP-007: Hybrid-Konzepte im Vergleich (CHAOS-29/CHAOS-32). Erzeugt die Tabellen für
- * `docs/experiments/EXP-007-hybrid.md`.
+ * `docs/experiments.md`.
  */
 import { MINIGAME_TEXT_LIMITS } from '@chaos-party/minigame-sdk';
 import {

@@ -18,6 +18,9 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-002 | Münzen und Trophäen | CHAOS-24 | keep G: 6 Kandidaten, 3 wandernd aktiv, Preis 15 |
 | EXP-003 | Item-Häufigkeit und Sabotage | CHAOS-24 | keep F: 6 Item-Felder, 1 Start-Item, Falle beim Überqueren, Klau 5/Falle 4 |
 | EXP-004 | Reaktionsfenster | CHAOS-24 | keep 3000 ms; nach Playtest mit echten Reaktionszeiten neu bewerten |
+| EXP-005 | Arcade-Minispiel: drei Konzepte | CHAOS-29, CHAOS-30 | keep A4 „Sockenregen“; B „Kuckucks-Klatsche“, C „Aufzieh-Takt“ discard |
+| EXP-006 | Physik-Minispiel (Havok): Konzepte | CHAOS-29, CHAOS-31 | keep A5 „Pudding-Gerangel“ (Kirschfleck + Wackelkrone); „Letzter oben“, Saldo, „Krümel-Kehraus“ discard |
+| EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
 
 ---
 
@@ -368,3 +371,426 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 **Offen für Playtest:** Ob Menschen das Fenster bemerken, lässt sich nur am echten Gerät beurteilen. Dafür am besten die echten Reaktionszeiten mitschreiben (Vorschlag als Folgeaufgabe).
 
 **Für später (CHAOS-44):** Kurzer Hinweiston am Controller beim Angriff (iOS kann nicht vibrieren). Längeres Fenster als Barrierefreiheits-Option.
+
+---
+
+## EXP-005: Arcade-Minispiel – Konzeptvergleich (2026-11-15, CHAOS-29, CHAOS-30)
+
+
+**Hypothese / gewünschtes Spielerlebnis:** Das Arcade-Minispiel ist in Sekunden verstanden, verlangt Reflex, Timing oder Positionierung (kein Physik-Schubsen, das macht das Physik-Minispiel) und bleibt bis zum Schluss offen: Die Führung wechselt, Fehler sind witzig statt bitter, und auch schwächere Spieler gewinnen gelegentlich. Am Fernseher passiert ständig etwas, alle spielen gleichzeitig. Erwartung vorher: Ein Positionierungsspiel in einer gemeinsamen Arena erzeugt mehr Wechsel und mehr Chancen für Schwächere als reine Reaktions- oder Taktspiele, die nur die schnellsten Finger belohnen.
+
+**Varianten** (drei eigene Konzepte, Figuren und Namen frei erfunden):
+- **A „Sockenregen“ (Positionierung + Reflex):** Waschmaschine Wumms schleudert Socken und Bügeleisen in eine runde Arena, ein Schatten zeigt den Landepunkt. Socke fangen oder vom Boden aufsammeln = 1 Punkt, Goldsocke = 3. Bügeleisen plätten alle im roten Kreis (1,4 s bewegungsunfähig). Letzte 8 s „Schleudergang“: doppelt so viele Würfe. Erwartet: viel Gedränge und Wechsel; Stick braucht in kleinen iPad-Zonen Platz.
+  - A1: nur Stick.
+  - A2: + A = Hechtsprung (kurz 2,6× schneller, 1,6 s Abklingzeit). Mehr Ausdruck, ein Knopf mehr.
+  - A3: A2 + Treffer kostet eine Socke, die daneben liegen bleibt und die jeder schnappen darf.
+  - A4: A3 + gezielte Bügeleisen (50 % der Bügeleisen) fliegen bevorzugt auf die alleinige Führung („Wumms mag keine Angeber“). Sichtbarer Aufholmechanismus.
+  - A5: A4 + die Hälfte der Goldsocken landet neben der/dem Letzten (unsichtbarer Gummiband-Effekt).
+- **B „Kuckucks-Klatsche“ (Reflex):** Eine schiefe Kuckucksuhr öffnet ihr Türchen. Kuckuck → sofort A; Finte (Gummiente, Socke, Blume) oder zu früh → −1. B1: nur der Schnellste +1. B2: Schnellster +2, alle anderen im Zeitfenster +1. Erwartet: perfekt für iPad-Zonen, aber viel Warten und Sieg für die schnellsten Finger.
+- **C „Aufzieh-Takt“ (Timing):** Ein Ring schrumpft auf Schraubis Aufziehschlüssel; A im richtigen Moment = 2 (genau) / 1 (knapp), 5 Treffer am Stück +1, Takt wird schneller. Erwartet: sehr leicht verständlich, aber jeder spielt für sich.
+
+**Objektive Messgrößen:** Rundendauer, Punkte des Siegers, relativer Abstand Platz 1–2, Gleichstand auf Platz 1, Führungswechsel je Runde, „Comeback“ (Sieger führte nach 2/3 der Zeit nicht allein), Siegquote des stärksten und des schwächsten Bots (Gleichstand anteilig) gegen den fairen Anteil 1/n, Aktionen je Spieler und 10 s (Ziele wählen, Knöpfe), Eingabe-Komplexität, Eignung für kleine iPad-Zonen, Länge der Anleitung (≤ 3 Zeilen à 64 Zeichen).
+
+**Subjektive Playtest-Fragen (für Ruben):** siehe „Offen für Playtest“.
+
+**Testumgebung:** Node 22.23, Linux-Container, Basis-Commit `290a4d1`, Branch `worktree-agent-a376da6934423c3cc`; Ergebnisse vom Commit, der diesen Eintrag einführt. Seeds 1–300 je Zeile und Spielerzahl (2, 3, 4). Prototypen grob mit 1/30-s-Schritten, die Kontrollzeile A4* mit 1/60-s-Schritten auf der echten Spiellogik.
+
+- **Wiederholen** (≈ 6 s): `EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/arcade --silent=false`. Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test (Teil von `pnpm test`).
+- **Code:** `packages/minigames/src/prototypes/arcade/` – `common.ts` (Bot-Profile, Kennzahlen), `sockenregen.ts`, `kuckuck.ts`, `aufziehtakt.ts` (Prototypen), `sockenregenBot.ts` (Bots für die echte Logik `packages/minigames/src/sockenregen/logic.ts`), `experiment.ts` (Tabellen).
+- **Bots:** vier Profile mit angenommenen Couch-Werten (nicht gemessen): Profi (Reaktion 230 ms, Takt-Fehler σ 35 ms, Finte 6 %), Gut (310 ms, 55 ms, 12 %), Normal (400 ms, 80 ms, 20 %), Neuling (560 ms, 120 ms, 32 %); dazu Lenkrauschen, Gefahr-Bemerken (95–50 %), Zielwahl-Urteil (90–40 %), Aussetzer (2–12 %). Reaktionszeiten log-normal. Besetzung: 2 Sp. = Profi + Neuling, 3 Sp. = Profi + Normal + Neuling, 4 Sp. = alle. Zusätzlich „knappe Besetzungen“: Duell Gut gegen Normal und 4× Normal.
+- **Rauschen:** Bei 300 Seeds liegt der Standardfehler einer Quote um 50 % bei ≈ 3 Prozentpunkten. Unterschiede von 1–4 Punkten zwischen A-Varianten sind Rauschen (A1 und A2 verschieben sich schon, wenn eine Variante eine Zufallszahl mehr zieht).
+
+**Ergebnisse:**
+
+**EXP-005 Arcade-Konzepte (Seeds 1–300 je Zeile)**
+
+| Variante | Sp. | Dauer s | Punkte P1 | Abstand 1–2 | Gleichstand P1 | Führungswechsel | Comeback | Siege Profi | Siege Neuling | fair | Aktionen/10 s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A1: Sockenregen, nur Stick | 2 | 30 | 30,8 | 32 % | 3 % | 1,6 | 13 % | 90 % | 10 % | 50 % | 19,4 |
+| A1: Sockenregen, nur Stick | 3 | 30 | 24,1 | 26 % | 5 % | 2,1 | 23 % | 82 % | 3 % | 33 % | 18,7 |
+| A1: Sockenregen, nur Stick | 4 | 30 | 19,8 | 22 % | 9 % | 2,6 | 31 % | 63 % | 2 % | 25 % | 18,3 |
+| A2: Sockenregen + Hechtsprung (A) | 2 | 30 | 32,0 | 33 % | 2 % | 1,3 | 9 % | 94 % | 6 % | 50 % | 22,4 |
+| A2: Sockenregen + Hechtsprung (A) | 3 | 30 | 24,8 | 26 % | 5 % | 2,2 | 19 % | 79 % | 2 % | 33 % | 21,9 |
+| A2: Sockenregen + Hechtsprung (A) | 4 | 30 | 20,2 | 22 % | 6 % | 2,5 | 33 % | 70 % | 2 % | 25 % | 21,4 |
+| A3: A2 + Bügeleisen kostet 1 Socke | 2 | 30 | 32,2 | 34 % | 1 % | 1,3 | 8 % | 94 % | 6 % | 50 % | 22,5 |
+| A3: A2 + Bügeleisen kostet 1 Socke | 3 | 30 | 24,8 | 26 % | 5 % | 2,2 | 21 % | 84 % | 2 % | 33 % | 22,1 |
+| A3: A2 + Bügeleisen kostet 1 Socke | 4 | 30 | 20,5 | 23 % | 8 % | 2,6 | 33 % | 70 % | 1 % | 25 % | 21,7 |
+| A4: A3 + Bügeleisen zielen auf Führung | 2 | 30 | 31,8 | 32 % | 3 % | 1,4 | 10 % | 95 % | 5 % | 50 % | 22,6 |
+| A4: A3 + Bügeleisen zielen auf Führung | 3 | 30 | 25,0 | 28 % | 2 % | 2,0 | 19 % | 85 % | 2 % | 33 % | 22,1 |
+| A4: A3 + Bügeleisen zielen auf Führung | 4 | 30 | 20,7 | 24 % | 4 % | 2,6 | 32 % | 65 % | 2 % | 25 % | 21,8 |
+| A5: A4 + halbe Goldsocken beim Letzten | 2 | 30 | 31,8 | 33 % | 1 % | 1,3 | 10 % | 94 % | 6 % | 50 % | 22,5 |
+| A5: A4 + halbe Goldsocken beim Letzten | 3 | 30 | 24,6 | 26 % | 5 % | 2,2 | 23 % | 79 % | 3 % | 33 % | 22,1 |
+| A5: A4 + halbe Goldsocken beim Letzten | 4 | 30 | 20,5 | 23 % | 7 % | 2,6 | 30 % | 68 % | 2 % | 25 % | 21,5 |
+| A4*: A4 auf der echten Spiellogik | 2 | 30 | 32,2 | 36 % | 1 % | 1,3 | 8 % | 95 % | 5 % | 50 % | 22,6 |
+| A4*: A4 auf der echten Spiellogik | 3 | 30 | 24,9 | 28 % | 5 % | 2,0 | 20 % | 85 % | 2 % | 33 % | 22,0 |
+| A4*: A4 auf der echten Spiellogik | 4 | 30 | 20,5 | 24 % | 7 % | 2,6 | 32 % | 70 % | 3 % | 25 % | 21,3 |
+| B1: Kuckucks-Klatsche, Schnellster +1 | 2 | 30 | 4,8 | 98 % | 0 % | 0,0 | 0 % | 100 % | 0 % | 50 % | 1,7 |
+| B1: Kuckucks-Klatsche, Schnellster +1 | 3 | 30 | 4,5 | 91 % | 1 % | 0,1 | 5 % | 99 % | 0 % | 33 % | 1,7 |
+| B1: Kuckucks-Klatsche, Schnellster +1 | 4 | 30 | 3,7 | 67 % | 9 % | 0,3 | 13 % | 89 % | 0 % | 25 % | 1,7 |
+| B2: Kuckucks-Klatsche, 2 / Rest 1 | 2 | 30 | 9,7 | 62 % | 0 % | 0,1 | 1 % | 100 % | 0 % | 50 % | 1,7 |
+| B2: Kuckucks-Klatsche, 2 / Rest 1 | 3 | 30 | 9,4 | 48 % | 1 % | 0,2 | 6 % | 99 % | 0 % | 33 % | 1,7 |
+| B2: Kuckucks-Klatsche, 2 / Rest 1 | 4 | 30 | 8,7 | 32 % | 10 % | 0,3 | 13 % | 88 % | 0 % | 25 % | 1,7 |
+| C1: Aufzieh-Takt | 2 | 30 | 79,5 | 57 % | 0 % | 0,1 | 0 % | 100 % | 0 % | 50 % | 12,7 |
+| C1: Aufzieh-Takt | 3 | 30 | 79,4 | 35 % | 0 % | 0,3 | 0 % | 100 % | 0 % | 33 % | 12,7 |
+| C1: Aufzieh-Takt | 4 | 30 | 79,8 | 16 % | 1 % | 0,9 | 5 % | 99 % | 0 % | 25 % | 12,8 |
+
+**EXP-005 Knappe Besetzungen (Seeds 1–300)**
+
+| Variante | Duell: Siege Normal | Duell: Gleichstand | Duell: Führungswechsel | 4× Normal: Abstand 1–2 | 4× Normal: Gleichstand P1 | 4× Normal: Führungswechsel | 4× Normal: Comeback |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A1: Sockenregen, nur Stick | 33 % | 5 % | 2,2 | 17 % | 12 % | 3,2 | 40 % |
+| A2: Sockenregen + Hechtsprung (A) | 32 % | 5 % | 2,2 | 17 % | 13 % | 3,0 | 42 % |
+| A3: A2 + Bügeleisen kostet 1 Socke | 33 % | 3 % | 2,3 | 17 % | 16 % | 3,2 | 42 % |
+| A4: A3 + Bügeleisen zielen auf Führung | 33 % | 4 % | 2,2 | 19 % | 8 % | 3,0 | 42 % |
+| A5: A4 + halbe Goldsocken beim Letzten | 31 % | 6 % | 2,5 | 18 % | 10 % | 3,1 | 41 % |
+| A4*: A4 auf der echten Spiellogik | 34 % | 4 % | 2,5 | 17 % | 10 % | 3,0 | 49 % |
+| B1: Kuckucks-Klatsche, Schnellster +1 | 15 % | 7 % | 0,3 | 40 % | 32 % | 0,6 | 35 % |
+| B2: Kuckucks-Klatsche, 2 / Rest 1 | 15 % | 8 % | 0,3 | 17 % | 27 % | 0,6 | 34 % |
+| C1: Aufzieh-Takt | 2 % | 1 % | 1,0 | 8 % | 9 % | 2,9 | 38 % |
+
+**EXP-005 Bedienung und Verständlichkeit**
+
+| Konzept | Eingabe | Interaktion | iPad-Zone | Anleitung | längste Zeile |
+| --- | --- | --- | --- | --- | --- |
+| A: Sockenregen | Stick (+ A) | hoch: gleiche Socken, Gedränge | mittel: Stick braucht Platz | 3 Zeilen | 62 Zeichen |
+| B: Kuckucks-Klatsche | nur A | mittel: Wettlauf um den Ersten | sehr gut: ein großer Knopf | 2 Zeilen | 53 Zeichen |
+| C: Aufzieh-Takt | nur A | kaum: jeder spielt für sich | sehr gut: ein großer Knopf | 2 Zeilen | 58 Zeichen |
+
+- **Chancen für Schwächere:** Nur Sockenregen lässt den Schwächeren gewinnen. Im knappen Duell (Gut gegen Normal) gewinnt Normal in A 31–34 %, in B 15 %, in C 2 %. Gegen den Profi gewinnt der Neuling in A noch 5–10 % (2 Sp.), in B und C nie. B und C sind reine Fingerrennen: Wer schneller reagiert oder genauer drückt, gewinnt fast immer.
+- **Spannung:** A hat 1,3–2,6 Führungswechsel je Runde (4× Normal: 3,0), B 0–0,6, C 0,1–0,9 (bei gleich starken 2,9, weil alle eng beieinander liegen). Comeback-Quote A 8–33 % je nach Besetzung, bei gleich Starken 40–49 %.
+- **Beschäftigung:** A ≈ 22 Aktionen je Spieler und 10 s, C ≈ 13 (alle 0,8 s ein Druck), B nur 1,7: Bei der Kuckucks-Klatsche wartet man 90 % der Zeit.
+- **Gleichstand:** A 1–9 %, B bis 32 % (4× Normal, B1) – zu viele geteilte Plätze bei wenigen Punkten.
+- **Hechtsprung (A2):** misst sich kaum in Siegquoten, bringt aber +15 % Aktionen und eine Ausweich-/Rettungsmöglichkeit; macht aus „nur laufen“ eine Entscheidung (wann?).
+- **Aufholhelfer (A3–A5):** keine messbare Wirkung auf die Siegquoten (innerhalb des Rauschens). A4 senkt den Gleichstand bei 4 Spielern leicht (4 % statt 6–8 %), ebenfalls nahe am Rauschen. Der Abstand zwischen Profi und Neuling ist größer, als ein Spielelement ausgleichen kann, ohne unfair zu werden.
+- **A4\* (echte Spiellogik)** liegt in allen Kennzahlen innerhalb des Rauschens von A4: Die umgesetzte Logik entspricht dem Prototyp.
+- **Verständlichkeit:** Alle Anleitungen passen in 2–3 Zeilen (≤ 62 Zeichen). B und C brauchen nur A und eignen sich am besten für kleine iPad-Zonen; A braucht Stick + A (gleiches Layout wie überall, aber der Stick braucht in der 4er-Zone Platz).
+
+**Entscheidung:** **keep A4 „Sockenregen“** (ID `sockenregen`, 30 s, Stick = Laufen, A = Hechtsprung): klar die meisten Führungswechsel und als einziges Konzept echte Chancen für Schwächere, dazu ständig Bewegung am Fernseher und Interaktion um dieselben Socken, ohne Physik-Schubsen. Hechtsprung (A2) bleibt wegen des Ausdrucks und der Rettungsmomente. „Treffer kostet eine Socke“ (A3) bleibt als sichtbares Chaos (die Socke fliegt heraus, alle rennen hin) ohne harte Strafe (nie unter 0). „Bügeleisen zielen auf die Führung“ (A4) bleibt als sichtbarer, erklärbarer Aufholmechanismus, obwohl er sich in Siegquoten nicht messen lässt; ob er sich gut oder gemein anfühlt, klärt der Playtest. **discard A5** (unsichtbares Gummiband ohne messbare Wirkung). **discard B** (Wartezeit, Gleichstände, Sieg der schnellsten Finger) und **C** (keine Interaktion, Schwächere chancenlos) als M3-Arcade-Spiel; B bleibt ein Kandidat für ein kurzes Zwischenspiel (siehe unten).
+
+**Umsetzung:** `packages/minigames/src/sockenregen/` (`logic.ts` rein, `index.ts` Babylon-Ansicht, `highlights.ts`, Tests). Belegbilder: `docs/screenshots/m3-minispiel-sockenregen.png` (mitten im Spiel, 4 Spieler, Blau gerade geplättet, Bügeleisen im Anflug) und `docs/screenshots/m3-minispiel-sockenregen-ende.png` (Ende, Sieger hüpft).
+
+**Offen für Playtest:**
+- Erkennt man auf dem Fernseher sofort Socke (weißer Ring) gegen Bügeleisen (roter Kreis), auch bei vier Spielern und im Schleudergang?
+- Fühlt sich „Bügeleisen zielen auf die Führung“ witzig („Wumms mag keine Angeber“) oder gemein an? Merkt man es überhaupt?
+- Ist „geplättet“ (1,4 s still, eine Socke weg) die richtige Härte?
+- Wird der Hechtsprung genutzt und verstanden, oder reicht der Stick?
+- Ist der Stick in der 4er-iPad-Zone präzise genug für 0,8 m Fangradius? (Simulation kann Touch-Präzision nicht beurteilen.)
+- 30 s: zu kurz, genau richtig, zu lang? Ist der Schleudergang als Finale spürbar?
+- Die Bot-Profile sind Annahmen; echte Reaktionszeiten am Gerät könnten die Abstände verschieben.
+
+**Für später (CHAOS-44):** B „Kuckucks-Klatsche“ als kurzes Reaktions-Zwischenspiel (nur A, ideal für iPad-Zonen; mit 2/1-Wertung und weniger Finten). C „Aufzieh-Takt“ als Solo-Übung im Controller-Wartebildschirm.
+
+---
+
+## EXP-006: Physik-Minispiel – Konzeptvergleich mit Havok (2026-11-15, CHAOS-29, CHAOS-31)
+
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Physik-Minispiel macht Spaß, wenn die Umgebung selbst Chaos stiftet und die Spieler sich gegenseitig schubsen. Es soll trotzdem lesbar und fair bleiben: ein klares Ziel am Fernseher, niemand sitzt lange daneben, ein Comeback ist möglich. Bedienung nur mit Joystick und einem Knopf, damit es auch in einer iPad-Zone geht. Die Erwartung vorher war, dass ein reines Runterschubsen („Letzter oben“) am witzigsten, aber am unfairsten ist und Ausgeschiedene langweilt.
+
+**Varianten:** Alle Varianten sind eigene Ideen. Figuren sind Havok-Kapseln (1,5 × 0,45 m, gesperrte Drehung) mit Lenkung, Rempler auf A (Stoß 9 m/s, Abklingzeit 1 s) und einem Extra-Schubs beim Treffer.
+- **A „Wackelpudding – Letzter oben“:** Ein runder Wackelpudding (r = 6 m, ANIMATED-Körper) kippt zum Gewicht der Figuren und schwabbelt von selbst. Ein Rührlöffel kreist. Wer fällt, ist raus. Punkte = überlebte Sekunden. Erwartet: viel Spannung, aber Zuschauerzeit und viele Gleichstände.
+- **A2 „Plumps-Comeback“:** wie A, aber Gefallene plumpsen nach 1,5 s von oben zurück. Wertung entweder *Saldo* (Schubser − Stürze) oder *Stürze* (wer am seltensten fällt). Erwartet: keine Zuschauer, aber kleine Punktzahlen und damit Gleichstände.
+- **A2 ohne Besen:** wie A2 Saldo, ohne Rührlöffel. Prüft, wie viel der Löffel beiträgt.
+- **A3 „Wackel-Wahnsinn“:** A/A2 nach Runde 1 mit mehr Chaos: rutschiger (Reibung 0,12 statt 0,35), stärkere Neigung (max. 0,3 rad), mehr Schwabbeln, schnellerer und höherer Löffel, kräftigere Rempler (×1,3).
+- **A4 „Kirschfleck“:** A3 plus ein Kirschfleck (r = 1,4 m), der alle 6 s weiterhüpft. Punkte gibt es pro Sekunde auf dem Fleck (4 je s). Weil sich alle am Fleck drängen, kippt der Pudding genau dorthin. *A4b:* Fleck größer (1,7 m) und schneller (alle 4 s). *A4c:* wie A4b, aber die Punkte werden unter allen auf dem Fleck geteilt.
+- **A5 „Kirschfleck + Wackelkrone“:** A4b plus Wackelkrone: Rempler gegen die alleinige Führung wirken 1,5-mal so stark, und die Bots jagen bevorzugt die Führung.
+- **B „Krümel-Kehraus“:** Runder Tisch mit Rand und einer Lücke je Spieler (Tor in Slot-Farbe). Zehn Kekskrümel (Havok-Kugeln) schiebt man durch die eigene Lücke. Ein schweres Wollknäuel wird alle 5 s quer über den Tisch gekickt. Wer selbst durch eine Lücke fällt, ist 1 s weg. Erwartet: viele Körper, viel Physik, aber unübersichtlich.
+- **Z „Pudding-Gerangel“:** die Umsetzung von A5 als echtes Minispiel. Gleiche Bots, eigene Logik, Optik und Löffel-Zuordnung. Die Zeile prüft, ob die Umsetzung den Prototyp trifft.
+
+**Objektive Messgrößen:**
+- Rundendauer.
+- Punktabstand (Erster − Letzter).
+- Gleichstand auf Platz 1.
+- Chancen der schwächsten Person: Siegquote und Ø-Platz des schwachen Bots im Vergleich zum fairen Anteil 1/n.
+- Stürze, Schubser (Sturz ≤ 4 s nach einem Rempler) und Löffel-Stürze je Runde.
+- Zuschauer-Anteil (Zeit als Ausgeschiedener).
+- Physik-Stabilität, gezählt bei jedem Schritt:
+  - NaN in Position oder Geschwindigkeit,
+  - eine Figur unter der Untergrenze, die nicht als „raus“ gilt,
+  - eine Kapselmitte unter der Spielfläche, obwohl die Figur über der Fläche steht (Tunneln),
+  - aktive Körper nach `dispose()`.
+- Höchste Geschwindigkeit.
+- Rechenzeit je fester Schritt (Logik + Havok + Bot, Mittel und p99).
+- Bedienung (Knöpfe) und Anleitungslänge.
+
+**Subjektive Playtest-Fragen (für Ruben):** siehe „Offen für Playtest“.
+
+**Testumgebung:**
+- Node 22.23, Linux-Container, Havok 1.3 (WASM) über `runMinigameHeadless`, NullEngine, fester Schritt 1/60 s.
+- Branch `worktree-agent-a84e8eeaaeff11961`, Basis-Commit `290a4d1`; Ergebnisse vom Commit, der diesen Eintrag einführt.
+- Seeds 1–40 je Variante und Spielerzahl (2, 3, 4), also 120 Runden je Variante. Runden von 30 s.
+- **Bots:** Je Runde ist ein Bot schwach, und welcher, wechselt reihum mit dem Seed (keine Slot-Verzerrung). Die anderen sind normal.
+  - *normal:* entscheidet alle 10 Schritte, Zielstreuung 0,25 rad, nutzt 60 % der Rempler-Gelegenheiten, weicht dem Löffel aus.
+  - *schwach:* alle 24 Schritte, Streuung 0,6 rad, 30 % der Rempler, sieht den Löffel nicht.
+  - *etwas schwächer* (Empfindlichkeit): alle 14 Schritte, Streuung 0,35 rad, 45 % der Rempler.
+- Die Bots in A/A2/A3 bleiben in der Mitte, wenn Rand, Gefälle oder Löffel drohen, und jagen sonst die nächste Figur. In A4/A5/Z laufen sie zum Fleck und rempeln dort Rivalen, die Führung zuerst. In B wählen sie den Krümel mit dem besten Weg-und-Tor-Abstand, stellen sich dahinter und schieben.
+- **Wiederholen** (≈ 6 min):
+
+  ```sh
+  EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/physics --silent=false
+  ```
+
+  `EXP_FILTER=<Teil des Namens>` beschränkt auf einzelne Varianten. Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test: je Variante ein 6-s-Lauf mit 4 Bots, Stabilität und Aufräumen, Teil von `pnpm test`.
+- **Code:** Prototypen in `packages/minigames/src/prototypes/physics/` (`wackel.ts`, `kruemel.ts`, `shared.ts`, `experiments.test.ts`), Umsetzung in `packages/minigames/src/pudding-gerangel/`.
+- **Rechenzeit:** Zeit zwischen zwei Skriptaufrufen, also Logik + Havok-Schritt + Bot + Messung, in Node ohne Rendern. Die p99-Werte sind verrauscht, weil parallel Browser-Screenshots und andere Tests liefen. Einzelne Ausreißer (bis 41 ms) sind GC und JIT beim Aufwärmen. Die Mittelwerte sind belastbar.
+
+**Ergebnisse:**
+
+**EXP-006 Physik-Prototypen (30 s, Seeds 1–40 je Zeile)**
+
+| Variante | Sp. | Dauer s | Abstand | Gleichst. Pl. 1 | Schwach Pl. 1 | Schwach Ø Platz | fair | Stürze | Schubser | Krümel | Zuschauer-Anteil | Löffel-Stürze | instabil | max m/s | ms/Schritt | ms p99 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A: Letzter oben | 2 | 19,3 | 0,7 | 30 % | 57 % | 1,4 | 50 % | 0,0 | 0,0 | 0,0 | 0,0 | 0,0 | 0 | 14,0 | 0,047 | 2,85 |
+| A: Letzter oben | 3 | 20,4 | 9,1 | 38 % | 35 % | 2,0 | 33 % | 0,9 | 0,8 | 0,0 | 0,1 | 0,0 | 0 | 16,2 | 0,103 | 6,50 |
+| A: Letzter oben | 4 | 24,9 | 10,2 | 63 % | 43 % | 2,2 | 25 % | 1,5 | 1,4 | 0,0 | 0,1 | 0,0 | 0 | 14,2 | 0,046 | 1,14 |
+| A2: Comeback, Saldo | 2 | 30,0 | 1,2 | 45 % | 70 % | 1,3 | 50 % | 1,4 | 1,2 | 0,0 | 0,0 | 0,0 | 0 | 14,0 | 0,027 | 0,15 |
+| A2: Comeback, Saldo | 3 | 30,0 | 2,0 | 28 % | 45 % | 1,9 | 33 % | 2,9 | 2,7 | 0,0 | 0,0 | 0,0 | 0 | 16,4 | 0,047 | 1,18 |
+| A2: Comeback, Saldo | 4 | 30,0 | 2,0 | 35 % | 30 % | 2,2 | 25 % | 2,6 | 2,4 | 0,0 | 0,0 | 0,0 | 0 | 16,6 | 0,062 | 0,76 |
+| A2: Comeback, Stürze | 2 | 30,0 | 0,6 | 53 % | 70 % | 1,3 | 50 % | 1,4 | 1,2 | 0,0 | 0,0 | 0,0 | 0 | 14,0 | 0,042 | 0,23 |
+| A2: Comeback, Stürze | 3 | 30,0 | 1,0 | 53 % | 45 % | 1,9 | 33 % | 2,9 | 2,7 | 0,0 | 0,0 | 0,0 | 0 | 16,4 | 0,069 | 4,19 |
+| A2: Comeback, Stürze | 4 | 30,0 | 1,1 | 78 % | 48 % | 2,2 | 25 % | 2,6 | 2,4 | 0,0 | 0,0 | 0,0 | 0 | 16,6 | 0,055 | 1,58 |
+| A2 ohne Besen, Saldo | 2 | 30,0 | 1,9 | 33 % | 40 % | 1,6 | 50 % | 1,4 | 1,2 | 0,0 | 0,0 | 0,0 | 0 | 14,1 | 0,038 | 0,17 |
+| A2 ohne Besen, Saldo | 3 | 30,0 | 2,4 | 25 % | 30 % | 2,0 | 33 % | 2,9 | 2,6 | 0,0 | 0,0 | 0,0 | 0 | 16,1 | 0,041 | 0,27 |
+| A2 ohne Besen, Saldo | 4 | 30,0 | 2,2 | 48 % | 33 % | 2,4 | 25 % | 2,6 | 2,5 | 0,0 | 0,0 | 0,0 | 0 | 15,8 | 0,039 | 1,39 |
+| A3: Wackel-Wahnsinn, Saldo | 2 | 30,0 | 1,6 | 18 % | 55 % | 1,5 | 50 % | 4,0 | 2,4 | 0,0 | 0,0 | 0,0 | 0 | 17,3 | 0,038 | 0,21 |
+| A3: Wackel-Wahnsinn, Saldo | 3 | 30,0 | 2,7 | 18 % | 25 % | 2,0 | 33 % | 5,3 | 3,8 | 0,0 | 0,0 | 0,0 | 0 | 21,3 | 0,042 | 0,26 |
+| A3: Wackel-Wahnsinn, Saldo | 4 | 30,0 | 2,9 | 35 % | 23 % | 2,7 | 25 % | 6,6 | 4,6 | 0,0 | 0,0 | 0,0 | 0 | 17,7 | 0,059 | 0,52 |
+| A3: Wackel-Wahnsinn, Stürze | 2 | 30,0 | 0,8 | 40 % | 63 % | 1,4 | 50 % | 4,0 | 2,4 | 0,0 | 0,0 | 0,0 | 0 | 17,3 | 0,042 | 1,84 |
+| A3: Wackel-Wahnsinn, Stürze | 3 | 30,0 | 1,6 | 45 % | 33 % | 2,0 | 33 % | 5,3 | 3,8 | 0,0 | 0,0 | 0,0 | 0 | 21,3 | 0,046 | 0,61 |
+| A3: Wackel-Wahnsinn, Stürze | 4 | 30,0 | 2,0 | 43 % | 23 % | 2,7 | 25 % | 6,6 | 4,6 | 0,0 | 0,0 | 0,0 | 0 | 17,7 | 0,048 | 0,37 |
+| A4: Kirschfleck | 2 | 30,0 | 34,1 | 0 % | 3 % | 2,0 | 50 % | 2,4 | 1,5 | 0,0 | 0,0 | 0,0 | 0 | 16,5 | 0,038 | 0,88 |
+| A4: Kirschfleck | 3 | 30,0 | 23,0 | 13 % | 3 % | 2,9 | 33 % | 3,3 | 2,5 | 0,0 | 0,0 | 0,0 | 0 | 18,0 | 0,040 | 0,48 |
+| A4: Kirschfleck | 4 | 30,0 | 18,9 | 3 % | 5 % | 3,6 | 25 % | 5,8 | 4,8 | 0,0 | 0,0 | 0,0 | 0 | 20,5 | 0,047 | 0,49 |
+| A4b: Kirschfleck flink+groß | 2 | 30,0 | 29,6 | 0 % | 3 % | 2,0 | 50 % | 1,8 | 1,2 | 0,0 | 0,0 | 0,0 | 0 | 17,2 | 0,031 | 0,13 |
+| A4b: Kirschfleck flink+groß | 3 | 30,0 | 23,1 | 10 % | 0 % | 2,9 | 33 % | 3,6 | 2,8 | 0,0 | 0,0 | 0,0 | 0 | 21,1 | 0,030 | 0,11 |
+| A4b: Kirschfleck flink+groß | 4 | 30,0 | 22,3 | 3 % | 0 % | 3,7 | 25 % | 5,9 | 4,6 | 0,0 | 0,0 | 0,0 | 0 | 22,0 | 0,042 | 0,33 |
+| A4c: Kirschfleck geteilt | 2 | 30,0 | 29,5 | 0 % | 3 % | 2,0 | 50 % | 1,8 | 1,2 | 0,0 | 0,0 | 0,0 | 0 | 17,2 | 0,045 | 1,02 |
+| A4c: Kirschfleck geteilt | 3 | 30,0 | 17,8 | 13 % | 0 % | 2,8 | 33 % | 3,5 | 2,7 | 0,0 | 0,0 | 0,0 | 0 | 21,1 | 0,057 | 2,39 |
+| A4c: Kirschfleck geteilt | 4 | 30,0 | 14,1 | 13 % | 3 % | 3,6 | 25 % | 5,8 | 4,9 | 0,0 | 0,0 | 0,0 | 0 | 22,0 | 0,072 | 0,64 |
+| A5: Kirschfleck + Wackelkrone | 2 | 30,0 | 22,2 | 0 % | 5 % | 2,0 | 50 % | 2,7 | 1,9 | 0,0 | 0,0 | 0,0 | 0 | 17,2 | 0,041 | 0,15 |
+| A5: Kirschfleck + Wackelkrone | 3 | 30,0 | 18,5 | 0 % | 0 % | 2,7 | 33 % | 4,8 | 3,7 | 0,0 | 0,0 | 0,0 | 0 | 23,6 | 0,042 | 0,21 |
+| A5: Kirschfleck + Wackelkrone | 4 | 30,0 | 17,7 | 10 % | 3 % | 3,6 | 25 % | 7,9 | 6,7 | 0,0 | 0,0 | 0,0 | 0 | 27,7 | 0,046 | 0,47 |
+| A4: Kirschfleck ohne Besen | 2 | 30,0 | 30,0 | 0 % | 3 % | 2,0 | 50 % | 1,6 | 1,3 | 0,0 | 0,0 | 0,0 | 0 | 16,2 | 0,028 | 0,13 |
+| A4: Kirschfleck ohne Besen | 3 | 30,0 | 20,9 | 10 % | 0 % | 2,9 | 33 % | 3,5 | 3,3 | 0,0 | 0,0 | 0,0 | 0 | 18,1 | 0,033 | 0,22 |
+| A4: Kirschfleck ohne Besen | 4 | 30,0 | 18,8 | 5 % | 8 % | 3,4 | 25 % | 5,9 | 5,6 | 0,0 | 0,0 | 0,0 | 0 | 19,8 | 0,040 | 0,23 |
+| A3: Wackel-Wahnsinn, Letzter | 2 | 10,0 | 1,0 | 0 % | 65 % | 1,4 | 50 % | 0,0 | 0,0 | 0,0 | 0,0 | 0,0 | 0 | 15,7 | 0,053 | 4,89 |
+| A3: Wackel-Wahnsinn, Letzter | 3 | 16,8 | 8,7 | 18 % | 33 % | 1,9 | 33 % | 1,0 | 0,7 | 0,0 | 0,1 | 0,0 | 0 | 17,9 | 0,096 | 40,85 |
+| A3: Wackel-Wahnsinn, Letzter | 4 | 20,8 | 14,1 | 35 % | 15 % | 2,8 | 25 % | 2,0 | 1,8 | 0,0 | 0,2 | 0,0 | 0 | 16,5 | 0,081 | 4,16 |
+| Z: Pudding-Gerangel (Umsetzung) | 2 | 30,0 | 24,4 | 0 % | 5 % | 2,0 | 50 % | 2,3 | 1,6 | 0,0 | 0,0 | 0,6 | 0 | 20,1 | 0,066 | 4,26 |
+| Z: Pudding-Gerangel (Umsetzung) | 3 | 30,0 | 16,1 | 5 % | 3 % | 2,8 | 33 % | 4,8 | 3,9 | 0,0 | 0,0 | 0,8 | 0 | 21,9 | 0,103 | 12,81 |
+| Z: Pudding-Gerangel (Umsetzung) | 4 | 30,0 | 14,2 | 10 % | 8 % | 3,4 | 25 % | 7,6 | 6,3 | 0,0 | 0,0 | 0,9 | 0 | 20,0 | 0,073 | 2,55 |
+| B: Krümel-Kehraus | 2 | 30,0 | 1,2 | 28 % | 53 % | 1,5 | 50 % | 6,8 | 0,0 | 9,1 | 0,0 | 0,0 | 0 | 14,2 | 0,091 | 3,54 |
+| B: Krümel-Kehraus | 3 | 30,0 | 2,7 | 30 % | 23 % | 2,3 | 33 % | 9,1 | 0,0 | 12,7 | 0,0 | 0,0 | 0 | 14,3 | 0,089 | 4,24 |
+| B: Krümel-Kehraus | 4 | 30,0 | 2,8 | 33 % | 18 % | 2,9 | 25 % | 16,2 | 0,0 | 20,0 | 0,0 | 0,0 | 0 | 14,4 | 0,076 | 3,79 |
+
+**EXP-006 Empfindlichkeit: etwas schwächerer Bot (Seeds 1–40 je Zeile)**
+
+| Variante | Sp. | Dauer s | Abstand | Gleichst. Pl. 1 | Schwach Pl. 1 | Schwach Ø Platz | fair | instabil | max m/s | ms/Schritt | ms p99 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A3: Wackel-Wahnsinn, Saldo | 2 | 30,0 | 1,4 | 18 % | 70 % | 1,3 | 50 % | 0 | 17,1 | 0,027 | 0,13 |
+| A3: Wackel-Wahnsinn, Saldo | 3 | 30,0 | 2,8 | 23 % | 40 % | 1,8 | 33 % | 0 | 16,7 | 0,039 | 0,17 |
+| A3: Wackel-Wahnsinn, Saldo | 4 | 30,0 | 3,1 | 30 % | 45 % | 2,3 | 25 % | 0 | 18,2 | 0,054 | 0,33 |
+| A5: Kirschfleck + Wackelkrone | 2 | 30,0 | 16,7 | 5 % | 20 % | 1,8 | 50 % | 0 | 18,8 | 0,036 | 0,14 |
+| A5: Kirschfleck + Wackelkrone | 3 | 30,0 | 14,3 | 13 % | 15 % | 2,4 | 33 % | 0 | 22,2 | 0,038 | 0,29 |
+| A5: Kirschfleck + Wackelkrone | 4 | 30,0 | 13,7 | 15 % | 8 % | 3,2 | 25 % | 0 | 21,5 | 0,049 | 0,25 |
+| Z: Pudding-Gerangel (Umsetzung) | 2 | 30,0 | 16,8 | 0 % | 8 % | 1,9 | 50 % | 0 | 17,0 | 0,037 | 0,20 |
+| Z: Pudding-Gerangel (Umsetzung) | 3 | 30,0 | 14,2 | 8 % | 18 % | 2,3 | 33 % | 0 | 21,9 | 0,078 | 16,62 |
+| Z: Pudding-Gerangel (Umsetzung) | 4 | 30,0 | 13,6 | 10 % | 8 % | 3,2 | 25 % | 0 | 21,9 | 0,067 | 2,78 |
+| B: Krümel-Kehraus | 2 | 30,0 | 1,5 | 15 % | 45 % | 1,6 | 50 % | 0 | 14,1 | 0,052 | 0,72 |
+| B: Krümel-Kehraus | 3 | 30,0 | 2,5 | 33 % | 40 % | 1,9 | 33 % | 0 | 14,0 | 0,076 | 2,61 |
+| B: Krümel-Kehraus | 4 | 30,0 | 2,5 | 38 % | 40 % | 2,1 | 25 % | 0 | 16,0 | 0,076 | 3,61 |
+
+Spalten: *Abstand* = Ø Punkte Erster − Letzter (in der Einheit der Variante). *Gleichst. Pl. 1* = Anteil der Runden mit geteiltem ersten Platz. *Schwach Pl. 1* = Siegquote des schwachen Bots (geteilte Siege zählen). *fair* = 1/n. *Stürze*, *Schubser* und *Löffel-Stürze* sind Summen je Runde über alle Spieler. *instabil* = Summe aus NaN, verlorenen Körpern, Tunnel-Schritten und Resten nach `dispose()` über alle 120 Runden.
+
+**Beobachtungen:**
+- **Stabilität:** in allen 2 160 simulierten Runden (14 Varianten + 4 Empfindlichkeitsläufe à 120) ohne Befund. Keine NaN, kein unbemerktes Durchfallen, kein Tunneln, alle Körper nach `dispose()` weg. Die Höchstgeschwindigkeit liegt bei 14–28 m/s (harte Grenze 22 m/s vor dem Schritt; ein Rempler im selben Schritt kann kurz darüber liegen). Rechenzeit im Mittel 0,03–0,1 ms je Schritt mit bis zu 4 Figuren und 13 Körpern. Das sind < 1 % des 60-fps-Budgets (16,7 ms), viel Luft fürs Rendern.
+- **A „Letzter oben“:** zu kurz und zu zufällig. Mit 2 Spielern ist die Runde nach Ø 19 s vorbei, in A3 sogar nach 10 s. Bei 4 Spielern sind 63 % der Siege geteilt. Ausgeschiedene schauen 10–20 % der Zeit zu. → discard.
+- **A2/A3 mit Saldo- oder Stürze-Wertung:** keine Zuschauer, aber kleine Zahlen (Abstand 1–3 Punkte), daher 18–78 % geteilte Siege. Der schwache Bot gewinnt so oft wie oder öfter als die normalen (bis 70 % bei 2 Spielern). Können zählt kaum, die Runde ist eine Lotterie. Das Chaos-Tuning (A3) hat die Stürze verdoppelt (4–6,6 je Runde) und den Pudding sichtbar lebendiger gemacht. Der Löffel trägt in A2 nur wenig bei (A2 mit und ohne Löffel fast gleich), mit A3-Werten deutlich mehr.
+- **A4/A5/Z „Kirschfleck“:** fast nie Gleichstand (0–15 %). Laufende Punkte, alle immer im Spiel, ein klares Ziel am Bildschirm. Das Gedränge kippt den Pudding zum Fleck, so treibt die Physik das Spiel an. Der Preis: Können zählt stark. Der *schwache* Bot gewinnt nur 0–8 %. Der *etwas schwächere* gewinnt 8–20 % (fair wären 25–50 %), bei Ø-Platz 1,8–3,2. Größerer, schnellerer Fleck (A4b) und Teilen (A4c) helfen dem Schwachen nicht. Die Wackelkrone (A5) verkleinert den Abstand von ≈ 22 auf ≈ 14–18 Punkte.
+- **B „Krümel-Kehraus“:** physikalisch am reichsten (13 Körper) und ebenfalls stabil. Mit 28–38 % geteilten Siegen und einem schwachen Bot, der bei 2 Spielern gleichauf liegt, ist B aber ähnlich zufällig wie A2. Bots fallen sehr oft durch die eigene Lücke (7–16 Stürze je Runde). Auf dem Fernseher wird es mit 10 Krümeln, 4 Toren und Knäuel unübersichtlich.
+- **Z (Umsetzung) = A5:** Die Kennzahlen liegen innerhalb des Rauschens. Stürze 2,3/4,8/7,6 je Runde, Schubser 1,6/3,9/6,3, Löffel-Stürze 0,6–0,9.
+
+**Entscheidung:** **keep A5 → umgesetzt als „Pudding-Gerangel“ (`pudding-gerangel`, 30 s).** Begründung:
+1. Lesbarkeit: ein Ziel (Kirschfleck mit Kirsche an der Stange), eine Gefahr (runterfallen), sichtbare Führung (Krone).
+2. Physik ist der Kern: Kippen zum Gewicht, Rutschen, Rempler, Löffel und Plumpsen erzeugen das Chaos. Es sind keine Effekte obendrauf.
+3. Niemand schaut zu (Comeback nach 1,5 s).
+4. Kaum geteilte Siege.
+5. Bedienung: Joystick + A, Anleitung 3 Zeilen ≤ 64 Zeichen, iPad-Zonen-tauglich.
+6. Stabil und billig.
+
+Dass Können hier mehr zählt als bei A2/B, ist gewollt. Die Kategorie heißt „Physik“, nicht „Lotterie“, und die Wackelkrone ist das Comeback-Werkzeug. Ob das für schwächere Mitspieler fair genug ist, kann nur der Playtest zeigen (siehe unten). Stellschrauben: `TUNING.leaderBonk`, `zoneMoveMs`, `zoneRadius` und `zoneRate` in `packages/minigames/src/pudding-gerangel/logic.ts`.
+
+**Verworfen:**
+- A „Letzter oben“: zu kurz, Zuschauerzeit, geteilte Siege.
+- A2/A3 mit Saldo- oder Stürze-Wertung: Lotterie, Gleichstände.
+- B „Krümel-Kehraus“: unübersichtlich, zufällig, Bots fallen ständig in Tore.
+
+B könnte als späteres Physik-Minispiel mit weniger Krümeln und Toren an festen Ecken wiederkommen (Kandidat für `CHAOS-44`, der Koordinator legt die Aufgabe an).
+
+**Simulation ist kein Spaßbeweis.** Bots sind keine Menschen. Sie überschießen den Fleck, lachen nicht, verbünden sich nicht spontan gegen die Führung und unterschätzen, wie lustig ein Sturz in die Sahne aussieht. Die Zahlen zeigen nur, dass die Regeln funktionieren und die Physik stabil bleibt.
+
+**Belegbilder:** `docs/screenshots/m3-minispiel-pudding-gerangel.png` (Gerangel am Kirschfleck, 4 Spieler, 2×), `docs/screenshots/m3-minispiel-pudding-gerangel-ende.png` (Rundenende mit Wackelkrone, 2×).
+
+**Offen für Playtest (Ruben):**
+- Versteht man ohne Erklärung, dass der Sahnefleck mit der Kirsche Punkte gibt und dass der Pudding dorthin kippt, wo alle stehen?
+- Ist der Pudding zu rutschig? (Reibung 0,12; man kann gegensteuern.) Fühlen sich Stürze witzig oder unfair an, besonders die durch den Rührlöffel?
+- Gewinnt die schwächste Person oft genug? Sim: schwach 0–8 %, etwas schwächer 8–20 %. Falls nicht: Krone stärker (`leaderBonk` 1,5 → 2) oder Fleck öfter wechseln.
+- Ist der Rempler (A) mit Abklingzeit 1 s befriedigend, und reicht die Wackelkrone als Ziel?
+- Sind 30 s die richtige Länge? Sind 4 Punkte je Sekunde auf dem Fleck gut lesbar oder zu hektisch?
+- Erkennt man die eigene Figur im Gedränge (Ring + Wimpel in Slot-Farbe), auch mit den echten Figuren statt der Platzhalter-Kapseln?
+
+---
+
+## EXP-007: Hybrid-Minispiel – Konzeptvergleich „Wackelturm“ gegen „Geysir-Gier“ (2026-11-15, CHAOS-29, CHAOS-32)
+
+
+**Hypothese / gewünschtes Spielerlebnis:** Das Hybrid-Minispiel verbindet schnelle Ausführung (lenken, greifen, ausweichen, zielen) mit einer taktischen Entscheidung, die man **am Fernseher sieht** und die für Zuschauer lustig ist: Wer geht wie viel Risiko ein, wer räumt ab, wer klaut? Regeln in höchstens 3 Zeilen à 64 Zeichen, Bedienung Joystick + A + B (iPad-Zonen sind klein), 20–45 s. Keine Strategie soll immer gewinnen; ein ungeschickter Spieler soll eine echte, wenn auch kleinere Chance haben.
+
+**Varianten (zwei eigene Konzepte, keine Nachbauten):**
+
+- **A „Wackelturm“** (Picknickdecke, Törtchenberg in der Mitte, je Spieler ein Nest in einer Ecke): Mit A Törtchen am Berg greifen, als Turm auf dem Kopf ins eigene Nest tragen, dort zählen sie. Ab 6 Stück zählt der Turm doppelt (Krone auf dem Turm). Hohe Türme sind langsam, träge und wackeln bei scharfem Lenken und schnellem Laufen – zu viel Wackeln, und er kippt. Mit leeren Händen rempelt B (kurzer Sprint): Ein getroffener Turm wechselt den Besitzer, ein Fehlversuch endet im Bauchklatscher. Ab und zu liegt ein Goldtörtchen (zählt 3) abseits.
+  Taktik sichtbar: Turmhöhe, Krone, Umweg zum Gold, Jäger ohne Turm. Erwartet: viel Ausführung (sanft lenken), klare Bilder; Risiko: „gierig“ oder „Rempeln“ dominiert.
+  - A1 linear, ohne Rempeln/Gold, nur Lenkwackeln · A2 + Turmbonus · A3 + Rempeln immer, ohne Klau · A4 Rempeln nur mit leeren Händen, Klau ½, Gold (erste Fassung) · A5 + Laufwackeln, Trägheit hoher Türme, Klau ganz, Bauchklatscher · **A6 + hoch stapeln dauert länger (gewählt)**
+- **B „Geysir-Gier“**: Vier Blubberbecken (Ertrag 1/2/3/5 je s, geteilt unter allen im Becken, Multiplikator ×1→×3 fürs Bleiben). Becken verlassen sichert den Topf; ertragreiche Becken brechen öfter und mit kürzerer Vorwarnung aus, wer drinsteht, verliert den Topf. A = Hüpfer (wer den Ausbruch in der Luft „reitet“, verdoppelt), B = Schubsen.
+  Erwartet: starke Push-your-luck-Spannung, Gedränge im roten Becken; Risiko: wenig Ausführung, viele Begriffe.
+  - B1 ohne Ritt/Schubsen · B2 mit Ritt ×2 und Schubsen · B3 B2 ohne Überraschungs-Ausbrüche · B4 B2, rotes Becken öfter, Ritt ×1,5
+
+**Objektive Messgrößen:** Rundendauer; Siegerpunkte; relativer Abstand Platz 1–2; Gleichstand auf Platz 1; Führungswechsel (nach gesicherten Punkten); Zuschauer-Momente je Partie (A: umgekippte/geklaute Türme, B: Treffer und Ritte); Eingaben je Sitz und Sekunde und B-Anteil (Ausführungs-/Bedienlast); Strategie-Turnier (Siegfaktor je Strategie bei gleicher Geschicklichkeit, 1,00 = fair); **Eindringling gegen Monokultur** (lohnt es sich, von einer Strategie abzuweichen? Eine Strategie mit Faktor > 1 gegen alle wäre dominant); Außenseiter-Chance (Geschick 0,2 gegen 0,9); Anleitungslänge und Zahl der Regelbegriffe.
+
+**Bots:** vier Strategien – *vorsichtig* (A: 2–4 Törtchen; B: grüne/gelbe Becken, früh sichern, bei Warnung raus), *gierig* (A: 7–10; B: orange/rot, lange bleiben, Geysir reiten), *zufällig* (A: 1–10 je Gang; B: zufällige Becken und Zeiten), *Raufbold* (A: 3–5 und jagt hohe Türme mit B; B: gierig und schubst Mitbewohner raus). Geschicklichkeit 0–1 steuert Reaktionszeit (0,45–0,15 s), Lenkfehler, Drehrate des Sticks, Gefühl für die Kippgrenze, Ausweichen vor Remplern, Timing des Hüpfers. Bots sehen nur, was ein Mensch am Fernseher sieht (Positionen, Türme, Wackeln, Warnungen), nicht den Zufall.
+
+**Subjektive Playtest-Fragen (für Ruben):** siehe „Offen für Playtest“.
+
+**Testumgebung:** Node 22, Vitest, reines TypeScript ohne Babylon; fester Schritt 1/60 s; Spielzufall `createMinigameRng(seed)`, Bot-Zufall getrennt je Sitz. Seeds 1–200 je Zeile (Eindringling: 1–200, 3 Spieler), 35 s je Partie. Konzept A spielt die **echten Regeln** aus `packages/minigames/src/wackelturm/logic.ts` (Varianten = Parameter-Sätze), Konzept B den Prototyp `packages/minigames/src/prototypes/hybrid/geysir.ts`. Wiederholen:
+
+```sh
+EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/hybrid --silent=false
+```
+
+Laufzeit ≈ 4,5 min. Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test mit 3 Seeds.
+
+**Ergebnisse:**
+
+**EXP-007 Verlauf (gemischte Tische, Seeds 1–200)**
+
+| Variante | Sp. | Dauer s | Sieger-Punkte | Abstand 1–2 | Gleichstand | Führungswechsel | Momente | Eingaben/s | B-Anteil |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A1: linear, ohne Rempeln, ohne Gold | 2 | 35 | 25,2 | 43 % | 5 % | 2,3 | 4,7 | 2,9 | 0 % |
+| A1: linear, ohne Rempeln, ohne Gold | 3 | 35 | 27,3 | 24 % | 5 % | 4,7 | 7,0 | 3,0 | 0 % |
+| A1: linear, ohne Rempeln, ohne Gold | 4 | 35 | 27,6 | 16 % | 11 % | 6,1 | 9,5 | 3,0 | 0 % |
+| A2: + Turmbonus ×2 ab 6 | 2 | 35 | 32,7 | 42 % | 6 % | 2,0 | 4,7 | 2,9 | 0 % |
+| A2: + Turmbonus ×2 ab 6 | 3 | 35 | 37,4 | 29 % | 3 % | 3,9 | 7,0 | 3,0 | 0 % |
+| A2: + Turmbonus ×2 ab 6 | 4 | 35 | 37,4 | 23 % | 9 % | 4,8 | 9,5 | 3,0 | 0 % |
+| A3: + Rempeln immer, ohne Klau | 2 | 35 | 9,0 | 54 % | 25 % | 0,5 | 17,9 | 4,9 | 11 % |
+| A3: + Rempeln immer, ohne Klau | 3 | 35 | 9,3 | 56 % | 13 % | 0,5 | 27,0 | 4,8 | 14 % |
+| A3: + Rempeln immer, ohne Klau | 4 | 35 | 8,4 | 52 % | 14 % | 0,6 | 37,2 | 4,8 | 14 % |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 2 | 35 | 33,1 | 42 % | 4 % | 2,0 | 5,4 | 3,1 | 1 % |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 3 | 35 | 34,1 | 27 % | 7 % | 3,3 | 8,9 | 3,3 | 2 % |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 4 | 35 | 34,5 | 22 % | 7 % | 4,5 | 12,7 | 3,4 | 2 % |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 2 | 35 | 46,3 | 30 % | 5 % | 2,8 | 1,1 | 2,3 | 2 % |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 3 | 35 | 48,1 | 25 % | 6 % | 4,1 | 2,9 | 2,4 | 4 % |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 4 | 35 | 49,8 | 24 % | 4 % | 4,8 | 5,2 | 2,4 | 5 % |
+| A6: + hoch stapeln dauert länger (gewählt) | 2 | 35 | 37,9 | 25 % | 5 % | 2,7 | 1,2 | 2,1 | 2 % |
+| A6: + hoch stapeln dauert länger (gewählt) | 3 | 35 | 39,6 | 22 % | 4 % | 4,3 | 2,7 | 2,2 | 4 % |
+| A6: + hoch stapeln dauert länger (gewählt) | 4 | 35 | 41,0 | 20 % | 4 % | 5,2 | 4,3 | 2,3 | 4 % |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 2 | 35 | 112,4 | 32 % | 2 % | 3,4 | 2,7 | 0,7 | 0 % |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 3 | 35 | 102,0 | 23 % | 4 % | 5,5 | 3,7 | 0,7 | 0 % |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 4 | 35 | 88,2 | 20 % | 2 % | 6,9 | 4,7 | 0,7 | 0 % |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 2 | 35 | 150,8 | 45 % | 0 % | 2,3 | 5,1 | 0,7 | 10 % |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 3 | 35 | 138,9 | 33 % | 0 % | 4,0 | 7,2 | 0,7 | 19 % |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 4 | 35 | 131,2 | 28 % | 2 % | 5,1 | 9,3 | 0,7 | 30 % |
+| B3: B2 ohne Überraschungs-Ausbrüche | 2 | 35 | 155,4 | 44 % | 0 % | 2,5 | 4,7 | 0,7 | 11 % |
+| B3: B2 ohne Überraschungs-Ausbrüche | 3 | 35 | 145,8 | 34 % | 1 % | 4,1 | 6,4 | 0,7 | 19 % |
+| B3: B2 ohne Überraschungs-Ausbrüche | 4 | 35 | 129,7 | 26 % | 3 % | 5,5 | 8,3 | 0,8 | 27 % |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 2 | 35 | 106,5 | 43 % | 1 % | 2,2 | 6,9 | 0,8 | 8 % |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 3 | 35 | 102,9 | 29 % | 1 % | 4,2 | 9,4 | 0,8 | 17 % |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 4 | 35 | 101,4 | 27 % | 0 % | 5,1 | 11,9 | 0,8 | 25 % |
+
+**EXP-007 Strategien (Siegfaktor bei gleicher Geschicklichkeit 0,7; 1,00 = fair)**
+
+| Variante | Sp. | vorsichtig | gierig | zufällig | Raufbold | Außenseiter (0,2 vs 0,9) gewinnt |
+| --- | --- | --- | --- | --- | --- | --- |
+| A1: linear, ohne Rempeln, ohne Gold | 2 | 1,14 | 0,42 | 0,82 | 1,67 | 66 % (fair 50 %) |
+| A1: linear, ohne Rempeln, ohne Gold | 3 | 1,10 | 0,19 | 0,64 | 2,24 | 54 % (fair 33 %) |
+| A1: linear, ohne Rempeln, ohne Gold | 4 | 0,93 | 0,11 | 0,57 | 2,48 | 48 % (fair 25 %) |
+| A2: + Turmbonus ×2 ab 6 | 2 | 1,00 | 0,53 | 0,99 | 1,51 | 72 % (fair 50 %) |
+| A2: + Turmbonus ×2 ab 6 | 3 | 0,90 | 0,56 | 0,95 | 1,70 | 62 % (fair 33 %) |
+| A2: + Turmbonus ×2 ab 6 | 4 | 0,72 | 0,36 | 1,10 | 1,88 | 59 % (fair 25 %) |
+| A3: + Rempeln immer, ohne Klau | 2 | 1,40 | 0,95 | 0,90 | 0,74 | 55 % (fair 50 %) |
+| A3: + Rempeln immer, ohne Klau | 3 | 1,82 | 0,76 | 0,57 | 0,75 | 38 % (fair 33 %) |
+| A3: + Rempeln immer, ohne Klau | 4 | 2,23 | 0,73 | 0,55 | 0,60 | 24 % (fair 25 %) |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 2 | 1,11 | 0,49 | 0,94 | 1,49 | 76 % (fair 50 %) |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 3 | 1,07 | 0,42 | 0,80 | 1,82 | 52 % (fair 33 %) |
+| A4: Rempeln nur mit leeren Händen, Klau ½, Gold | 4 | 0,85 | 0,37 | 0,84 | 2,01 | 45 % (fair 25 %) |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 2 | 0,34 | 1,64 | 1,12 | 0,88 | 58 % (fair 50 %) |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 3 | 0,18 | 1,76 | 1,24 | 0,86 | 26 % (fair 33 %) |
+| A5: + Laufwackeln, Trägheit, Klau ganz, Bauchklatscher | 4 | 0,14 | 1,63 | 1,11 | 0,98 | 25 % (fair 25 %) |
+| A6: + hoch stapeln dauert länger (gewählt) | 2 | 0,49 | 1,33 | 1,26 | 0,89 | 48 % (fair 50 %) |
+| A6: + hoch stapeln dauert länger (gewählt) | 3 | 0,37 | 1,27 | 1,36 | 1,07 | 24 % (fair 33 %) |
+| A6: + hoch stapeln dauert länger (gewählt) | 4 | 0,36 | 1,32 | 0,88 | 1,35 | 31 % (fair 25 %) |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 2 | 0,24 | 1,50 | 0,93 | 1,32 | 51 % (fair 50 %) |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 3 | 0,11 | 1,33 | 1,23 | 1,47 | 33 % (fair 33 %) |
+| B1: ohne Hüpfer-Ritt, ohne Schubsen | 4 | 0,26 | 0,96 | 1,47 | 1,27 | 18 % (fair 25 %) |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 2 | 0,30 | 1,45 | 0,93 | 1,31 | 43 % (fair 50 %) |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 3 | 0,09 | 1,71 | 0,95 | 1,34 | 18 % (fair 33 %) |
+| B2: + Hüpfer-Ritt ×2, Schubsen | 4 | 0,04 | 1,82 | 0,65 | 1,31 | 11 % (fair 25 %) |
+| B3: B2 ohne Überraschungs-Ausbrüche | 2 | 0,28 | 1,43 | 1,00 | 1,28 | 47 % (fair 50 %) |
+| B3: B2 ohne Überraschungs-Ausbrüche | 3 | 0,09 | 1,69 | 0,95 | 1,36 | 25 % (fair 33 %) |
+| B3: B2 ohne Überraschungs-Ausbrüche | 4 | 0,02 | 1,76 | 0,85 | 1,21 | 16 % (fair 25 %) |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 2 | 0,34 | 1,22 | 1,05 | 1,40 | 46 % (fair 50 %) |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 3 | 0,28 | 1,23 | 1,27 | 1,32 | 27 % (fair 33 %) |
+| B4: B2, rotes Becken öfter, Ritt nur ×1,5 | 4 | 0,18 | 1,24 | 1,21 | 1,27 | 17 % (fair 25 %) |
+
+**EXP-007 Eindringling gegen Monokultur (3 Spieler, Siegfaktor; 1,00 = fair)**
+
+| Var. | Eindringling | gegen 2× vorsichtig | gegen 2× gierig | gegen 2× zufällig | gegen 2× Raufbold |
+| --- | --- | --- | --- | --- | --- |
+| A4 | vorsichtig | 1,04 | 2,20 | 1,52 | 0,37 |
+| A4 | gierig | 0,38 | 0,86 | 0,48 | 0,04 |
+| A4 | zufällig | 1,01 | 1,55 | 1,03 | 0,49 |
+| A4 | Raufbold | 2,06 | 2,46 | 1,97 | 1,04 |
+| A6 | vorsichtig | 0,97 | 0,13 | 0,14 | 1,03 |
+| A6 | gierig | 2,59 | 0,91 | 1,20 | 0,82 |
+| A6 | zufällig | 2,61 | 0,92 | 1,13 | 1,17 |
+| A6 | Raufbold | 1,60 | 1,21 | 0,55 | 1,06 |
+| B2 | vorsichtig | 1,11 | 0,11 | 0,00 | 0,16 |
+| B2 | gierig | 2,75 | 0,99 | 1,97 | 1,46 |
+| B2 | zufällig | 2,88 | 0,50 | 1,14 | 0,85 |
+| B2 | Raufbold | 2,97 | 0,63 | 1,40 | 1,03 |
+| B4 | vorsichtig | 1,18 | 0,40 | 0,02 | 0,31 |
+| B4 | gierig | 2,19 | 0,92 | 1,26 | 0,90 |
+| B4 | zufällig | 2,85 | 1,27 | 0,95 | 1,09 |
+| B4 | Raufbold | 2,92 | 1,59 | 1,16 | 0,99 |
+
+**EXP-007 Bedienung und Anleitung**
+
+| Konzept | Bedienung | Anleitung (Zeilen, längste) | Regel-Begriffe |
+| --- | --- | --- | --- |
+| Wackelturm | Laufen / Greifen / Rempeln | 3, 56/64 Zeichen | Berg, Nest, Turmbonus, Wackeln, Rempeln (5) |
+| Geysir-Gier | Laufen / Hüpfen / Schubsen | 3, 60/64 Zeichen | Becken, Topf, Multiplikator, Teilen, Ausbruch, Ritt, Schubsen (7) |
+
+**Auswertung:**
+
+- **Die frühen A-Fassungen sind kippelig balanciert.** Im ersten Lauf (frühere Bot-Fassung: ohne Ausweichen, Geschickte liefen grundlos langsamer) dominierte „gierig“ in A1/A2/A4 mit Faktor 1,7–2,4 – lange Wege lohnen sich mit großen Türmen. Mit den endgültigen Bots (Tabelle) kippt dieselbe Regel ins Gegenteil: Ohne Trägheit fallen hohe Türme schon beim Losgehen, „gierig“ sinkt auf 0,1–0,6, der Raufbold dominiert (A4: Eindringling ≥ 1,04 gegen alle), und der Außenseiter gewinnt sogar öfter als fair (45–76 %), weil Geschick kaum zählt. Beides zeigt: Reines Lenkwackeln trägt die Balance nicht. In B2 ist „gierig“ dominant (Eindringling > 1 gegen alle Monokulturen außer sich selbst, 0,99).
+- **Rempeln mit Turm ist Chaos ohne Fortschritt.** A3 (immer rempeln, auch mit Turm): Siegerpunkte ≈ 9, bis 25 % Gleichstand, 37 Momente in 35 s, nur „vorsichtig“ kommt durch (2,2). Darum: Rempeln nur mit leeren Händen.
+- **Gewählte Fassung A6:** Laufwackeln + Trägheit hoher Türme (Tempo wird zur Geschicklichkeitsfrage), ganzer Turm wird geklaut (Revanche-Jagd, lustig), Bauchklatscher bei Fehlrempler, und **jedes weitere Törtchen auf dem Kopf dauert länger** (0,25 s + 0,12 s je Stück). Ergebnis: keine Strategie gewinnt gegen alle – es gibt einen Kreis: Raufbold schlägt Gierige (1,21; umgekehrt 0,82), Zufällig/Mittelhoch schlägt Raufbolde (1,17; umgekehrt 0,55), Gierig schlägt Zufällig knapp (1,20; umgekehrt 0,92). Gleichstand 4–5 %, Abstand 1–2 rund 20–25 %, 2,7–5,2 Führungswechsel, Außenseiter 48/24/31 % (fair 50/33/25 %). Rein vorsichtig (nie der Turmbonus) ist schwach (0,36–0,49) – gewollt: „Ab 6 zählt doppelt“ soll zum Risiko locken.
+- **B im Vergleich:** spektakulärer in Zahlen (5–12 Momente je Partie), aber kaum Ausführung (0,7–0,8 Eingaben/s gegenüber 2,1–2,3 in A6), die Taktik sitzt in unsichtbaren Größen (Topf, Multiplikator, geteilter Ertrag), 7 Regelbegriffe in fast vollen 3 Zeilen (60/64 Zeichen, erste Fassung passte nicht), dominantes „gierig“ in B2, und der Außenseiter hat bei 4 Spielern nur 11–17 % (fair 25 %). B4 dämpft das, löst es aber nicht.
+- Simulation ist **kein Spaß-Beweis**: Bots spielen nach festen Regeln, Menschen passen sich an (z. B. Revanche nach einem Klau, Gedränge am Berg, Schadenfreude). Die Zahlen sagen nur, dass keine offensichtliche Gewinnformel und keine kaputte Wertung existiert.
+
+**Entscheidung:** **keep A6 „Wackelturm“** als Hybrid-Minispiel (`packages/minigames/src/wackelturm/`, in Katalog und Rotation), **discard B „Geysir-Gier“** für den Vertical Slice.
+Begründung: A verbindet Ausführung (sanft lenken unter Kippgefahr, greifen, ausweichen, zielen) und Taktik (wie hoch stapeln, Gold-Umweg, sammeln oder jagen) in einem einzigen sichtbaren Bild – dem schwankenden Turm mit Krone. Keine dominante Strategie, fairere Außenseiter-Chance, 5 statt 7 Begriffe, Bedienung Joystick + A + B mit seltenem B (2–5 % der Knopfdrücke). B bleibt als Idee für später (Becken mit geteiltem Ertrag, Geysir reiten) – Kandidat für `CHAOS-44`.
+
+**Gewählte Werte (`WACKELTURM_PARAMS`):** Arena 16 × 9, Berg-Radius 1,5, Nest-Radius 1,15 in den Ecken; Tempo 4,6 / (1 + 0,06 · Höhe); Beschleunigung 14 / (1 + 0,12 · Höhe); sicher bis 2 Stück; Wackeln (0,5 · Lenken² + 0,7 · Tempo²) · (Höhe − 2), Abklingen 1,3/s, kippt bei 1; Greifen 0,25 s + 0,12 s je Stück auf dem Kopf, höchstens 10; Turmbonus ×2 ab 6; Gold alle 7 s (lebt 6 s, zählt 3); Rempeln: Sprint 0,22 s mit 10 Einheiten/s, Reichweite 1,05, Abklingzeit 2 s, nur mit leeren Händen, ganzer Turm wird geklaut, Opfer 0,7 s benommen, Bauchklatscher 0,6 s, im eigenen Nest sicher; Sturz durch Wackeln 0,8 s benommen; Spielzeit 35 s.
+
+**Belegbilder:** `docs/screenshots/m3-minispiel-wackelturm.png` (4 Spieler mitten im Spiel: Grüns 10er-Turm kippelt, Blau liefert 7er-Turm mit Krone ab), `docs/screenshots/m3-minispiel-wackelturm-kippt.png` (eine Sekunde später: Turm eingestürzt, Krümel fliegen, Goldtörtchen liegt aus). Vorschau: `pnpm --filter @chaos-party/host dev`, dann `/host/?local=1&minigame=wackelturm&players=4`.
+
+**Offen für Playtest (Ruben, echte Controller):**
+
+1. Ist sanftes Lenken mit dem virtuellen Joystick am iPhone und in einer kleinen iPad-Zone machbar, oder kippen Türme gefühlt „ohne Grund“? (Stellschrauben: `walkWobble`, `wobbleGain`, `loadInertia`.)
+2. Ist das Schwanken früh genug sichtbar, um rechtzeitig vom Gas zu gehen? Reicht „kippelt!“ im HUD?
+3. Fühlt sich der Klau des ganzen Turms witzig an oder gemein? Kommt es zu Revanche-Jagden?
+4. Lockt „ab 6 doppelt“ zum Risiko, oder stapeln alle stur genau 6?
+5. Sind 35 s richtig (genug für 3–5 Gänge), oder zu lang/kurz?
+6. Erkennen Zuschauer am Fernseher sofort, wer wie hoch stapelt und wer gerade jagt?
+
+**Für später (CHAOS-44):** Konzept B „Geysir-Gier“ (geteilte Becken, Geysir-Ritt); verstreute Krümel nach einem Sturz zum Aufsammeln; Törtchenberg, der schrumpft und nachwächst.

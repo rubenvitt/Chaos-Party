@@ -50,7 +50,7 @@ describe('rankPlayers', () => {
 });
 
 describe('DEFAULT_RULES und withRules', () => {
-  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004)', () => {
+  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004) und M3-Minispielzeiten', () => {
     expect(DEFAULT_RULES).toEqual({
       diceFaces: [1, 2, 3, 4, 5, 6],
       economy: { startCoins: 10, coinsPlus: 3, coinsMinus: 3, minigameRewards: [10, 5, 3, 0] },
@@ -69,9 +69,9 @@ describe('DEFAULT_RULES und withRules', () => {
         stepMs: 350,
         spaceEventMs: 1500,
         turnEndMs: 600,
-        minigameIntroMs: 2500,
+        minigameIntroMs: 7000,
         minigamePlayMs: 3000,
-        minigameResultsMs: 3000,
+        minigameResultsMs: 6000,
         roundEndMs: 1500,
         reactionWindowMs: 3000,
         disconnectGraceMs: 15000,

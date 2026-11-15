@@ -1,6 +1,6 @@
 /**
  * EXP-007 (CHAOS-29/CHAOS-32): Hybrid-Prototypen. Der Smoke-Test läuft immer (wenige Seeds);
- * die vollen Tabellen für `docs/experiments/EXP-007-hybrid.md` nur mit Umgebungsvariable:
+ * die vollen Tabellen für `docs/experiments.md` nur mit Umgebungsvariable:
  *
  * ```sh
  * EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/hybrid
