@@ -65,6 +65,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
             contexts={state.contexts}
             feedback={state.feedback}
             choices={state.choices}
+            picks={state.picks}
             send={send}
           />
         ) : player ? (
@@ -73,6 +74,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
             context={state.contexts[player.slot]}
             feedback={state.feedback[player.slot]}
             pending={state.choices[player.slot]}
+            pick={state.picks[player.slot]}
             players={state.players}
             send={send}
           />

@@ -10,7 +10,7 @@
  * - **Zonen-lokal**: Pixel im Inhalt der Zone, *vor* ihrer Drehung. Eine um 180° gedrehte
  *   Zone (Spieler sitzt gegenüber) hat ihr lokales „oben“ auf dem Bildschirm unten.
  */
-import type { Action, Button, Layout, SlotNumber } from '@chaos-party/protocol';
+import type { Action, Button, CharacterId, Layout, SlotNumber } from '@chaos-party/protocol';
 
 export interface Point {
   readonly x: number;
@@ -50,7 +50,11 @@ export interface ZoneFrame {
  */
 export type ChoiceControlKind = `choice:${number}:${string}`;
 
-export type ControlKind = 'stick' | 'button-a' | 'button-b' | 'ready' | ChoiceControlKind;
+/** Figurenkarte der Lobby (v4, CHAOS-36): `pick:<characterId>`. */
+export type PickControlKind = `pick:${string}`;
+
+export type ControlKind =
+  'stick' | 'button-a' | 'button-b' | 'ready' | ChoiceControlKind | PickControlKind;
 
 /** Ein Bedienelement in Zonen-lokalen Koordinaten. */
 export interface ControlGeometry {
@@ -77,6 +81,17 @@ export function parseChoiceControl(
   const match = /^choice:(\d+):(.+)$/.exec(kind);
   if (!match?.[1] || !match[2]) return null;
   return { promptId: Number(match[1]), option: match[2] };
+}
+
+export function pickControl(character: CharacterId): PickControlKind {
+  return `pick:${character}`;
+}
+
+/** Figur einer Figurenkarte, sonst `null`. */
+export function parsePickControl(kind: ControlKind | null): string | null {
+  if (!kind?.startsWith('pick:')) return null;
+  const id = kind.slice('pick:'.length);
+  return id.length > 0 ? id : null;
 }
 
 /** Vollständige Zone: Lage, lokale Größe, Bedienelemente. */
@@ -256,6 +271,14 @@ export interface ZoneChoicesInput {
   readonly locked: boolean;
 }
 
+/** Lobby mit Charakterwahl in einer Zone (v4, CHAOS-36). */
+export interface ZoneLobbyInput {
+  /** Figuren in Anzeigereihenfolge; nicht wählbare (vergeben, eigene) sind sichtbar, aber `inert`. */
+  readonly characters: readonly { readonly id: CharacterId; readonly selectable: boolean }[];
+  /** „Bereit!“-Knopf zeigen (angeboten und noch nicht gesendet). */
+  readonly showReady: boolean;
+}
+
 /** Was eine Zone gerade anzeigen soll (aus dem Server-Kontext abgeleitet). */
 export interface ZoneControlsInput {
   readonly layout: Layout;
@@ -264,6 +287,8 @@ export interface ZoneControlsInput {
   readonly readySent?: boolean;
   /** Nur Layout `board` mit eigenem Prompt. */
   readonly choices?: ZoneChoicesInput;
+  /** Nur Lobby mit Charakterwahl (Layout `lobby` oder `wait`). */
+  readonly lobby?: ZoneLobbyInput;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -337,6 +362,8 @@ export function layoutZoneControls(local: Size, input: ZoneControlsInput): Contr
     height: Math.max(0, local.height - BADGE_STRIP - p),
   };
   if (area.width <= 0 || area.height <= 0) return [];
+
+  if (input.lobby) return layoutLobbyControls(local, input.lobby);
 
   if (input.layout === 'lobby') {
     if (!input.actions.includes('ready') || input.readySent === true) return [];
@@ -554,6 +581,107 @@ export function layoutChoiceControls(body: Rect, input: ZoneChoicesInput): Contr
       ...flags(false),
     })),
   ];
+}
+
+/* ---------------------------------------------------------------------------
+ * Lobby mit Charakterwahl (v4, CHAOS-36): Kopf, vier Figurenkarten, „Bereit!“
+ * ------------------------------------------------------------------------- */
+
+/** Kopfzeile mit Titel und Rundenzahl. */
+export const LOBBY_HEAD_HEIGHT = 40;
+/** Abstand zwischen Figurenkarten (Karten haben keine Trefferzugabe: kein Überlappen). */
+export const CHARACTER_GAP = 12;
+/** Figurenkarten werden höchstens so groß (große Zonen sehen sonst leer aus). */
+export const MAX_CHARACTER_WIDTH = 210;
+export const MAX_CHARACTER_HEIGHT = 230;
+/** Fußzeile mit „Bereit!“ bzw. Bestätigung: Höhe wächst mit der Zone, mindestens 72 px. */
+export function lobbyFootHeight(local: Size): number {
+  return Math.round(clamp(local.height * 0.14, 72, 112));
+}
+
+export interface LobbyZoneFrames {
+  readonly head: Rect;
+  /** Fläche für die Figurenkarten. */
+  readonly grid: Rect;
+  /** „Bereit!“ bzw. „✓ Bereit“. */
+  readonly foot: Rect;
+}
+
+export function lobbyZoneFrames(local: Size): LobbyZoneFrames {
+  const p = ZONE_PADDING;
+  const width = Math.max(0, local.width - 2 * p);
+  const head: Rect = { x: p, y: BADGE_STRIP - 4, width, height: LOBBY_HEAD_HEIGHT };
+  const footHeight = lobbyFootHeight(local);
+  const foot: Rect = { x: p, y: local.height - p - footHeight, width, height: footHeight };
+  const gridY = head.y + head.height + 6;
+  const grid: Rect = {
+    x: p,
+    y: gridY,
+    width,
+    height: Math.max(0, foot.y - 10 - gridY),
+  };
+  return { head, grid, foot };
+}
+
+/** 4 nebeneinander (breite Fläche) oder 2×2 (hohe Fläche): die größeren Karten gewinnen. */
+export function characterGrid(area: Size, count: number): { columns: number; rows: number } {
+  const options = count <= 2 ? [count] : [count, Math.ceil(count / 2)];
+  let best = { columns: Math.max(1, count), rows: 1, score: -Infinity };
+  for (const columns of options) {
+    const rows = Math.ceil(count / columns);
+    const w = (area.width - (columns - 1) * CHARACTER_GAP) / columns;
+    const h = (area.height - (rows - 1) * CHARACTER_GAP) / rows;
+    // Karten etwas höher als breit (Porträt + Name).
+    const score = Math.min(w, h * 0.85);
+    if (score > best.score + 0.5) best = { columns, rows, score };
+  }
+  return { columns: best.columns, rows: best.rows };
+}
+
+/** Rechtecke der Figurenkarten in `area` (mittig, höchstens {@link MAX_CHARACTER_WIDTH}). */
+export function characterRects(area: Rect, count: number): Rect[] {
+  if (count === 0 || area.width <= 0 || area.height <= 0) return [];
+  const { columns, rows } = characterGrid(area, count);
+  const w = Math.min(MAX_CHARACTER_WIDTH, (area.width - (columns - 1) * CHARACTER_GAP) / columns);
+  const h = Math.min(MAX_CHARACTER_HEIGHT, (area.height - (rows - 1) * CHARACTER_GAP) / rows);
+  const usedW = columns * w + (columns - 1) * CHARACTER_GAP;
+  const usedH = rows * h + (rows - 1) * CHARACTER_GAP;
+  const left = area.x + (area.width - usedW) / 2;
+  const top = area.y + (area.height - usedH) / 2;
+  return Array.from({ length: count }, (_, i) => {
+    const row = Math.floor(i / columns);
+    const col = i - row * columns;
+    return {
+      x: left + col * (w + CHARACTER_GAP),
+      y: top + row * (h + CHARACTER_GAP),
+      width: w,
+      height: h,
+    };
+  });
+}
+
+/** Figurenkarten (wählen beim Abheben) und ggf. „Bereit!“ in der Fußzeile. */
+export function layoutLobbyControls(local: Size, input: ZoneLobbyInput): ControlGeometry[] {
+  const frames = lobbyZoneFrames(local);
+  const rects = characterRects(frames.grid, input.characters.length);
+  const cards = input.characters.map(({ id, selectable }, i): ControlGeometry => {
+    const rect = rects[i] ?? { x: 0, y: 0, width: 0, height: 0 };
+    return { kind: pickControl(id), rect, hit: rect, ...(!selectable && { inert: true as const }) };
+  });
+  if (!input.showReady) return cards;
+  const width = Math.min(320, frames.foot.width);
+  const center = rectCenter(frames.foot);
+  const ready = control(
+    'ready',
+    {
+      x: center.x - width / 2,
+      y: frames.foot.y,
+      width,
+      height: frames.foot.height,
+    },
+    HIT_SLOP,
+  );
+  return [...cards, ready];
 }
 
 /** Radius des Joystick-Rings passend zur Zonengröße. */
