@@ -43,7 +43,14 @@ export interface ZoneFrame {
   readonly rotation: Rotation;
 }
 
-export type ControlKind = 'stick' | 'button-a' | 'button-b' | 'ready';
+/**
+ * Wahlknopf der Brettphase (CHAOS-22): `choice:<promptId>:<optionId>`. Die Prompt-ID
+ * gehört zur Kennung, damit ein Finger, der auf einem Knopf eines alten Prompts liegt,
+ * nie eine gleichnamige Option des nächsten Prompts auslöst (`setZones` legt ihn still).
+ */
+export type ChoiceControlKind = `choice:${number}:${string}`;
+
+export type ControlKind = 'stick' | 'button-a' | 'button-b' | 'ready' | ChoiceControlKind;
 
 /** Ein Bedienelement in Zonen-lokalen Koordinaten. */
 export interface ControlGeometry {
@@ -52,6 +59,24 @@ export interface ControlGeometry {
   readonly rect: Rect;
   /** Reagierende Fläche (Knöpfe etwas großzügiger als sichtbar). */
   readonly hit: Rect;
+  /** Löst schon beim Aufsetzen aus (Reaktion), nicht erst beim Abheben auf dem Knopf. */
+  readonly instant?: true;
+  /** Nur sichtbar, reagiert nicht (Wahl gesendet, Knöpfe gesperrt). */
+  readonly inert?: true;
+}
+
+export function choiceControl(promptId: number, option: string): ChoiceControlKind {
+  return `choice:${String(promptId)}:${option}` as ChoiceControlKind;
+}
+
+/** Prompt-ID und Option eines Wahlknopfs, sonst `null`. */
+export function parseChoiceControl(
+  kind: ControlKind | null,
+): { readonly promptId: number; readonly option: string } | null {
+  if (!kind?.startsWith('choice:')) return null;
+  const match = /^choice:(\d+):(.+)$/.exec(kind);
+  if (!match?.[1] || !match[2]) return null;
+  return { promptId: Number(match[1]), option: match[2] };
 }
 
 /** Vollständige Zone: Lage, lokale Größe, Bedienelemente. */
@@ -218,12 +243,27 @@ export function arrangeZones(slots: readonly SlotNumber[], viewport: Size): Zone
   });
 }
 
+/** Wahlknöpfe einer Zone in der Brettphase (eigener Prompt). */
+export interface ZoneChoicesInput {
+  readonly promptId: number;
+  /** Große Knöpfe (Options-IDs in Anzeigereihenfolge). */
+  readonly main: readonly string[];
+  /** Kleine Knöpfe in einer Zeile darunter (Items, Abbrechen). */
+  readonly extra: readonly string[];
+  /** Reaktion: Hauptknöpfe füllen die Fläche und lösen beim Aufsetzen aus. */
+  readonly instant: boolean;
+  /** Wahl gesendet: Knöpfe sichtbar, aber ohne Wirkung. */
+  readonly locked: boolean;
+}
+
 /** Was eine Zone gerade anzeigen soll (aus dem Server-Kontext abgeleitet). */
 export interface ZoneControlsInput {
   readonly layout: Layout;
   readonly actions: readonly Action[];
   /** `ready` wurde schon gesendet: Knopf ausblenden (wie `LobbyPanel`). */
   readonly readySent?: boolean;
+  /** Nur Layout `board` mit eigenem Prompt. */
+  readonly choices?: ZoneChoicesInput;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -256,6 +296,7 @@ function control(kind: ControlKind, rect: Rect, slop = 0): ControlGeometry {
  * - `joystick-buttons`: Joystick-Feld und A/B. Breite Zonen wie ein Gamepad
  *   (Joystick links, Knöpfe rechts), hohe Zonen wie das iPhone im Hochformat
  *   (Knöpfe oben, Joystick unten).
+ * - `board` mit eigenem Prompt: Wahlknöpfe ({@link layoutChoiceControls}, CHAOS-22).
  * - sonst (`wait`, Lobby nach „Bereit!“): keine Bedienelemente.
  */
 export function layoutZoneControls(local: Size, input: ZoneControlsInput): ControlGeometry[] {
@@ -280,6 +321,10 @@ export function layoutZoneControls(local: Size, input: ZoneControlsInput): Contr
         HIT_SLOP,
       ),
     ];
+  }
+
+  if (input.layout === 'board') {
+    return input.choices ? layoutChoiceControls(boardZoneFrames(local).body, input.choices) : [];
   }
 
   if (input.layout !== 'joystick-buttons') return [];
@@ -340,6 +385,144 @@ export function layoutZoneControls(local: Size, input: ZoneControlsInput): Contr
   return result;
 }
 
+/* ---------------------------------------------------------------------------
+ * Brettphase (CHAOS-22): Statuszeile, Titel, Countdown und Wahlknöpfe
+ * ------------------------------------------------------------------------- */
+
+/** Statuszeile (Münzen, Trophäen, Runde, Items) unter der Plakette. */
+export const BOARD_STATUS_HEIGHT = 44;
+/** Titel des Prompts bzw. Hinweis „Gesendet …“. */
+export const BOARD_TITLE_HEIGHT = 40;
+/** Countdown-Balken (auch ohne Frist reserviert, damit Knöpfe nicht springen). */
+export const BOARD_TIMER_HEIGHT = 14;
+/** Abstand zwischen Wahlknöpfen. */
+export const CHOICE_GAP = 12;
+/** Höhe der Zeile mit Zusatzknöpfen. */
+export const EXTRA_ROW_HEIGHT = 64;
+/** Mindestgröße eines Wahlknopfs (Touch-Ziel). */
+export const MIN_CHOICE_SIZE = 56;
+/** Hauptknöpfe (außer Reaktion) werden höchstens so hoch – große Zonen sehen sonst leer aus. */
+export const MAX_CHOICE_HEIGHT = 180;
+/** Zusatzknöpfe werden höchstens so breit. */
+export const MAX_EXTRA_WIDTH = 240;
+
+export interface BoardZoneFrames {
+  readonly status: Rect;
+  readonly title: Rect;
+  readonly timer: Rect;
+  /** Fläche für die Wahlknöpfe bzw. die Warte-Anzeige. */
+  readonly body: Rect;
+}
+
+/** Bereiche einer Zone in der Brettphase (lokal; Darstellung und Trefferprüfung). */
+export function boardZoneFrames(local: Size): BoardZoneFrames {
+  const p = ZONE_PADDING;
+  const width = Math.max(0, local.width - 2 * p);
+  const status: Rect = { x: p, y: BADGE_STRIP, width, height: BOARD_STATUS_HEIGHT };
+  const title: Rect = {
+    x: p,
+    y: status.y + status.height + 4,
+    width,
+    height: BOARD_TITLE_HEIGHT,
+  };
+  const timer: Rect = { x: p, y: title.y + title.height, width, height: BOARD_TIMER_HEIGHT };
+  const bodyY = timer.y + timer.height + 8;
+  const body: Rect = { x: p, y: bodyY, width, height: Math.max(0, local.height - p - bodyY) };
+  return { status, title, timer, body };
+}
+
+/**
+ * Raster für `count` gleich große Knöpfe in `area`: Spaltenzahl so, dass die Knöpfe
+ * möglichst groß und eher breit als hoch werden (Text passt), bei Gleichstand weniger Spalten.
+ */
+export function choiceGrid(area: Size, count: number): { columns: number; rows: number } {
+  let best = { columns: 1, rows: Math.max(1, count), score: -Infinity };
+  for (let columns = 1; columns <= Math.max(1, count); columns++) {
+    const rows = Math.ceil(count / columns);
+    const w = (area.width - (columns - 1) * CHOICE_GAP) / columns;
+    const h = (area.height - (rows - 1) * CHOICE_GAP) / rows;
+    const score = Math.min(w / 2.2, h);
+    if (score > best.score + 0.5) best = { columns, rows, score };
+  }
+  return { columns: best.columns, rows: best.rows };
+}
+
+function gridRects(area: Rect, count: number, maxHeight: number): Rect[] {
+  if (count === 0 || area.width <= 0 || area.height <= 0) return [];
+  const { columns, rows } = choiceGrid(area, count);
+  const w = (area.width - (columns - 1) * CHOICE_GAP) / columns;
+  const h = Math.min(maxHeight, (area.height - (rows - 1) * CHOICE_GAP) / rows);
+  const usedHeight = rows * h + (rows - 1) * CHOICE_GAP;
+  const top = area.y + (area.height - usedHeight) / 2;
+  return Array.from({ length: count }, (_, i) => {
+    const row = Math.floor(i / columns);
+    // Letzte, unvollständige Reihe mittig.
+    const inRow = row === rows - 1 ? count - row * columns : columns;
+    const rowWidth = inRow * w + (inRow - 1) * CHOICE_GAP;
+    const left = area.x + (area.width - rowWidth) / 2;
+    const col = i - row * columns;
+    return {
+      x: left + col * (w + CHOICE_GAP),
+      y: top + row * (h + CHOICE_GAP),
+      width: w,
+      height: h,
+    };
+  });
+}
+
+function rowRects(area: Rect, count: number): Rect[] {
+  if (count === 0) return [];
+  const w = Math.min(MAX_EXTRA_WIDTH, (area.width - (count - 1) * CHOICE_GAP) / count);
+  const rowWidth = count * w + (count - 1) * CHOICE_GAP;
+  const left = area.x + (area.width - rowWidth) / 2;
+  return Array.from({ length: count }, (_, i) => ({
+    x: left + i * (w + CHOICE_GAP),
+    y: area.y,
+    width: w,
+    height: area.height,
+  }));
+}
+
+/**
+ * Wahlknöpfe in `body` (lokal): Hauptknöpfe im Raster, Zusatzknöpfe als Zeile unten.
+ * Gesperrt (`locked`) bleiben die Rechtecke gleich, reagieren aber nicht (`inert`).
+ * Kein Trefferzuschlag: Wahlknöpfe liegen dicht nebeneinander.
+ */
+export function layoutChoiceControls(body: Rect, input: ZoneChoicesInput): ControlGeometry[] {
+  const extraHeight = input.extra.length > 0 ? EXTRA_ROW_HEIGHT + CHOICE_GAP : 0;
+  const mainArea: Rect = { ...body, height: Math.max(0, body.height - extraHeight) };
+  const extraArea: Rect = {
+    x: body.x,
+    y: body.y + body.height - EXTRA_ROW_HEIGHT,
+    width: body.width,
+    height: EXTRA_ROW_HEIGHT,
+  };
+  const flags = (instant: boolean): Pick<ControlGeometry, 'instant' | 'inert'> => ({
+    ...(instant && { instant: true as const }),
+    ...(input.locked && { inert: true as const }),
+  });
+  const main = gridRects(
+    mainArea,
+    input.main.length,
+    input.instant ? Number.POSITIVE_INFINITY : MAX_CHOICE_HEIGHT,
+  );
+  const extra = rowRects(extraArea, input.extra.length);
+  return [
+    ...input.main.map((option, i) => ({
+      kind: choiceControl(input.promptId, option),
+      rect: main[i] ?? { x: 0, y: 0, width: 0, height: 0 },
+      hit: main[i] ?? { x: 0, y: 0, width: 0, height: 0 },
+      ...flags(input.instant),
+    })),
+    ...input.extra.map((option, i) => ({
+      kind: choiceControl(input.promptId, option),
+      rect: extra[i] ?? { x: 0, y: 0, width: 0, height: 0 },
+      hit: extra[i] ?? { x: 0, y: 0, width: 0, height: 0 },
+      ...flags(false),
+    })),
+  ];
+}
+
 /** Radius des Joystick-Rings passend zur Zonengröße. */
 export function stickRadiusFor(local: Size): number {
   return Math.round(clamp(Math.min(local.width, local.height) * 0.17, 56, 85));
@@ -367,9 +550,9 @@ export function zoneAt<Z extends ZoneFrame>(zones: readonly Z[], point: Point): 
   return zones.find((zone) => rectContains(zone.rect, point)) ?? null;
 }
 
-/** Bedienelement unter einem lokalen Punkt (Reihenfolge = Priorität). */
+/** Bedienelement unter einem lokalen Punkt (Reihenfolge = Priorität; gesperrte zählen nicht). */
 export function controlAt(zone: ZoneGeometry, local: Point): ControlGeometry | null {
-  return zone.controls.find((c) => rectContains(c.hit, local)) ?? null;
+  return zone.controls.find((c) => c.inert !== true && rectContains(c.hit, local)) ?? null;
 }
 
 /** Gleiche Lage und Drehung (Bedienelemente dürfen sich unterscheiden). */

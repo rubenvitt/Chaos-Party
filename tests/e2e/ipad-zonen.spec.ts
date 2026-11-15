@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures/test.ts';
-import { FakeSession, FAKE_TOKEN, VALID_CODE } from './fixtures/fakeSession.ts';
+import { FakeSession, FAKE_TOKEN, PROTOCOL_VERSION, VALID_CODE } from './fixtures/fakeSession.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
 
 /**
@@ -81,7 +81,9 @@ test('zwei Zonen über eine Verbindung: Lobby je Zone, dann Spiel-Layout', async
   await joinLobby(page);
 
   // Eine Verbindung, zwei Plätze (A9).
-  expect(fake.handshakes).toEqual([{ v: 1, type: 'join', joinCode: VALID_CODE, seats: 2 }]);
+  expect(fake.handshakes).toEqual([
+    { v: PROTOCOL_VERSION, type: 'join', joinCode: VALID_CODE, seats: 2 },
+  ]);
   expect(fake.connections).toBe(1);
   await expect(zone(page, 1).getByTestId('player-badge')).toContainText('Blau');
   await expect(zone(page, 2).getByTestId('player-badge')).toContainText('Orange');
@@ -321,10 +323,16 @@ test('Code-Eingabe bietet iPhone/iPad an; iPad tritt mit seats 2 bei, Neuladen p
 
   await page.getByTestId('code-input').pressSequentially('abcd');
   await expect(zone(page, 2)).toHaveAttribute('data-layout', 'lobby');
-  expect(fake.handshakes).toEqual([{ v: 1, type: 'join', joinCode: VALID_CODE, seats: 2 }]);
+  expect(fake.handshakes).toEqual([
+    { v: PROTOCOL_VERSION, type: 'join', joinCode: VALID_CODE, seats: 2 },
+  ]);
 
   await page.reload();
   await expect(zone(page, 1)).toHaveAttribute('data-layout', 'lobby');
   await expect(zone(page, 2)).toHaveAttribute('data-layout', 'lobby');
-  expect(fake.handshakes.at(-1)).toEqual({ v: 1, type: 'reconnect', sessionToken: FAKE_TOKEN });
+  expect(fake.handshakes.at(-1)).toEqual({
+    v: PROTOCOL_VERSION,
+    type: 'reconnect',
+    sessionToken: FAKE_TOKEN,
+  });
 });

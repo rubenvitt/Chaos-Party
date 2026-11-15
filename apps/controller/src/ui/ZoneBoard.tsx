@@ -10,12 +10,16 @@ import {
   type CSSProperties,
 } from 'react';
 import { PLAYER_SLOTS, type Button, type PlayerInfo, type SlotNumber } from '@chaos-party/protocol';
+import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
+import { describeWaiting } from '../board/status.ts';
 import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
 import type { SlotIntent } from '../net/client.ts';
-import type { FeedbackPulse, SlotContext } from '../state/reducer.ts';
+import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import {
+  boardZoneFrames,
   buildZones,
   MAX_ZONES,
+  parseChoiceControl,
   rectCenter,
   type ControlGeometry,
   type Size,
@@ -24,15 +28,20 @@ import {
 import { routeTouchEvent, TOUCH_EVENT_TYPES } from '../zones/touchRouter.ts';
 import { contextKey, zoneControlsInput } from '../zones/zoneInput.ts';
 import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/zoneTracker.ts';
-import { INK, readableTextColor } from './color.ts';
+import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
+import { INK, readableTextColor, slotColorVars } from './color.ts';
 import { useInterruption } from './useInterruption.ts';
 
 export interface ZoneBoardProps {
   players: readonly PlayerInfo[];
   contexts: Readonly<Partial<Record<SlotNumber, SlotContext>>>;
   feedback: Readonly<Partial<Record<SlotNumber, FeedbackPulse>>>;
+  /** Gesendete, noch unbeantwortete Wahlen je Slot (Brettphase, CHAOS-22). */
+  choices?: Readonly<Partial<Record<SlotNumber, PendingChoice>>>;
   send: (intent: SlotIntent) => void;
 }
+
+const NO_CHOICES: Readonly<Partial<Record<SlotNumber, PendingChoice>>> = {};
 
 /* ---------------------------------------------------------------------------
  * Größe der Spielfläche (= Layout-Viewport; die Fläche ist `position: fixed`).
@@ -91,6 +100,11 @@ function syncView(board: HTMLElement | null, tracker: ZoneTracker) {
     }
     const readyEl = zoneEl.querySelector<HTMLElement>('[data-role="ready"]');
     if (readyEl) readyEl.dataset.pressed = view.readyHeld ? 'true' : 'false';
+
+    for (const choiceEl of zoneEl.querySelectorAll<HTMLElement>('[data-role="choice"]')) {
+      const held = view.choicesHeld.some((kind) => kind === choiceEl.dataset.control);
+      choiceEl.dataset.pressed = held ? 'true' : 'false';
+    }
   }
 }
 
@@ -103,7 +117,13 @@ function syncView(board: HTMLElement | null, tracker: ZoneTracker) {
  * `pointer-events: none`, damit das Ziel jeder Berührung die stabile Fläche ist –
  * verschwindende Knöpfe (Kontextwechsel) können so keine Touch-Folgen verschlucken.
  */
-export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps) {
+export function ZoneBoard({
+  players,
+  contexts,
+  feedback,
+  choices = NO_CHOICES,
+  send,
+}: ZoneBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const sizeKey = useSyncExternalStore(subscribeViewport, viewportSnapshot);
   const viewport = useMemo(() => parseSize(sizeKey), [sizeKey]);
@@ -117,9 +137,9 @@ export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps)
       buildZones(
         seated.map((p) => p.slot),
         viewport,
-        (slot) => zoneControlsInput(contexts[slot], readySent[slot]),
+        (slot) => zoneControlsInput(contexts[slot], readySent[slot], slot, choices[slot]),
       ),
-    [seated, viewport, contexts, readySent],
+    [seated, viewport, contexts, readySent, choices],
   );
 
   const movers = useMemo(() => {
@@ -136,14 +156,19 @@ export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps)
   }, [seated, send]);
 
   // Neueste Werte für Ereignis-Handler (vor dem setZones-Effekt aktualisiert).
-  const latest = useRef({ contexts, movers, send });
+  const latest = useRef({ contexts, choices, movers, send });
   useLayoutEffect(() => {
-    latest.current = { contexts, movers, send };
+    latest.current = { contexts, choices, movers, send };
   });
 
   const apply = useCallback(
     (effects: readonly ZoneEffect[]) => {
-      const { contexts: ctxs, movers: senders, send: sendIntent } = latest.current;
+      const {
+        contexts: ctxs,
+        choices: pending,
+        movers: senders,
+        send: sendIntent,
+      } = latest.current;
       for (const effect of effects) {
         switch (effect.type) {
           case 'stick':
@@ -159,6 +184,18 @@ export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps)
             sendIntent({ type: 'ready', slot: effect.slot });
             const key = contextKey(context);
             setReadySent((prev) => ({ ...prev, [effect.slot]: key }));
+            break;
+          }
+          case 'choose': {
+            // Nur für den angezeigten Prompt dieser Zone; die Sitzung sperrt danach (CHAOS-22).
+            const intent = chooseIntent(
+              effect.slot,
+              ctxs[effect.slot],
+              pending[effect.slot],
+              effect.option,
+              effect.promptId,
+            );
+            if (intent) sendIntent(intent);
             break;
           }
         }
@@ -213,8 +250,10 @@ export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps)
             key={zone.slot}
             zone={zone}
             player={player}
+            players={seated}
             context={contexts[zone.slot]}
             feedback={feedback[zone.slot]}
+            pending={choices[zone.slot]}
           />
         );
       })}
@@ -225,15 +264,17 @@ export function ZoneBoard({ players, contexts, feedback, send }: ZoneBoardProps)
 interface ZoneProps {
   zone: ZoneGeometry;
   player: PlayerInfo;
+  players: readonly PlayerInfo[];
   context: SlotContext | undefined;
   feedback: FeedbackPulse | undefined;
+  pending: PendingChoice | undefined;
 }
 
 function rectStyle(rect: { x: number; y: number; width: number; height: number }): CSSProperties {
   return { left: rect.x, top: rect.y, width: rect.width, height: rect.height };
 }
 
-const Zone = memo(function Zone({ zone, player, context, feedback }: ZoneProps) {
+const Zone = memo(function Zone({ zone, player, players, context, feedback, pending }: ZoneProps) {
   const layout = context?.layout ?? 'wait';
   const style = {
     ...rectStyle(zone.rect),
@@ -338,6 +379,10 @@ const Zone = memo(function Zone({ zone, player, context, feedback }: ZoneProps) 
             </div>
           ))}
 
+        {layout === 'board' && context && (
+          <ZoneBoardContent zone={zone} players={players} context={context} pending={pending} />
+        )}
+
         {feedback && (
           <span
             key={feedback.id}
@@ -349,3 +394,84 @@ const Zone = memo(function Zone({ zone, player, context, feedback }: ZoneProps) 
     </section>
   );
 });
+
+interface ZoneBoardContentProps {
+  zone: ZoneGeometry;
+  players: readonly PlayerInfo[];
+  context: SlotContext;
+  pending: PendingChoice | undefined;
+}
+
+/**
+ * Brettphase in einer Zone (CHAOS-22): kompakte Statuszeile, Titel, Countdown und die
+ * Wahlknöpfe an genau den Rechtecken, die der Zonen-Tracker prüft (`zone.controls`).
+ */
+function ZoneBoardContent({ zone, players, context, pending }: ZoneBoardContentProps) {
+  const frames = boardZoneFrames(zone.local);
+  const prompt = ownPrompt(context, zone.slot);
+  const view = prompt ? describePrompt(prompt.info) : null;
+  const locked = prompt ? isLocked(prompt, pending) : false;
+  const choices = zone.controls.flatMap((control) => {
+    const parsed = parseChoiceControl(control.kind);
+    const choice = parsed && view ? choiceById(view, parsed.option) : undefined;
+    return choice ? [{ control, choice }] : [];
+  });
+  const extraIds = new Set(view?.extra.map((c) => c.id));
+
+  return (
+    <div
+      className="zone-board-phase"
+      data-testid="board-panel"
+      data-prompt-kind={view?.kind ?? 'none'}
+      data-game-phase={context.board?.gamePhase ?? 'none'}
+    >
+      {context.board && (
+        <div className="zone-status" style={rectStyle(frames.status)}>
+          <StatusBar board={context.board} compact />
+        </div>
+      )}
+      {prompt && view ? (
+        <div
+          className="zone-prompt"
+          data-testid="prompt"
+          data-kind={view.kind}
+          data-prompt-id={prompt.info.id}
+          data-locked={locked ? 'true' : 'false'}
+        >
+          {view.kind === 'reaction' && <ReactionBuzz promptId={prompt.info.id} />}
+          <h2 className="prompt-title zone-prompt-title ui-text" style={rectStyle(frames.title)}>
+            {locked ? 'Gesendet … warte kurz' : prompt.info.title}
+          </h2>
+          {locked && <span hidden data-testid="choice-sent" />}
+          <div className="zone-timer" style={rectStyle(frames.timer)}>
+            <CountdownBar key={prompt.info.id} prompt={prompt} big={view.kind === 'reaction'} />
+          </div>
+          {choices.map(({ control, choice }) => (
+            <div
+              key={control.kind}
+              className={`choice-button ${extraIds.has(choice.id) ? 'choice-extra' : 'choice-main'} tone-${choice.tone} zone-choice`}
+              data-testid={`choice-${choice.id}`}
+              data-role="choice"
+              data-control={control.kind}
+              data-option={choice.id}
+              data-pressed="false"
+              data-disabled={locked ? 'true' : 'false'}
+              data-chosen={locked && pending?.option === choice.id ? 'true' : 'false'}
+              style={{
+                ...rectStyle(control.rect),
+                ...(slotColorVars(choice.slot === null ? null : PLAYER_SLOTS[choice.slot].color) as
+                  CSSProperties | undefined),
+              }}
+            >
+              <ChoiceFace choice={choice} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="zone-waiting" style={rectStyle(frames.body)}>
+          <WaitingCard view={describeWaiting(context.board, zone.slot, players)} compact />
+        </div>
+      )}
+    </div>
+  );
+}

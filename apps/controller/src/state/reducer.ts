@@ -7,6 +7,7 @@
  */
 import type {
   Action,
+  ControllerBoardInfo,
   FeedbackKind,
   Layout,
   Phase,
@@ -14,6 +15,7 @@ import type {
   ServerToControllerMessage,
   SlotNumber,
 } from '@chaos-party/protocol';
+import { activatePrompt, type ActivePrompt } from '../board/countdown.ts';
 import { errorSeverity, type UiErrorCode } from './errors.ts';
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed';
@@ -22,6 +24,16 @@ export interface SlotContext {
   readonly phase: Phase;
   readonly layout: Layout;
   readonly actions: readonly Action[];
+  /** Brettphase (CHAOS-22): offene Entscheidung samt lokaler Frist (nur Anzeige). */
+  readonly prompt?: ActivePrompt;
+  /** Brettphase: eigener Stand und wer dran ist. */
+  readonly board?: ControllerBoardInfo;
+}
+
+/** Gesendete, noch unbeantwortete Wahl eines Slots: sperrt die Knöpfe dieses Prompts. */
+export interface PendingChoice {
+  readonly promptId: number;
+  readonly option: string;
 }
 
 /** Kurzer Hinweis (Toast); `id` unterscheidet gleiche Codes hintereinander. */
@@ -47,6 +59,11 @@ export interface ControllerState {
   readonly players: readonly PlayerInfo[];
   readonly contexts: Readonly<Partial<Record<SlotNumber, SlotContext>>>;
   readonly feedback: Readonly<Partial<Record<SlotNumber, FeedbackPulse>>>;
+  /**
+   * Gesendete Wahl je Slot (CHAOS-22). Gelöst durch einen Kontext mit anderem/keinem
+   * Prompt, durch `invalid-choice` oder durch Verbindungsverlust (die Wahl kam evtl. nie an).
+   */
+  readonly choices: Readonly<Partial<Record<SlotNumber, PendingChoice>>>;
   /** Fehler, der den ganzen Bildschirm bestimmt (Code-Eingabe oder Fehlerseite). */
   readonly fatal: UiErrorCode | null;
   readonly notice: Notice | null;
@@ -76,7 +93,14 @@ export type ControllerEvent =
       /** Empfangszeit auf derselben Uhr wie `heartbeat.t`. */
       readonly receivedAt: number;
     }
-  | { readonly type: 'notice-dismissed'; readonly id: number };
+  | { readonly type: 'notice-dismissed'; readonly id: number }
+  /** Eine Wahl wurde gesendet (Sitzung, CHAOS-22): Knöpfe dieses Prompts sperren. */
+  | {
+      readonly type: 'choice-sent';
+      readonly slot: SlotNumber;
+      readonly promptId: number;
+      readonly option: string;
+    };
 
 export function createInitialState(joinCode: string | null = null): ControllerState {
   return {
@@ -87,6 +111,7 @@ export function createInitialState(joinCode: string | null = null): ControllerSt
     players: [],
     contexts: {},
     feedback: {},
+    choices: {},
     fatal: null,
     notice: null,
     rttMs: null,
@@ -114,15 +139,27 @@ export function reduce(state: ControllerState, event: ControllerEvent): Controll
     case 'socket-closed':
       // Spieler und Kontexte bleiben: Der Controller bleibt sichtbar, darüber die
       // Wiederverbinden-Anzeige (`selectLink`). Ein gesetzter Grund (z. B. falscher Code) bleibt.
+      // Gesendete Wahlen entsperren: Ob sie ankamen, ist offen; der neue Kontext klärt es.
       return state.connection === 'closed' && !state.welcomed
         ? state
-        : { ...state, connection: 'closed', welcomed: false };
+        : { ...state, connection: 'closed', welcomed: false, choices: {} };
     case 'reconnect-scheduled':
       return state.attempt === event.attempt ? state : { ...state, attempt: event.attempt };
     case 'gave-up':
       return { ...state, connection: 'closed', welcomed: false, attempt: 0, fatal: event.reason };
     case 'notice-dismissed':
       return state.notice?.id === event.id ? { ...state, notice: null } : state;
+    case 'choice-sent': {
+      // Nur für den Prompt sperren, der gerade angezeigt wird.
+      if (state.contexts[event.slot]?.prompt?.info.id !== event.promptId) return state;
+      return {
+        ...state,
+        choices: {
+          ...state.choices,
+          [event.slot]: { promptId: event.promptId, option: event.option },
+        },
+      };
+    }
     case 'server':
       return reduceServerMessage(state, event.message, event.receivedAt);
   }
@@ -149,22 +186,34 @@ function reduceServerMessage(
         players: message.players,
         contexts: keep(state.contexts),
         feedback: keep(state.feedback),
+        choices: {},
         fatal: null,
         attempt: 0,
       };
     }
-    case 'context':
+    case 'context': {
+      // Ein Kontext ersetzt den vorherigen vollständig (auch `prompt`/`board`).
+      const previous = state.contexts[message.slot]?.prompt;
+      const prompt =
+        message.prompt === undefined
+          ? undefined
+          : activatePrompt(message.prompt, previous, receivedAt);
+      const context: SlotContext = {
+        phase: message.phase,
+        layout: message.layout,
+        actions: message.actions,
+        ...(prompt !== undefined && { prompt }),
+        ...(message.board !== undefined && { board: message.board }),
+      };
+      const pending = state.choices[message.slot];
+      const keepLock = pending !== undefined && prompt?.info.id === pending.promptId;
       return {
         ...state,
-        contexts: {
-          ...state.contexts,
-          [message.slot]: {
-            phase: message.phase,
-            layout: message.layout,
-            actions: message.actions,
-          },
-        },
+        contexts: { ...state.contexts, [message.slot]: context },
+        choices:
+          keepLock || pending === undefined ? state.choices : without(state.choices, message.slot),
       };
+    }
     case 'feedback': {
       const id = state.counter + 1;
       return {
@@ -178,7 +227,9 @@ function reduceServerMessage(
       if (severity === 'silent') return state;
       if (severity === 'toast') {
         const id = state.counter + 1;
-        return { ...state, counter: id, notice: { code: message.code, id } };
+        // Wahl abgelehnt (zu spät, veraltet): Sperre lösen, damit neu gewählt werden kann.
+        const choices = message.code === 'invalid-choice' ? {} : state.choices;
+        return { ...state, counter: id, notice: { code: message.code, id }, choices };
       }
       if (severity === 'code') {
         return {
@@ -196,6 +247,13 @@ function reduceServerMessage(
       return Number.isFinite(rtt) && rtt >= 0 ? { ...state, rttMs: rtt } : state;
     }
   }
+}
+
+function without<T>(
+  record: Readonly<Partial<Record<SlotNumber, T>>>,
+  slot: SlotNumber,
+): Partial<Record<SlotNumber, T>> {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => Number(key) !== slot));
 }
 
 export type Screen = 'code-entry' | 'connecting' | 'error' | 'controller';

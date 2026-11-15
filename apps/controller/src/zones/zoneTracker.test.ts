@@ -116,7 +116,7 @@ describe('createZoneTracker', () => {
     expect(t.cancel(1)).toEqual([{ type: 'stick', slot: 1, stick: { x: 0, y: 0 } }]);
     expect(t.cancel(2)).toEqual([{ type: 'release', slot: 1, button: 'b' }]);
     expect(t.cancel(2)).toEqual([]);
-    expect(t.view(1)).toEqual({ stick: null, pressed: [], readyHeld: false });
+    expect(t.view(1)).toEqual({ stick: null, pressed: [], readyHeld: false, choicesHeld: [] });
   });
 
   it('cancelAll (Fokusverlust) lässt alle Zonen los', () => {

@@ -2,8 +2,9 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { PLAYER_SLOTS, type PlayerInfo } from '@chaos-party/protocol';
 import { createMoveSender } from '../input/moveSender.ts';
 import type { SlotIntent } from '../net/client.ts';
-import type { FeedbackPulse, SlotContext } from '../state/reducer.ts';
+import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { ActionButton } from './ActionButton.tsx';
+import { BoardPanel } from './BoardPanel.tsx';
 import { INK, readableTextColor } from './color.ts';
 import { Joystick } from './Joystick.tsx';
 
@@ -12,6 +13,10 @@ export interface SlotControllerProps {
   /** `undefined`, solange der Server noch keinen Kontext geschickt hat. */
   context: SlotContext | undefined;
   feedback: FeedbackPulse | undefined;
+  /** Gesendete, noch unbeantwortete Wahl dieses Slots (Brettphase, CHAOS-22). */
+  pending?: PendingChoice | undefined;
+  /** Alle eigenen Spieler aus `welcome` (Namen in der Brettphase); Standard: nur `player`. */
+  players?: readonly PlayerInfo[];
   /** Sendet eine Eingabe für **diesen** Slot (Slot setzt die Komponente selbst). */
   send: (intent: SlotIntent) => void;
 }
@@ -21,7 +26,14 @@ export interface SlotControllerProps {
  * iPad-Modus (CHAOS-13) kann mehrere in Zonen anordnen. Alles, was angezeigt
  * wird, folgt dem Server-Kontext (`layout`, `actions`).
  */
-export function SlotController({ player, context, feedback, send }: SlotControllerProps) {
+export function SlotController({
+  player,
+  context,
+  feedback,
+  pending,
+  players,
+  send,
+}: SlotControllerProps) {
   const style = PLAYER_SLOTS[player.slot];
   const cssVars = {
     '--player': player.color,
@@ -51,6 +63,15 @@ export function SlotController({ player, context, feedback, send }: SlotControll
       {layout === 'wait' && <WaitPanel />}
       {layout === 'joystick-buttons' && context && (
         <PlayPanel context={context} send={send} slot={player.slot} />
+      )}
+      {layout === 'board' && context && (
+        <BoardPanel
+          slot={player.slot}
+          players={players ?? [player]}
+          context={context}
+          pending={pending}
+          send={send}
+        />
       )}
 
       {feedback && (

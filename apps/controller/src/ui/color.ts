@@ -27,3 +27,12 @@ export function contrastRatio(a: string, b: string): number {
 export function readableTextColor(background: string): string {
   return contrastRatio(background, WHITE) >= contrastRatio(background, INK) ? WHITE : INK;
 }
+
+/**
+ * CSS-Variablen für einen Knopf in der Farbe eines Spielers (Ziel-Wahl, CHAOS-22):
+ * `--choice` (Hintergrund) und `--on-choice` (lesbare Schrift). `null` = keine.
+ */
+export function slotColorVars(color: string | null): Record<string, string> | undefined {
+  if (color === null) return undefined;
+  return { '--choice': color, '--on-choice': readableTextColor(color) };
+}
