@@ -1545,3 +1545,663 @@ button {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Minispiele (M3, CHAOS-33): Intro (Titel, Anleitung, Bedienlegende), Spiel mit
+ * beschrifteten Knöpfen, eigenes Ergebnis. iPhone hoch: alles untereinander; quer:
+ * zwei Spalten. iPad-Zone: kompakt (`data-compact`), Fläche aus `zones/geometry.ts`.
+ * Ohne `minigame` im Kontext (M1-Arena, Platzhalter) greift nichts davon.
+ * ------------------------------------------------------------------------- */
+
+.minigame-panel {
+  width: 100%;
+  height: 100%;
+}
+
+.minigame-card {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.minigame-heading,
+.minigame-howto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.minigame-heading {
+  gap: 6px;
+}
+
+.minigame-howto {
+  width: 100%;
+  max-width: 400px;
+  gap: 14px;
+}
+
+.minigame-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 3px 14px 3px 6px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.minigame-title {
+  margin: 0;
+  max-width: 100%;
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #fff;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--ink);
+  overflow-wrap: anywhere;
+  animation: minigame-pop 420ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.minigame-tagline {
+  margin: 0;
+  max-width: 340px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.minigame-steps {
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: color-mix(in srgb, #fff 72%, transparent);
+  text-align: left;
+}
+
+.minigame-steps li {
+  counter-increment: step;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.minigame-steps li::before {
+  content: counter(step);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--player);
+  color: var(--on-player);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.control-legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 10px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 4px 16px 4px 4px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.control-key {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.key-a {
+  background: var(--sun);
+}
+
+.key-b {
+  background: var(--mint);
+}
+
+.key-stick {
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #e9e4ff 70%);
+}
+
+.key-stick i {
+  width: 48%;
+  height: 48%;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--player);
+}
+
+.minigame-ready {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+/* Ergebnis: eigener Platz groß in Spielerfarbe (Platz 1 golden). */
+.result-place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 34px;
+  border: 5px solid var(--ink);
+  border-radius: 28px;
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: 0 8px 0 var(--ink);
+  animation: minigame-pop 420ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.result-place[data-place='1'] {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.result-place b {
+  font-size: 60px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.result-cheer {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.result-score {
+  margin: 0;
+  padding: 4px 18px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.result-aborted {
+  padding: 16px 24px;
+  border: 5px dashed var(--ink);
+  border-radius: 24px;
+  background: color-mix(in srgb, #fff 75%, transparent);
+}
+
+.result-aborted b {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.minigame-lead,
+.minigame-look {
+  margin: 0;
+  max-width: 320px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+@keyframes minigame-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Spiel: kleiner Kopf mit dem Minispiel-Titel. */
+.minigame-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 14px 3px 8px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.minigame-header-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.play-panel.play-minigame {
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    'header'
+    'buttons'
+    'stick';
+}
+
+.play-minigame .play-header {
+  grid-area: header;
+  justify-self: center;
+  margin-top: 8px;
+}
+
+/* Ohne Joystick: Knöpfe bekommen die ganze Fläche, groß und mittig. */
+.play-panel.play-minigame[data-stick='false'] {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'header'
+    'buttons';
+}
+
+/* Ohne Knöpfe: Joystick bekommt die ganze Fläche. */
+.play-panel.play-minigame[data-buttons='0'] {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'header'
+    'stick';
+}
+
+.play-minigame[data-stick='false'] .button-area {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.play-minigame[data-stick='false'] .action-a,
+.play-minigame[data-stick='false'] .action-b {
+  width: clamp(130px, 38vmin, 200px);
+  height: clamp(130px, 38vmin, 200px);
+}
+
+.play-minigame[data-stick='false'] .button-area[data-count='1'] .action-button {
+  width: clamp(160px, 58vmin, 250px);
+  height: clamp(160px, 58vmin, 250px);
+}
+
+/* Beschriftete Knöpfe: Buchstabe und Verb, Schrift wächst mit dem Knopf. */
+.action-button.has-label {
+  container-type: inline-size;
+  grid-template-rows: auto auto;
+  align-content: center;
+  row-gap: 0;
+}
+
+.has-label .action-letter {
+  font-size: 34px;
+  font-size: 34cqw;
+  line-height: 1;
+}
+
+.action-label {
+  max-width: 88%;
+  font-size: 15px;
+  font-size: clamp(12px, 14cqw, 28px);
+  font-weight: 900;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+@media (orientation: landscape) {
+  /* Intro quer: links Titel, rechts Anleitung; Plakette oben rechts. */
+  .slot.layout-board.minigame-intro .player-badge,
+  .slot.layout-board.minigame-results .player-badge {
+    top: calc(max(var(--frame), env(safe-area-inset-top)) + 6px);
+    right: calc(max(var(--frame), env(safe-area-inset-right)) + 12px);
+    left: auto;
+    max-width: none;
+  }
+
+  .slot .minigame-intro {
+    flex-direction: row;
+    justify-content: space-evenly;
+    gap: 18px;
+  }
+
+  .slot .minigame-intro .minigame-heading {
+    flex: 1 1 0;
+    padding-top: 22px;
+  }
+
+  .slot .minigame-intro .minigame-howto {
+    flex: 1.2 1 0;
+    padding-top: 44px;
+    gap: 10px;
+  }
+
+  .slot .minigame-title {
+    font-size: 36px;
+  }
+
+  .slot .minigame-tagline {
+    font-size: 18px;
+  }
+
+  .slot .minigame-steps {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+
+  .slot .minigame-steps li {
+    font-size: 17px;
+  }
+
+  .slot .legend-item {
+    font-size: 17px;
+  }
+
+  .slot .control-key {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .slot .minigame-ready {
+    font-size: 20px;
+  }
+
+  /* Ergebnis quer: Platz links, Details rechts. */
+  .slot .minigame-result {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'kicker kicker'
+      'place cheer'
+      'place score'
+      'place lead';
+    align-content: center;
+    justify-items: center;
+    column-gap: 28px;
+    row-gap: 8px;
+    padding-top: 22px;
+  }
+
+  .slot .minigame-result .minigame-kicker {
+    grid-area: kicker;
+  }
+
+  .slot .minigame-result .result-place,
+  .slot .minigame-result .result-aborted {
+    grid-area: place;
+  }
+
+  .slot .minigame-result .result-cheer {
+    grid-area: cheer;
+    align-self: end;
+  }
+
+  .slot .minigame-result .result-score {
+    grid-area: score;
+  }
+
+  .slot .minigame-result .minigame-lead {
+    grid-area: lead;
+    align-self: start;
+  }
+
+  .slot .minigame-result[data-kind='aborted'] {
+    grid-template-areas:
+      'kicker kicker'
+      'place lead';
+  }
+
+  .slot .minigame-result[data-kind='aborted'] .minigame-lead {
+    align-self: center;
+  }
+
+  .slot .minigame-look {
+    display: none;
+  }
+
+  /* Spiel quer: Kopf oben mittig zwischen Verbindungsanzeige und Plakette. */
+  .play-panel.play-minigame {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas:
+      'header header'
+      'stick buttons';
+    row-gap: 8px;
+  }
+
+  .play-panel.play-minigame[data-stick='false'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'header'
+      'buttons';
+  }
+
+  .play-panel.play-minigame[data-buttons='0'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'header'
+      'stick';
+  }
+
+  .play-minigame .button-area {
+    padding-top: 12px;
+  }
+
+  .play-minigame[data-stick='false'] .button-area {
+    flex-direction: row;
+    gap: 48px;
+    padding-top: 0;
+  }
+
+  .play-minigame[data-stick='false'] .action-a,
+  .play-minigame[data-stick='false'] .action-b {
+    width: clamp(120px, 52vmin, 190px);
+    height: clamp(120px, 52vmin, 190px);
+  }
+
+  .play-minigame[data-stick='false'] .button-area[data-count='1'] .action-button {
+    width: clamp(150px, 66vmin, 230px);
+    height: clamp(150px, 66vmin, 230px);
+  }
+}
+
+/* iPad-Zone: Kopfstreifen mit Plakette + Titel, Intro/Ergebnis kompakt. */
+.zone .zone-head {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.zone .zone-head .zone-badge {
+  position: static;
+  transform: none;
+  flex: none;
+}
+
+.zone-minigame-header {
+  font-size: 16px;
+}
+
+.zone-minigame {
+  position: absolute;
+  display: flex;
+  container-type: size;
+}
+
+.minigame-card[data-compact='true'] {
+  gap: 10px;
+}
+
+.minigame-card[data-compact='true'] .minigame-heading {
+  gap: 4px;
+}
+
+.minigame-card[data-compact='true'] .minigame-howto {
+  gap: 8px;
+}
+
+.minigame-card[data-compact='true'] .minigame-kicker {
+  padding: 2px 10px 2px 4px;
+  border-width: 2px;
+  font-size: 12px;
+}
+
+.minigame-card[data-compact='true'] .minigame-title {
+  font-size: 30px;
+  -webkit-text-stroke-width: 1.5px;
+  text-shadow: 0 3px 0 var(--ink);
+}
+
+.minigame-card[data-compact='true'] .minigame-tagline {
+  font-size: 16px;
+}
+
+.minigame-card[data-compact='true'] .minigame-steps {
+  padding: 6px 10px;
+  gap: 3px;
+  border-width: 2px;
+  border-radius: 14px;
+}
+
+.minigame-card[data-compact='true'] .minigame-steps li {
+  gap: 8px;
+  font-size: 15px;
+}
+
+.minigame-card[data-compact='true'] .minigame-steps li::before {
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+}
+
+.minigame-card[data-compact='true'] .legend-item {
+  gap: 6px;
+  padding: 2px 12px 2px 2px;
+  border-width: 2px;
+  font-size: 15px;
+}
+
+.minigame-card[data-compact='true'] .control-key {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  font-size: 15px;
+}
+
+.minigame-card[data-compact='true'] .minigame-ready {
+  font-size: 18px;
+}
+
+.minigame-card[data-compact='true'] .result-place {
+  padding: 8px 22px;
+  border-width: 4px;
+  border-radius: 22px;
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+.minigame-card[data-compact='true'] .result-place b {
+  font-size: 42px;
+}
+
+.minigame-card[data-compact='true'] .result-cheer {
+  font-size: 20px;
+}
+
+.minigame-card[data-compact='true'] .result-score {
+  font-size: 18px;
+}
+
+.minigame-card[data-compact='true'] .result-aborted b {
+  font-size: 24px;
+}
+
+.minigame-card[data-compact='true'] .minigame-lead {
+  font-size: 14px;
+}
+
+/* Breite, flache Zone (4 Spieler quer): Titel links, Anleitung rechts. */
+@container (min-aspect-ratio: 3 / 2) {
+  .minigame-intro[data-compact='true'] {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .minigame-intro[data-compact='true'] .minigame-heading {
+    flex: 1 1 0;
+  }
+
+  .minigame-intro[data-compact='true'] .minigame-howto {
+    flex: 1.3 1 0;
+  }
+}
+
+.zone .has-label .action-letter {
+  font-size: 30px;
+  font-size: 30cqw;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minigame-title,
+  .result-place {
+    animation: none;
+  }
+}

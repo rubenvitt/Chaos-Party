@@ -1,10 +1,13 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { knobOffset, stickFromOffset, ZERO_STICK, type Stick } from '../input/joystick.ts';
+import { DEFAULT_STICK_HINT } from '../minigame/view.ts';
 import { useInterruption } from './useInterruption.ts';
 
 interface JoystickProps {
   /** Neue Stellung (bereits normiert, Totzone, gerundet). Loslassen meldet `{0, 0}`. */
   onChange: (stick: Stick) => void;
+  /** Text unter dem Ring (Minispiel: „Ziehen: Lenken“); Standard wie in der M1-Arena. */
+  hint?: string | undefined;
 }
 
 /**
@@ -15,7 +18,7 @@ interface JoystickProps {
  * (`pointerId`), weitere Finger in der Zone werden ignoriert. Die Darstellung
  * wird direkt per `transform` gesetzt (kein React-Rendern pro Bewegung, A7).
  */
-export function Joystick({ onChange }: JoystickProps) {
+export function Joystick({ onChange, hint = DEFAULT_STICK_HINT }: JoystickProps) {
   const zoneRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -106,7 +109,9 @@ export function Joystick({ onChange }: JoystickProps) {
       <div ref={baseRef} className="joystick-base" data-active="false">
         <div ref={knobRef} className="joystick-knob" />
       </div>
-      <span className="joystick-hint ui-text">Ziehen zum Laufen</span>
+      <span className="joystick-hint ui-text" data-testid="joystick-hint">
+        {hint}
+      </span>
     </div>
   );
 }

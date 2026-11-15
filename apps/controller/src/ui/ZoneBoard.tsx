@@ -13,14 +13,17 @@ import { PLAYER_SLOTS, type Button, type PlayerInfo, type SlotNumber } from '@ch
 import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
 import { describeWaiting } from '../board/status.ts';
 import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
+import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import {
+  BADGE_STRIP,
   boardZoneFrames,
   buildZones,
   MAX_ZONES,
   parseChoiceControl,
   rectCenter,
+  ZONE_PADDING,
   type ControlGeometry,
   type Size,
   type ZoneGeometry,
@@ -30,6 +33,7 @@ import { contextKey, zoneControlsInput } from '../zones/zoneInput.ts';
 import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/zoneTracker.ts';
 import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
 import { INK, readableTextColor, slotColorVars } from './color.ts';
+import { MinigameCard, MinigameHeader } from './minigame.tsx';
 import { useInterruption } from './useInterruption.ts';
 
 export interface ZoneBoardProps {
@@ -290,27 +294,43 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
   const control = (kind: ControlGeometry['kind']) => zone.controls.find((c) => c.kind === kind);
   const ready = control('ready');
   const stick = control('stick');
-  const buttons = (['a', 'b'] as const)
-    .map((button) => ({ button, geometry: control(button === 'a' ? 'button-a' : 'button-b') }))
-    .filter((entry): entry is { button: Button; geometry: ControlGeometry } => !!entry.geometry);
+  const minigame = context?.minigame;
+  const play = context && layout === 'joystick-buttons' ? describePlay(context) : null;
+  const buttons = (['a', 'b'] as const).flatMap((button) => {
+    const geometry = control(button === 'a' ? 'button-a' : 'button-b');
+    const label = play?.buttons.find((entry) => entry.button === button)?.label ?? null;
+    return geometry ? [{ button, geometry, label }] : [];
+  });
+  const badge = (
+    <header className="player-badge zone-badge" data-testid="player-badge">
+      <span className="player-symbol" aria-hidden="true">
+        {PLAYER_SLOTS[player.slot].symbol}
+      </span>
+      <span className="player-label ui-text">{player.label}</span>
+    </header>
+  );
 
   return (
     <section
-      className={`zone layout-${layout}`}
+      className={`zone layout-${layout}${minigame ? ` minigame-${minigame.stage}` : ''}`}
       style={style}
       data-testid={`zone-${String(zone.slot)}`}
       data-zone-slot={zone.slot}
       data-layout={layout}
       data-phase={context?.phase ?? 'none'}
+      data-minigame-stage={minigame?.stage ?? 'none'}
       data-rotation={zone.rotation}
     >
       <div className="zone-content" style={contentStyle}>
-        <header className="player-badge zone-badge" data-testid="player-badge">
-          <span className="player-symbol" aria-hidden="true">
-            {PLAYER_SLOTS[player.slot].symbol}
-          </span>
-          <span className="player-label ui-text">{player.label}</span>
-        </header>
+        {play && play.title !== null ? (
+          // Minispiel läuft (CHAOS-33): Plakette und Titel nebeneinander im Kopfstreifen.
+          <div className="zone-head">
+            {badge}
+            <MinigameHeader title={play.title} className="zone-minigame-header" />
+          </div>
+        ) : (
+          badge
+        )}
 
         {layout === 'lobby' &&
           (ready ? (
@@ -360,22 +380,29 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
             >
               <div className="joystick-knob" data-role="stick-knob" />
             </div>
-            <span className="joystick-hint ui-text">Ziehen zum Laufen</span>
+            <span className="joystick-hint ui-text" data-testid="joystick-hint">
+              {play?.stickHint}
+            </span>
           </div>
         )}
 
         {layout === 'joystick-buttons' &&
-          buttons.map(({ button, geometry }) => (
+          buttons.map(({ button, geometry, label }) => (
             <div
               key={button}
-              className={`action-button action-${button} zone-button`}
+              className={`action-button action-${button} zone-button${label === null ? '' : ' has-label'}`}
               data-testid={`button-${button}`}
               data-role="button"
               data-button={button}
-              aria-label={`Knopf ${button.toUpperCase()}`}
+              aria-label={`Knopf ${button.toUpperCase()}${label === null ? '' : `: ${label}`}`}
               style={rectStyle(geometry.rect)}
             >
               <span className="action-letter ui-text">{button.toUpperCase()}</span>
+              {label !== null && (
+                <span className="action-label ui-text" data-testid={`button-${button}-label`}>
+                  {label}
+                </span>
+              )}
             </div>
           ))}
 
@@ -407,6 +434,26 @@ interface ZoneBoardContentProps {
  * Wahlknöpfe an genau den Rechtecken, die der Zonen-Tracker prüft (`zone.controls`).
  */
 function ZoneBoardContent({ zone, players, context, pending }: ZoneBoardContentProps) {
+  if (context.minigame) {
+    // Minispiel-Intro/-Ergebnis (CHAOS-33): ganze Fläche unter der Plakette, ohne Stand.
+    const body = {
+      x: ZONE_PADDING,
+      y: BADGE_STRIP,
+      width: Math.max(0, zone.local.width - 2 * ZONE_PADDING),
+      height: Math.max(0, zone.local.height - BADGE_STRIP - ZONE_PADDING),
+    };
+    return (
+      <div
+        className="zone-board-phase"
+        data-testid="minigame-panel"
+        data-game-phase={context.board?.gamePhase ?? 'none'}
+      >
+        <div className="zone-minigame" style={rectStyle(body)}>
+          <MinigameCard minigame={context.minigame} compact />
+        </div>
+      </div>
+    );
+  }
   const frames = boardZoneFrames(zone.local);
   const prompt = ownPrompt(context, zone.slot);
   const view = prompt ? describePrompt(prompt.info) : null;

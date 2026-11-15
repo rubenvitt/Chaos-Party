@@ -137,3 +137,38 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entsch
 | Sabotage macht Spaß statt zu frustrieren? | |
 | Reaktionsfenster bremsen die Runde nicht? | |
 | Entscheidung | **APPROVED** durch Ruben am 2026-11-15 („approved“); nur iPhone getestet, Einzelwerte nicht gemeldet |
+
+## 9. M3 – Minispiele am Controller (für CHAOS-35)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-33 (Controller-Teil) · **Gate:** CHAOS-35 (M3-Abnahme, nur Ruben)
+
+Automatisch geprüft (Chromium-Emulation, synthetische Touches, nachgebauter Server: `tests/e2e/controller-minispiel.spec.ts`): Intro mit Titel, Anleitung und Bedienlegende; Spiel-Layout mit beschrifteten Knöpfen, ausgeblendetem Joystick/B laut Steckbrief; Loslassen gehaltener Knöpfe und Joysticks beim Wechsel ins Ergebnis; Platz, Punkte und Abbruch; vier iPad-Zonen mit gleichzeitigen Fingern. Diese Liste prüft, was nur echte Geräte und echte Hände zeigen. Belegbilder der Emulation: `docs/screenshots/m3-controller-intro.png`, `m3-controller-spiel.png`, `m3-controller-ergebnis.png`, `m3-ipad-minispiel.png`.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| G1 | Intro auf dem iPhone hoch und quer, Armlänge Abstand | Titel, Untertitel, Anleitung und Bedienlegende in wenigen Sekunden lesbar; nichts abgeschnitten, kein Scrollen nötig | | |
+| G2 | Intro in iPad-Zonen (2 und 4 Zonen), aus jeder Sitzposition | Kompakte Anleitung in der eigenen Zone lesbar; gedrehte Zonen zeigen zur gegenübersitzenden Person | | |
+| G3 | Bedienlegende vs. Spiel | Was die Legende zeigt (Joystick/A/B mit Verb), erscheint im Spiel genau so; fehlende Elemente fehlen auch im Spiel | | |
+| G4 | Spiel mit Joystick + A (iPhone hoch und quer) | Daumen erreichen Joystick und Knopf ohne Umgreifen; Beschriftung im Knopf lesbar, auch während der Daumen darauf liegt | | |
+| G5 | Spiel nur mit Knöpfen (z. B. Pump-Parade) | Großer Knopf mittig; schnelles Tippen (≥ 5/s) zählt jeden Tipper, kein Zoomen, Markieren oder Doppeltipp-Zoom | | |
+| G6 | Geteiltes iPad, 2–4 Personen spielen ein Minispiel gleichzeitig mit mehreren Fingern | Jede Eingabe wirkt nur für die eigene Zone; Finger in der Nachbarzone stören nicht; kein Hängenbleiben eines Knopfes | | |
+| G7 | Ende des Minispiels, während ein Daumen noch auf A bzw. dem Joystick liegt | Figur am PC bleibt sofort stehen bzw. lässt los; danach erscheint das Ergebnis, kein „klebender“ Knopf in der nächsten Phase | | |
+| G8 | Ergebnis auf iPhone und in iPad-Zonen | Eigener Platz („Platz 1!“) groß und sofort klar, Punkte mit Einheit lesbar; Gleichstand (zwei Mal Platz 1) verständlich | | |
+| G9 | Abbruch eines Minispiels auslösen (Weg laut Server-Doku, z. B. Host-Tab mitten im Spiel schließen) | Controller zeigt „Minispiel abgebrochen“, danach wieder die Brettanzeige | | |
+| G10 | iPhone mitten im Minispiel sperren, 10 s warten, entsperren | Gehaltene Eingaben wurden beim Sperren losgelassen; nach dem Entsperren gleicher Platz und aktuelle Stage (Spiel oder schon Ergebnis) | | |
+| G11 | App-Wechsel bzw. Kontrollzentrum während des Spiels (iPhone und iPad) | Keine hängenden Eingaben; zurück im Spiel funktionieren Joystick und Knöpfe sofort | | |
+| G12 | Systemgesten am Rand während des Spiels (Home-Leiste, Mitteilungen) | Gesten vom Bildschirmrand lösen keine Spieleingabe aus; Spielelemente liegen weit genug vom Rand | | |
+| G13 | Farbe und Symbol des Slots | In Intro, Spiel und Ergebnis jederzeit erkennbar, welcher Spieler man ist | | |
+| G14 | „Bewegung reduzieren“ in iOS einschalten | Titel und Platz erscheinen ohne Hüpf-Animation; alles bleibt bedienbar | | |
+| G15 | Rückmeldung | Keine Vibration auf iOS erwartet (Safari kann es nicht); Farbblitz bei Rückmeldung sichtbar, stört nicht | | |
+| G16 | Gefühlte Eingabeverzögerung im Minispiel (`&debug=1` für Messwerte) | Knopfdruck → Reaktion am PC fühlt sich direkt an; Werte notieren | | |
+
+### Gesamturteil Minispiel-Controller (für CHAOS-35)
+
+| Frage | Antwort |
+|---|---|
+| Versteht man jedes Minispiel aus dem Intro am Controller ohne Erklärung? | |
+| Bedienung im Spiel daumenfreundlich, ohne versehentliche Gesten? | |
+| iPad-Zonen mit mehreren Fingern zuverlässig? | |
+| Ergebnis sofort verständlich? | |
+| Entscheidung | |

@@ -3,6 +3,7 @@
  */
 import type { SlotNumber } from '@chaos-party/protocol';
 import { describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
+import { offeredActions } from '../minigame/view.ts';
 import type { PendingChoice, SlotContext } from '../state/reducer.ts';
 import type { ZoneChoicesInput, ZoneControlsInput } from './geometry.ts';
 
@@ -44,7 +45,8 @@ export function zoneControlsInput(
   const choices = slot === undefined ? undefined : zoneChoicesInput(slot, context, pending);
   return {
     layout: context.layout,
-    actions: context.actions,
+    // Minispiel (CHAOS-33): nur Elemente, die der Steckbrief auch beschriftet.
+    actions: context.layout === 'joystick-buttons' ? offeredActions(context) : context.actions,
     readySent: readySentFor !== undefined && readySentFor === contextKey(context),
     ...(choices !== undefined && { choices }),
   };

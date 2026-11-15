@@ -8,6 +8,7 @@
 import type {
   Action,
   ControllerBoardInfo,
+  ControllerMinigameInfo,
   FeedbackKind,
   Layout,
   Phase,
@@ -28,6 +29,11 @@ export interface SlotContext {
   readonly prompt?: ActivePrompt;
   /** Brettphase: eigener Stand und wer dran ist. */
   readonly board?: ControllerBoardInfo;
+  /**
+   * Minispiel (M3, CHAOS-33): Anleitung (`intro`), Bedienung (`play`) oder eigenes
+   * Ergebnis (`results`). Fehlt beim Platzhalter-Minispiel und außerhalb von Minispielen.
+   */
+  readonly minigame?: ControllerMinigameInfo;
 }
 
 /** Gesendete, noch unbeantwortete Wahl eines Slots: sperrt die Knöpfe dieses Prompts. */
@@ -192,7 +198,7 @@ function reduceServerMessage(
       };
     }
     case 'context': {
-      // Ein Kontext ersetzt den vorherigen vollständig (auch `prompt`/`board`).
+      // Ein Kontext ersetzt den vorherigen vollständig (auch `prompt`/`board`/`minigame`).
       const previous = state.contexts[message.slot]?.prompt;
       const prompt =
         message.prompt === undefined
@@ -204,6 +210,7 @@ function reduceServerMessage(
         actions: message.actions,
         ...(prompt !== undefined && { prompt }),
         ...(message.board !== undefined && { board: message.board }),
+        ...(message.minigame !== undefined && { minigame: message.minigame }),
       };
       const pending = state.choices[message.slot];
       const keepLock = pending !== undefined && prompt?.info.id === pending.promptId;
