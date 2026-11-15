@@ -6,6 +6,8 @@ interface ActionButtonProps {
   button: Button;
   onPress: () => void;
   onRelease: () => void;
+  /** Beschriftung aus dem Minispiel-Steckbrief („Springen“); ohne nur der Buchstabe. */
+  label?: string | null | undefined;
 }
 
 const LETTER: Record<Button, string> = { a: 'A', b: 'B' };
@@ -15,7 +17,7 @@ const LETTER: Record<Button, string> = { a: 'A', b: 'B' };
  * Abbrechen (`pointercancel`, z. B. Drehen des Geräts) oder Verlust des Fingers.
  * Ein Finger pro Knopf; ein zweiter Finger auf demselben Knopf wird ignoriert.
  */
-export function ActionButton({ button, onPress, onRelease }: ActionButtonProps) {
+export function ActionButton({ button, onPress, onRelease, label = null }: ActionButtonProps) {
   const pointer = useRef<number | null>(null);
   const [pressed, setPressed] = useState(false);
 
@@ -49,10 +51,10 @@ export function ActionButton({ button, onPress, onRelease }: ActionButtonProps) 
   return (
     <button
       type="button"
-      className={`action-button action-${button}`}
+      className={`action-button action-${button}${label === null ? '' : ' has-label'}`}
       data-testid={`button-${button}`}
       data-pressed={pressed ? 'true' : 'false'}
-      aria-label={`Knopf ${LETTER[button]}`}
+      aria-label={label === null ? `Knopf ${LETTER[button]}` : `Knopf ${LETTER[button]}: ${label}`}
       onPointerDown={handleDown}
       onPointerUp={handleEnd}
       onPointerCancel={handleEnd}
@@ -60,6 +62,11 @@ export function ActionButton({ button, onPress, onRelease }: ActionButtonProps) 
       onPointerLeave={handleEnd}
     >
       <span className="action-letter ui-text">{LETTER[button]}</span>
+      {label !== null && (
+        <span className="action-label ui-text" data-testid={`button-${button}-label`}>
+          {label}
+        </span>
+      )}
     </button>
   );
 }

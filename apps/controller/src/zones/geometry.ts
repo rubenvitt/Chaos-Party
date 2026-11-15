@@ -270,6 +270,9 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+/** Größter Knopf ohne Joystick (Minispiel mit nur Knöpfen). */
+export const MAX_BIG_BUTTON = 220;
+
 /** Durchmesser von A und B für eine Knopffläche. */
 export function buttonDiameters(area: Size): { a: number; b: number } {
   const a = clamp(Math.min(area.width, area.height) * 0.46, 88, 140);
@@ -283,6 +286,32 @@ function circle(center: Point, diameter: number): Rect {
     width: diameter,
     height: diameter,
   };
+}
+
+/**
+ * Knöpfe ohne Joystick: einer groß in der Mitte, zwei gleich groß nebeneinander (breite
+ * Fläche) oder übereinander (hohe Fläche). Trefferflächen überlappen nicht.
+ */
+function bigButtons(area: Rect, buttons: readonly Button[]): ControlGeometry[] {
+  const kindOf = (button: Button): ControlKind => (button === 'a' ? 'button-a' : 'button-b');
+  const c = rectCenter(area);
+  if (buttons.length === 1) {
+    const [only] = buttons;
+    if (!only) return [];
+    const d = clamp(Math.min(area.width, area.height) * 0.62, 88, MAX_BIG_BUTTON);
+    return [control(kindOf(only), circle(c, d), HIT_SLOP)];
+  }
+  const gap = 24 + 2 * HIT_SLOP;
+  const wide = area.width >= area.height;
+  const cell = wide ? (area.width - gap) / 2 : (area.height - gap) / 2;
+  const d = clamp(Math.min(cell, wide ? area.height : area.width) * 0.8, 76, MAX_BIG_BUTTON);
+  const offset = (cell + gap) / 2;
+  // A links (breit) bzw. unten (hoch), B gegenüber.
+  const centerA = wide ? { x: c.x - offset, y: c.y } : { x: c.x, y: c.y + offset };
+  const centerB = wide ? { x: c.x + offset, y: c.y } : { x: c.x, y: c.y - offset };
+  return buttons.map((button) =>
+    control(kindOf(button), circle(button === 'a' ? centerA : centerB, d), HIT_SLOP),
+  );
 }
 
 function control(kind: ControlKind, rect: Rect, slop = 0): ControlGeometry {
@@ -361,7 +390,11 @@ export function layoutZoneControls(local: Size, input: ZoneControlsInput): Contr
   if (buttons.length === 0) stickArea = area;
 
   const result: ControlGeometry[] = [];
-  if (buttons.length > 0) {
+  if (buttons.length > 0 && !canMove) {
+    // Ohne Joystick (Minispiel, CHAOS-33): Knöpfe größer und mittig, nebeneinander bzw.
+    // in hohen Zonen übereinander – A links bzw. unten (Daumenruhe).
+    result.push(...bigButtons(buttonArea, buttons));
+  } else if (buttons.length > 0) {
     const d = buttonDiameters(buttonArea);
     if (buttons.length === 1) {
       const only = buttons[0] === 'a' ? 'button-a' : 'button-b';

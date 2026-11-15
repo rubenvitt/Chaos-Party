@@ -1,12 +1,14 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { PLAYER_SLOTS, type PlayerInfo } from '@chaos-party/protocol';
 import { createMoveSender } from '../input/moveSender.ts';
+import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
 import { INK, readableTextColor } from './color.ts';
 import { Joystick } from './Joystick.tsx';
+import { MinigameCard, MinigameHeader } from './minigame.tsx';
 
 export interface SlotControllerProps {
   player: PlayerInfo;
@@ -41,14 +43,17 @@ export function SlotController({
     '--ink': INK,
   } as CSSProperties;
   const layout = context?.layout ?? 'wait';
+  const minigame = context?.minigame;
+  const minigameCard = layout === 'board' && minigame !== undefined;
 
   return (
     <section
-      className={`slot layout-${layout}`}
+      className={`slot layout-${layout}${minigame ? ` minigame-${minigame.stage}` : ''}`}
       style={cssVars}
       data-testid={`slot-${player.slot}`}
       data-layout={layout}
       data-phase={context?.phase ?? 'none'}
+      data-minigame-stage={minigame?.stage ?? 'none'}
     >
       <header className="player-badge" data-testid="player-badge">
         <span className="player-symbol" aria-hidden="true">
@@ -64,7 +69,12 @@ export function SlotController({
       {layout === 'joystick-buttons' && context && (
         <PlayPanel context={context} send={send} slot={player.slot} />
       )}
-      {layout === 'board' && context && (
+      {minigameCard && (
+        <div className="panel minigame-panel" data-testid="minigame-panel">
+          <MinigameCard minigame={minigame} />
+        </div>
+      )}
+      {layout === 'board' && context && !minigameCard && (
         <BoardPanel
           slot={player.slot}
           players={players ?? [player]}
@@ -149,28 +159,41 @@ function PlayPanel({ context, slot, send }: PanelProps) {
       }),
     [send, slot],
   );
-  const canMove = context.actions.includes('move');
-  const buttons = (['a', 'b'] as const).filter((button) =>
-    context.actions.includes(button === 'a' ? 'button-a' : 'button-b'),
-  );
+  const view = describePlay(context);
+  const labelled = view.title !== null;
 
   return (
-    <div className="panel play-panel" data-testid="play-panel">
-      <div className="stick-area">{canMove && <Joystick onChange={mover.update} />}</div>
-      <div className="button-area" data-count={buttons.length}>
-        {buttons.map((button) => (
-          <ActionButton
-            key={button}
-            button={button}
-            onPress={() => {
-              send({ type: 'press', slot, button });
-            }}
-            onRelease={() => {
-              send({ type: 'release', slot, button });
-            }}
-          />
-        ))}
-      </div>
+    <div
+      className={`panel play-panel${labelled ? ' play-minigame' : ''}`}
+      data-testid="play-panel"
+      data-stick={view.stick ? 'true' : 'false'}
+      data-buttons={view.buttons.length}
+    >
+      {view.title !== null && <MinigameHeader title={view.title} className="play-header" />}
+      {(view.stick || !labelled) && (
+        <div className="stick-area">
+          {view.stick && (
+            <Joystick onChange={mover.update} hint={labelled ? view.stickHint : undefined} />
+          )}
+        </div>
+      )}
+      {(view.buttons.length > 0 || !labelled) && (
+        <div className="button-area" data-count={view.buttons.length}>
+          {view.buttons.map(({ button, label }) => (
+            <ActionButton
+              key={button}
+              button={button}
+              label={label}
+              onPress={() => {
+                send({ type: 'press', slot, button });
+              }}
+              onRelease={() => {
+                send({ type: 'release', slot, button });
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
