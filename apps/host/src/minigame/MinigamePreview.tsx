@@ -3,14 +3,14 @@
  * Server mit Tastatur-Spielern. Grundgerüst des Koordinators, damit Minispiele früh sichtbar
  * sind; die echte Minispiel-Bühne im Spielablauf (Anleitung, Ergebnis, Server) baut darauf auf.
  *
- * Testmodus (`&test=1`): keine Render-Schleife, `window.__chaos.minigame` steuert Schritte.
+ * Testmodus (`&test=1`): keine Render-Schleife, `window.__chaosMinigame` steuert Schritte.
+ * Den ganzen Ablauf mit Anleitung und Ergebnis zeigt `&flow=1` (`LocalMinigameFlow`).
  */
 import { Engine } from '@babylonjs/core/Engines/engine.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import { Color4 } from '@babylonjs/core/Maths/math.color.js';
 import {
   createMinigameRunner,
-  type MinigameFx,
   type MinigameHud,
   type MinigameRunner,
 } from '@chaos-party/minigame-sdk/babylon';
@@ -18,6 +18,8 @@ import { getMinigameModule } from '@chaos-party/minigames';
 import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { loadCharacters } from '../characters/index.ts';
+import { soundEngine } from '../fx/audio.ts';
+import { createMinigameFx } from '../fx/minigameFx.ts';
 import { loadHavok } from '../scene/havok.ts';
 import { MinigameKeyboard } from './keyboard.ts';
 import { previewPlayers } from './players.ts';
@@ -29,12 +31,6 @@ interface PreviewProps {
   readonly seed: number;
   readonly test: boolean;
 }
-
-const SILENT_FX: MinigameFx = {
-  sound: () => undefined,
-  burst: () => undefined,
-  shake: () => undefined,
-};
 
 export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -52,6 +48,8 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
     const engine = new Engine(canvas, true, { preserveDrawingBuffer: test, stencil: true });
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.98, 0.93, 0.82, 1);
+    // Klänge/Partikel/Wackeln (CHAOS-33); im Testmodus nur gezählt.
+    const fx = createMinigameFx(scene, { sound: soundEngine(), testMode: test });
     const life = { active: true };
     const isActive = () => life.active;
     let runner: MinigameRunner | null = null;
@@ -115,7 +113,7 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
         scene,
         players: previewPlayers(players),
         seed,
-        fx: SILENT_FX,
+        fx,
         characters: library,
         havok,
         testMode: test,
@@ -154,6 +152,7 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
       window.removeEventListener('resize', resize);
       engine.stopRenderLoop();
       runner?.dispose();
+      fx.dispose();
       disposeLibrary?.();
       scene.dispose();
       engine.dispose();

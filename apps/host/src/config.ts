@@ -41,6 +41,15 @@ export interface HostConfig {
    * Server mit `players` Tastatur-Spielern (Entwicklung, Screenshots). Ohne `local` wirkungslos.
    */
   readonly minigame: string | null;
+  /**
+   * Mit `minigame`: ganzer Ablauf Intro → Spiel → Ergebnis mit lokalen Zeiten (`&flow=1`, M3) –
+   * für Screenshots von Anleitung und Ergebnis ohne Server.
+   */
+  readonly flow: boolean;
+  /** Ton aus (`?mute=1`, CHAOS-33). Im Testmodus ist der Ton immer aus. */
+  readonly mute: boolean;
+  /** Gesamtlautstärke 0–100 (`?volume=`), Standard 70. */
+  readonly volume: number;
 }
 
 export const DEFAULT_CONFIG: HostConfig = {
@@ -55,6 +64,9 @@ export const DEFAULT_CONFIG: HostConfig = {
   board: false,
   demo: false,
   minigame: null,
+  flow: false,
+  mute: false,
+  volume: 70,
 };
 
 /** Höchstzahl Runden (gleich `MAX_ROUNDS` im Protokoll). */
@@ -70,6 +82,7 @@ export function parseHostConfig(search: string): HostConfig {
   const seed = Number.parseInt(params.get('seed') ?? '', 10);
   const joinHint = Number.parseInt(params.get('joinHint') ?? '', 10);
   const rounds = Number.parseInt(params.get('rounds') ?? '', 10);
+  const volume = Number.parseInt(params.get('volume') ?? '', 10);
   return {
     local: flag(params.get('local')),
     players: Number.isInteger(players) ? Math.min(4, Math.max(1, players)) : DEFAULT_CONFIG.players,
@@ -87,6 +100,9 @@ export function parseHostConfig(search: string): HostConfig {
     minigame: /^[a-z0-9-]{3,32}$/.test(params.get('minigame') ?? '')
       ? params.get('minigame')
       : null,
+    flow: flag(params.get('flow')),
+    mute: flag(params.get('mute')),
+    volume: Number.isInteger(volume) ? Math.min(100, Math.max(0, volume)) : DEFAULT_CONFIG.volume,
   };
 }
 

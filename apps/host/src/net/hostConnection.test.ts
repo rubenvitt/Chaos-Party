@@ -197,6 +197,28 @@ describe('connectHost', () => {
     expect(t.last().sent.at(-1)).toBe(encode(createMessage('start', {})));
   });
 
+  it('sendet minigame-result nur, wenn verbunden, protokollgültig (M3)', () => {
+    const t = setup();
+    const result = {
+      minigameId: 'pump-parade',
+      round: 2,
+      placements: [
+        { slot: 1 as const, place: 1, score: 7 },
+        { slot: 2 as const, place: 2, score: 3 },
+      ],
+      highlights: ['Blau pumpt wie wild'],
+    };
+    expect(t.connection.sendMinigameResult(result)).toBe(false);
+    t.last().open();
+    expect(t.connection.sendMinigameResult(result)).toBe(false);
+    t.last().receive(encode(LOBBY));
+    expect(t.connection.sendMinigameResult(result)).toBe(true);
+    const sent: unknown = JSON.parse(t.last().sent.at(-1) ?? '');
+    expect(sent).toEqual({ v: 3, type: 'minigame-result', ...result });
+    t.last().drop();
+    expect(t.connection.sendMinigameResult(result)).toBe(false);
+  });
+
   it('sendet start mit Modus und Rundenzahl (M2)', () => {
     const t = setup();
     t.last().open();

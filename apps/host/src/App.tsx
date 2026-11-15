@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getMinigameModule } from '@chaos-party/minigames';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BoardStage } from './board/BoardStage.tsx';
 import { createDemoMessages, DEMO_DELAYS_MS } from './board/demo.ts';
 import type { BoardScene } from './board/types.ts';
 import { serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import { createFrameMeter, type FrameMeter } from './debug/frameMeter.ts';
+import { soundEngine } from './fx/audio.ts';
 import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
 import { createWebSocketInputSource } from './input/webSocketInputSource.ts';
 import { LobbyPanel } from './lobby/LobbyPanel.tsx';
 import { PlayerToasts } from './lobby/PlayerToasts.tsx';
+import { MinigameScreen } from './minigame/MinigameScreen.tsx';
+import { stageKeyOf } from './minigame/plan.ts';
 import { useHostSession } from './net/useHostSession.ts';
 import { createLocalPlayers, playersFromLobby, type HostPlayer } from './players.ts';
 import { createGameScene } from './scene/createGameScene.ts';
@@ -35,7 +39,11 @@ const NO_PLAYERS: readonly HostPlayer[] = [];
  *   mit `&board=1` stattdessen das Spielbrett mit Beispiel-Spielstand (`&demo=1` animiert).
  *
  * Szenen nach Phase: `lobby` und `play` zeigen die Arena (M1), `board` die Brett-Szene (M2).
+ * In den Minispiel-Phasen eines bekannten Minispiels ersetzt die Minispiel-Bühne (M3,
+ * `MinigameScreen`) das Brett; danach wird das Brett neu aufgebaut. Maßgeblich ist der
+ * neueste Server-Stand (`feed`), nicht der animierte Stand der Regie.
  */
+const isKnownMinigame = (id: string) => getMinigameModule(id) !== undefined;
 export function App({ config }: AppProps) {
   const { seed, test, local, debug } = config;
   const localBoard = local && config.board;
@@ -50,7 +58,16 @@ export function App({ config }: AppProps) {
   );
   const phase = local ? (localBoard ? 'board' : 'play') : (session.lobby?.phase ?? 'lobby');
   const boardMode = phase === 'board';
-  const { director } = session;
+  const { director, feed } = session;
+  const subscribeFeed = useCallback((listener: () => void) => feed.subscribe(listener), [feed]);
+  const getFeed = useCallback(() => feed.getSnapshot(), [feed]);
+  const latest = useSyncExternalStore(subscribeFeed, getFeed);
+  const minigameKey = !local && boardMode ? stageKeyOf(latest.view, isKnownMinigame) : null;
+  const minigameModule =
+    minigameKey !== null && latest.view?.minigame
+      ? getMinigameModule(latest.view.minigame.id)
+      : undefined;
+  const [minigameReady, setMinigameReady] = useState(false);
 
   const [physics, setPhysics] = useState<PhysicsStatus>('loading');
   const [sceneReady, setSceneReady] = useState(false);
@@ -195,11 +212,13 @@ export function App({ config }: AppProps) {
     boardSceneRef.current = scene;
   }, []);
   const { arena, rounds } = config;
-  const { start } = session;
-  const onStart = useCallback(
-    () => start({ mode: arena ? 'arena' : 'board', ...(rounds === null ? {} : { rounds }) }),
-    [start, arena, rounds],
-  );
+  const { start, results, submitMinigameResult } = session;
+  const onStart = useCallback(() => {
+    // Der Klick auf „Los geht’s!“ ist die Nutzer-Geste, die den Ton freischaltet (CHAOS-33).
+    soundEngine().unlock();
+    return start({ mode: arena ? 'arena' : 'board', ...(rounds === null ? {} : { rounds }) });
+  }, [start, arena, rounds]);
+  const getResultState = useCallback(() => results.state, [results]);
 
   useEffect(() => {
     playersRef.current = players;
@@ -210,11 +229,32 @@ export function App({ config }: AppProps) {
     <main
       className="host"
       data-physics={boardMode ? 'off' : physics}
-      data-scene={(boardMode ? boardReady : sceneReady) ? 'ready' : 'loading'}
+      data-scene={
+        (minigameModule ? minigameReady : boardMode ? boardReady : sceneReady) ? 'ready' : 'loading'
+      }
       data-mode={local ? 'local' : 'server'}
       data-phase={phase}
+      data-minigame={minigameModule?.info.id}
     >
-      {boardMode ? (
+      {boardMode && minigameModule && latest.view ? (
+        <MinigameScreen
+          key={minigameKey}
+          view={latest.view}
+          receivedAt={latest.receivedAt}
+          rewards={
+            latest.rewards && latest.rewards.round === latest.view.minigame?.round
+              ? latest.rewards.bySlot
+              : null
+          }
+          module={minigameModule}
+          connection={session.status}
+          test={test}
+          hub={hub}
+          onResult={submitMinigameResult}
+          onReady={setMinigameReady}
+          getResultState={getResultState}
+        />
+      ) : boardMode ? (
         <BoardStage
           director={director}
           connection={session.status}

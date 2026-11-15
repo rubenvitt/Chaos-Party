@@ -1,6 +1,8 @@
 /**
  * React-HUD der Brettphase (CHAOS-20): Spielerleiste, Runde, „Blau ist dran!“, Status zur
  * offenen Entscheidung mit Countdown, Ereignis-Ticker, Minispiel-Platzhalter, Endstand.
+ * Echte Minispiele (M3) zeigt nicht dieses Overlay, sondern die Minispiel-Bühne
+ * (`minigame/MinigameScreen.tsx`); das Overlay bleibt für Platzhalter und unbekannte IDs.
  * Liest nur den `HudSnapshot` der Regie; steuert nichts. Große Schrift für den Sofa-Abstand.
  */
 import {
@@ -17,6 +19,7 @@ import {
   bannerText,
   countdownText,
   ITEM_NAMES,
+  minigameOverlayText,
   playerName,
   promptDetail,
   promptStatus,
@@ -153,14 +156,13 @@ function MinigameOverlay({
   readonly seconds: number | null;
 }) {
   if (view.gamePhase === 'minigame-intro' || view.gamePhase === 'minigame-play') {
+    const text = minigameOverlayText(view);
     return (
       <div className="board-overlay" data-testid="board-minigame" data-phase={view.gamePhase}>
         <div className="board-overlay-card">
           <p className="board-overlay-kicker">Minispiel</p>
-          <h2>Minispiel – kommt in M3</h2>
-          <p className="board-overlay-lead">
-            Platzhalter: Die Plätze werden diesmal ausgelost. Echte Minispiele folgen.
-          </p>
+          <h2>{text.title}</h2>
+          <p className="board-overlay-lead">{text.lead}</p>
           {seconds !== null && <p className="board-overlay-timer">noch {seconds} s</p>}
         </div>
       </div>

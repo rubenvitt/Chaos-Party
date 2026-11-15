@@ -14,6 +14,18 @@ describe('parseHostConfig', () => {
     expect(parseHostConfig('?minigame=../x').minigame).toBeNull();
   });
 
+  it('liest flow, mute und volume (M3, CHAOS-33)', () => {
+    expect(parseHostConfig('?local=1&minigame=pump-parade&flow=1&mute=1&volume=35')).toMatchObject({
+      flow: true,
+      mute: true,
+      volume: 35,
+    });
+    expect(DEFAULT_CONFIG).toMatchObject({ flow: false, mute: false, volume: 70 });
+    expect(parseHostConfig('?volume=250').volume).toBe(100);
+    expect(parseHostConfig('?volume=-5').volume).toBe(0);
+    expect(parseHostConfig('?volume=laut').volume).toBe(70);
+  });
+
   it('liest local, players, seed, test, joinHint und debug', () => {
     expect(parseHostConfig('?local=1&players=4&seed=7&test=1&joinHint=5&debug=1')).toEqual({
       local: true,
@@ -27,6 +39,9 @@ describe('parseHostConfig', () => {
       board: false,
       demo: false,
       minigame: null,
+      flow: false,
+      mute: false,
+      volume: 70,
     });
     expect(DEFAULT_CONFIG.debug).toBe(false);
     expect(parseHostConfig('?debug=true').debug).toBe(true);

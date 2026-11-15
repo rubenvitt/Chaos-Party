@@ -7,6 +7,8 @@ import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { parseServerToHostMessage } from '@chaos-party/protocol';
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { FrameMeter } from '../debug/frameMeter.ts';
+import { soundEngine } from '../fx/audio.ts';
+import { boardEventSound } from '../fx/boardSounds.ts';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { ChaosBoardTestHook, ChaosTestHook } from '../testHook.ts';
 import { BoardHud } from './BoardHud.tsx';
@@ -48,6 +50,16 @@ export function BoardStage({
     onReadyRef.current = onReady;
     onSceneRef.current = onScene;
   }, [onReady, onScene]);
+
+  // Klänge zu den Ereignissen, sobald die Regie sie abspielt (CHAOS-33).
+  useEffect(
+    () =>
+      director.onEvent((event) => {
+        const cue = boardEventSound(event);
+        if (cue) soundEngine().play(cue.name, cue.options);
+      }),
+    [director],
+  );
 
   useEffect(() => {
     if (board.id !== boardId) console.warn(`Unbekanntes Brett „${boardId}“ – zeige ${board.id}`);
