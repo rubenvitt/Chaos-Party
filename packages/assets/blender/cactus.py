@@ -69,14 +69,14 @@ def body():
     arms = [
         # links: vom Rumpf nach außen, dann nach oben
         n((0.2, 0, 0.86), 0.08, 2),
-        n((0.36, 0, 0.88), 0.082, 5),
-        n((0.42, 0, 1.06), 0.078, 6),
-        n((0.42, 0, 1.18), 0.06, 7),
+        n((0.33, 0, 0.88), 0.082, 5),
+        n((0.38, 0, 1.06), 0.078, 6),
+        n((0.38, 0, 1.18), 0.06, 7),
         # rechts: tiefer, kürzer
         n((-0.2, 0, 0.74), 0.075, 1),
-        n((-0.34, 0, 0.76), 0.076, 9),
-        n((-0.39, 0, 0.92), 0.07, 10),
-        n((-0.39, 0, 1.01), 0.055, 11),
+        n((-0.32, 0, 0.76), 0.076, 9),
+        n((-0.36, 0, 0.92), 0.07, 10),
+        n((-0.36, 0, 1.01), 0.055, 11),
     ]
     mesh = k.skin_mesh("kaktus", trunk + arms, subdivisions=2)
     axes = [
@@ -141,10 +141,10 @@ def flower():
     parts = []
     for i in range(5):
         a = 2 * math.pi * i / 5
-        petal = k.sphere(f"blatt-{i}", (math.cos(a) * 0.075, math.sin(a) * 0.075, 1.6), 0.06, scale=(1.3, 0.75, 0.35), segments=16, rings=8)
+        petal = k.sphere(f"blatt-{i}", (math.cos(a) * 0.075, math.sin(a) * 0.075, 1.53), 0.06, scale=(1.3, 0.75, 0.35), segments=16, rings=8)
         petal.rotation_euler = (0, math.radians(-15), a)
         parts.append(k.solid(petal, PETAL))
-    core = k.sphere("kern", (0, 0, 1.62), 0.04, segments=12, rings=6)
+    core = k.sphere("kern", (0, 0, 1.55), 0.04, segments=12, rings=6)
     parts.append(k.solid(core, PETAL_CORE))
     return k.join(parts, "bluete")
 
@@ -164,8 +164,8 @@ BONES = [
     k.Bone("kopf", (0, 0, 0.95), (0, 0, 1.5), "spine"),
     k.Bone("bluete", (0, 0, 1.5), (0, 0, 1.66), "kopf"),
     k.Bone("abzeichen", (0, -0.25, 0.68), (0, -0.25, 0.76), "spine", deform=False),
-    k.Bone("arm-l", (0.2, 0, 0.86), (0.42, 0, 1.18), "spine"),
-    k.Bone("arm-r", (-0.2, 0, 0.74), (-0.39, 0, 1.01), "spine"),
+    k.Bone("arm-l", (0.2, 0, 0.86), (0.38, 0, 1.18), "spine"),
+    k.Bone("arm-r", (-0.2, 0, 0.74), (-0.36, 0, 1.01), "spine"),
 ]
 ANIMATED = ["huepfer", "spine", "kopf", "bluete", "arm-l", "arm-r"]
 

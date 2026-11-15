@@ -1,6 +1,9 @@
 # Art Direction – Chaos Party
 
-**Stand:** M3 (CHAOS-27, CHAOS-28). Gilt für Figuren, Brett, Minispiele, Effekte und UI.
+**Stand:** M3 (CHAOS-27, CHAOS-28), Figuren neu in CHAOS-58 (Blender, ADR-013, Look
+„Stilisierte Natur“ aus EXP-009). Gilt für Figuren, Brett, Minispiele, Effekte und UI. Die
+Abschnitte zu Licht, Farbe und Brett beschreiben noch den M3-Stand, bis der Natur-Look
+umgesetzt ist (CHAOS-56).
 Belege: `docs/screenshots/m3-figuren-*.png`. Quelle der Wahrheit für Produkt und Stil bleibt `VISION.md`.
 
 ## Leitbild
@@ -86,11 +89,12 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
 
 - **Prozedural** (Code, zur Laufzeit): Brett, Felder, Fallen, Wegweiser, Marker, Arena,
   Abzeichen, später Effekte und Klänge.
-- **Generiert** (eigener Generator, eingecheckte Dateien): Figuren als GLB aus
-  `packages/assets/src/generator/` (Babylon.js mit NullEngine in Node, Export mit
-  `@babylonjs/serializers`), Porträts als SVG. Reproduzierbar:
-  `pnpm generate:assets` (= `pnpm --filter @chaos-party/assets generate`); ein Test prüft, dass
-  der Generator genau die eingecheckten Dateien erzeugt.
+- **Generiert** (eingecheckte Dateien): Figuren als GLB aus **Blender-Skripten**
+  (`packages/assets/blender/`, bpy 5.3 als Python-Modul, ADR-013): weiche Körper aus
+  Skin-Modifier + Subdivision, Vertexfarben, Sheen/Klarlack, Skelett und sieben Clips.
+  Erzeugen: `packages/assets/blender/build-all.sh` (venv mit `requirements.txt`). Porträts als
+  SVG aus `packages/assets/src/generator/` (`pnpm generate:assets`); ein Test prüft, dass dieser
+  Generator genau die eingecheckten Porträts erzeugt.
 - **Importiert:** nur mit Lizenz auf der Positivliste (Eigenwerk, CC0-1.0, CC-BY-4.0, OFL-1.1,
   MIT, ISC, BSD, Apache-2.0, 0BSD) und Attribution, wo verlangt.
 - **Manifest** `packages/assets/manifest.json` (zod-Schema in `packages/assets/src/manifest.ts`):
@@ -100,8 +104,9 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
   verzeichnet, Lizenz/Attribution, Größe, GLB-Animationen, Höhe/Füße/Grundfläche aus den
   echten Eckpunkten, Meshes/Primitives/Materialien/Dreiecke, Material `akzent`, Knoten
   `abzeichen`, SVG ohne Skripte.
-- **Budgets je Figur:** ≤ 300 KiB, ≤ 12 Meshes, ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien,
-  ≤ 15 000 Dreiecke, keine Texturen. Ist (M3): 144–288 KiB, 6 300–12 800 Dreiecke.
+- **Budgets je Figur:** ≤ 384 KiB (seit CHAOS-58: Skinning-Daten und Vertexfarben), ≤ 12 Meshes,
+  ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien, ≤ 15 000 Dreiecke, keine Texturen.
+  Ist (CHAOS-58): 110–324 KiB, 2 800–10 300 Dreiecke.
 
 ### Neue Assets eintragen
 

@@ -286,6 +286,7 @@ def skin_to(mesh: bpy.types.Object, rig: bpy.types.Object) -> None:
 
 def attach(obj: bpy.types.Object, rig: bpy.types.Object, bone: str) -> None:
     """Starres Teil an einen Knochen hängen (Augen, Nase, Halstuch)."""
+    bpy.context.view_layer.update()  # sonst ist matrix_world nach `location =` noch veraltet
     world = obj.matrix_world.copy()
     obj.parent = rig
     obj.parent_type = "BONE"

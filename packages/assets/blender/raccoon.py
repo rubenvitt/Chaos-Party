@@ -25,7 +25,8 @@ PUPIL = k.hex_color("#0d0b10")
 NOSE = k.hex_color("#1d1a20")
 SCARF = k.hex_color("#e69f00")
 
-HEAD_CENTER = Vector((0.0, 0.0, 1.1))
+HEAD_BACK = 0.06
+HEAD_CENTER = Vector((0.0, HEAD_BACK, 1.1))
 
 
 def smoothstep(a: float, b: float, x: float) -> float:
@@ -82,17 +83,17 @@ def build_body():
 
 
 TAIL_POINTS = [
-    Vector((0, 0.18, 0.36)),
-    Vector((0, 0.34, 0.42)),
-    Vector((0, 0.47, 0.58)),
-    Vector((0, 0.51, 0.77)),
-    Vector((0, 0.46, 0.92)),
+    Vector((0, 0.16, 0.36)),
+    Vector((0, 0.27, 0.44)),
+    Vector((0, 0.35, 0.6)),
+    Vector((0, 0.37, 0.78)),
+    Vector((0, 0.33, 0.92)),
 ]
 
 
 def build_tail():
     n = k.SkinNode
-    radii = [0.07, 0.11, 0.13, 0.11, 0.06]
+    radii = [0.07, 0.1, 0.12, 0.1, 0.055]
     nodes = [n(tuple(p), r, None if i == 0 else i - 1) for i, (p, r) in enumerate(zip(TAIL_POINTS, radii))]
     tail = k.skin_mesh("schwanz", nodes, subdivisions=2)
 
@@ -154,9 +155,9 @@ def build_head():
 def build_ears():
     ears = []
     for side in (1, -1):
-        ear = k.sphere(f"ohr-{side}", (side * 0.25, 0.03, 1.4), 0.12, scale=(1.0, 0.42, 1.25), segments=20, rings=10)
+        ear = k.sphere(f"ohr-{side}", (side * 0.25, 0.03 + HEAD_BACK, 1.4), 0.12, scale=(1.0, 0.42, 1.25), segments=20, rings=10)
         ear.rotation_euler = (0, math.radians(-side * 22), 0)
-        inner = k.sphere(f"ohr-innen-{side}", (side * 0.25, -0.012, 1.39), 0.085, scale=(1.0, 0.25, 1.15), segments=16, rings=8)
+        inner = k.sphere(f"ohr-innen-{side}", (side * 0.25, -0.012 + HEAD_BACK, 1.39), 0.085, scale=(1.0, 0.25, 1.15), segments=16, rings=8)
         inner.rotation_euler = (0, math.radians(-side * 22), 0)
         k.paint(ear, lambda p, nrm: mix(FUR, MASK, smoothstep(0.05, 0.13, p.z)))
         k.paint(inner, lambda p, nrm: EAR_INNER)
@@ -169,11 +170,11 @@ def build_face():
     parts = []
     for side in (1, -1):
         x = side * 0.13
-        parts.append(k.sphere(f"lederhaut-{side}", (x, -0.3, 1.16), 0.085, scale=(1.0, 0.7, 1.12), segments=24, rings=12))
-        parts.append(k.sphere(f"iris-{side}", (x, -0.352, 1.157), 0.056, scale=(1.0, 0.55, 1.1), segments=20, rings=10))
-        parts.append(k.sphere(f"pupille-{side}", (x, -0.378, 1.156), 0.032, scale=(1.0, 0.5, 1.1), segments=16, rings=8))
-        parts.append(k.sphere(f"glanz-{side}", (x + 0.022, -0.395, 1.19), 0.013, segments=8, rings=6))
-    nose = k.sphere("nase", (0, -0.505, 1.065), 0.052, scale=(1.35, 0.9, 0.9), segments=20, rings=10)
+        parts.append(k.sphere(f"lederhaut-{side}", (x, -0.3 + HEAD_BACK, 1.16), 0.085, scale=(1.0, 0.7, 1.12), segments=24, rings=12))
+        parts.append(k.sphere(f"iris-{side}", (x, -0.352 + HEAD_BACK, 1.157), 0.056, scale=(1.0, 0.55, 1.1), segments=20, rings=10))
+        parts.append(k.sphere(f"pupille-{side}", (x, -0.378 + HEAD_BACK, 1.156), 0.032, scale=(1.0, 0.5, 1.1), segments=16, rings=8))
+        parts.append(k.sphere(f"glanz-{side}", (x + 0.022, -0.395 + HEAD_BACK, 1.19), 0.013, segments=8, rings=6))
+    nose = k.sphere("nase", (0, -0.505 + HEAD_BACK, 1.065), 0.052, scale=(1.35, 0.9, 0.9), segments=20, rings=10)
     colors = {"lederhaut": SCLERA, "iris": IRIS, "pupille": PUPIL, "glanz": SCLERA, "nase": NOSE}
     for part in parts + [nose]:
         tone = colors[part.name.split("-")[0]]
@@ -200,8 +201,8 @@ BONES = [
     k.Bone("arm-r", (-0.17, 0, 0.73), (-0.3, -0.07, 0.47), "spine"),
     k.Bone("bein-l", (0.12, 0, 0.32), (0.13, -0.02, 0.06), "huepfer"),
     k.Bone("bein-r", (-0.12, 0, 0.32), (-0.13, -0.02, 0.06), "huepfer"),
-    k.Bone("schwanz-1", (0, 0.18, 0.36), (0, 0.45, 0.55), "huepfer"),
-    k.Bone("schwanz-2", (0, 0.45, 0.55), (0, 0.47, 0.92), "schwanz-1"),
+    k.Bone("schwanz-1", (0, 0.16, 0.36), (0, 0.35, 0.58), "huepfer"),
+    k.Bone("schwanz-2", (0, 0.35, 0.58), (0, 0.34, 0.92), "schwanz-1"),
 ]
 ANIMATED = ["huepfer", "spine", "kopf", "arm-l", "arm-r", "bein-l", "bein-r", "schwanz-1", "schwanz-2"]
 

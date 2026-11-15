@@ -4,8 +4,21 @@
  * Halstuch, Bündchen) ist `currentColor`: Inline eingebettet übernimmt er die Slot-Farbe.
  * Auch ohne Farbe erkennbar: Jede Figur hat eine eigene Silhouette.
  */
-import { PALETTES, type CharacterId } from './characters.ts';
-import { INK } from './kit.ts';
+import type { CharacterId } from '../contract.ts';
+
+/** Dunkle Tinte für Umrisse (wie das HUD). */
+const INK = '#1b1530';
+
+/**
+ * Grundfarben der Porträts (aus den M3-Figuren). Die neuen Figuren (CHAOS-58, Blender) haben
+ * eigene Farben; neue Porträts im neuen Stil folgen als eigene Aufgabe.
+ */
+const PALETTES = {
+  robot: { blech: '#b9cad8', dunkel: '#3b3f58', messing: '#f0b73e' },
+  cactus: { kaktus: '#6cbf4b', topf: '#d9774a', stachel: '#fff4cf', bluete: '#ffd23f' },
+  raccoon: { fell: '#9b9bb0', dunkel: '#3a3446', hell: '#f3e7d3' },
+  sock: { socke: '#f6f0e4', streifen: '#ea5a4c', knopf: '#7a3f2c' },
+} as const;
 
 const STROKE = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
 

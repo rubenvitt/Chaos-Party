@@ -28,6 +28,9 @@ async function sandbox(): Promise<string> {
   });
   await mkdir(join(dir, 'packages/assets/src/generator'), { recursive: true });
   await writeFile(join(dir, 'packages/assets/src/generator/cli.ts'), '// Generator\n');
+  // Figuren entstehen seit CHAOS-58 in Blender.
+  await mkdir(join(dir, 'packages/assets/blender'), { recursive: true });
+  await writeFile(join(dir, 'packages/assets/blender/build-all.sh'), '# Generator\n');
   return dir;
 }
 

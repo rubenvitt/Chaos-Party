@@ -25,3 +25,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-010](ADR-010-messanzeige.md) | Messanzeige mit `?debug=1`: Rundlaufzeit, Bildrate, Eingabe→Frame als M1-Baseline | Angenommen | CHAOS-45 |
 | [ADR-011](ADR-011-brettspiel.md) | Brettspiel in M2: Regeln als reiner Reducer im Server, Protokoll v2, Host zeigt nur an | Angenommen | CHAOS-2 |
 | [ADR-012](ADR-012-minispiele.md) | Minispiele in M3: Logik im PC-Host, Server als Schiedsrichter, fester 1/60-Takt, Protokoll v3 | Angenommen | CHAOS-3 |
+| [ADR-013](ADR-013-figuren-blender.md) | Figuren aus Blender-Skripten (bpy) statt aus dem Babylon-Generator | Angenommen | CHAOS-58 |
