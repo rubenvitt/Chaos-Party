@@ -68,7 +68,7 @@ Umgesetzt in **einem** PR ([#6](https://github.com/rubenvitt/chaos-party/pull/6)
 
 ## M4 – Aufgaben
 
-Umgesetzt in **einem** PR (Branch `claude/affectionate-noether-ye4h0b`), orchestriert mit Subagenten in drei Phasen: (A) Verträge zuerst – Protokoll v4, game-core, Server, ADR-014; (B) parallel in eigenen Worktrees Host-UI, Controller-UI und Server-Robustheit; (C) parallel Performance- und Balance-Pass, danach Gesamt-E2E und Start-Ablauf. Integration, Gesamtprüfung und Doku durch den Koordinator.
+Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/16), Branch `claude/affectionate-noether-ye4h0b`), orchestriert mit Subagenten in drei Phasen: (A) Verträge zuerst – Protokoll v4, game-core, Server, ADR-014; (B) parallel in eigenen Worktrees Host-UI, Controller-UI und Server-Robustheit; (C) parallel Performance- und Balance-Pass, danach Gesamt-E2E und Start-Ablauf. Integration, Gesamtprüfung und Doku durch den Koordinator.
 
 | Aufgabe | Inhalt | Stand |
 |---|---|---|
@@ -174,7 +174,7 @@ Details: [`testing.md`](testing.md).
 
 ## Nächste Schritte
 
-1. M4-PR mergen (nach CI).
+1. M4-PR [#16](https://github.com/rubenvitt/chaos-party/pull/16) mergen (nach CI).
 2. **Ruben:** iPad-Nachtest CHAOS-47 (Checkliste Abschnitt 4), Performance PF0–PF10 (Abschnitt 11) und eine komplette Partie mit kleiner Gruppe (Abschnitt 12, [`m4-demo.md`](m4-demo.md)); dann Entscheidung an CHAOS-43.
 3. Grafik-Neuausrichtung CHAOS-56 läuft getrennt weiter (Porträts CHAOS-61, Lichtstimmung CHAOS-60, Natur-Look im Spiel).
 4. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage).
