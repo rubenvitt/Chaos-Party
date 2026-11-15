@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chaos Party – Figuren-Vitrine</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: linear-gradient(180deg, #8fd3ff 0%, #c9ecff 55%, #fff6dc 100%);
+        font-family: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        outline: none;
+      }
+      .names {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 4%;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        text-align: center;
+        pointer-events: none;
+      }
+      .names span {
+        justify-self: center;
+        padding: 0.3em 0.9em;
+        border-radius: 999px;
+        background: #fff;
+        border: 3px solid #1b1530;
+        color: #1b1530;
+        font-weight: 900;
+        font-size: clamp(14px, 2.2vw, 30px);
+      }
+      .names small {
+        display: block;
+        font-weight: 700;
+        font-size: 0.55em;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="vitrine"></canvas>
+    <div class="names" id="names"></div>
+    <script type="module" src="./preview.ts"></script>
+  </body>
+</html>

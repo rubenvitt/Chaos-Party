@@ -51,6 +51,15 @@ async function stepFrames(page: Page, n: number) {
   }, n);
 }
 
+/**
+ * Wartet, bis die GPU alle gestellten Frames gezeichnet hat (Pixel zurücklesen erzwingt das).
+ * Mit Software-Rendering auf einem ausgelasteten Rechner kann das länger dauern als die
+ * 15 s, die `toHaveScreenshot` für das erste Bild hat.
+ */
+async function settleGpu(page: Page) {
+  await page.evaluate(() => document.querySelector('canvas')?.toDataURL('image/png').length ?? 0);
+}
+
 /** Speist Demo-Nachricht `index` ein (Index 0 = Startstand). */
 async function feedDemo(page: Page, index: number) {
   const accepted = await page.evaluate((i) => {
@@ -169,6 +178,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await openBoard(page);
     // Feste Zahl Frames: Wackeln, Pokal und Kamera stehen in Simulationszeit fest.
     await stepFrames(page, 30);
+    await settleGpu(page);
     if (process.env.HOST_BRETT_BELEG) {
       // Ungemaskierter Beleg für den Abnahmebericht: HOST_BRETT_BELEG=1 pnpm test:e2e host-brett
       await page.screenshot({ path: 'docs/screenshots/m2-host-brett.png' });

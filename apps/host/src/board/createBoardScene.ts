@@ -1,7 +1,12 @@
 /**
  * Babylon.js-Szene der Brettphase (CHAOS-18/19): Brett prozedural aus der `BoardDefinition`,
  * Spielfiguren, Trophäe, Fallen, Wegweiser, Popups und eine Kamera, die sanft dem aktiven
- * Spieler folgt. Vorläufige Grafik aus Grundkörpern (M2), verspielt und vom Sofa aus lesbar.
+ * Spieler folgt. Brett aus Grundkörpern (M2), verspielt und vom Sofa aus lesbar.
+ *
+ * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (Slot n → Figur n,
+ * `defaultCharacterFor`) auf einem Spielstein-Sockel in Slot-Farbe, darüber das Slot-Symbol.
+ * Laufen spielt `run`, Trophäenkauf `cheer`, Münzverlust/Falle/Klau `hit`, Münzgewinn `jump`;
+ * im Stand drehen sich die Figuren zur Kamera, beim Hüpfen in Laufrichtung.
  *
  * Framework-unabhängig (kein React) wie die Arena (ADR-004): Die Szene liest je Frame den
  * Darstellungszustand aus der Regie (`BoardFrameSource`) und gibt nichts an die UI zurück.
@@ -18,7 +23,6 @@ import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTextur
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
-import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder.js';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder.js';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder.js';
@@ -27,7 +31,14 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import type { BoardSpace, SpaceKind } from '@chaos-party/game-core';
+import { defaultCharacterFor } from '@chaos-party/minigame-sdk';
+import type { CharacterAnimation } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS, type SlotNumber } from '@chaos-party/protocol';
+import {
+  loadCharacters,
+  type CharacterLibrary,
+  type HostCharacterHandle,
+} from '../characters/index.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { FramePawn, FramePopup } from './director.ts';
 import {
@@ -53,9 +64,26 @@ const INK = '#1b1530';
 const SPACE_TOP = 0.3;
 const SPACE_DIAMETER = 1.5;
 
-const PAWN = { radius: 0.5, height: 1.9 } as const;
+/** Sockel-Radius und Höhe über dem Kopf (Anker für Pfeil, Popups, Getrennt-Marker). */
+const PAWN = { radius: 0.5, height: 2.4 } as const;
 /** Die Figur steht auf ihrem Sockel. */
 const PAWN_LIFT = 0.12;
+/**
+ * Figuren auf dem Brett etwas größer als in Minispielen (Vertrag: 1,4–1,8): Die Kamera ist
+ * weit weg und hoch, die Figur muss vom Sofa aus erkennbar sein.
+ */
+const CHARACTER_SCALE = 1.3;
+/** Höhe des schwebenden Slot-Symbols über dem Sockel (über dem Kopf jeder Figur). */
+const SYMBOL_Y = 2.62;
+/** Blickrichtung im Stand: zur Kamera (die von −z aufs Brett schaut). */
+const FACE_CAMERA = Math.PI;
+/**
+ * Im Stand lehnt sich die Figur etwas zurück, zur hoch stehenden Kamera hin: Gesicht und
+ * Bauch (Abzeichen) bleiben sichtbar, statt nur den Scheitel zu zeigen.
+ */
+const STAND_TILT = -0.32;
+/** Halbwertszeit beim Drehen der Figur (ms). */
+const TURN_HALF_LIFE_MS = 90;
 
 /** Kamera relativ zum Blickpunkt: hoch und schräg von vorn (−z), Brett ganz im Bild. */
 const CAMERA_OFFSET = new Vector3(0, 28, -17.5);
@@ -111,11 +139,17 @@ const TREES: readonly { x: number; z: number; s: number }[] = [
 interface Pawn {
   readonly slot: SlotNumber;
   readonly root: TransformNode;
-  readonly body: Mesh;
-  readonly material: StandardMaterial;
+  /** Figur aus der GLB-Bibliothek; ihr `root` hängt am Drehknoten `facing`. */
+  readonly character: HostCharacterHandle;
+  readonly facing: TransformNode;
+  readonly symbol: Mesh;
   readonly marker: TransformNode;
+  /** Sockel, Ring und Symbol (ohne Figur). */
   readonly meshes: Mesh[];
+  readonly materials: StandardMaterial[];
   connected: boolean | null;
+  /** Aktuelle Blickrichtung (Drehung um y). */
+  yaw: number;
   /** Letzte Weltposition (für Kamera und Testhaken). */
   readonly position: Vector3;
 }
@@ -174,7 +208,10 @@ export function createBoardScene(
   const trophies = new Map<string, TransformNode>();
   const traps = new Map<string, TransformNode>();
   const popups = new Map<number, Label>();
+  /** Popups, auf die eine Figur schon reagiert hat (Animation einmal je Popup). */
+  const reacted = new Set<number>();
   const trees: TransformNode[] = [];
+  let characters: CharacterLibrary | null = null;
   let activeRing: Mesh | undefined;
   let activeArrow: Mesh | undefined;
 
@@ -193,6 +230,14 @@ export function createBoardScene(
     buildSpaces();
     buildSignposts();
     buildActiveMarker();
+    // Figuren vorladen (GLB, einmal je Szene); im Test laufen Animationen in festen Schritten.
+    scene.useConstantAnimationDeltaTime = testMode;
+    const library = await loadCharacters(scene);
+    if (isDisposed()) {
+      library.dispose();
+      throw new Error('Brett-Szene wurde beim Laden der Figuren entsorgt');
+    }
+    characters = library;
     built = true;
     update(0);
     await scene.whenReadyAsync(true);
@@ -828,21 +873,13 @@ export function createBoardScene(
     }
   }
 
-  function createPawn(slot: SlotNumber): Pawn {
-    const color = PLAYER_SLOTS[slot].color;
+  function createPawn(slot: SlotNumber, library: CharacterLibrary): Pawn {
+    const style = PLAYER_SLOTS[slot];
     const root = new TransformNode(`figur-${slot}`, scene);
-    const mat = ownMaterial(`figur-${slot}-mat`, color, 0.2);
-    const body = CreateCapsule(
-      `figur-${slot}-koerper`,
-      { radius: PAWN.radius, height: PAWN.height, tessellation: 20, capSubdivisions: 6 },
-      scene,
-    );
-    body.parent = root;
-    body.position.y = PAWN_LIFT + PAWN.height / 2;
-    body.material = mat;
     const white = material('#ffffff', 0.35);
     const black = material(INK, 0);
-    // Spielstein-Sockel: weiß mit dunklem Rand, hebt die Figur von jeder Feldfarbe ab.
+    // Spielstein-Sockel in Slot-Farbe mit dunklem Rand und weißem Ring: von oben die
+    // deutlichste Kennung, hebt die Figur von jeder Feldfarbe ab.
     const baseRim = CreateCylinder(
       'sockel-rand',
       { diameter: PAWN.radius * 2 + 0.26, height: 0.08, tessellation: 24 },
@@ -856,39 +893,47 @@ export function createBoardScene(
       { diameter: PAWN.radius * 2 + 0.16, height: 0.12, tessellation: 24 },
       scene,
     );
+    const slotMat = ownMaterial(`figur-${slot}-mat`, style.color, 0.2);
     base.parent = root;
     base.position.y = 0.08;
-    base.material = white;
-    const meshes: Mesh[] = [body, baseRim, base];
-    for (const side of [-1, 1]) {
-      const eye = CreateSphere('auge', { diameter: 0.32, segments: 10 }, scene);
-      eye.parent = body;
-      eye.position.set(side * 0.17, 0.3, -PAWN.radius + 0.06);
-      eye.material = white;
-      const pupil = CreateSphere('pupille', { diameter: 0.16, segments: 8 }, scene);
-      pupil.parent = eye;
-      pupil.position.set(side * -0.01, 0, -0.12);
-      pupil.material = black;
-      meshes.push(eye, pupil);
-    }
-    const stalk = CreateCylinder(
-      'fuehler',
-      { diameter: 0.05, height: 0.28, tessellation: 6 },
+    base.material = slotMat;
+    const ring = CreateTorus(
+      'sockel-ring',
+      { diameter: PAWN.radius * 2 + 0.04, thickness: 0.07, tessellation: 32 },
       scene,
     );
-    stalk.parent = body;
-    stalk.position.y = PAWN.height / 2 + 0.1;
-    stalk.material = black;
+    ring.parent = root;
+    ring.position.y = 0.145;
+    ring.material = white;
+
+    // Figur auf dem Sockel, an einem Drehknoten (Blickrichtung).
+    const facing = new TransformNode(`figur-${slot}-blick`, scene);
+    facing.parent = root;
+    facing.position.y = PAWN_LIFT;
+    facing.rotation.set(STAND_TILT, FACE_CAMERA, 0);
+    facing.scaling.setAll(CHARACTER_SCALE);
+    const character = library.create(scene, {
+      slot,
+      name: style.label,
+      color: style.color,
+      symbol: style.symbol,
+      character: defaultCharacterFor(slot),
+    });
+    character.root.parent = facing;
+
+    // Schwebendes Slot-Symbol über dem Kopf (Farbe + Form, von weit oben lesbar).
     const symbol = symbolMesh(slot, `figur-${slot}-symbol`);
-    symbol.parent = body;
-    symbol.position.y = PAWN.height / 2 + 0.36;
-    symbol.scaling.setAll(1.45);
-    symbol.material = mat;
-    meshes.push(stalk, symbol);
+    symbol.parent = root;
+    symbol.position.y = SYMBOL_Y;
+    symbol.scaling.setAll(1.9);
+    symbol.material = slotMat;
+
+    const meshes: Mesh[] = [baseRim, base, ring, symbol];
     for (const m of meshes) {
       m.isPickable = false;
       shadows.addShadowCaster(m, false);
     }
+    shadows.addShadowCaster(character.shadowCaster, false);
 
     // Getrennt-Marker wie in der Arena (CHAOS-12): „!“ in Warnorange.
     const marker = new TransformNode(`figur-${slot}-getrennt`, scene);
@@ -912,11 +957,14 @@ export function createBoardScene(
     return {
       slot,
       root,
-      body,
-      material: mat,
+      character,
+      facing,
+      symbol,
       marker,
       meshes,
+      materials: [slotMat],
       connected: null,
+      yaw: FACE_CAMERA,
       position: new Vector3(),
     };
   }
@@ -925,18 +973,34 @@ export function createBoardScene(
     if (pawn.connected === connected) return;
     pawn.connected = connected;
     const alpha = connected ? 1 : 0.35;
-    pawn.material.alpha = alpha;
-    for (const m of pawn.meshes) if (m !== pawn.body) m.visibility = alpha;
+    pawn.character.setOpacity(alpha);
+    for (const m of pawn.meshes) m.visibility = alpha;
     pawn.marker.setEnabled(!connected);
   }
 
   function disposePawn(pawn: Pawn): void {
-    for (const m of pawn.meshes) shadows.removeShadowCaster(m, false);
+    for (const m of [...pawn.meshes, pawn.character.shadowCaster]) {
+      shadows.removeShadowCaster(m, false);
+    }
+    pawn.character.dispose();
     pawn.root.dispose(false, false);
-    pawn.material.dispose();
+    for (const mat of pawn.materials) mat.dispose();
   }
 
-  function syncPawns(framePawns: readonly FramePawn[]): void {
+  /** Dreht die Figur weich (kürzester Weg) in Richtung `target`. */
+  function turn(pawn: Pawn, target: number, tilt: number, dtMs: number): void {
+    let delta = (target - pawn.yaw) % (2 * Math.PI);
+    if (delta > Math.PI) delta -= 2 * Math.PI;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    const factor = dtMs <= 0 ? 0 : 1 - Math.pow(0.5, dtMs / TURN_HALF_LIFE_MS);
+    pawn.yaw += delta * factor;
+    pawn.facing.rotation.y = pawn.yaw;
+    pawn.facing.rotation.x += (tilt - pawn.facing.rotation.x) * factor;
+  }
+
+  function syncPawns(framePawns: readonly FramePawn[], dtMs: number): void {
+    const library = characters;
+    if (!library) return;
     const wanted = new Set(framePawns.map((p) => p.slot));
     for (const [slot, pawn] of pawns) {
       if (!wanted.has(slot)) {
@@ -949,7 +1013,7 @@ export function createBoardScene(
     for (const fp of framePawns) {
       let pawn = pawns.get(fp.slot);
       if (!pawn) {
-        pawn = createPawn(fp.slot);
+        pawn = createPawn(fp.slot, library);
         pawns.set(fp.slot, pawn);
       }
       applyConnected(pawn, fp.connected);
@@ -957,25 +1021,45 @@ export function createBoardScene(
       let y: number;
       let z: number;
       if (fp.hop) {
-        const p = hopPoint(spacePos(fp.hop.from), spacePos(fp.hop.to), fp.hop.t);
+        const from = spacePos(fp.hop.from);
+        const to = spacePos(fp.hop.to);
+        const p = hopPoint(from, to, fp.hop.t);
         x = p.x;
         y = SPACE_TOP + p.y;
         z = p.z;
+        // In Laufrichtung schauen (+z der Figur = Blick; Drehung um y: atan2(dx, dz)).
+        const heading =
+          to.x !== from.x || to.z !== from.z ? Math.atan2(to.x - from.x, to.z - from.z) : pawn.yaw;
+        turn(pawn, heading, 0, dtMs);
+        pawn.character.play('run'); // Schleife: läuft weiter, startet nicht neu
       } else {
         const base = spacePos(fp.spaceId);
         const offset = offsets.get(fp.slot) ?? { x: 0, z: 0 };
         x = base.x + offset.x;
         y = SPACE_TOP;
         z = base.z + offset.z;
+        turn(pawn, FACE_CAMERA, STAND_TILT, dtMs);
+        if (pawn.character.animation === 'run') pawn.character.play('idle');
       }
       pawn.root.position.set(x, y, z);
       pawn.position.set(x, y, z);
-      // Leichtes Wippen im Stand, Strecken im Sprung (Simulationszeit, deterministisch).
-      const squash = fp.hop
-        ? 1 + 0.12 * Math.sin(Math.PI * fp.hop.t)
-        : 1 + 0.03 * Math.sin(simMs / 220 + fp.slot);
-      pawn.body.scaling.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
-      pawn.body.position.y = PAWN_LIFT + (PAWN.height / 2) * squash;
+      // Symbol schwebt leicht (Simulationszeit, deterministisch).
+      pawn.symbol.position.y = SYMBOL_Y + 0.06 * Math.sin(simMs / 300 + fp.slot);
+    }
+  }
+
+  /** Reaktion der Figur auf ein neues Popup über ihr (Trophäe, Münzen, Falle, Klau). */
+  function reactionFor(popup: FramePopup): CharacterAnimation | null {
+    switch (popup.kind) {
+      case 'trophy':
+        return popup.tone === 'gold' ? 'cheer' : null;
+      case 'trap':
+      case 'steal':
+        return 'hit';
+      case 'coins':
+        return popup.tone === 'bad' ? 'hit' : popup.tone === 'good' ? 'jump' : null;
+      default:
+        return null;
     }
   }
 
@@ -1066,6 +1150,15 @@ export function createBoardScene(
         popups.delete(id);
       }
     }
+    for (const id of reacted) if (!wanted.has(id)) reacted.delete(id);
+    for (const popup of list) {
+      if (popup.slot === null || reacted.has(popup.id)) continue;
+      reacted.add(popup.id);
+      const pawn = pawns.get(popup.slot);
+      const animation = reactionFor(popup);
+      // Während des Hüpfens hat `run` Vorrang; danach reagiert die Figur auf das nächste Popup.
+      if (pawn && animation && pawn.character.animation !== 'run') pawn.character.play(animation);
+    }
     for (const popup of list) {
       let label = popups.get(popup.id);
       if (!label) {
@@ -1132,7 +1225,7 @@ export function createBoardScene(
     source.advance(dtMs);
     const frame = source.getFrame();
     const view = frame.view;
-    syncPawns(frame.pawns);
+    syncPawns(frame.pawns, dtMs);
     syncTrophies(view?.trophySpaces ?? []);
     syncTraps(view?.traps ?? []);
     syncActive(view?.activeSlot ?? null);
@@ -1182,6 +1275,10 @@ export function createBoardScene(
       disposed = true;
       window.removeEventListener('resize', onResize);
       engine.stopRenderLoop();
+      for (const pawn of pawns.values()) pawn.character.dispose();
+      pawns.clear();
+      characters?.dispose();
+      characters = null;
       scene.dispose();
       engine.dispose();
     },
