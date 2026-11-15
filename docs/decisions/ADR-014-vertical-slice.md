@@ -88,9 +88,33 @@ Unverändert ADR-009: `reconnect` schickt `welcome` + aktuellen Kontext je Slot.
 **Negativ / Risiken**
 - `reaction-opened.deadline` im Ereignis ist absolut und wird nach einer Pause nicht nachgeführt; Anzeigen sollen `prompt.remainingMs` verwenden.
 - Der Host muss `view.paused` sofort umsetzen (nicht erst nach der Ereignis-Regie) und die Minispiel-Laufzeit selbst pausieren; sonst laufen Host-Minispiel und Server-Spielzeit auseinander.
-- Ein Host-Absturz pausiert die Partie nicht automatisch (bewusst; ggf. später).
+- ~~Ein Host-Absturz pausiert die Partie nicht automatisch (bewusst; ggf. später).~~ Überholt: Auto-Pause bei Host-Verlust, siehe Nachtrag 1.
 - Fester `SEED` gilt für jede Partie der Sitzung, auch nach der Revanche.
 
 ## Überprüfung
 
 Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, dass Spieler die Gleichstandsregel nicht verstehen, dass ein automatisches Pausieren bei Host-Trennung oder für getrennte Spieler gewünscht ist, oder wenn der Balance-Pass andere Rundenvorschläge festlegt.
+
+## Nachtrag 1 (2026-11-15, CHAOS-38): Auto-Pause bei Host-Verlust
+
+**Kontext.** Bisher lief die Partie weiter, wenn der Host-Tab am PC die Verbindung verlor (Neuladen, Absturz, eingefrorener Hintergrund-Tab → Herzschlag-Timeout 30 s, ADR-009). Ohne Host sieht niemand das Brett, Minispiele laufen nicht (der Host rechnet sie), ein Ergebnis kann nicht kommen: Nach Spielzeit + Schonfrist wurde das Minispiel abgebrochen, offene Prompts liefen ab, und Ereignisse ohne Host gingen verloren (der neue Host bekam nur einen Schnappschuss mit Lücke in `eventSeq`).
+
+**Entscheidung.**
+- Trennt sich der Host, während das Brettspiel läuft (Phase `board`, nicht im Endstand, nicht schon pausiert), pausiert die **Session** die Partie selbst (game-core `pause`) und merkt sich den Auslöser (`pausedBy: 'host-lost'` im Server-Schnappschuss; das Protokoll bleibt unverändert, Controller und Host sehen wie bei jeder Pause `paused`). Gilt für jeden Abriss: `close`, Missbrauch (4008), Herzschlag-Timeout.
+- Pausiert wird zum **zuletzt verarbeiteten Zeitpunkt** (`state.now`), nicht zum Abrisszeitpunkt: Sonst erzeugt der Pause-Schritt Übergänge, die seit dem letzten Server-Takt fällig wurden, und ihre Ereignisse gingen ohne Host verloren (Fehler im ersten Entwurf, Test „Host-Abriss zwischen zwei Takten“).
+- **Kommt ein Host zurück (`host-hello`), setzt die Session eine Auto-Pause sofort fort**, bevor er den Stand bekommt: `lobby` + `board` mit `paused: false`, unveränderten Restzeiten und Minispiel-Stand (`elapsedMs` vom Moment des Abrisses). Eine Pause, die der Host selbst ausgelöst hat (`pause`), bleibt dagegen über einen Reload bestehen, bis er `resume` schickt.
+- In der Auto-Pause gilt alles aus §3: keine Frist läuft ab (Schonfrist getrennter Spieler zählt ab Pausenbeginn), Controller-Eingaben werden mit `paused` abgewiesen, ein `minigame-result` wird angenommen; ein laufendes Minispiel wird **nicht** abgebrochen, auch wenn der Host länger als Spielzeit + Schonfrist weg ist.
+
+**Begründung für automatisches Fortsetzen** (statt „pausiert bis `resume`“):
+- Die Auto-Pause hat nur einen Grund – niemand kann zusehen. Ist wieder ein Host da, entfällt er; ein zusätzlicher Klick am PC hätte keinen Nutzen, würde aber bei jedem versehentlichen Neuladen nötig.
+- Das bisherige Reload-Verhalten (M3: Bühne startet mit der Restzeit neu, Ergebnis nach Verbindungsabbruch erneut senden; `m3-minispiel-durchstich.spec.ts`) bleibt ohne Änderung an Host und E2E erhalten – nur verliert jetzt niemand Zeit.
+- Eine bewusste Pause des Hosts bleibt bewusst: Sie wird nie automatisch aufgehoben.
+
+**Betrachtete Alternative:** Pausiert lassen, bis der Host `resume` schickt. Vorteil: Zeit zum Orientieren, Host lädt Szene/Assets in Ruhe. Nachteil: Jeder Reload/Tab-Wechsel am PC braucht einen Klick; der Host müsste unterscheiden, ob er selbst pausiert hat (neues Protokollfeld). Verworfen, kann aber ohne Protokolländerung umgestellt werden (`resumeAfterHostLoss` in `apps/server/src/session.ts`).
+
+**Konsequenzen.**
+- Nach dem Wiederverbinden läuft die Partie sofort weiter; lädt die Host-Seite danach noch Assets, läuft die Zeit dabei (wie in M3). Falls Playtests zeigen, dass das stört: Host schickt `pause`, bis die Bühne steht.
+- Controller sehen während des Abrisses `board.paused` (Joystick/Knöpfe verschwinden kurz); nach der Rückkehr kommt der vorherige Kontext wieder (gleiche Prompt-ID).
+- Tests: `apps/server/src/hostLoss.integration.test.ts`.
+
+**iPad-Mehrfachslots (Prüfung CHAOS-38, keine Änderung).** Ein geteiltes iPad ist **eine** Verbindung mit `join { seats: n }`: n Slots, **ein** Token, **ein** `seq`-Wächter über alle Zonen, Rate-Budget 60/s je Slot (ADR-005/008). Jede Zone wählt ihre Figur und meldet sich bereit über das `slot`-Feld; `character-taken` gilt auch zwischen Zonen desselben iPads (Fehler mit `seq`, der betroffene Slot bekommt seinen Kontext neu). `reconnect` holt alle Zonen zurück. Für eine komplette Partie fehlt nichts (Test `apps/server/src/mixedSetup.integration.test.ts`); einzelne Zonen können eine Partie nicht verlassen (kein Anwendungsfall in M4).

@@ -334,6 +334,8 @@ describe('Minispiele über die Session (M3, CHAOS-34)', () => {
     const snapshot = h.boards.at(-1);
     expect(snapshot?.events).toEqual([]);
     expect(snapshot?.view.gamePhase).toBe('minigame-play');
+    // Host-Verlust pausiert automatisch, der neue Host setzt fort (CHAOS-38).
+    expect(snapshot?.view.paused).toBe(false);
     expect(snapshot?.view.minigame?.elapsedMs).toBeGreaterThanOrEqual(2_000);
     const minigame = snapshot?.view.minigame;
     if (!minigame) throw new Error('kein Minispiel');

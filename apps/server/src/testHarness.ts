@@ -71,6 +71,13 @@ export class Harness {
   readonly acks: MinigameResultAckMessage[] = [];
   /** Vom Server an den Host weitergeleitete Controller-Eingaben (Minispiele, M3). */
   readonly hostInputs: InputMessage[] = [];
+  /** Vom Server geschlossene Verbindungen (Close-Code, Grund). */
+  readonly closes: { to: ConnectionId; code: number; reason: string }[] = [];
+  /**
+   * Sendet der synthetische Host Herzschläge? `false` simuliert einen eingefrorenen PC-Tab
+   * (nach `hostSilenceMs` trennt ihn der Server, CHAOS-38).
+   */
+  hostHeartbeats = true;
   /** Prompts, auf die ein Bot schon geantwortet hat (Slot:PromptId). */
   private readonly answered = new Set<string>();
   /** Reaktionen, die absichtlich erst nach der Frist gesendet werden (Politik `late`). */
@@ -98,6 +105,7 @@ export class Harness {
   private handle(out: Outgoing[]): void {
     for (const action of out) {
       if (action.kind === 'close') {
+        this.closes.push({ to: action.to, code: action.code, reason: action.reason });
         const controller = this.controllers.get(action.to);
         if (controller) controller.connected = false;
         continue;
@@ -143,7 +151,17 @@ export class Harness {
   }
 
   send(id: ConnectionId, message: ClientMessage): void {
-    this.handle(this.session.message(id, JSON.stringify(message)));
+    this.sendRaw(id, JSON.stringify(message));
+  }
+
+  /** Beliebiger Rohtext (auch kaputt oder übergroß) über eine Verbindung. */
+  sendRaw(id: ConnectionId, raw: string): void {
+    this.handle(this.session.message(id, raw));
+  }
+
+  /** Neue Verbindung ohne Handshake (z. B. für einen späten `join`). */
+  connect(id: ConnectionId): void {
+    this.handle(this.session.connect(id));
   }
 
   host(): void {
@@ -153,8 +171,13 @@ export class Harness {
 
   /** Seiten-Reload am PC: Host-Verbindung weg, neuer Host meldet sich. */
   reloadHost(): void {
-    this.handle(this.session.disconnect(HOST));
+    this.dropHost();
     this.host();
+  }
+
+  /** Host-Verbindung bricht ab (Tab zu, Netz weg); kein neuer Host. */
+  dropHost(): void {
+    this.handle(this.session.disconnect(HOST));
   }
 
   join(id: ConnectionId, seats = 1): void {
@@ -178,6 +201,9 @@ export class Harness {
   }
 
   start(rounds?: number): void {
+    // Neue Partie (auch nach `rematch`): Prompt-IDs beginnen wieder bei 1.
+    this.answered.clear();
+    this.lateReactions.length = 0;
     this.send(
       HOST,
       createMessage('start', rounds === undefined ? { mode: 'board' } : { mode: 'board', rounds }),
@@ -256,15 +282,19 @@ export class Harness {
   }
 
   tick(): void {
+    const before = this.clock;
     this.clock += TICK_MS;
-    // Herzschlag alle 5 s wie die echten Clients (sonst trennt der Server nach 15 s/30 s).
-    if (this.clock % HEARTBEAT_MS === 0) {
+    // Herzschlag alle 5 s wie die echten Clients (sonst trennt der Server nach 15 s/30 s); auch
+    // wenn ein Test die Uhr zwischen zwei Takten verstellt hat.
+    if (Math.floor(before / HEARTBEAT_MS) !== Math.floor(this.clock / HEARTBEAT_MS)) {
       for (const controller of this.controllers.values()) {
         if (controller.connected) {
           this.send(controller.id, createMessage('heartbeat', { t: this.clock }));
         }
       }
-      if (this.hostConnected) this.send(HOST, createMessage('heartbeat', { t: this.clock }));
+      if (this.hostConnected && this.hostHeartbeats) {
+        this.send(HOST, createMessage('heartbeat', { t: this.clock }));
+      }
     }
     this.handle(this.session.tick());
   }
@@ -279,6 +309,20 @@ export class Harness {
 
   get gamePhase(): string | undefined {
     return this.boards.at(-1)?.view.gamePhase;
+  }
+
+  /** Offener Prompt einer Art bei einem verbundenen Controller (Slot + Prompt) oder `null`. */
+  openPrompt(
+    kind?: NonNullable<ContextMessage['prompt']>['kind'],
+  ): { slot: SlotNumber; prompt: NonNullable<ContextMessage['prompt']> } | null {
+    for (const [slot, { context }] of this.contexts) {
+      const prompt = context.prompt;
+      if (!prompt || !context.actions.includes('choose')) continue;
+      if (kind !== undefined && prompt.kind !== kind) continue;
+      if (!this.controllerOf(slot).connected) continue;
+      return { slot, prompt };
+    }
+    return null;
   }
 
   /** Bots beantworten offene Prompts nach ihrer Bedenkzeit. */
@@ -376,11 +420,15 @@ export function setupGame(
   return h;
 }
 
-/** Wirft, wenn die Ereignisnummern der `board`-Nachrichten Lücken oder Doppelte haben. */
+/**
+ * Wirft, wenn die Ereignisnummern der `board`-Nachrichten Lücken oder Doppelte haben. Eine neue
+ * Partie (nach `rematch`) beginnt wieder bei 0 mit `game-started`.
+ */
 export function assertContiguousEvents(h: Harness): void {
   let expected = 0;
   for (const board of h.boards) {
     if (board.events.length === 0) continue;
+    if (board.eventSeq === 0 && board.events[0]?.type === 'game-started') expected = 0;
     if (board.eventSeq !== expected) {
       throw new Error(`eventSeq ${String(board.eventSeq)}, erwartet ${String(expected)}`);
     }

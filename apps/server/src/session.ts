@@ -16,7 +16,9 @@
  * Host sowie die Freigabe reservierter Slots nach der Lobby-Schonfrist.
  *
  * M4 (ADR-014): Figurenwahl und Rundenzahl in der Lobby, Pause/Fortsetzen/Beenden und
- * Revanche (zurück in die Lobby) sowie die Bestätigung von Minispiel-Ergebnissen.
+ * Revanche (zurück in die Lobby) sowie die Bestätigung von Minispiel-Ergebnissen. Verliert der
+ * Host im laufenden Brettspiel die Verbindung, pausiert die Session die Partie selbst
+ * (Auto-Pause, CHAOS-38) und setzt sie fort, sobald wieder ein Host da ist.
  */
 import {
   CHARACTER_IDS,
@@ -205,7 +207,15 @@ export interface SessionSnapshot {
   game: { seed: number; state: BoardGame['state'] } | null;
   /** Rundenzahl der nächsten Partie (Lobby-Einstellung, v4). */
   rounds: number;
+  /**
+   * Wer die laufende Pause ausgelöst hat: `host` (Befehl `pause`), `host-lost` (Auto-Pause,
+   * weil der Host die Verbindung verlor, CHAOS-38) oder `null` (keine Pause).
+   */
+  pausedBy: PauseCause | null;
 }
+
+/** Auslöser einer Pause (nur Server-intern und Diagnose; das Protokoll kennt nur `paused`). */
+export type PauseCause = 'host' | 'host-lost';
 
 type InputMessage = Exclude<
   SlotIntentMessage,
@@ -260,6 +270,8 @@ export class Session {
   private rounds: number;
   /** Zuletzt gesendeter Kontext je Slot (nur bei Änderung neu senden). */
   private readonly contextKeys = new Map<SlotNumber, string>();
+  /** Auslöser der laufenden Pause (`null` = keine). */
+  private pauseCause: PauseCause | null = null;
 
   /** Gesammelte Aktionen des laufenden Ereignisses. */
   private out: Outgoing[] = [];
@@ -415,6 +427,7 @@ export class Session {
       droppedInputs: this.droppedInputs,
       game: this.game ? { seed: this.game.seed, state: this.game.state } : null,
       rounds: this.rounds,
+      pausedBy: this.game?.paused ? this.pauseCause : null,
     };
   }
 
@@ -577,7 +590,10 @@ export class Session {
       return;
     }
     const result = game.apply({ type: type === 'end-game' ? 'end' : type, at: this.now() });
-    if (result.ok) return;
+    if (result.ok) {
+      this.pauseCause = game.paused ? 'host' : null;
+      return;
+    }
     this.reject(
       host,
       result.error.code === 'paused' ? 'paused' : 'out-of-phase',
@@ -597,6 +613,7 @@ export class Session {
     }
     const now = this.now();
     this.game = null;
+    this.pauseCause = null;
     this.phaseValue = 'lobby';
     this.contextKeys.clear();
     for (const player of this.sortedPlayers()) {
@@ -620,6 +637,7 @@ export class Session {
     conn.role = 'host';
     this.hostId = conn.id;
     this.lobbyDirty = true;
+    this.resumeAfterHostLoss();
     this.sendBoardSnapshot(conn.id);
   }
 
@@ -989,6 +1007,7 @@ export class Session {
     this.connections.delete(id);
     if (conn.role === 'host' && this.hostId === id) {
       this.hostId = null;
+      this.pauseForHostLoss();
     }
     if (conn.role === 'controller') {
       const now = this.now();
@@ -1004,6 +1023,41 @@ export class Session {
       }
       this.lobbyDirty = true;
     }
+  }
+
+  /**
+   * Auto-Pause (CHAOS-38, ADR-014 Nachtrag): Ohne Host sieht niemand das Brett, Minispiele
+   * laufen nicht und Ergebnisse kämen nie an. Darum pausiert die Session eine laufende Partie,
+   * sobald der Host weg ist (Neuladen, Absturz, Herzschlag-Timeout). game-core verschiebt beim
+   * Fortsetzen alle Fristen; ein laufendes Minispiel wird so nicht abgebrochen. Sobald wieder
+   * ein Host da ist, geht es weiter (`resumeAfterHostLoss`); eine Pause, die der Host selbst
+   * ausgelöst hat, bleibt dagegen bis zu seinem `resume` bestehen.
+   *
+   * Pausiert wird zum zuletzt verarbeiteten Zeitpunkt (`state.now`), nicht zu „jetzt“: Sonst
+   * erzeugte der Pause-Schritt Übergänge, die seit dem letzten Takt fällig wurden, und deren
+   * Ereignisse gingen ohne Host verloren (Lücke in `eventSeq`). So entstehen sie erst nach
+   * `resume`, wenn ein Host zusieht.
+   */
+  private pauseForHostLoss(): void {
+    const game = this.game;
+    if (this.phaseValue !== 'board' || !game || game.paused || game.finished) return;
+    const result = game.apply({ type: 'pause', at: game.state.now });
+    if (result.ok) this.pauseCause = 'host-lost';
+  }
+
+  /**
+   * Neuer Host nach einer Auto-Pause: fortsetzen, bevor er den Stand bekommt (ADR-014 Nachtrag).
+   * Er sieht also `paused: false` mit den Restzeiten vom Moment des Abrisses; die Zeit ohne
+   * Host zählt für niemanden. Wie nach einem Reload in M3 startet er ein laufendes Minispiel mit
+   * der Restzeit neu.
+   */
+  private resumeAfterHostLoss(): void {
+    const game = this.game;
+    if (!game?.paused || this.pauseCause !== 'host-lost') return;
+    const result = game.apply({ type: 'resume', at: this.now() });
+    if (!result.ok)
+      throw new Error(`Fortsetzen nach Host-Verlust abgelehnt: ${result.error.message}`);
+    this.pauseCause = null;
   }
 
   private touch(conn: Connection, now: number): void {
