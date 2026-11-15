@@ -101,3 +101,10 @@ Doppeltipp-/Pinch-Zoom, Lupe und Callout bei langem Drücken, Gummiband und Pull
 ## Überprüfung
 
 Neu bewerten, wenn der Gerätetest Zoom, Scrollen, Zurück-Geste oder Touch-Verluste zeigt, wenn 30 Hz auf dem Host spürbar ruckeln oder den Server überlasten, oder wenn CHAOS-13 für das iPad auf Touch Events wechselt.
+
+## Nachtrag M2 (2026-11-15, CHAOS-22, ADR-011)
+
+- **Layout `board`:** Kopfzeile mit eigenem Stand; ohne eigenen Prompt eine Warte-Karte („Blau ist dran – schau auf den großen Bildschirm!“), im Minispiel-Platzhalter „Minispiel läuft …“, am Ende der eigene Platz. Mit Prompt generische Knöpfe je Option. Bekannte Arten (`roll`, `path`, `trophy`, `target`, `reaction`) bekommen Symbole und Farben; unbekannte Arten werden als einfache Knopfliste dargestellt, damit der Server neue Optionen ohne Controller-Änderung anbieten kann.
+- **Countdown:** Der Reducer speichert `deadlineAt = Empfangszeit + remainingMs` auf `performance.now()`. Der Balken läuft per `requestAnimationFrame` direkt im DOM. Er ist nur Anzeige; die Frist entscheidet der Server.
+- **Sperre:** Nach `choose` steht die Wahl in `state.choices[slot]`; die Session sendet für denselben Prompt kein zweites `choose`. Gelöst wird die Sperre durch einen Kontext mit anderem/keinem Prompt, durch `invalid-choice` (freundlicher Hinweis) oder durch Verbindungsverlust/neues `welcome`. Der Server schickt nach jeder abgewiesenen Wahl den aktuellen Kontext erneut.
+- **iPhone:** Normale Wahlknöpfe lösen bei `click` aus, Reaktionsknöpfe schon bei `pointerdown`. Symbole sind Inline-SVG (keine Emoji, gleiche Optik auf allen Geräten).

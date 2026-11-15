@@ -95,3 +95,7 @@ Skizzen und Grenzen für 3–4 Zonen: [`docs/ipad-zonen.md`](../ipad-zonen.md).
 ## Überprüfung
 
 Neu bewerten nach dem Gerätetest (CHAOS-15): wenn iPadOS weniger als 8 gleichzeitige Finger zuverlässig meldet, wenn Systemgesten trotz Geführtem Zugriff stören, wenn `touchcancel` beim Drehen ausbleibt oder Personen die Gamepad-Anordnung der gedrehten Zonen nicht verstehen.
+
+## Nachtrag M2 (2026-11-15, CHAOS-22)
+
+Wahlknöpfe der Brettphase sind Bedienelemente im Zonen-Tracker (`choice:<promptId>:<option>`). Wie bei „Bereit!“ wird beim **Abheben** auf dem eigenen Knopf gewählt; Reaktionsknöpfe (`instant`) wählen beim Aufsetzen, gesperrte Knöpfe (`inert`) reagieren nicht, und Finger, die beim Wechsel des Prompts auf einem Knopf liegen, bleiben bis zum Abheben stillgelegt. Die Regel „ein Finger gehört der Zone, in der er aufsetzt“ gilt unverändert; Details in [`docs/ipad-zonen.md`](../ipad-zonen.md#brettphase-m2-chaos-22).
