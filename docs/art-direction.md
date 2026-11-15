@@ -1,12 +1,13 @@
 # Art Direction – Chaos Party
 
 **Stand:** M3 (CHAOS-27, CHAOS-28), Figuren neu in CHAOS-58 (Blender, ADR-013, Look
-„Stilisierte Natur“ aus EXP-009). Gilt für Figuren, Brett, Minispiele, Effekte und UI. Die
-Abschnitte zu Licht, Farbe und Brett beschreiben noch den M3-Stand, bis der Natur-Look
-umgesetzt ist (CHAOS-56). Lichtstimmungen des Natur-Looks stehen als Daten in
-`apps/host/src/lighting/moods.ts` (CHAOS-60, EXP-010): Nachtstimmungen lassen Feld-Einlagen und
-Slot-Ringe von innen leuchten, damit Slot-Farbe und Symbol lesbar bleiben.
-Belege: `docs/screenshots/m3-figuren-*.png`. Quelle der Wahrheit für Produkt und Stil bleibt `VISION.md`.
+„Stilisierte Natur“ aus EXP-009), Natur-Look im Spiel seit CHAOS-62 (ADR-014, Abschnitt
+[Natur-Look im Spiel](#natur-look-im-spiel-chaos-62)). Gilt für Figuren, Brett, Minispiele,
+Effekte und UI. Lichtstimmungen stehen als Daten in `apps/host/src/lighting/moods.ts`
+(CHAOS-60, EXP-010): Nachtstimmungen lassen Feld-Einlagen und Slot-Ringe von innen leuchten,
+damit Slot-Farbe und Symbol lesbar bleiben.
+Belege: `docs/screenshots/chaos62-*.jpg`, `docs/screenshots/m3-figuren-*.png`. Quelle der
+Wahrheit für Produkt und Stil bleibt `VISION.md`.
 
 ## Leitbild
 
@@ -43,17 +44,21 @@ nie aus Ekel oder Gewalt.
   mit dem Slot-Symbol** (● ▲ ■ ★): als Abzeichen auf der Brust, auf dem Brett zusätzlich als
   schwebendes Symbol und als farbiger Sockel. Farbe allein trägt nie Information.
 - Grundfarben meiden die vier Slot-Farbtöne als Flächenfarbe (sonst Verwechslung).
-- Brett-Optik aus M2 (`apps/host/src/board/createBoardScene.ts`) ist die Referenz: Gras
-  `#8fd16a`, Feldfarben + Formen je Feldtyp, cremige Wegsteine, Wegweiser auf Holz.
+- Natur-Palette (CHAOS-62): Wiese aus der CC0-Textur „leafy_grass“ mit Tönung `#b8d48a`,
+  Grashalme von `#355d22` bis zur Spitzenfarbe der Stimmung, Laub `#557f36`–`#7aa64a`, Rinde und
+  Holz aus Texturen, Creme `#f6efe2` für Ränder und Symbole. Feldfarben sind gedeckte Lacke im
+  Farbton der M2-Felder (Plus `#3c7bd6`, Minus `#d4534b`, Item `#3f9e5a`, Ereignis `#e3ae38`,
+  Trophäe `#8a68cc`, Start Creme) und bleiben an die **Form** der Einlage gekoppelt.
 
 ## Licht und Material
 
-- Wie auf dem Brett: Halbkugellicht (0,7, warmes Weiß, lila Boden-Ton) + Sonne (0,55) mit
-  weichen PCF-Schatten; Himmel als CSS-Verlauf.
-- `StandardMaterial`, wenig Glanz, leichtes Eigenleuchten (≈ 0,1–0,2 der Grundfarbe), damit
-  Farben auch im Schatten satt bleiben. GLB-Dateien speichern glTF-PBR (linear); der Host wandelt
-  beim Laden in `StandardMaterial` (sRGB) um – gleiche Wirkung wie die prozeduralen Teile.
-- Keine Texturen nötig; Muster (Ringel, Rippen) sind Geometrie.
+- **Natur-Look (CHAOS-62, ADR-014):** PBR-Materialien, HDRI-Himmel als Umgebungslicht, Sonne
+  aus dem HDRI abgeleitet und schräg von vorn links gedreht (kein Gegenlicht), Halbkugellicht
+  als Bodenlicht, PCSS-Schatten, Dunst, ACES-Farbabstimmung, Bloom, SSAO, leichte
+  Tiefenunschärfe. Alles aus einer `LightMood` (`lighting/moods.ts`).
+- Figuren behalten ihre glTF-PBR-Materialien (`loadCharacters(scene, { keepPbr: true })`);
+  die Umwandlung in `StandardMaterial` gibt es nur noch für die M1-Arena und die Lobby-Vitrine.
+- Signale (Popups, Wegweiser-Schilder, Pfeil „am Zug“) bleiben unbeleuchtete Billboards.
 
 ## Bewegung
 
@@ -93,6 +98,39 @@ nie aus Ekel oder Gewalt.
 Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schattenkörper
 (`HostCharacterHandle.shadowCaster`), der mithüpft.
 
+## Natur-Look im Spiel (CHAOS-62)
+
+**Module** (`apps/host/src/nature/`): `terrain.ts` (Insel als Superellipse mit Wellenrand,
+Stellflächen exakt eben, Mulden für Teiche), `geometry.ts` (Insel mit Erdkante, Gras als Thin
+Instances in drei Farbsorten, Laubbaum, Tanne, Moosfels, Fliegenpilz, Blumen, Laterne, Pokal,
+Glühwürmchen, `StaticBatch`), `materials.ts`, `lighting.ts`, `quality.ts`, `settings.ts`.
+
+**Brett** (`apps/host/src/board/natureBoard.ts`): Insel aus den Brettgrenzen (+3,8 / +3,6),
+Felder als **Baumscheiben** (Rinde, Holz, cremefarbener Rand, lackierte Einlage mit der Form
+des Feldtyps, Symbol obenauf: Plus, Minus, Geschenk, Ausrufezeichen, Sockel, Startfahne),
+Wegpfeile in Creme, Trittsteine auf langen Wegen, Wackelwald in der Mitte, Wald nur hinten und
+an den Seiten (vorn verdeckt er die untere Reihe), Teich an der Sumpfabkürzung, Pilze am
+Pilzpfad, Felsen am Klippenweg, Bretter der Wackelbrücke, sechs Laternen (nachts Lichter).
+
+**Minispiele** (`apps/host/src/minigame/natureLook.ts`, Vertrag `MinigameLook`): Das Minispiel
+nennt seine Spielfläche (`backdrop({ halfX, halfZ, groundY, surface })`), der Host baut eine
+kleine Insel mit Wiese oder Picknickdecke, Bäumen hinten und seitlich, Felsen, Blumen und vier
+Laternen. Sockenregen: Badvorleger auf der Wiese (statt Waschküche). Pudding-Gerangel: Pudding
+auf einem Baumstumpf über einer Picknickdecke (statt Sahnesee). Wackelturm: Karodecke auf der
+Wiese. Pump-Parade (Rückfall): Wiese.
+
+**Grafikstufen** (`?qualitaet=hoch|mittel|niedrig|minimal`, sonst `hoch` mit Automatik):
+
+| Stufe | Gras | SSAO | Unschärfe | MSAA | Bloom | Schatten | HDRI-Licht | Detailkarten |
+|---|---|---|---|---|---|---|---|---|
+| hoch | 100 % (Brett 64 000, Minispiel 30 000) | ja | ja | 4 | ja | PCSS 4096² | ja | ja |
+| mittel | 55 % | – | ja | 4 | ja | PCSS 2048² | ja | ja |
+| niedrig | 25 % | – | – | – | – | PCF 1024² | ja (128²) | ja |
+| minimal | 8 % | – | – | – | – | PCF 1024² | – | – |
+
+`minimal` gilt im Testmodus und bei Software-Rendering. Stimmung zum Ansehen: `?stimmung=<id>`
+(Morgen, Mittag, Wolken, Abend, Dämmerung, Nacht); Standard bis CHAOS-63: Goldene Stunde.
+
 ## Pipeline (hybrid)
 
 - **Prozedural** (Code, zur Laufzeit): Brett, Felder, Fallen, Wegweiser, Marker, Arena,
@@ -114,7 +152,12 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
   Renders sind nicht byte-gleich reproduzierbar (Entrauschen), darum prüft `check:assets` Format,
   Maße, Alpha und das Paar Bild/Maske statt eines Byte-Vergleichs.
 - **Importiert:** nur mit Lizenz auf der Positivliste (Eigenwerk, CC0-1.0, CC-BY-4.0, OFL-1.1,
-  MIT, ISC, BSD, Apache-2.0, 0BSD) und Attribution, wo verlangt.
+  MIT, ISC, BSD, Apache-2.0, 0BSD) und Attribution, wo verlangt. Dateien nennen ihre Herkunft
+  (`origin`). Natur-Assets (CHAOS-62): CC0 von Poly Haven, Auswahl in
+  `packages/assets/polyhaven.json`, Import mit `pnpm --filter @chaos-party/assets
+  import:polyhaven` (lädt 1k-Originale in `packages/assets/.cache/`, verkleinert Texturen per
+  ImageMagick auf 512²-WebP und Himmel per eigenem RGBE-Code auf 512 × 256-HDR, schreibt die
+  Manifest-Einträge `natur-…` und `himmel-…`).
 - **Manifest** `packages/assets/manifest.json` (zod-Schema in `packages/assets/src/manifest.ts`):
   jedes Asset mit `id`, `kind`, `source`, `path`, `license`, `attribution`, bei Dateien
   `budgetBytes`, bei Modellen `animations` und `height`.
@@ -122,7 +165,9 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
   verzeichnet, Lizenz/Attribution, Größe, GLB-Animationen, Höhe/Füße/Grundfläche aus den
   echten Eckpunkten, Meshes/Primitives/Materialien/Dreiecke, Material `akzent`, Knoten
   `abzeichen`, SVG ohne Skripte, WebP lesbar; je Figur Porträt und Akzent-Maske (quadratisch,
-  gleich groß, ≥ 256 px, mit Alpha).
+  gleich groß, ≥ 256 px, mit Alpha); HDR vollständig lesbar, 2:1 und mit Sonne (Werte > 1);
+  Natur-Texturen quadratisch mit Zweierpotenz; importierte Dateien mit Herkunft.
+- **Budgets Natur:** Textur ≤ 128 KiB (Ist 1–107 KiB), Himmel ≤ 512 KiB (Ist 291–367 KiB).
 - **Budgets je Figur:** ≤ 384 KiB (seit CHAOS-58: Skinning-Daten und Vertexfarben), ≤ 12 Meshes,
   ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien, ≤ 15 000 Dreiecke, keine Texturen.
   Ist (CHAOS-58): 110–324 KiB, 2 800–10 300 Dreiecke.

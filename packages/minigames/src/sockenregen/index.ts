@@ -7,6 +7,7 @@
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
+import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
@@ -106,7 +107,7 @@ class Sockenregen implements Minigame {
   private visualTime = 0;
   private machineKick = 0;
   private readonly disposables: { dispose(): void }[] = [];
-  private readonly materials = new Map<string, StandardMaterial>();
+  private readonly materials = new Map<string, Material>();
   private readonly runners = new Map<Slot, RunnerView>();
   private readonly itemViews = new Map<number, ItemView>();
   private readonly pool: ItemMeshes[] = [];
@@ -137,12 +138,19 @@ class Sockenregen implements Minigame {
     );
     camera.fov = 0.72;
     scene.activeCamera = camera;
-    const hemi = new HemisphericLight('socken-licht', new Vector3(0.2, 1, -0.4), scene);
-    hemi.intensity = 0.62;
-    hemi.groundColor = new Color3(0.45, 0.4, 0.55);
-    const sun = new DirectionalLight('socken-sonne', new Vector3(-0.35, -1, 0.45), scene);
-    sun.intensity = 0.5;
-    this.disposables.push(camera, hemi, sun);
+    this.disposables.push(camera);
+    if (ctx.look) {
+      // Natur-Look (CHAOS-62): Wiese, Licht und Himmel kommen vom Host; frei bleiben Matte,
+      // Wäschekörbe und Wumms dahinter.
+      ctx.look.backdrop({ halfX: 10.6, halfZ: 10.4, groundY: -0.32 });
+    } else {
+      const hemi = new HemisphericLight('socken-licht', new Vector3(0.2, 1, -0.4), scene);
+      hemi.intensity = 0.62;
+      hemi.groundColor = new Color3(0.45, 0.4, 0.55);
+      const sun = new DirectionalLight('socken-sonne', new Vector3(-0.35, -1, 0.45), scene);
+      sun.intensity = 0.5;
+      this.disposables.push(hemi, sun);
+    }
 
     this.buildArena(scene);
     this.buildMachine(scene);
@@ -445,12 +453,21 @@ class Sockenregen implements Minigame {
   private material(
     hex: string,
     options: { readonly emissive?: number; readonly alpha?: number } = {},
-  ): StandardMaterial {
+  ): Material {
     const key = `${hex}|${String(options.emissive ?? 0)}|${String(options.alpha ?? 1)}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     const scene = this.ctx?.scene;
     if (!scene) throw new Error('Sockenregen: keine Szene');
+    const look = this.ctx?.look;
+    if (look) {
+      const lookMaterial = look.material(hex, {
+        ...(options.emissive !== undefined ? { emissive: options.emissive } : {}),
+        ...(options.alpha !== undefined ? { alpha: options.alpha } : {}),
+      });
+      this.materials.set(key, lookMaterial);
+      return lookMaterial;
+    }
     const material = new StandardMaterial(`socken-material-${String(this.materials.size)}`, scene);
     const color = Color3.FromHexString(hex);
     material.diffuseColor = color;
@@ -468,6 +485,12 @@ class Sockenregen implements Minigame {
 
   private buildArena(scene: Scene): void {
     const R = SOCKENREGEN_RULES.arenaRadius;
+    if (!this.ctx?.look) this.buildLaundry(scene);
+    this.buildMat(scene, R);
+  }
+
+  /** Waschküche ohne Natur-Look: Boden, Wand mit Fliesenstreifen, Wäscheleinen. */
+  private buildLaundry(scene: Scene): void {
     const floor = this.track(CreateGround('socken-boden', { width: 90, height: 40 }, scene));
     floor.position.set(0, -0.32, 4);
     floor.material = this.material(PALETTE.floor);
@@ -500,6 +523,10 @@ class Sockenregen implements Minigame {
         this.buildSockBody(scene, sock, `leine-${String(side)}-${String(index)}`, hex, 0.2);
       }
     });
+  }
+
+  /** Badvorleger und Wäschekörbe (Spielfläche, in jedem Look). */
+  private buildMat(scene: Scene, R: number): void {
     // Badvorleger: Grundscheibe, Streifenringe, dicker gelber Rand.
     const mat = this.track(
       CreateCylinder(

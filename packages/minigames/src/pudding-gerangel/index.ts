@@ -68,9 +68,11 @@ import {
   buildPawnDecor,
   buildPudding,
   buildSpoon,
+  buildStump,
   buildZone,
-  type Disposable,
+  toyParts,
   type PawnDecor,
+  type ToyParts,
   type ZoneVisual,
 } from './visuals.ts';
 
@@ -141,7 +143,7 @@ const UNIT_X = new Vector3(1, 0, 0);
 export class PuddingGerangel implements Minigame {
   private ctx: MinigameContext | null = null;
   private readonly pawns: Pawn[] = [];
-  private readonly disposables: Disposable[] = [];
+  private disposables: ToyParts = toyParts(undefined);
   private readonly teleported: PhysicsAggregate[] = [];
   private platter: PhysicsAggregate | null = null;
   private pudding: Mesh | null = null;
@@ -169,19 +171,32 @@ export class PuddingGerangel implements Minigame {
   prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const { scene } = ctx;
-    scene.clearColor = new Color4(1, 0.86, 0.91, 1);
+    this.disposables = toyParts(ctx.look);
     const camera = new FreeCamera('pudding-kamera', new Vector3(0, 11.5, -13.5), scene);
     camera.setTarget(new Vector3(0, -1.3, 0.8));
     camera.fov = 0.8;
     scene.activeCamera = camera;
-    const sky = new HemisphericLight('pudding-licht', new Vector3(0.2, 1, -0.3), scene);
-    sky.intensity = 0.7;
-    sky.groundColor = new Color3(0.75, 0.6, 0.7);
-    const sun = new DirectionalLight('pudding-sonne', new Vector3(-0.4, -1, 0.5), scene);
-    sun.intensity = 0.45;
-    this.disposables.push(camera, sky, sun);
-
-    buildCreamLake(scene, this.disposables);
+    this.disposables.push(camera);
+    if (ctx.look) {
+      // Natur-Look (CHAOS-62): Pudding auf einem Baumstumpf, darunter Picknickdecke und Wiese.
+      const free = TUNING.radius + 1.2;
+      ctx.look.backdrop({
+        halfX: free,
+        halfZ: free,
+        groundY: TUNING.killY - 0.3,
+        surface: 'decke',
+      });
+      buildStump(scene, this.disposables);
+    } else {
+      scene.clearColor = new Color4(1, 0.86, 0.91, 1);
+      const sky = new HemisphericLight('pudding-licht', new Vector3(0.2, 1, -0.3), scene);
+      sky.intensity = 0.7;
+      sky.groundColor = new Color3(0.75, 0.6, 0.7);
+      const sun = new DirectionalLight('pudding-sonne', new Vector3(-0.4, -1, 0.5), scene);
+      sun.intensity = 0.45;
+      this.disposables.push(sky, sun);
+      buildCreamLake(scene, this.disposables);
+    }
 
     // Pudding: unsichtbare Zylinder-Hitbox, Oberseite bei y = 0, Drehpunkt oben in der Mitte.
     const platterBox = CreateCylinder(

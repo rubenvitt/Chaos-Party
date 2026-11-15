@@ -135,6 +135,8 @@ Eingecheckt unter `tests/e2e/__screenshots__/<spec>/<name>-<projekt>-linux.png`,
 | `ipad-2-zonen-spiel-ipad-quer/-hoch` | iPad mit zwei Zonen im Spiel |
 | `gesamtablauf-*-chromium` (M4) | Gesamtablauf: Figurenwahl am iPhone, PC-Lobby mit Figuren, Siegerbildschirm mit 2 und 4 Spielern, Endstand am iPhone (Seed 2026, Test-Pacing) |
 
+**Natur-Look (CHAOS-62, ADR-014):** Brett und Minispiele rendern im Testmodus die Sparstufe `minimal` (8 % Gras, Schatten, Texturen, Dunst; ohne HDRI-Umgebungslicht, Bloom, SSAO, Unschärfe, Detailkarten). Die Baselines `host-brett`, `minispiel-<id>`, `m3-minispiel-intro/-ergebnis` und die Controller-Bilder mit Brett im Hintergrund zeigen deshalb den Look in Sparstufe, nicht die volle Optik (die zeigen `docs/screenshots/chaos62-*.jpg`). Auch ohne Testmodus wählt der Host bei Software-Rendering (SwiftShader, llvmpipe) die Sparstufe und macht größere Zeitschritte (Brett-Regie bis 4 s, Minispiel-Uhr bis 240 Schritte (4 s) je Bild), damit Durchstich-Tests in Echtzeit bleiben. Ein Bild kostet mit SwiftShader im Container ≈ 0,5–0,8 s; `stepFrames(n)` des Bretts rechnet daher n Schritte und zeichnet nur das letzte Bild (wie `__chaosMinigame.step`).
+
 Stabilität: fester Seed, Kamera fest, Physik nur über `stepFrames`, `animations: 'disabled'`. Texte und Glyphen sind maskiert, weil Schriften zwischen Rechnern/Runnern abweichen; geprüft werden Layout, Farben, Formen und die 3D-Szene. Texte prüfen die DOM-Assertions. Toleranz: `maxDiffPixelRatio 0.02`, `threshold 0.2` (SwiftShader kann um einzelne Pixel abweichen).
 
 Baseline bewusst aktualisieren (nur wenn sich die Oberfläche absichtlich geändert hat):

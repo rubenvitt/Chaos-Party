@@ -10,7 +10,10 @@
       "maxTriangles": 15000
     },
     "texture": {
-      "maxBytes": 65536
+      "maxBytes": 131072
+    },
+    "hdri": {
+      "maxBytes": 524288
     },
     "sound": {
       "maxBytes": 262144
@@ -293,6 +296,270 @@
       "description": "Referenz-Minispiel „Pump-Parade“: Boden und Ballons.",
       "license": "LicenseRef-ChaosParty-Eigenwerk",
       "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "natur-leafy-grass-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/leafy_grass_diff.webp",
+      "description": "Wiese (Gelände): Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „leafy_grass“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Charlotte Baglioni (CC0)",
+      "origin": "https://polyhaven.com/a/leafy_grass",
+      "budgetBytes": 81920
+    },
+    {
+      "id": "natur-leafy-grass-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/leafy_grass_nor.webp",
+      "description": "Wiese (Gelände): Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „leafy_grass“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Charlotte Baglioni (CC0)",
+      "origin": "https://polyhaven.com/a/leafy_grass",
+      "budgetBytes": 106496
+    },
+    {
+      "id": "natur-leafy-grass-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/leafy_grass_arm.webp",
+      "description": "Wiese (Gelände): AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „leafy_grass“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Charlotte Baglioni (CC0)",
+      "origin": "https://polyhaven.com/a/leafy_grass",
+      "budgetBytes": 40960
+    },
+    {
+      "id": "natur-brown-mud-rocks-01-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_mud_rocks_01_diff.webp",
+      "description": "Erdkante der Insel: Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_mud_rocks_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_mud_rocks_01",
+      "budgetBytes": 106496
+    },
+    {
+      "id": "natur-brown-mud-rocks-01-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_mud_rocks_01_nor.webp",
+      "description": "Erdkante der Insel: Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_mud_rocks_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_mud_rocks_01",
+      "budgetBytes": 122880
+    },
+    {
+      "id": "natur-brown-mud-rocks-01-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_mud_rocks_01_arm.webp",
+      "description": "Erdkante der Insel: AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_mud_rocks_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_mud_rocks_01",
+      "budgetBytes": 131072
+    },
+    {
+      "id": "natur-bark-brown-02-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/bark_brown_02_diff.webp",
+      "description": "Rinde (Bäume, Baumscheiben-Rand, Pfosten): Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „bark_brown_02“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/bark_brown_02",
+      "budgetBytes": 77824
+    },
+    {
+      "id": "natur-bark-brown-02-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/bark_brown_02_nor.webp",
+      "description": "Rinde (Bäume, Baumscheiben-Rand, Pfosten): Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „bark_brown_02“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/bark_brown_02",
+      "budgetBytes": 86016
+    },
+    {
+      "id": "natur-bark-brown-02-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/bark_brown_02_arm.webp",
+      "description": "Rinde (Bäume, Baumscheiben-Rand, Pfosten): AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „bark_brown_02“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/bark_brown_02",
+      "budgetBytes": 45056
+    },
+    {
+      "id": "natur-mossy-rock-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/mossy_rock_diff.webp",
+      "description": "Moosfelsen und Trittsteine: Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „mossy_rock“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/mossy_rock",
+      "budgetBytes": 77824
+    },
+    {
+      "id": "natur-mossy-rock-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/mossy_rock_nor.webp",
+      "description": "Moosfelsen und Trittsteine: Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „mossy_rock“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/mossy_rock",
+      "budgetBytes": 40960
+    },
+    {
+      "id": "natur-mossy-rock-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/mossy_rock_arm.webp",
+      "description": "Moosfelsen und Trittsteine: AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „mossy_rock“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/mossy_rock",
+      "budgetBytes": 36864
+    },
+    {
+      "id": "natur-oak-veneer-01-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/oak_veneer_01_diff.webp",
+      "description": "Holz der Baumscheiben-Felder: Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „oak_veneer_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Jenelle van Heerden (CC0)",
+      "origin": "https://polyhaven.com/a/oak_veneer_01",
+      "budgetBytes": 20480
+    },
+    {
+      "id": "natur-oak-veneer-01-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/oak_veneer_01_nor.webp",
+      "description": "Holz der Baumscheiben-Felder: Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „oak_veneer_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Jenelle van Heerden (CC0)",
+      "origin": "https://polyhaven.com/a/oak_veneer_01",
+      "budgetBytes": 4096
+    },
+    {
+      "id": "natur-oak-veneer-01-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/oak_veneer_01_arm.webp",
+      "description": "Holz der Baumscheiben-Felder: AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „oak_veneer_01“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Jenelle van Heerden (CC0)",
+      "origin": "https://polyhaven.com/a/oak_veneer_01",
+      "budgetBytes": 40960
+    },
+    {
+      "id": "natur-brown-planks-05-diff",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_planks_05_diff.webp",
+      "description": "Bretter (Wegweiser, Brücke): Farbe, 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_planks_05“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_planks_05",
+      "budgetBytes": 16384
+    },
+    {
+      "id": "natur-brown-planks-05-nor",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_planks_05_nor.webp",
+      "description": "Bretter (Wegweiser, Brücke): Normalen (OpenGL), 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_planks_05“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_planks_05",
+      "budgetBytes": 8192
+    },
+    {
+      "id": "natur-brown-planks-05-arm",
+      "kind": "texture",
+      "source": "imported",
+      "path": "packages/assets/textures/nature/brown_planks_05_arm.webp",
+      "description": "Bretter (Wegweiser, Brücke): AO/Rauheit/Metall, 512×512 WebP aus der 1k-Fassung von Poly Haven „brown_planks_05“.",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Rob Tuytel (CC0)",
+      "origin": "https://polyhaven.com/a/brown_planks_05",
+      "budgetBytes": 12288
+    },
+    {
+      "id": "himmel-qwantani-mid-morning-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/qwantani_mid_morning_puresky.hdr",
+      "description": "Stimmung Morgen: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „qwantani_mid_morning_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/qwantani_mid_morning_puresky",
+      "budgetBytes": 380928
+    },
+    {
+      "id": "himmel-qwantani-noon-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/qwantani_noon_puresky.hdr",
+      "description": "Stimmung Mittag: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „qwantani_noon_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/qwantani_noon_puresky",
+      "budgetBytes": 385024
+    },
+    {
+      "id": "himmel-kloofendal-48d-partly-cloudy-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/kloofendal_48d_partly_cloudy_puresky.hdr",
+      "description": "Stimmung Bewölkt: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „kloofendal_48d_partly_cloudy_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+      "budgetBytes": 471040
+    },
+    {
+      "id": "himmel-qwantani-late-afternoon-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/qwantani_late_afternoon_puresky.hdr",
+      "description": "Stimmung Goldene Stunde: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „qwantani_late_afternoon_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/qwantani_late_afternoon_puresky",
+      "budgetBytes": 380928
+    },
+    {
+      "id": "himmel-qwantani-dusk-2-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/qwantani_dusk_2_puresky.hdr",
+      "description": "Stimmung Dämmerung: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „qwantani_dusk_2_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/qwantani_dusk_2_puresky",
+      "budgetBytes": 372736
+    },
+    {
+      "id": "himmel-qwantani-moon-noon-puresky",
+      "kind": "hdri",
+      "source": "imported",
+      "path": "packages/assets/textures/sky/qwantani_moon_noon_puresky.hdr",
+      "description": "Stimmung Nacht: Himmel und Umgebungslicht, 512×256 Radiance-HDR (halbe 1k-Fassung von Poly Haven „qwantani_moon_noon_puresky“).",
+      "license": "CC0-1.0",
+      "attribution": "Poly Haven – Greg Zaal, Jarod Guest (CC0)",
+      "origin": "https://polyhaven.com/a/qwantani_moon_noon_puresky",
+      "budgetBytes": 413696
     }
   ]
 }

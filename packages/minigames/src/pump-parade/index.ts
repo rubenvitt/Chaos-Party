@@ -53,12 +53,18 @@ class PumpParade implements Minigame {
       scene,
     );
     scene.activeCamera = camera;
-    const light = new HemisphericLight('pump-licht', new Vector3(0.3, 1, -0.4), scene);
-    const ground = CreateGround('pump-boden', { width: 14, height: 6 }, scene);
-    const groundMaterial = new StandardMaterial('pump-boden-material', scene);
-    groundMaterial.diffuseColor = Color3.FromHexString('#f6d68b');
-    ground.material = groundMaterial;
-    this.disposables.push(camera, light, groundMaterial, ground);
+    this.disposables.push(camera);
+    if (ctx.look) {
+      // Natur-Look (CHAOS-62): Wiese und Licht vom Host.
+      ctx.look.backdrop({ halfX: 7, halfZ: 3, groundY: -0.02 });
+    } else {
+      const light = new HemisphericLight('pump-licht', new Vector3(0.3, 1, -0.4), scene);
+      const ground = CreateGround('pump-boden', { width: 14, height: 6 }, scene);
+      const groundMaterial = new StandardMaterial('pump-boden-material', scene);
+      groundMaterial.diffuseColor = Color3.FromHexString('#f6d68b');
+      ground.material = groundMaterial;
+      this.disposables.push(light, groundMaterial, ground);
+    }
 
     const count = ctx.players.length;
     ctx.players.forEach((player, index) => {
@@ -68,8 +74,12 @@ class PumpParade implements Minigame {
       character.play('idle');
       const balloon = CreateSphere(`pump-ballon-${player.slot}`, { diameter: 1 }, scene);
       balloon.position.set(x, 2.6, 0);
-      const material = new StandardMaterial(`pump-ballon-material-${player.slot}`, scene);
-      material.diffuseColor = Color3.FromHexString(player.color);
+      const material =
+        ctx.look?.material(player.color, { finish: 'glanz' }) ??
+        new StandardMaterial(`pump-ballon-material-${player.slot}`, scene);
+      if (material instanceof StandardMaterial) {
+        material.diffuseColor = Color3.FromHexString(player.color);
+      }
       balloon.material = material;
       this.disposables.push(material, balloon);
       this.pumpers.set(player.slot, { slot: player.slot, character, balloon, score: 0 });

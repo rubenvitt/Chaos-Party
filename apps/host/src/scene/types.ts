@@ -66,6 +66,8 @@ export interface RendererInfo {
   /** Render-Auflösung in Pixeln (inkl. Gerätepixelverhältnis). */
   readonly width: number;
   readonly height: number;
+  /** Grafikstufe des Natur-Looks (CHAOS-62), falls die Szene eine hat. */
+  readonly quality?: string;
 }
 
 /** Empfänger von Spielereingaben – die Naht zwischen Eingabequelle und Szene. */

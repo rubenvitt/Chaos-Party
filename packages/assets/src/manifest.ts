@@ -12,6 +12,8 @@ export const ASSET_KINDS = [
   'sound',
   'vfx',
   'texture',
+  /** Umgebungslicht und Himmel als Radiance-HDR (CHAOS-62). */
+  'hdri',
   'font',
   'procedural-geometry',
 ] as const;
@@ -72,6 +74,9 @@ export const AssetEntrySchema = z
     /** SPDX-Kennung (oder `LicenseRef-…`). */
     license: z.string().min(1),
     attribution: z.string().min(3).optional(),
+    /** Herkunft einer importierten Datei (Pflicht bei `imported` ohne `package`), z. B. die
+     *  Poly-Haven-Seite des Assets: Lizenznachweis. */
+    origin: z.url({ protocol: /^https$/ }).optional(),
     /** Höchstgröße der Datei in Bytes (Pflicht für Dateien unter `packages/assets`). */
     budgetBytes: z.number().int().positive().optional(),
     /** Nur Modelle: erwartete Animationsnamen und Höhe in Metern (Ruhepose). */
@@ -99,6 +104,7 @@ export const ManifestSchema = z
       .object({
         model: ModelBudgetSchema,
         texture: z.object({ maxBytes: z.number().int().positive() }).strict(),
+        hdri: z.object({ maxBytes: z.number().int().positive() }).strict(),
         sound: z.object({ maxBytes: z.number().int().positive() }).strict(),
       })
       .strict(),

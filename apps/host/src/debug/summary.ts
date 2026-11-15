@@ -22,7 +22,8 @@ export function formatFps(fps: number | null): string {
 
 export function rendererLine(renderer: RendererInfo | null): string {
   if (renderer === null) return 'WebGL ?';
-  return `WebGL${String(renderer.webgl)} ${renderer.renderer} ${String(renderer.width)}×${String(renderer.height)}`;
+  const quality = renderer.quality ? ` Grafik ${renderer.quality}` : '';
+  return `WebGL${String(renderer.webgl)} ${renderer.renderer} ${String(renderer.width)}×${String(renderer.height)}${quality}`;
 }
 
 function count(value: number | null | undefined): string {

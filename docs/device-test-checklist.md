@@ -1,4 +1,4 @@
-# Gerätecheckliste (echte iPhones, iPad und PC): M1, ab Abschnitt 8 M2, ab 9 M3, ab 11 M4
+# Gerätecheckliste (echte iPhones, iPad und PC): M1, ab Abschnitt 8 M2, ab 9 M3, ab 11 M4, 13 Natur-Look
 
 **Stand:** 2026-11-14 · **Aufgabe:** CHAOS-15 · **Gate:** CHAOS-16 (M1-Abnahme, nur Ruben)
 
@@ -242,7 +242,7 @@ Automatisch gemessen wird nur im Headless-Chromium mit Software-Rendering (Swift
 
 Automatisch geprüft (Chromium-Emulation, synthetische CDP-Touches, echter Server, beschleunigtes Test-Pacing): `tests/e2e/m4-gesamtablauf.spec.ts` spielt zwei komplette Partien über die echte Controller-UI – zwei iPhones mit 2 Runden und gemischt 2 iPhones + iPad mit 2 Zonen – inklusive Figurenwahl, Rundenwahl und Start am PC, Pause/Weiter, Neuladen eines Controllers (Brett bzw. Minispiel), Trophäenzählung, Siegerbildschirm, Endstand auf jedem Controller (gleicher Platz wie am PC) und „Nochmal spielen“. Dazu Reconnect je Phase und Host-Verlust in der Server-Integration (`reconnect.integration.test.ts`, `hostLoss.integration.test.ts`). **Nichts davon ersetzt echte Geräte, echtes WLAN, echte Hände und echten Spaß.** Diese Liste ist für Rubens Durchgang; Claude trägt keine Ergebnisse ein.
 
-Vorher erledigen bzw. mitprüfen: iPad-Nachtest aus Abschnitt 4 (I1–I9, CHAOS-47) und Performance aus Abschnitt 11 (PF0–PF10, gleiche Partie mit `?debug=1` möglich). Start: `pnpm build && pnpm start`, Host `http://localhost:8787/host/`.
+Vorher erledigen bzw. mitprüfen: iPad-Nachtest aus Abschnitt 4 (I1–I9, CHAOS-47) Performance aus Abschnitt 11 (PF0–PF10, gleiche Partie mit `?debug=1` möglich) und Natur-Look aus Abschnitt 13 (N1–N7, CHAOS-62). Start: `pnpm build && pnpm start`, Host `http://localhost:8787/host/`.
 
 Ergebnis je Punkt wie oben: `ok` · `fehlerhaft` (mit Beschreibung) · `nicht unterstützt` · `nicht geprüft`.
 
@@ -321,3 +321,19 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
 | Lieblingsmoment und größtes Ärgernis | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
+
+## 13. Natur-Look am PC und Fernseher (für CHAOS-56/CHAOS-62)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-62 · **ADR:** [ADR-014](decisions/ADR-014-natur-look.md) · Belege der Automatik: `docs/screenshots/chaos62-*.jpg` (volle Stufe, Software-Rendering, nur Optik, keine Bildrate)
+
+Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| N1 | Brett 2 min laufen lassen (2–4 Spieler), Messzeile kopieren | ≥ 50 fps bei `hoch`; bleibt die Stufe auf „hoch (auto)“ oder stuft die Automatik ab? Wert und GPU notieren | | |
+| N2 | Jedes Minispiel einmal mit `?debug=1` | flüssig (≥ 50 fps), Stufe notieren | | |
+| N3 | Zum Vergleich `?qualitaet=mittel` und `?qualitaet=niedrig` | fps je Stufe; sieht man den Unterschied aus 3 m? | | |
+| N4 | Ruckeln beim Wechsel Brett → Minispiel → Brett | kein langes Standbild beim Laden (Himmel, Texturen) | | |
+| N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
+| N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Vorgriff auf CHAOS-63) | | |
+| N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |
