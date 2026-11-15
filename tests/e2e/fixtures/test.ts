@@ -14,6 +14,7 @@
 import {
   test as base,
   devices,
+  type Browser,
   type BrowserContext,
   type BrowserContextOptions,
   type Page,
@@ -31,9 +32,28 @@ interface ChaosFixtures {
    * Öffnet eine Seite in einem **eigenen** Browser-Kontext – ein weiteres Gerät mit eigenem
    * Speicher (Token): `'PC'` (1280×720) für den Host, sonst iPhone-/iPad-Emulation
    * (Viewport, Touch, DPR, iOS-User-Agent) in Chromium. `baseURL` zeigt auf `chaosServer`.
-   * Alle so geöffneten Kontexte schließt die Fixture am Testende.
+   * Telefone und iPads laufen im {@link WorkerFixtures.deviceBrowser}, der PC im Browser
+   * des Projekts. Alle so geöffneten Kontexte schließt die Fixture am Testende.
    */
   openDevice: (name: DeviceName) => Promise<Page>;
+}
+
+interface WorkerFixtures {
+  /**
+   * Eigener Chromium für Controller-Geräte (iPhone, iPad), **ohne GPU** (CHAOS-64).
+   *
+   * Der Host rendert WebGL per SwiftShader, also auf der CPU. Teilt sich ein Controller den
+   * GPU-Pfad mit dem Host (gleicher Browser oder ebenfalls ANGLE/SwiftShader), wartet sein
+   * Compositor, während der Host beim Spielstart Shader übersetzt und Figuren lädt. Der
+   * Hauptthread der Controller-Seite blockiert dabei mit: Timer und WebSocket-Nachrichten
+   * standen gemessen 1–13 s still, je nach Last. Ab 10 s ohne Server-Nachricht verbindet der Controller
+   * neu (`DEAD_AFTER_MS`) und lässt gehaltene Joysticks und Knöpfe los, der Test sah dann
+   * `data-active="false"`. Echte Geräte haben ihre eigene GPU; hier rendert der Controller
+   * in Software ohne GPU-Prozess (`--disable-gpu`) und bleibt so unabhängig vom Host.
+   * Controller brauchen kein WebGL. Screenshot-Vergleiche gibt es hier nur für den Host;
+   * Controller-Screenshots entstehen in den Controller-Projekten ohne diese Fixture.
+   */
+  deviceBrowser: Browser;
 }
 
 export type DeviceName = 'PC' | 'iPhone 13' | 'iPhone 13 landscape' | 'iPad Pro 11 landscape';
@@ -45,7 +65,7 @@ function deviceOptions(name: DeviceName): BrowserContextOptions {
   return { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch };
 }
 
-export const test = base.extend<ChaosFixtures>({
+export const test = base.extend<ChaosFixtures, WorkerFixtures>({
   chaosJoinCode: [E2E_JOIN_CODE, { option: true }],
   chaosServer: async ({ chaosJoinCode }, use) => {
     const running = await startChaosServer({ joinCode: chaosJoinCode });
@@ -58,10 +78,22 @@ export const test = base.extend<ChaosFixtures>({
   baseURL: async ({ chaosServer }, use) => {
     await use(chaosServer.base);
   },
-  openDevice: async ({ browser, chaosServer }, use) => {
+  deviceBrowser: [
+    async ({ playwright, browserName, launchOptions }, use) => {
+      // Die SwiftShader-Schalter des Host-Projekts gelten hier nicht: keine GPU, kein WebGL.
+      const browser = await playwright[browserName].launch({
+        ...launchOptions,
+        args: ['--disable-gpu'],
+      });
+      await use(browser);
+      await browser.close();
+    },
+    { scope: 'worker' },
+  ],
+  openDevice: async ({ browser, deviceBrowser, chaosServer }, use) => {
     const contexts: BrowserContext[] = [];
     await use(async (name) => {
-      const context = await browser.newContext({
+      const context = await (name === 'PC' ? browser : deviceBrowser).newContext({
         ...deviceOptions(name),
         baseURL: chaosServer.base,
       });
