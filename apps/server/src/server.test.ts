@@ -54,7 +54,11 @@ describe('Chaos-Party-Server', () => {
   it('meldet Gesundheit und Protokollversion', async () => {
     const res = await fetch(`${baseUrl}/health`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok', protocolVersion: PROTOCOL_VERSION });
+    expect(await res.json()).toEqual({
+      status: 'ok',
+      protocolVersion: PROTOCOL_VERSION,
+      instance: server.instanceId,
+    });
   });
 
   it('liefert die Controller-App unter /', async () => {

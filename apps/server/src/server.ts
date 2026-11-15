@@ -1,4 +1,5 @@
 import { createReadStream } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -33,6 +34,11 @@ export interface ChaosServerOptions {
   timeouts?: Partial<SessionTimeouts> | undefined;
   /** Takt der Timeout-Prüfung in ms (Standard 1000). */
   tickMs?: number | undefined;
+  /**
+   * Kennung dieses Prozesses in `/health` (CHAOS-48). Damit erkennt der Start, ob unter
+   * `localhost:<Port>` wirklich dieser Server antwortet. Standard: zufällig.
+   */
+  instanceId?: string | undefined;
 }
 
 export interface ChaosServer {
@@ -42,6 +48,8 @@ export interface ChaosServer {
   readonly joinCode: string;
   /** Die autoritative Session (lesend für Diagnose und Tests). */
   readonly session: Session;
+  /** Kennung dieses Prozesses, wie sie `/health` meldet (CHAOS-48). */
+  readonly instanceId: string;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -65,6 +73,8 @@ interface StaticRoots {
   readonly controller: string;
   /** Host-App unter `/host/`, falls gebaut/angegeben. */
   readonly host: string | undefined;
+  /** Kennung für `/health`. */
+  readonly instanceId: string;
 }
 
 /**
@@ -75,6 +85,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
   const roots: StaticRoots = {
     controller: resolve(options.staticDir),
     host: options.hostDir === undefined ? undefined : resolve(options.hostDir),
+    instanceId: options.instanceId ?? randomBytes(9).toString('base64url'),
   };
   const session = new Session({
     joinCode: options.joinCode ?? generateJoinCode(),
@@ -104,6 +115,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
   return {
     joinCode: session.joinCode,
     session,
+    instanceId: roots.instanceId,
     listen(port, host) {
       return new Promise((resolveListen, reject) => {
         server.once('error', reject);
@@ -144,7 +156,11 @@ async function handleRequest(roots: StaticRoots, req: IncomingMessage, res: Serv
       res,
       200,
       'application/json; charset=utf-8',
-      JSON.stringify({ status: 'ok', protocolVersion: PROTOCOL_VERSION }),
+      JSON.stringify({
+        status: 'ok',
+        protocolVersion: PROTOCOL_VERSION,
+        instance: roots.instanceId,
+      }),
     );
     return;
   }
