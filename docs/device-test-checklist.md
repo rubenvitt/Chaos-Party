@@ -182,6 +182,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
 | P1 | Lobby mit 4 Spielern | Figur-Porträts mit Namen, klar unterscheidbar; jeder findet „seine“ Figur | | |
+| P1a | Porträts am iPhone/iPad (Safari, CHAOS-61) | Eigene Figur in der Lobby groß mit Namen, in der Plakette als Avatar mit Symbol-Marke; Akzent (Halsring/Halstuch/Bündchen) in Slot-Farbe, nicht als Fläche über dem Bild (CSS-Maske + `multiply` auf iOS) | | |
 | P2 | Brett mit Figuren (Fernseher, Sofa-Abstand) | Figuren erkennbar, laufen/jubeln/zucken passend; Sockel/Symbol zeigt den Slot | | |
 | P3 | Anleitung jedes Minispiels (7 s) | Alle haben vor dem Start verstanden, was zu tun ist (ohne Erklärung von außen) | | |
 | P4 | Sockenregen spielen | Socke, Goldsocke und Bügeleisen sofort unterscheidbar; Schleudergang spürbar; fühlt sich fair an | | |

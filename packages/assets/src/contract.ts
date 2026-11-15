@@ -22,3 +22,13 @@ export const CHARACTER_SCALE = {
 export const ACCENT_MATERIAL = 'akzent';
 /** Leerer Knoten an der Brust, an den der Host das Slot-Abzeichen hängt. */
 export const BADGE_NODE = 'abzeichen';
+
+/**
+ * Porträts (CHAOS-61): `textures/portraits/<id>.webp` (Akzent weiß gerendert) und
+ * `<id>-akzent.webp` (Alpha = sichtbarer Akzent). Quadratisch, mindestens `minSize` Pixel.
+ */
+export const PORTRAIT = {
+  dir: 'textures/portraits',
+  accentSuffix: '-akzent',
+  minSize: 256,
+} as const;

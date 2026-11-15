@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
+import { CHARACTER_NAMES, defaultCharacterFor } from '@chaos-party/minigame-sdk';
 import { PLAYER_SLOTS, type PlayerInfo } from '@chaos-party/protocol';
 import { createMoveSender } from '../input/moveSender.ts';
 import { describePlay } from '../minigame/view.ts';
@@ -6,6 +7,7 @@ import type { SlotIntent } from '../net/client.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor } from './color.ts';
 import { Joystick } from './Joystick.tsx';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
@@ -55,8 +57,11 @@ export function SlotController({
       data-minigame-stage={minigame?.stage ?? 'none'}
     >
       <header className="player-badge" data-testid="player-badge">
-        <span className="player-symbol" aria-hidden="true">
-          {style.symbol}
+        <span className="badge-avatar">
+          <CharacterPortrait slot={player.slot} className="badge-portrait" decorative />
+          <span className="player-symbol" aria-hidden="true">
+            {style.symbol}
+          </span>
         </span>
         <span className="player-label ui-text">{player.label}</span>
       </header>
@@ -110,6 +115,12 @@ function LobbyPanel({ context, slot, send }: PanelProps) {
 
   return (
     <div className="panel lobby-panel">
+      <figure className="lobby-figure" data-testid="lobby-figure">
+        <CharacterPortrait slot={slot} className="lobby-portrait" decorative />
+        <figcaption className="lobby-figure-name ui-text">
+          {CHARACTER_NAMES[defaultCharacterFor(slot)].name}
+        </figcaption>
+      </figure>
       {canReady ? (
         <>
           <p className="panel-lead ui-text">Bist du startklar?</p>

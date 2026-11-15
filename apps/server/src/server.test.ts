@@ -16,6 +16,7 @@ beforeAll(async () => {
   await mkdir(join(staticDir, 'assets'), { recursive: true });
   await writeFile(join(staticDir, 'index.html'), '<!doctype html><title>Controller</title>');
   await writeFile(join(staticDir, 'assets', 'app.js'), 'console.log(1);');
+  await writeFile(join(staticDir, 'assets', 'robot-abc.webp'), new Uint8Array([82, 73, 70, 70]));
   await writeFile(join(workDir, 'secret.txt'), 'geheim');
   const hostDir = join(workDir, 'host-dist');
   await mkdir(join(hostDir, 'assets'), { recursive: true });
@@ -72,6 +73,12 @@ describe('Chaos-Party-Server', () => {
     const res = await fetch(`${baseUrl}/assets/app.js`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/javascript');
+  });
+
+  it('liefert Porträts als image/webp (CHAOS-61)', async () => {
+    const res = await fetch(`${baseUrl}/assets/robot-abc.webp`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/webp');
   });
 
   it('fällt bei App-Routen auf index.html zurück', async () => {
