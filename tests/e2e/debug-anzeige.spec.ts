@@ -12,6 +12,7 @@
  * Geräte. Ohne `debug` gibt es keine Anzeige (die Screenshot-Baselines bleiben gleich).
  */
 import type { Locator, Page } from '@playwright/test';
+import type {} from '../../apps/host/src/debug/perf.ts';
 import { collectProblems, expectNoProblems } from './fixtures/pages.ts';
 import { expect, test } from './fixtures/test.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
@@ -97,6 +98,15 @@ test.describe('Messanzeige (?debug=1)', () => {
     await expect(hostOverlay.getByTestId('debug-input-p95')).toHaveText(MS);
     // Controller: Eingaberate ist eine Zahl (ganzzahlig).
     await expect(phoneOverlay.getByTestId('debug-inputs')).toHaveText(/^\d+$/);
+
+    // Je Szene (CHAOS-39): aktuelle Szene mit Draw Calls; Bericht nennt Lobby und Arena.
+    const scene = hostOverlay.locator('[data-testid="debug-scene"][data-scene="arena"]');
+    await expect(scene).toContainText(/Draw Calls \d+/);
+    await expect(scene).toContainText('Kontexte 1');
+    const report = await host.evaluate(() => window.__chaosPerf?.summary() ?? '');
+    expect(report).toMatch(/^Szene lobby \| /m);
+    expect(report).toMatch(/^Szene arena \| .*Eingabe→Frame ms Median \d/m);
+    await expect(hostOverlay.getByTestId('debug-copy-scenes')).toBeVisible();
 
     expectNoProblems(hostProblems, 'Host');
     expectNoProblems(phoneProblems, 'iPhone');

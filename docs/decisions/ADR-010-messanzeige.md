@@ -65,3 +65,10 @@
 ## Überprüfung
 
 Nach dem M1-Gerätetest: Werte in `docs/device-test-checklist.md`/Abnahmebericht festhalten und entscheiden, ob Schwellen (z. B. p95 Eingabe→Frame, p95 RTT) als Warnung oder Test-Gate eingeführt werden; neu bewerten, wenn eine Einweg-Latenz oder die Gesamtlatenz Finger → Bild gebraucht wird.
+
+## Nachtrag 2026-11-15 (CHAOS-39): Messung je Szene
+
+- Der Host misst zusätzlich **je Szene** (`lobby`, `arena`, `brett`, `minispiel:<id>` mit `:intro`/`:results`, `finale`, `podest`): Bildabstand, Render-Zeit (JS), Draw Calls, aktive Meshes, Eingabe→Frame, **Brett→Frame** (neuer `board`-Stand bis zum nächsten Bild), WebGL-Kontexte, Render-Schleifen, JS-Heap und Bestand. „Alle Szenen kopieren“ liefert eine Zeile je Szene; `window.__chaosPerf` (nur mit `?debug=1`) dieselben Daten für die Messläufe `pnpm perf`.
+- Der Controller sammelt die RTT zusätzlich je Szene (`lobby`, `brett`, `minispiel`, `endstand` …) und nennt sie in der kopierten Zeile.
+- Weiterhin **keine Ampeln** in der Anzeige. Schwellen gibt es nur als relative Regressionsgrenzen gegen eine eigene Baseline der Messläufe; Hardware-Schwellen bleiben offen bis zu Rubens Messung. Details: [`docs/performance.md`](../performance.md).
+

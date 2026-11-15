@@ -32,6 +32,8 @@ import {
   type CharacterLibrary,
   type HostCharacterHandle,
 } from '../characters/index.ts';
+import type { PerfSource } from '../debug/perfTypes.ts';
+import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import { createParticleFx, type ParticleFx } from '../fx/particles.ts';
 
 const INK = '#1b1530';
@@ -56,7 +58,7 @@ export interface PodiumStageOptions {
   readonly testMode: boolean;
 }
 
-export interface PodiumStage {
+export interface PodiumStage extends PerfSource {
   /** Erfüllt, sobald Figuren und Podest stehen und das erste Bild gerendert ist. */
   readonly ready: Promise<void>;
   /** Nur Testmodus: `frames` Bilder mit festem Animationsschritt. */
@@ -307,6 +309,12 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
     step(frames) {
       if (life.disposed || !scene.activeCamera) return;
       for (let index = 0; index < frames; index++) scene.render();
+    },
+    onFrameRendered(listener) {
+      return observeFrames(scene, listener);
+    },
+    getResourceStats() {
+      return resourceStats(scene);
     },
     dispose() {
       if (isDisposed()) return;

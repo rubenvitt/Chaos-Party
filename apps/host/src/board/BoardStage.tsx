@@ -7,7 +7,7 @@ import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { parseServerToHostMessage } from '@chaos-party/protocol';
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { FinaleSpeed } from '../config.ts';
-import type { FrameMeter } from '../debug/frameMeter.ts';
+import { attachPerf } from '../debug/perf.ts';
 import { Finale } from '../finale/Finale.tsx';
 import { soundEngine } from '../fx/audio.ts';
 import { boardEventSound } from '../fx/boardSounds.ts';
@@ -25,7 +25,6 @@ interface BoardStageProps {
   readonly test: boolean;
   /** Lokaler Brett-Modus: Der Testhaken darf Nachrichten einspeisen. */
   readonly local: boolean;
-  readonly meter: FrameMeter | null;
   readonly onReady: (ready: boolean) => void;
   readonly onScene: (scene: BoardScene | null) => void;
   /** Tempo der Trophäenzählung (CHAOS-37). */
@@ -39,7 +38,6 @@ export function BoardStage({
   connection,
   test,
   local,
-  meter,
   onReady,
   onScene,
   finaleSpeed,
@@ -58,6 +56,17 @@ export function BoardStage({
     onReadyRef.current = onReady;
     onSceneRef.current = onScene;
   }, [onReady, onScene]);
+
+  // Finale (Trophäenzählung bzw. Siegerbildschirm) liegt über dem Brett.
+  const finaleShown = hud.view?.gamePhase === 'game-results' && Boolean(hud.view.ranking);
+  const finaleRef = useRef(finaleShown);
+  const sceneRef = useRef<BoardScene | null>(null);
+  useEffect(() => {
+    finaleRef.current = finaleShown;
+    // Hinter dem Finale (fast deckend, Podest ganz deckend) rendert das Brett nicht weiter:
+    // eine Render-Schleife statt zwei, die GPU gehört dem Podest (CHAOS-39).
+    sceneRef.current?.setRenderPaused(finaleShown);
+  }, [finaleShown]);
 
   // Klänge zu den Ereignissen, sobald die Regie sie abspielt (CHAOS-33).
   useEffect(
@@ -84,6 +93,8 @@ export function BoardStage({
     // Was vor dem Aufbau aufgelaufen ist, nicht nachträglich animieren.
     director.settle();
     const scene = createBoardScene(canvas, { board, source: director, testMode: test });
+    sceneRef.current = scene;
+    scene.setRenderPaused(finaleRef.current);
     onSceneRef.current(scene);
 
     let active = true;
@@ -147,11 +158,8 @@ export function BoardStage({
       : undefined;
     if (hook) window.__chaos = hook;
 
-    const stopFrameMeter = meter
-      ? scene.onFrameRendered(() => {
-          meter.frameEnded(performance.now());
-        })
-      : undefined;
+    // Messung (nur Debug, CHAOS-39): hinter dem Finale heißt das Brett „finale“.
+    const stopPerf = attachPerf(() => (finaleRef.current ? 'finale' : 'brett'), scene);
 
     scene.ready.then(
       () => {
@@ -168,14 +176,15 @@ export function BoardStage({
 
     return () => {
       active = false;
-      stopFrameMeter?.();
+      stopPerf();
       scene.dispose();
+      if (sceneRef.current === scene) sceneRef.current = null;
       canvas.remove();
       onSceneRef.current(null);
       onReadyRef.current(false);
       if (hook && window.__chaos === hook) delete window.__chaos;
     };
-  }, [board, director, test, local, meter]);
+  }, [board, director, test, local]);
 
   return (
     <>

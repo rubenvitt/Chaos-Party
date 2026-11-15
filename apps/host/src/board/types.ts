@@ -4,6 +4,7 @@
  */
 import type { BoardDefinition } from '@chaos-party/game-core';
 import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
+import type { FrameSample, ResourceSample } from '../debug/perfTypes.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { BoardFrame } from './director.ts';
 
@@ -33,8 +34,16 @@ export interface BoardScene {
   getPawnPositions(): PlayerPosition[];
   /** Figur je Slot, wie in der Szene gebaut (gewählte Figur, v4). */
   getPawnCharacters(): Partial<Record<SlotNumber, CharacterId>>;
-  /** Meldet das Ende jedes gerenderten Frames (Debug-Messung). Liefert die Abmeldung. */
-  onFrameRendered(listener: () => void): () => void;
+  /** Meldet das Ende jedes gerenderten Frames samt Messwerten (Debug). Liefert die Abmeldung. */
+  onFrameRendered(listener: (sample: FrameSample) => void): () => void;
+  /** Bestand der Szene (Debug-Messung, CHAOS-39). */
+  getResourceStats(): ResourceSample;
   getRendererInfo(): RendererInfo;
+  /**
+   * Brett verdeckt (Finale, CHAOS-39): `true` hält das Rendern an – die Leinwand behält das
+   * letzte Bild, die Regie läuft weiter (Stand und HUD bleiben aktuell); `false` rendert wieder.
+   * Im Testmodus ohne Wirkung (dort rendert nur `stepFrames`).
+   */
+  setRenderPaused(paused: boolean): void;
   dispose(): void;
 }

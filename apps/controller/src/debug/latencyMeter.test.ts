@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createLatencyMeter, MAX_PENDING_PROBES } from './latencyMeter.ts';
+import type { SlotContext } from '../state/reducer.ts';
+import { controllerScene } from './sceneLabel.ts';
 import { controllerSummaryLine } from './summary.ts';
 
 describe('createLatencyMeter', () => {
@@ -11,6 +13,7 @@ describe('createLatencyMeter', () => {
       pending: 0,
       lost: 0,
       inputsPerSecond: 0,
+      byScene: [],
     });
   });
 
@@ -70,6 +73,61 @@ describe('createLatencyMeter', () => {
     // Fenster (1000, 2000]: 1050 … 2000 = 20 Eingaben.
     expect(meter.snapshot(2000).inputsPerSecond).toBe(20);
     expect(meter.snapshot(5000).inputsPerSecond).toBe(0);
+  });
+});
+
+describe('RTT je Szene (CHAOS-39)', () => {
+  it('ordnet jede Antwort der Szene beim Eintreffen zu; ohne Szene nur gesamt', () => {
+    const meter = createLatencyMeter();
+    meter.probeSent(0);
+    meter.ackReceived(0, 5);
+    meter.setScene('lobby');
+    meter.probeSent(1000);
+    meter.ackReceived(1000, 1010);
+    meter.setScene('minispiel');
+    meter.probeSent(2000);
+    meter.probeSent(3000);
+    meter.ackReceived(2000, 2030);
+    meter.ackReceived(3000, 3050);
+    meter.setScene('lobby');
+    meter.probeSent(4000);
+    meter.ackReceived(4000, 4020);
+    const snap = meter.snapshot(5000);
+    expect(snap.rtt?.count).toBe(5);
+    expect(snap.byScene.map((s) => [s.scene, s.rtt?.count, s.rtt?.median])).toEqual([
+      ['lobby', 2, 15],
+      ['minispiel', 2, 40],
+    ]);
+  });
+
+  it('erscheint in der kopierten Zeile', () => {
+    const meter = createLatencyMeter();
+    meter.setScene('brett');
+    meter.probeSent(0);
+    meter.ackReceived(0, 12);
+    const line = controllerSummaryLine(meter.snapshot(100), {
+      seats: 1,
+      device: 'X',
+      heartbeatMs: 1000,
+    });
+    expect(line).toContain('RTT je Szene ms (Median/p95) brett 12/12 n=1 | X');
+  });
+});
+
+describe('controllerScene', () => {
+  const base = { layout: 'board', actions: [] } as const;
+  it('ordnet Phase, Minispiel-Abschnitt und Endstand zu', () => {
+    expect(controllerScene(undefined)).toBeNull();
+    expect(controllerScene({ ...base, phase: 'lobby', layout: 'lobby' })).toBe('lobby');
+    expect(controllerScene({ ...base, phase: 'play', layout: 'joystick-buttons' })).toBe('arena');
+    expect(controllerScene({ ...base, phase: 'board' })).toBe('brett');
+    const minigame = { stage: 'play' } as unknown as NonNullable<SlotContext['minigame']>;
+    expect(controllerScene({ ...base, phase: 'board', minigame })).toBe('minispiel');
+    expect(
+      controllerScene({ ...base, phase: 'board', minigame: { ...minigame, stage: 'intro' } }),
+    ).toBe('minispiel:intro');
+    const board = { gamePhase: 'game-results' } as unknown as NonNullable<SlotContext['board']>;
+    expect(controllerScene({ ...base, phase: 'board', board })).toBe('endstand');
   });
 });
 

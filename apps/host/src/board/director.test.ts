@@ -117,6 +117,32 @@ describe('createBoardDirector', () => {
     expect(director.stats).toMatchObject({ nextEventSeq: 8, jumps: 2 });
   });
 
+  it('neue Partie nach dem Endstand (eventSeq wieder 0) springt statt „veraltet“ (CHAOS-39)', () => {
+    const director = started();
+    const ended: BoardView = { ...DEMO_VIEW, gamePhase: 'game-results', round: 5 };
+    director.receive(msg(ended, [{ type: 'turn-ended', slot: 1 }], 40));
+    director.advance(5000);
+    expect(director.getHud().view?.gamePhase).toBe('game-results');
+    const fresh: BoardView = { ...DEMO_VIEW, round: 1 };
+    director.receive(
+      msg(
+        fresh,
+        [
+          { type: 'turn-started', slot: 1, round: 1 },
+          { type: 'turn-ended', slot: 1 },
+        ],
+        0,
+      ),
+    );
+    director.advance(10);
+    expect(director.getHud().view?.gamePhase).toBe(DEMO_VIEW.gamePhase);
+    expect(director.getHud().view?.round).toBe(1);
+    expect(director.stats.nextEventSeq).toBe(2);
+    // Mitten in einer Partie bleibt eine Nachricht mit eventSeq 0 veraltet.
+    director.receive(msg({ ...DEMO_VIEW, round: 4 }, [{ type: 'turn-ended', slot: 1 }], 0));
+    expect(director.getHud().view?.round).toBe(1);
+  });
+
   it('übernimmt Nachrichten ohne Ereignisse sofort', () => {
     const director = started();
     director.receive(msg({ ...DEMO_VIEW, gamePhase: 'turn-start' }, [], 0));

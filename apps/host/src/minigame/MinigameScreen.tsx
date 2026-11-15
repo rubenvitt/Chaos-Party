@@ -26,6 +26,7 @@ import {
 } from '@chaos-party/protocol';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CoinIcon } from '../board/icons.tsx';
+import { attachPerf } from '../debug/perf.ts';
 import { soundEngine } from '../fx/audio.ts';
 import type { IntentHub } from '../input/webSocketInputSource.ts';
 import type { ConnectionStatus, MinigameResultPayload } from '../net/hostConnection.ts';
@@ -134,6 +135,13 @@ export function MinigameScreen(props: MinigameScreenProps) {
     });
     stageRef.current = stage;
     let active = true;
+    // Messung (nur Debug, CHAOS-39): Spielphase als „minispiel:<id>“, Anleitung/Ergebnis getrennt.
+    const stopPerf = attachPerf(() => {
+      const name = latest.current.stageName;
+      return name === 'play'
+        ? `minispiel:${module.info.id}`
+        : `minispiel:${module.info.id}:${name}`;
+    }, stage);
 
     const hook: ChaosMinigameTestHook | undefined = test
       ? {
@@ -193,6 +201,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
 
     return () => {
       active = false;
+      stopPerf();
       stage.dispose();
       canvas.remove();
       stageRef.current = null;

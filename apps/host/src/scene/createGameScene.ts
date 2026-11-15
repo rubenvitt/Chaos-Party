@@ -29,6 +29,7 @@ import { PhysicsAggregate } from '@babylonjs/core/Physics/v2/physicsAggregate.js
 import '@babylonjs/core/Physics/v2/physicsEngineComponent.js';
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin.js';
 import { Scene } from '@babylonjs/core/scene.js';
+import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import { loadHavok } from './havok.ts';
 import {
   approachAngle,
@@ -509,12 +510,10 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       }
     },
     onFrameRendered(listener) {
-      const observer = scene.onAfterRenderObservable.add(() => {
-        listener();
-      });
-      return () => {
-        scene.onAfterRenderObservable.remove(observer);
-      };
+      return observeFrames(scene, listener);
+    },
+    getResourceStats() {
+      return resourceStats(scene);
     },
     getRendererInfo(): RendererInfo {
       const gl = engine.getGlInfo();

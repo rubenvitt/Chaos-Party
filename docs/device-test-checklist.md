@@ -203,3 +203,34 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | Passen Figuren und Stil zur Produktrichtung? | |
 | Lieblings- und schwächstes Minispiel, warum? | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
+
+## 11. M4 – Performance (für CHAOS-43)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-39 · **Gate:** CHAOS-43 (nur Ruben) · **Hintergrund:** [performance.md](performance.md)
+
+Automatisch gemessen wird nur im Headless-Chromium mit Software-Rendering (SwiftShader, `pnpm perf`): Das taugt für Vorher/Nachher-Vergleiche, sagt aber **nichts** über Rubens PC, Fernseher oder iPhones. Diese Punkte liefern die echten Werte; daraus werden die Schwellen für echte Hardware (bis dahin: „offen, Messung durch Ruben“).
+
+**So geht’s:** Host mit `http://localhost:8787/host/?debug=1` öffnen, Controller-Links um `&debug=1` ergänzen. Die Host-Anzeige (unten rechts) misst je Szene (`lobby`, `brett`, `minispiel:<id>`, Anleitung/Ergebnis als `minispiel:<id>:intro`/`:results`, `finale`, `podest`); „Alle Szenen kopieren“ legt eine Zeile je Szene in die Zwischenablage. Der Controller zeigt die Rundlaufzeit und kopiert sie je Szene (`lobby`, `brett`, `minispiel`, `endstand`). Kopierten Text bitte vollständig in die Spalte „Ergebnis“ oder als Datei nach `docs/acceptance/m4-nachweise/` legen.
+
+| ID | Schritt | Erwartung / was notieren | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| PF0 | Testumgebung: PC (Betriebssystem, CPU, GPU), Browser + Version, Monitor/Fernseher (Auflösung, Bildwiederholrate), Fenster/Vollbild, Netz (WLAN/Kabel) | vollständig ausgefüllt; die Host-Zeile nennt GPU und Render-Auflösung | | |
+| PF1 | Ganze Partie mit 4 Spielern (`ROUNDS=3 pnpm start`, jedes Minispiel einmal), Host mit `?debug=1`; am Siegerbildschirm „Alle Szenen kopieren“ | Zeilen für `lobby`, `brett`, alle drei Minispiele, `finale`, `podest`; Text einfügen | | |
+| PF2 | Bildrate je Szene aus PF1: fps und Bildabstand p95 je Szene | Werte notieren; gefühlt flüssig (1–5) je Szene; Ruckler wann? | | |
+| PF3 | Eingabe→Frame im Minispiel und Brett→Frame auf dem Brett (aus PF1) | Median/p95 notieren (misst bis Ende des JS-Renderings, ohne GPU/Bildschirm, ADR-010) | | |
+| PF4 | WebGL-Kontexte und Render-Schleifen (aus PF1) | `finale` und `podest`: „Kontexte max 2“, „Schleifen max 1“ (Brett pausiert hinter dem Finale); jede andere Szene 1 Kontext, 1 Schleife | | |
+| PF5 | iPhone mit `&debug=1` eine ganze Partie spielen, am Endstand „Kopieren“ | RTT Median/p95 je Szene (`lobby`, `brett`, `minispiel`) notieren; Bewertung der gefühlten Reaktion 1–5 | | |
+| PF6 | Geteiltes iPad mit `&seats=2&debug=1` (falls verfügbar), wie PF5 | RTT je Szene; Unterschied zum iPhone? | | |
+| PF7 | Optional: Zeitlupenvideo (240 fps) von Daumen und Fernseher im Minispiel | Bilder zwischen Daumenbewegung und Figurbewegung → ms (Gesamtlatenz Finger → Bild, nicht automatisch messbar) | | |
+| PF8 | Zweimal „Nochmal spielen“ (3 Partien hintereinander), danach in der Lobby „Alle Szenen kopieren“ | `Heap max` der Lobby nach Partie 3 ungefähr wie nach Partie 1 (nur Chrome/Edge zeigen den Heap); keine spürbare Verlangsamung | | |
+| PF9 | Host-Tab mitten im Brett 30 s in den Hintergrund (anderer Tab/minimiert), dann zurück | „Pausen“ steigt um 1; Spiel läuft danach normal weiter, kein Nachruckeln | | |
+| PF10 | Optional: schwächster verfügbarer Rechner (z. B. Laptop mit integrierter Grafik), wie PF1 | Werte wie PF2; ab welcher Szene wird es unflüssig? | | |
+
+### Schwellen auf echter Hardware (offen, Messung durch Ruben)
+
+| Kennzahl | Schwelle | Herkunft |
+|---|---|---|
+| Bildabstand p95 je Szene am Host-PC | offen | aus PF1/PF2; Vorschlag nach der Messung: Messwert von Rubens PC + 25 % als Regressionsgrenze |
+| Eingabe→Frame p95 im Minispiel | offen | aus PF3 |
+| RTT p95 Controller ↔ Server je Szene | offen | aus PF5/PF6 (M1-P3 wurde nicht gemeldet) |
+| WebGL-Kontexte/Render-Schleifen je Szene | strukturell, schon gesetzt | `tests/perf/baseline.json`: Finale/Podest höchstens 2 Kontexte und 1 Schleife, sonst 1/1 |

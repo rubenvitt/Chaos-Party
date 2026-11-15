@@ -20,6 +20,14 @@ export const MAX_PENDING_PROBES = 8;
 export const INPUT_WINDOW_MS = 1000;
 /** Kapazität für Sende-Zeitpunkte (reicht für 4 iPad-Plätze à 30 `move`/s und Knöpfe). */
 const INPUT_TIMESTAMPS = 512;
+/** RTT-Werte je Szene (CHAOS-39): bei 1 Probe/s die letzten 5 Minuten jeder Szene. */
+export const SCENE_RTT_SAMPLES = 300;
+
+/** RTT-Kennzahlen einer Szene (Lobby, Brett, Minispiel …). */
+export interface SceneRtt {
+  readonly scene: string;
+  readonly rtt: Summary | null;
+}
 
 export interface LatencySnapshot {
   /** Median, p95 usw. der letzten {@link RTT_SAMPLES} RTTs in ms; `null` ohne Messung. */
@@ -32,6 +40,11 @@ export interface LatencySnapshot {
   readonly lost: number;
   /** Gesendete Slot-Eingaben in den letzten {@link INPUT_WINDOW_MS} ms. */
   readonly inputsPerSecond: number;
+  /**
+   * RTT je Szene in der Reihenfolge des ersten Auftretens (CHAOS-39); maßgeblich ist die
+   * Szene beim Eintreffen der Antwort. Leer, solange keine Szene gesetzt ist.
+   */
+  readonly byScene: readonly SceneRtt[];
 }
 
 export interface LatencyMeter {
@@ -43,6 +56,8 @@ export interface LatencyMeter {
   connectionLost(): void;
   /** Eine Slot-Eingabe wurde zur Zeit `now` gesendet. */
   inputSent(now: number): void;
+  /** Aktuelle Szene für die RTT je Szene (`null` = keiner Szene zuordnen). */
+  setScene(scene: string | null): void;
   snapshot(now: number): LatencySnapshot;
 }
 
@@ -52,6 +67,8 @@ export function createLatencyMeter(capacity = RTT_SAMPLES): LatencyMeter {
   /** Offene Proben in Sendereihenfolge. */
   const pending: number[] = [];
   let lost = 0;
+  const scenes = new Map<string, RingBuffer>();
+  let scene: string | null = null;
 
   return {
     probeSent(t) {
@@ -69,6 +86,14 @@ export function createLatencyMeter(capacity = RTT_SAMPLES): LatencyMeter {
       const rtt = now - t;
       if (!Number.isFinite(rtt) || rtt < 0) return null;
       rtts.push(rtt);
+      if (scene !== null) {
+        let buffer = scenes.get(scene);
+        if (!buffer) {
+          buffer = new RingBuffer(SCENE_RTT_SAMPLES);
+          scenes.set(scene, buffer);
+        }
+        buffer.push(rtt);
+      }
       return rtt;
     },
     connectionLost() {
@@ -77,6 +102,9 @@ export function createLatencyMeter(capacity = RTT_SAMPLES): LatencyMeter {
     },
     inputSent(now) {
       inputs.push(now);
+    },
+    setScene(next) {
+      scene = next;
     },
     snapshot(now) {
       const since = now - INPUT_WINDOW_MS;
@@ -88,6 +116,10 @@ export function createLatencyMeter(capacity = RTT_SAMPLES): LatencyMeter {
         pending: pending.length,
         lost,
         inputsPerSecond: recent,
+        byScene: [...scenes].map(([name, buffer]) => ({
+          scene: name,
+          rtt: summarize(buffer.values()),
+        })),
       };
     },
   };

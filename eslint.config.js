@@ -16,6 +16,7 @@ export default defineConfig(
       '.claude/**',
       'test-results/**',
       'playwright-report/**',
+      'perf-results/**',
     ],
   },
   js.configs.recommended,

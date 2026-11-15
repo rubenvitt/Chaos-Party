@@ -11,6 +11,8 @@ interface DebugOverlayProps {
   meter: LatencyMeter;
   seats: number;
   heartbeatMs: number;
+  /** Aktuelle Szene für die RTT je Szene (CHAOS-39); `null` = noch keine. */
+  scene?: string | null;
 }
 
 type CopyState = 'idle' | 'copied' | 'manual';
@@ -23,13 +25,18 @@ type CopyState = 'idle' | 'copied' | 'manual';
  * Notizen in die Zwischenablage; geht das nicht (LAN ohne HTTPS), wird die Zeile zum
  * manuellen Kopieren markiert. Fängt außer dem Knopf keine Touches ab.
  */
-export function DebugOverlay({ meter, seats, heartbeatMs }: DebugOverlayProps) {
+export function DebugOverlay({ meter, seats, heartbeatMs, scene = null }: DebugOverlayProps) {
   const [snapshot, setSnapshot] = useState<LatencySnapshot>(() =>
     meter.snapshot(performance.now()),
   );
   const [copy, setCopy] = useState<CopyState>('idle');
   const [device] = useState(() => shortUserAgent(navigator.userAgent));
   const manualRef = useRef<HTMLTextAreaElement>(null);
+
+  // RTT je Szene (CHAOS-39): Antworten zählen zur Szene, die beim Eintreffen gezeigt wird.
+  useEffect(() => {
+    meter.setScene(scene);
+  }, [meter, scene]);
 
   useEffect(() => {
     const timer = setInterval(() => {

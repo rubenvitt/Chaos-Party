@@ -33,6 +33,8 @@ import {
   type RunnerState,
 } from '@chaos-party/minigame-sdk/babylon';
 import { loadCharacters, type CharacterLibrary } from '../characters/index.ts';
+import type { PerfSource } from '../debug/perfTypes.ts';
+import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import type { SoundEngine } from '../fx/audio.ts';
 import { createMinigameFx, type FxStats, type HostMinigameFx } from '../fx/minigameFx.ts';
 import { loadHavok } from '../scene/havok.ts';
@@ -54,7 +56,7 @@ export interface MinigameStageOptions {
   readonly onError?: (error: unknown) => void;
 }
 
-export interface MinigameStage {
+export interface MinigameStage extends PerfSource {
   readonly status: StageStatus;
   /** Erfüllt, sobald vorbereitet und das erste Bild gerendert ist. */
   readonly ready: Promise<void>;
@@ -250,6 +252,12 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
         if (runner.state === 'running' || runner.state === 'finished') runner.step(1);
       }
       renderOnce();
+    },
+    onFrameRendered(listener) {
+      return observeFrames(scene, listener);
+    },
+    getResourceStats() {
+      return resourceStats(scene);
     },
     hud() {
       if (!runner || runner.state === 'created' || runner.state === 'preparing') return null;

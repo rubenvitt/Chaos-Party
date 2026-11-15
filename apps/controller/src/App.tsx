@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import type { LatencyMeter } from './debug/latencyMeter.ts';
+import { controllerScene } from './debug/sceneLabel.ts';
 import type { SlotIntent } from './net/client.ts';
 import type { ControllerSession } from './net/session.ts';
 import { selectCodeEntryError, selectScreen } from './state/reducer.ts';
@@ -82,7 +83,14 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
           <ConnectingScreen />
         ))}
       <ConnectionStatus session={session} />
-      {debug && <DebugOverlay meter={debug.meter} seats={seats} heartbeatMs={debug.heartbeatMs} />}
+      {debug && (
+        <DebugOverlay
+          meter={debug.meter}
+          seats={seats}
+          heartbeatMs={debug.heartbeatMs}
+          scene={controllerScene(player ? state.contexts[player.slot] : undefined)}
+        />
+      )}
       {state.notice !== null && screen === 'controller' && (
         <Toast key={state.notice.id} notice={state.notice} onDismiss={dismiss} />
       )}

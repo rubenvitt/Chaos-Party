@@ -1,6 +1,17 @@
 /** Anzeigehilfen für die Debug-Anzeigen (CHAOS-45). Reine Funktionen. */
 
 /**
+ * Bytes für die Anzeige (CHAOS-39): ab 1 MiB in MB mit einer Nachkommastelle, darunter in kB;
+ * `null` → „–“ (z. B. Safari ohne `performance.memory`).
+ */
+export function formatBytes(bytes: number | null): string {
+  if (bytes === null || !Number.isFinite(bytes)) return '–';
+  const mib = 1024 * 1024;
+  if (Math.abs(bytes) >= mib) return `${(bytes / mib).toFixed(1)} MB`;
+  return `${String(Math.round(bytes / 1024))} kB`;
+}
+
+/**
  * Millisekunden für die Anzeige: unter 10 ms mit einer Nachkommastelle, sonst ganzzahlig;
  * `null` → „–“. Punkt als Dezimaltrenner, damit kopierte Werte eindeutig bleiben.
  */
