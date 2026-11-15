@@ -62,7 +62,7 @@ async function attach(page: Page): Promise<FakeSession> {
  * Steckbriefe (wie `ControllerMinigameInfo` vom Server)
  * ------------------------------------------------------------------------- */
 
-type Info = Omit<ControllerMinigameInfo, 'stage' | 'place' | 'score'>;
+type Info = Omit<ControllerMinigameInfo, 'stage' | 'place' | 'score' | 'tied' | 'aborted'>;
 
 /** Joystick + A, kein B. */
 const HUEPFEN: Info = {
@@ -122,7 +122,7 @@ function sendMinigame(
       layout: play ? 'joystick-buttons' : 'board',
       actions: play ? actionsFor(info) : [],
       board: boardInfo({ gamePhase: `minigame-${stage}` as GamePhaseName, activeSlot: null }),
-      minigame: { ...info, stage, ...result },
+      minigame: { ...info, stage, tied: false, aborted: false, ...result },
     }),
   );
 }

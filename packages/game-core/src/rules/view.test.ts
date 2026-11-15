@@ -27,7 +27,10 @@ describe('toPublicView', () => {
       trophies: 0,
       items: [],
       connected: true,
+      minigameWins: 0,
+      stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
     });
+    expect(view).toMatchObject({ paused: false, endedEarly: false });
   });
 
   it('Prompt ohne Standardoption und absolute Frist, Restzeit nie negativ', () => {

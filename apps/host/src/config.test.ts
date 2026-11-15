@@ -101,8 +101,8 @@ describe('createLocalPlayers', () => {
 describe('playersFromLobby', () => {
   it('übernimmt nur beigetretene Slots, sortiert, mit Server-Farbe und -Bezeichnung', () => {
     const players = playersFromLobby([
-      { slot: 3, color: '#009E73', label: 'Mia', connected: false, ready: true },
-      { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false },
+      { slot: 3, color: '#009E73', label: 'Mia', connected: false, ready: true, character: null },
+      { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
     ]);
     expect(players).toEqual([
       {

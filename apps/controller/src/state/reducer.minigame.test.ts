@@ -42,6 +42,9 @@ const board: ControllerBoardInfo = {
   trophies: 0,
   items: [],
   activeSlot: null,
+  paused: false,
+  character: 'robot',
+  minigameWins: 0,
 };
 
 const PUMP: Omit<ControllerMinigameInfo, 'stage'> = {
@@ -51,6 +54,8 @@ const PUMP: Omit<ControllerMinigameInfo, 'stage'> = {
   instructions: ['Tippe A so oft du kannst.', 'Größter Ballon gewinnt.'],
   controls: { joystick: null, a: 'Pumpen', b: null },
   scoreUnit: 'Pumpstöße',
+  tied: false,
+  aborted: false,
 };
 
 /** Kontext wie `Session.boardContextFor` im Minispiel. */

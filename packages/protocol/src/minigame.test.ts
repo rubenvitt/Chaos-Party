@@ -58,6 +58,8 @@ describe('Protokoll v3: Minispiele', () => {
         controls: { joystick: 'Laufen', a: 'Springen', b: null },
         stage: 'play',
         scoreUnit: 'Sterne',
+        tied: false,
+        aborted: false,
       },
     });
     expect(parseServerToControllerMessage(message).ok).toBe(true);
@@ -89,7 +91,13 @@ describe('Protokoll v3: Minispiele', () => {
           placements: [...placements],
           highlights: [],
           aborted: false,
+          rewards: [
+            { slot: 2, coins: 10 },
+            { slot: 1, coins: 5 },
+          ],
         },
+        paused: false,
+        endedEarly: false,
       },
       events: [
         { type: 'minigame-started', minigame: 'wackel-floss' },

@@ -27,6 +27,7 @@ export function minigameView(
       placements: null,
       highlights: [],
       aborted: false,
+      rewards: null,
       ...minigame,
     },
   };

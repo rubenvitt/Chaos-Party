@@ -172,7 +172,7 @@ describe('WebSocket-Server (CHAOS-9)', () => {
       expect(context).toMatchObject({
         slot: welcome.players[0]?.slot,
         layout: 'lobby',
-        actions: ['ready'],
+        actions: ['ready', 'pick-character'],
       });
     }
   });
@@ -257,7 +257,7 @@ describe('WebSocket-Server (CHAOS-9)', () => {
     const { client } = await controller();
     client.send('{kaputt');
     await client.error('bad-message');
-    client.send({ v: 3, type: 'teleport' });
+    client.send({ v: 4, type: 'teleport' });
     await client.error('bad-message');
     client.send({ v: 99, type: 'heartbeat', t: 1 });
     await client.error('version-mismatch');

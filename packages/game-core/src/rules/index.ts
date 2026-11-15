@@ -28,6 +28,7 @@ export {
 } from './prompts.ts';
 export {
   toPublicView,
+  viewClock,
   type PublicGameView,
   type PublicMinigame,
   type PublicPlayer,

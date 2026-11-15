@@ -8,7 +8,12 @@
  */
 import { DEFAULT_BOARD, DEFAULT_RULES } from '@chaos-party/game-core';
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
-import { PLAYER_SLOTS, type BoardView, type SlotNumber } from '@chaos-party/protocol';
+import {
+  defaultCharacterFor,
+  PLAYER_SLOTS,
+  type BoardView,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
 import type { MinigameStageName } from './plan.ts';
 
@@ -60,6 +65,9 @@ export function localView(
       trophies: 0,
       items: [],
       connected: true,
+      character: defaultCharacterFor(slot),
+      minigameWins: 0,
+      stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
     })),
     trophySpaces: [],
     trophyPrice: DEFAULT_RULES.trophy.price,
@@ -78,7 +86,18 @@ export function localView(
         stage === 'results' && result ? result.placements.map((entry) => ({ ...entry })) : null,
       highlights: stage === 'results' && result ? [...(result.highlights ?? [])] : [],
       aborted: stage === 'results' && !result,
+      rewards:
+        stage === 'results'
+          ? result
+            ? result.placements.map((entry) => ({
+                slot: entry.slot,
+                coins: DEFAULT_RULES.economy.minigameRewards[entry.place - 1] ?? 0,
+              }))
+            : []
+          : null,
     },
+    paused: false,
+    endedEarly: false,
   };
 }
 

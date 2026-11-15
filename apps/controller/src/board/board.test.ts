@@ -45,6 +45,9 @@ const board: ControllerBoardInfo = {
   trophies: 0,
   items: [],
   activeSlot: 2,
+  paused: false,
+  character: 'robot',
+  minigameWins: 0,
 };
 
 function boardContext(prompt?: PromptInfo, receivedAt = 0): SlotContext {

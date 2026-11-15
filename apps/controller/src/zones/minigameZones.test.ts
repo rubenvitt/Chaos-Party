@@ -35,6 +35,8 @@ function minigame(
     controls,
     stage,
     scoreUnit: 'Punkte',
+    tied: false,
+    aborted: false,
   };
 }
 

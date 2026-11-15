@@ -24,6 +24,9 @@ const PLAYERS: BoardPlayer[] = [
     trophies: 1,
     items: ['double-dice'],
     connected: true,
+    character: 'robot',
+    minigameWins: 1,
+    stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
   },
   {
     slot: 2,
@@ -33,6 +36,9 @@ const PLAYERS: BoardPlayer[] = [
     trophies: 0,
     items: ['coin-steal', 'trap'],
     connected: true,
+    character: 'cactus',
+    minigameWins: 0,
+    stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
   },
   {
     slot: 3,
@@ -42,8 +48,22 @@ const PLAYERS: BoardPlayer[] = [
     trophies: 1,
     items: ['shield'],
     connected: true,
+    character: 'raccoon',
+    minigameWins: 1,
+    stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
   },
-  { slot: 4, name: 'Rosa', spaceId: 's42', coins: 3, trophies: 0, items: [], connected: true },
+  {
+    slot: 4,
+    name: 'Rosa',
+    spaceId: 's42',
+    coins: 3,
+    trophies: 0,
+    items: [],
+    connected: true,
+    character: 'sock',
+    minigameWins: 0,
+    stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
+  },
 ];
 
 /** Stand für den Screenshot: Blau steht an Gabel A und wählt einen Weg. */
@@ -73,6 +93,8 @@ export const DEMO_VIEW: BoardView = {
   stepMs: 320,
   ranking: null,
   minigame: null,
+  paused: false,
+  endedEarly: false,
 };
 
 type PlayerPatch = Partial<Omit<BoardPlayer, 'slot'>>;

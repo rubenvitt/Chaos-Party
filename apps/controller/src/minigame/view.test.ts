@@ -23,6 +23,8 @@ function info(extra: Partial<ControllerMinigameInfo> = {}): ControllerMinigameIn
     controls: { joystick: 'Laufen', a: 'Springen', b: null },
     stage: 'play',
     scoreUnit: 'Sekunden',
+    tied: false,
+    aborted: false,
     ...extra,
   };
 }

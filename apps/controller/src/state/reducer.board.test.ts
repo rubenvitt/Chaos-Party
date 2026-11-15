@@ -50,6 +50,9 @@ const board: ControllerBoardInfo = {
   trophies: 0,
   items: ['trap'],
   activeSlot: 1,
+  paused: false,
+  character: 'robot',
+  minigameWins: 0,
 };
 
 function prompt(id: number, remainingMs: number | null = null, slot: 1 | 2 = 1): PromptInfo {

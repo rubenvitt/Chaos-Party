@@ -77,7 +77,12 @@ export interface MinigameRunner {
   advance(seconds: number): number;
   /** Genau `steps` feste Schritte (Tests, deterministisch). */
   step(steps?: number): void;
+  /**
+   * Hält das Minispiel an (Partie-Pause, ADR-014): `advance` rechnet keine Schritte, `input`
+   * wird ignoriert, gehaltene Eingaben werden neutralisiert. `elapsedMs` bleibt stehen.
+   */
   pause(): void;
+  /** Setzt fort, ohne die Pausenzeit nachzuholen. */
   resume(): void;
   hud(): MinigameHud;
   dispose(): void;
@@ -256,9 +261,15 @@ export function createMinigameRunner(
       for (let index = 0; index < count; index++) fixedStep();
     },
     pause() {
+      // Server-Pause (ADR-014): Takt steht, Eingaben werden ignoriert. Gehaltene Sticks und
+      // Knöpfe lassen los, damit nach `resume` nichts „klemmt“ (Loslassen kommt in der Pause
+      // nicht mehr an, der Server leitet dann keine Eingaben weiter).
+      if (paused) return;
       paused = true;
+      if (state === 'running') for (const slot of slots) neutralize(slot);
     },
     resume() {
+      // Rückstand aus der Pause wird nicht nachgeholt: Spielzeit läuft genau dort weiter.
       paused = false;
       accumulator = 0;
     },

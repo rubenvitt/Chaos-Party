@@ -49,6 +49,9 @@ export function boardInfo(extra: Partial<ControllerBoardInfo> = {}): ControllerB
     trophies: 1,
     items: ['double-dice', 'trap'],
     activeSlot: 1,
+    paused: false,
+    character: 'robot',
+    minigameWins: 0,
     ...extra,
   };
 }

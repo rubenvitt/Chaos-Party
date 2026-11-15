@@ -213,6 +213,40 @@ describe('Minispiel-Laufzeit', () => {
     headless.dispose();
   });
 
+  it('Pause hält Spielzeit an, ignoriert Eingaben und lässt Gehaltenes los (ADR-014)', async () => {
+    const probeGame = probe({});
+    const { runner, headless } = await setup(probeGame.module);
+    await runner.prepare();
+    runner.start();
+    runner.input(1, { type: 'move', x: 1, y: 0 });
+    runner.input(1, { type: 'press', button: 'a' });
+    runner.step(30);
+    const before = runner.elapsedMs;
+    const inputsBefore = probeGame.inputs.length;
+    runner.pause();
+    runner.pause(); // doppelt ist harmlos
+    expect(runner.paused).toBe(true);
+    // Neutralisiert: Stick auf 0, Knopf los.
+    expect(probeGame.inputs.slice(inputsBefore)).toEqual([
+      [1, { type: 'move', x: 0, y: 0 }],
+      [1, { type: 'release', button: 'a' }],
+    ]);
+    const neutralized = probeGame.inputs.length;
+    expect(runner.advance(10)).toBe(0);
+    runner.input(2, { type: 'press', button: 'a' });
+    expect(probeGame.inputs).toHaveLength(neutralized);
+    expect(runner.elapsedMs).toBe(before);
+    runner.resume();
+    expect(runner.paused).toBe(false);
+    // Kein Nachholen der Pausenzeit.
+    expect(runner.advance(1 / 60 + 1e-6)).toBe(1);
+    expect(runner.elapsedMs).toBe(before + 17);
+    runner.input(2, { type: 'press', button: 'a' });
+    expect(probeGame.inputs.at(-1)).toEqual([2, { type: 'press', button: 'a' }]);
+    runner.dispose();
+    headless.dispose();
+  });
+
   it('rechnet Havok-Physik im festen Takt (nicht beim Rendern) und räumt Körper weg', async () => {
     const probeGame = probe({ info: { physics: true }, finishAfterMs: 2_000, physicsBall: true });
     const { runner, headless } = await setup(probeGame.module);

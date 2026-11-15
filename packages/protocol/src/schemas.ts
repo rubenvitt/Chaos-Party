@@ -11,6 +11,7 @@
  *   als Echo zurückgegeben, nie für Spiellogik verwendet.
  */
 import { z } from 'zod';
+import { CHARACTER_IDS } from './characters.ts';
 import { MAX_PLAYERS } from './players.ts';
 import { PROTOCOL_VERSION } from './version.ts';
 
@@ -81,6 +82,8 @@ export const ACTIONS = [
   'gesture',
   'reaction',
   'choose',
+  /** Lobby (v4): Figur wählen bzw. umwählen (`pick-character`). */
+  'pick-character',
 ] as const;
 /** Bildschirmaufbau eines Controller-Slots. `board` = Brettphase (Status + ggf. Prompt). */
 export const LAYOUTS = ['wait', 'lobby', 'joystick-buttons', 'board'] as const;
@@ -103,6 +106,10 @@ export const ERROR_CODES = [
   'invalid-choice',
   /** Minispiel-Ergebnis vom Host passt nicht (falsche Runde, Wertung, zu spät). */
   'invalid-result',
+  /** v4: Figur ist schon von einem anderen Slot gewählt. */
+  'character-taken',
+  /** v4: Partie ist pausiert (Wahl, Eingaben, erneutes `pause`). */
+  'paused',
   'internal',
 ] as const;
 
@@ -119,6 +126,14 @@ export const ItemKindSchema = z.enum(ITEM_KINDS);
 export const PromptKindSchema = z.enum(PROMPT_KINDS);
 export const BoardEventKindSchema = z.enum(BOARD_EVENT_KINDS);
 export const CoinReasonSchema = z.enum(COIN_REASONS);
+/** Figuren-ID (v4, Quelle `./characters.ts`). */
+export const CharacterIdSchema = z.enum(CHARACTER_IDS);
+/**
+ * Welches Kriterium den Platz im Endstand entschieden hat (v4, ADR-014): Trophäen → Münzen →
+ * Minispiel-Siege → geteilter Platz. Erlaubt dem Host, die Trophäenzählung zu inszenieren.
+ */
+export const RANKING_CRITERIA = ['trophies', 'coins', 'minigame-wins', 'shared'] as const;
+export const RankingCriterionSchema = z.enum(RANKING_CRITERIA);
 
 // ---------------------------------------------------------------------------
 // Bausteine
@@ -143,6 +158,10 @@ export const OptionIdSchema = z.string().regex(/^[a-z0-9:-]{1,32}$/);
 export const CountSchema = z.int().nonnegative().max(1_000_000);
 /** Höchstzahl Runden einer Partie. */
 export const MAX_ROUNDS = 20;
+/** Rundenzahl einer Partie (Lobby-Einstellung, `start`, `configure`). */
+export const RoundsSchema = z.int().min(1).max(MAX_ROUNDS);
+/** Höchstzahl Vorschläge für die Rundenzahl in `lobby.settings.roundPresets`. */
+export const MAX_ROUND_PRESETS = 6;
 /** Höchstzahl Ereignisse in einer `board`-Nachricht. */
 export const MAX_BOARD_EVENTS = 64;
 /** Kennung eines Minispiels (gleich `MINIGAME_ID_PATTERN` im minigame-sdk). */
@@ -226,6 +245,12 @@ export const ControllerMinigameInfoSchema = z.strictObject({
   place: z.int().min(1).max(MAX_PLAYERS).optional(),
   score: MinigameScoreSchema.optional(),
   scoreUnit: displayText(16),
+  /** v4 (CHAOS-55): eigener Platz ist mit jemandem geteilt (nur in `results` sinnvoll). */
+  tied: z.boolean(),
+  /** v4 (CHAOS-55): Minispiel abgebrochen (kein gültiges Ergebnis, keine Münzen). */
+  aborted: z.boolean(),
+  /** v4: Nur in `results`: eigene Münzbelohnung für den Platz. */
+  reward: CountSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -344,6 +369,17 @@ export const ChooseMessageSchema = z.strictObject({
   option: OptionIdSchema,
 });
 
+/**
+ * Figur wählen bzw. umwählen (v4, CHAOS-36). Nur in der Lobby. Vergebene Figur → Fehler
+ * `character-taken`; Umwählen ist erlaubt und setzt `ready` zurück (ADR-014).
+ */
+export const PickCharacterMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('pick-character'),
+  ...slotSeq,
+  character: CharacterIdSchema,
+});
+
 /** Herzschlag von Controller oder Host. `t` ist die Client-Uhr und wird nur zurückgespiegelt (B8). */
 export const HeartbeatMessageSchema = z.strictObject({
   v: VersionSchema,
@@ -361,6 +397,7 @@ const controllerMessageOptions = [
   GestureMessageSchema,
   ReactionMessageSchema,
   ChooseMessageSchema,
+  PickCharacterMessageSchema,
   HeartbeatMessageSchema,
 ] as const;
 
@@ -380,8 +417,42 @@ export const StartMessageSchema = z.strictObject({
   type: z.literal('start'),
   /** Fehlt = `board`. `arena` startet die M1-Arena (Phase `play`). */
   mode: GameModeSchema.optional(),
-  /** Rundenzahl des Brettspiels (fehlt = Server-Standard). */
-  rounds: z.int().min(1).max(MAX_ROUNDS).optional(),
+  /** Rundenzahl des Brettspiels (fehlt = Lobby-Einstellung, siehe `configure`). */
+  rounds: RoundsSchema.optional(),
+});
+
+/** Lobby-Einstellungen ändern (v4, CHAOS-36): Rundenzahl der nächsten Partie. */
+export const ConfigureMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('configure'),
+  rounds: RoundsSchema,
+});
+
+/** Partie anhalten (v4, CHAOS-36): Fristen und Spielzeit stehen, bis `resume` kommt. */
+export const PauseMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('pause'),
+});
+
+/** Pausierte Partie fortsetzen; alle Fristen verschieben sich um die Pausendauer. */
+export const ResumeMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('resume'),
+});
+
+/** Partie vorzeitig beenden: sofort Endstand (`game-results`, `endedEarly: true`). */
+export const EndGameMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('end-game'),
+});
+
+/**
+ * Nach dem Endstand zurück in die Lobby (v4, CHAOS-37): Spieler und Figuren bleiben,
+ * `ready` wird zurückgesetzt, die nächste Partie bekommt einen neuen Seed.
+ */
+export const RematchMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('rematch'),
 });
 
 /**
@@ -401,19 +472,26 @@ export const MinigameResultMessageSchema = z.strictObject({
   highlights: MinigameHighlightsSchema.optional(),
 });
 
-export const HostMessageSchema = z.discriminatedUnion('type', [
+const hostOnlyMessageOptions = [
   HostHelloMessageSchema,
   StartMessageSchema,
-  HeartbeatMessageSchema,
   MinigameResultMessageSchema,
+  ConfigureMessageSchema,
+  PauseMessageSchema,
+  ResumeMessageSchema,
+  EndGameMessageSchema,
+  RematchMessageSchema,
+] as const;
+
+export const HostMessageSchema = z.discriminatedUnion('type', [
+  ...hostOnlyMessageOptions,
+  HeartbeatMessageSchema,
 ]);
 
 /** Alles, was ein Client senden darf (vor dem Handshake ist die Rolle noch unbekannt). */
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   ...controllerMessageOptions,
-  HostHelloMessageSchema,
-  StartMessageSchema,
-  MinigameResultMessageSchema,
+  ...hostOnlyMessageOptions,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -467,6 +545,26 @@ export const ControllerBoardInfoSchema = z.strictObject({
   activeSlot: SlotSchema.nullable(),
   /** Platz im Endstand, nur in `game-results`. */
   place: z.int().min(1).max(MAX_PLAYERS).optional(),
+  /** v4: Partie pausiert (Controller zeigt Pause, bietet nichts an). */
+  paused: z.boolean(),
+  /** v4: eigene Figur (für Kopfzeile/Ergebnis). */
+  character: CharacterIdSchema,
+  /** v4: bisher gewonnene Minispiele (1. Plätze, Gleichstand zählt für alle). */
+  minigameWins: CountSchema,
+  /** v4, nur in `game-results`: Platz mit jemandem geteilt. */
+  tied: z.boolean().optional(),
+  /** v4, nur in `game-results`: Partie wurde vorzeitig beendet. */
+  endedEarly: z.boolean().optional(),
+});
+
+/** Eigener Stand in der Lobby (v4, CHAOS-36): Figurenwahl und Rundenzahl. */
+export const ControllerLobbyInfoSchema = z.strictObject({
+  /** Eigene Figur oder `null` = noch nicht gewählt (beim Start automatisch zugewiesen). */
+  character: CharacterIdSchema.nullable(),
+  /** Von anderen Slots gewählte Figuren (nicht wählbar). */
+  takenCharacters: z.array(CharacterIdSchema).max(MAX_PLAYERS),
+  /** Eingestellte Rundenzahl der nächsten Partie. */
+  rounds: RoundsSchema,
 });
 
 export const ContextMessageSchema = z.strictObject({
@@ -482,6 +580,8 @@ export const ContextMessageSchema = z.strictObject({
   board: ControllerBoardInfoSchema.optional(),
   /** Nur in Phase `board` während eines Minispiels (Intro, Spiel, Ergebnis). */
   minigame: ControllerMinigameInfoSchema.optional(),
+  /** v4: Nur in Phase `lobby`: eigene Figur, vergebene Figuren, Rundenzahl. */
+  lobby: ControllerLobbyInfoSchema.optional(),
 });
 
 export const FeedbackMessageSchema = z.strictObject({
@@ -524,6 +624,27 @@ export const LobbyPlayerSchema = z.strictObject({
   label: PlayerLabelSchema,
   connected: z.boolean(),
   ready: z.boolean(),
+  /** v4: gewählte Figur oder `null` (noch keine Wahl; Auto-Zuweisung beim Start). */
+  character: CharacterIdSchema.nullable(),
+});
+
+function hasUniqueCharacters(players: readonly { character: string | null }[]): boolean {
+  const picked = players.flatMap((player) => (player.character === null ? [] : [player.character]));
+  return new Set(picked).size === picked.length;
+}
+
+/** Lobby-Einstellungen (v4, CHAOS-36). */
+export const LobbySettingsSchema = z.strictObject({
+  /** Rundenzahl der nächsten Partie. */
+  rounds: RoundsSchema,
+  /** Vorschläge für die Auswahl am PC (aufsteigend, ohne Doppelte). */
+  roundPresets: z
+    .array(RoundsSchema)
+    .min(1)
+    .max(MAX_ROUND_PRESETS)
+    .refine((presets) => presets.every((value, i) => i === 0 || value > (presets[i - 1] ?? 0)), {
+      message: 'Vorschläge aufsteigend ohne Doppelte',
+    }),
 });
 
 /** Join-Link für den QR-Code: nur `http(s)`, begrenzte Länge. */
@@ -543,7 +664,13 @@ export const LobbyMessageSchema = z.strictObject({
    */
   joinUrlAlternatives: z.array(JoinUrlSchema).max(MAX_JOIN_URL_ALTERNATIVES).optional(),
   phase: PhaseSchema,
-  players: z.array(LobbyPlayerSchema).max(MAX_PLAYERS).refine(hasUniqueSlots, 'Slots doppelt'),
+  players: z
+    .array(LobbyPlayerSchema)
+    .max(MAX_PLAYERS)
+    .refine(hasUniqueSlots, 'Slots doppelt')
+    .refine(hasUniqueCharacters, 'Figur doppelt'),
+  /** v4: Einstellungen der (nächsten) Partie. */
+  settings: LobbySettingsSchema,
 });
 
 /** Geprüfte Controller-Eingabe; `at` ist die Server-Empfangszeit in ms (monoton, Server-Uhr). */
@@ -566,6 +693,17 @@ export const BoardPlayerSchema = z.strictObject({
   trophies: CountSchema,
   items: z.array(ItemKindSchema).max(8),
   connected: z.boolean(),
+  /** v4: gewählte (oder beim Start zugewiesene) Figur. */
+  character: CharacterIdSchema,
+  /** v4: gewonnene Minispiele (Gleichstand auf Platz 1 zählt für alle). */
+  minigameWins: CountSchema,
+  /** v4: Statistik nur für Bonus-Anzeigen am Ende, ohne Einfluss auf die Wertung. */
+  stats: z.strictObject({
+    coinsEarned: CountSchema,
+    coinsLost: CountSchema,
+    spacesMoved: CountSchema,
+    itemsUsed: CountSchema,
+  }),
 });
 
 export const RankingEntrySchema = z.strictObject({
@@ -573,7 +711,14 @@ export const RankingEntrySchema = z.strictObject({
   place: z.int().min(1).max(MAX_PLAYERS),
   trophies: CountSchema,
   coins: CountSchema,
+  /** v4: Anzahl Minispiel-Siege (drittes Kriterium). */
+  minigameWins: CountSchema,
+  /** v4: welches Kriterium den Platz entschied (`shared` = geteilter Platz). */
+  decidedBy: RankingCriterionSchema,
 });
+
+/** Münzbelohnung eines Slots aus dem Minispiel (v4, CHAOS-55). */
+export const MinigameRewardSchema = z.strictObject({ slot: SlotSchema, coins: CountSchema });
 
 /** Öffentlicher Spielstand (ohne RNG und interne Zwischenstände). */
 export const BoardViewSchema = z.strictObject({
@@ -606,8 +751,17 @@ export const BoardViewSchema = z.strictObject({
       placements: z.array(MinigamePlacementSchema).max(MAX_PLAYERS).nullable(),
       highlights: MinigameHighlightsSchema,
       aborted: z.boolean(),
+      /**
+       * v4 (CHAOS-55): ausgezahlte Münzen je Slot, sobald das Ergebnis feststeht (`null` davor,
+       * leer bei Abbruch). Damit ist die Ergebnisanzeige nach einem Host-Neuladen vollständig.
+       */
+      rewards: z.array(MinigameRewardSchema).max(MAX_PLAYERS).nullable(),
     })
     .nullable(),
+  /** v4: Partie pausiert; Restzeiten stehen still (`remainingMs`, `prompt`, Minispiel). */
+  paused: z.boolean(),
+  /** v4: Partie wurde vorzeitig beendet (nur in `game-results` `true`). */
+  endedEarly: z.boolean(),
 });
 
 const slotField = { slot: SlotSchema };
@@ -691,6 +845,8 @@ export const BoardEventSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('game-ended'),
     ranking: z.array(RankingEntrySchema).max(MAX_PLAYERS),
+    /** v4: Ende per `end-game` statt nach der letzten Runde. */
+    endedEarly: z.boolean(),
   }),
 ]);
 
@@ -707,10 +863,24 @@ export const BoardMessageSchema = z.strictObject({
   eventSeq: SeqSchema,
 });
 
+/**
+ * Antwort auf `minigame-result` (v4, CHAOS-55): angenommen oder nicht, mit Fehlercode.
+ * Bei Ablehnung kommt zusätzlich wie bisher `error` (`invalid-result`/`out-of-phase`).
+ */
+export const MinigameResultAckMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('minigame-result-ack'),
+  minigameId: MinigameIdSchema,
+  round: CountSchema,
+  accepted: z.boolean(),
+  code: ErrorCodeSchema.optional(),
+});
+
 export const ServerToHostMessageSchema = z.discriminatedUnion('type', [
   LobbyMessageSchema,
   BoardMessageSchema,
   InputMessageSchema,
+  MinigameResultAckMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
 ]);
@@ -722,6 +892,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   LobbyMessageSchema,
   BoardMessageSchema,
   InputMessageSchema,
+  MinigameResultAckMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
 ]);

@@ -176,6 +176,16 @@ export interface MinigameState {
   readonly highlights: readonly string[];
   /** Kein (gültiges) Ergebnis in der Frist → keine Münzen. */
   readonly aborted: boolean;
+  /**
+   * Tatsächlich ausgezahlte Münzen je Slot (M4, CHAOS-55), sobald das Ergebnis feststeht;
+   * `null` davor, leer bei Abbruch. Reihenfolge wie `placements`.
+   */
+  readonly rewards: readonly MinigameReward[] | null;
+}
+
+export interface MinigameReward {
+  readonly slot: Slot;
+  readonly coins: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +248,21 @@ export interface Prompt {
   readonly deadline: number | null;
 }
 
+/**
+ * Statistik je Spieler nur für Bonus-Anzeigen am Ende (M4, CHAOS-37), ohne Einfluss auf die
+ * Wertung. Wird in `step` aus den Ereignissen gezählt.
+ */
+export interface PlayerStats {
+  /** Summe aller Münzgewinne (positive `coins-changed`). */
+  readonly coinsEarned: number;
+  /** Summe aller Münzverluste (Betrag negativer `coins-changed`, auch Trophäenkauf). */
+  readonly coinsLost: number;
+  /** Gelaufene Felder (alle `moved`-Abschnitte). */
+  readonly spacesMoved: number;
+  /** Eingesetzte Items (`item-used`). */
+  readonly itemsUsed: number;
+}
+
 export interface PlayerState {
   readonly slot: Slot;
   readonly name: string;
@@ -246,6 +271,12 @@ export interface PlayerState {
   readonly trophies: number;
   readonly items: readonly ItemKind[];
   readonly connected: boolean;
+  /**
+   * Gewonnene Minispiele (M4, CHAOS-37): Anzahl 1. Plätze (Gleichstand auf Platz 1 zählt für
+   * alle). Drittes Kriterium der Wertung nach Trophäen und Münzen.
+   */
+  readonly minigameWins: number;
+  readonly stats: PlayerStats;
 }
 
 export interface TrapState {
@@ -253,12 +284,25 @@ export interface TrapState {
   readonly owner: Slot;
 }
 
+/**
+ * Kriterium, das den Platz entschieden hat (M4, ADR-014): Trophäen → Münzen → Minispiel-Siege;
+ * `shared` = mit mindestens einem anderen in allen drei gleich (geteilter Platz).
+ */
+export type RankingCriterion = 'trophies' | 'coins' | 'minigame-wins' | 'shared';
+
 export interface RankingEntry {
   readonly slot: Slot;
-  /** Platz 1–4; Gleichstand (gleiche Trophäen und Münzen) = gleicher Platz. */
+  /** Platz 1–4; Gleichstand in Trophäen, Münzen und Minispiel-Siegen = gleicher Platz. */
   readonly place: number;
   readonly trophies: number;
   readonly coins: number;
+  readonly minigameWins: number;
+  /**
+   * Tiefstes Kriterium, das nötig war, um diesen Spieler von allen anderen zu trennen
+   * (`trophies` = Trophäenzahl ist einzigartig; `coins` = Trophäengleichstand, Münzen
+   * entscheiden; …; `shared` = Platz geteilt). Bei nur einem Spieler `trophies`.
+   */
+  readonly decidedBy: RankingCriterion;
 }
 
 /**
@@ -285,6 +329,15 @@ export interface GameState {
   readonly now: number;
   /** Endstand, sobald `phase === 'game-results'`. */
   readonly ranking: readonly RankingEntry[] | null;
+  /**
+   * Partie pausiert (M4, CHAOS-36): Keine Frist läuft ab (`resumeAt`, Prompt-Frist,
+   * Minispiel-Spielzeit/Schonfrist). Beim Fortsetzen verschieben sich alle um die Pausendauer.
+   */
+  readonly paused: boolean;
+  /** Beginn der Pause (Server-Uhr) oder `null`. Anzeigen rechnen Restzeiten ab hier. */
+  readonly pausedAt: number | null;
+  /** Partie per `end` vorzeitig beendet (nur in `game-results` `true`). */
+  readonly endedEarly: boolean;
   /** Minispiel der aktuellen Runde ab `minigame-intro` bis zum Rundenende, sonst `null`. */
   readonly minigame: MinigameState | null;
   readonly config: {
@@ -329,7 +382,20 @@ export type GameCommand =
       readonly placements: readonly MinigamePlacement[];
       readonly highlights?: readonly string[];
       readonly at: number;
-    };
+    }
+  /**
+   * Partie anhalten (M4). Nur zwischen `start` und `game-results`. Während der Pause sind
+   * `choose` (→ `paused`) und weiteres `pause` abgewiesen; `minigame-result` wird angenommen
+   * und zum Pausenbeginn verbucht, `connection` und `tick` wirken ohne Zeitablauf.
+   */
+  | { readonly type: 'pause'; readonly at: number }
+  /** Pause beenden; alle Fristen verschieben sich um `at - pausedAt`. */
+  | { readonly type: 'resume'; readonly at: number }
+  /**
+   * Partie sofort beenden (M4): `game-results` mit Endstand aus dem aktuellen Stand,
+   * `endedEarly: true`. Auch während der Pause möglich.
+   */
+  | { readonly type: 'end'; readonly at: number };
 
 export type GameErrorCode =
   | 'wrong-phase'
@@ -338,7 +404,11 @@ export type GameErrorCode =
   | 'invalid-option'
   | 'unknown-player'
   | 'invalid-result'
-  | 'time-went-back';
+  | 'time-went-back'
+  /** Befehl während der Pause nicht möglich (`choose`, erneutes `pause`). */
+  | 'paused'
+  /** `resume` ohne Pause. */
+  | 'not-paused';
 
 export interface GameError {
   readonly code: GameErrorCode;
@@ -431,6 +501,11 @@ export type GameEvent =
       readonly aborted: boolean;
     }
   | { readonly type: 'round-ended'; readonly round: number }
-  | { readonly type: 'game-ended'; readonly ranking: readonly RankingEntry[] };
+  | {
+      readonly type: 'game-ended';
+      readonly ranking: readonly RankingEntry[];
+      /** Per `end` statt nach der letzten Runde. */
+      readonly endedEarly: boolean;
+    };
 
 export type GameEventType = GameEvent['type'];

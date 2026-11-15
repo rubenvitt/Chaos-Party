@@ -46,7 +46,10 @@ const LOBBY = createMessage('lobby', {
   joinCode: 'AB12',
   joinUrl: 'http://192.168.0.2:8787/?code=AB12',
   phase: 'lobby',
-  players: [{ slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false }],
+  players: [
+    { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
+  ],
+  settings: { rounds: 5, roundPresets: [3, 5, 8] },
 });
 
 function setup(handlers: HostConnectionHandlers = {}) {
@@ -152,7 +155,7 @@ describe('connectHost', () => {
     const onInput = vi.fn();
     const t = setup({ onInput });
     t.last().open();
-    t.last().receive('{"v":3,"type":"input","intent":{"type":"move","slot":9}}');
+    t.last().receive('{"v":4,"type":"input","intent":{"type":"move","slot":9}}');
     t.last().receive(new ArrayBuffer(4));
     t.last().receive(encode(createMessage('feedback', { slot: 1, kind: 'hit' })));
     expect(onInput).not.toHaveBeenCalled();
@@ -214,7 +217,7 @@ describe('connectHost', () => {
     t.last().receive(encode(LOBBY));
     expect(t.connection.sendMinigameResult(result)).toBe(true);
     const sent: unknown = JSON.parse(t.last().sent.at(-1) ?? '');
-    expect(sent).toEqual({ v: 3, type: 'minigame-result', ...result });
+    expect(sent).toEqual({ v: 4, type: 'minigame-result', ...result });
     t.last().drop();
     expect(t.connection.sendMinigameResult(result)).toBe(false);
   });
@@ -224,10 +227,10 @@ describe('connectHost', () => {
     t.last().open();
     t.last().receive(encode(LOBBY));
     expect(t.connection.sendStart({ mode: 'arena' })).toBe(true);
-    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({ v: 3, type: 'start', mode: 'arena' });
+    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({ v: 4, type: 'start', mode: 'arena' });
     expect(t.connection.sendStart({ mode: 'board', rounds: 3 })).toBe(true);
     expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({
-      v: 3,
+      v: 4,
       type: 'start',
       mode: 'board',
       rounds: 3,

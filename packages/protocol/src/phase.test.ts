@@ -18,6 +18,13 @@ const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean, board: b
   start: [true, false, false],
   choose: [false, false, true],
   'minigame-result': [false, false, true],
+  // v4 (ADR-014)
+  'pick-character': [true, false, false],
+  configure: [true, false, false],
+  pause: [false, false, true],
+  resume: [false, false, true],
+  'end-game': [false, false, true],
+  rematch: [false, false, true],
 };
 
 const PHASE_INDEX: Record<Phase, 0 | 1 | 2> = { lobby: 0, play: 1, board: 2 };
