@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-15 (M2 umgesetzt, Abnahme offen) · **Aktueller Meilenstein:** M2 – Spielbares Brett (`CHAOS-2`)
+**Stand:** 2026-11-15 (M2 freigegeben) · **Aktueller Meilenstein:** M3 – Party-Identität und Minispiele (`CHAOS-3`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -9,8 +9,8 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 | Meilenstein | Epic | Gate | Status |
 |---|---|---|---|
 | M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad offen) |
-| M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | umgesetzt, **Abnahme durch Ruben offen** ([`acceptance/M2.md`](acceptance/M2.md)) |
-| M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | gesperrt bis M2-Freigabe |
+| M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad nach M3 verschoben) ([`acceptance/M2.md`](acceptance/M2.md)) |
+| M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | freigegeben, als Nächstes |
 | M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | gesperrt bis M3-Freigabe |
 
 ## M1 – Aufgaben
@@ -46,7 +46,7 @@ Umgesetzt in **einem** PR (Branch `claude/chaos-2-orchestrierung-subagents-uuzx8
 | CHAOS-23 | Deterministische Integrationstests des Zugzyklus | im PR |
 | CHAOS-24 | Experimente EXP-001 … EXP-004 | im PR |
 | CHAOS-48 | Warnung bei belegtem `localhost` | im PR |
-| CHAOS-47 | **Ruben:** iPad-Nachtest aus M1 (I1–I9) | offen, Voraussetzung für CHAOS-25 |
+| CHAOS-47 | **Ruben:** iPad-Nachtest aus M1 (I1–I9) | nach M3 verschoben (Ruben, 2026-11-15), Voraussetzung für CHAOS-43 |
 | CHAOS-25 | **M2-Abnahme (Ruben)** | offen |
 
 ### Seeds (reproduzierbar)
@@ -89,14 +89,14 @@ Details: [`testing.md`](testing.md).
 | [`ipad-zonen.md`](ipad-zonen.md) | Geteiltes iPad: Layouts und Grenzen |
 | [`acceptance/M1.md`](acceptance/M1.md) | Abnahmebericht M1 |
 | [`m2-demo.md`](m2-demo.md) | M2-Brettspiel ausprobieren |
-| [`acceptance/M2.md`](acceptance/M2.md) | Abnahmebericht M2 (Entscheidung offen) |
+| [`acceptance/M2.md`](acceptance/M2.md) | Abnahmebericht M2 (APPROVED) |
 | `blockers.md` | nicht nötig (keine Blocker) |
 
 ## Nächste Schritte
 
-1. **Ruben:** iPad-Nachtest (CHAOS-47), dann M2 mit 2–4 Personen spielen ([m2-demo.md](m2-demo.md)), Checkliste Abschnitt 8 ausfüllen, Fragen in [`acceptance/M2.md`](acceptance/M2.md) beantworten und über CHAOS-25 entscheiden.
-2. Nach APPROVED: M3 (CHAOS-3) beginnt mit dem Minispiel-Vertrag (CHAOS-26).
-3. Bei CHANGES REQUESTED: Änderungswünsche als Aufgaben unter CHAOS-2.
+1. M3 (CHAOS-3) beginnt mit dem Minispiel-Vertrag (CHAOS-26), Art-Direction (CHAOS-27) und Asset-Pipeline (CHAOS-28).
+2. Offene Fragen 1–5 aus [`acceptance/M2.md`](acceptance/M2.md) in den M3-Testrunden klären.
+3. Nach dem M3-Gate: iPad-Nachtest CHAOS-47 (Voraussetzung für das M4-Gate CHAOS-43).
 
 ## Offene Risiken (Kurzfassung)
 
