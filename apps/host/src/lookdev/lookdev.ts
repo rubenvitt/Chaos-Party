@@ -24,6 +24,14 @@ import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { loadCharacters, type HostCharacterHandle } from '../characters/index.ts';
 import { buildArena, buildBoard } from './content.ts';
 import { LOOK_IDS, LOOKS, type Look, type LookId } from './looks.ts';
+import {
+  buildNatureArena,
+  buildNatureBoard,
+  NATURE_VARIANTS,
+  natureTitle,
+  type NatureStage,
+  type NatureVariant,
+} from './nature.ts';
 
 declare global {
   interface Window {
@@ -33,6 +41,7 @@ declare global {
       shot: Shot;
       step(frames: number): void;
       measure(frames: number): LookdevStats;
+      debug(): unknown;
     };
   }
 }
@@ -46,8 +55,23 @@ export interface LookdevStats {
   readonly totalVertices: number;
 }
 
+// Parameter aus der Query oder – im Artefakt, das keine Query weitergibt – aus dem Hash
+// (`#natur-morgen-brett`: Look und Ansicht mit Bindestrich).
 const params = new URLSearchParams(location.search);
+{
+  const hash = location.hash.replace(/^#/, '');
+  const match = /^(.+)-(brett|figur|minispiel)$/.exec(hash);
+  if (match?.[1] && match[2] && !params.has('look')) {
+    params.set('look', match[1]);
+    params.set('shot', match[2]);
+  }
+}
 const lookParam = params.get('look') ?? 'weich';
+const natureVariant: NatureVariant | null = (NATURE_VARIANTS as readonly string[]).includes(
+  lookParam,
+)
+  ? (lookParam as NatureVariant)
+  : null;
 const lookId: LookId = (LOOK_IDS as readonly string[]).includes(lookParam)
   ? (lookParam as LookId)
   : 'weich';
@@ -57,11 +81,13 @@ const shot: Shot =
 const testMode = params.get('test') === '1';
 const look: Look = LOOKS[lookId];
 
-document.body.dataset.look = lookId;
+document.body.dataset.look = natureVariant ? 'natur' : lookId;
 document.body.dataset.shot = shot;
 if (params.get('hud') === '0') document.body.dataset.hud = 'aus';
 const title = document.getElementById('look-title');
-if (title) title.textContent = `${look.title} – ${look.blurb}`;
+if (title) {
+  title.textContent = natureVariant ? natureTitle(natureVariant) : `${look.title} – ${look.blurb}`;
+}
 
 const canvas = document.getElementById('lookdev') as HTMLCanvasElement;
 const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true }, !testMode);
@@ -74,6 +100,11 @@ camera.minZ = 0.1;
 camera.maxZ = 600;
 if (!testMode) camera.attachControl(canvas, true);
 
+/** Material für Figuren und Slot-Ringe (Runde 1: aus der Richtung; Natur: lackiertes PBR). */
+let figureMaterial = (hex: string, surface: 'plastik' | 'glanz'): Material =>
+  look.material(scene, `figur-${hex}-${surface}`, hex, surface);
+const styleRound1 = natureVariant === null;
+
 /** Figur im Stil der Richtung einfärben (Materialien aus der GLB-Grundfarbe). */
 function restyle(handle: HostCharacterHandle): void {
   const cache = new Map<string, Material>();
@@ -83,13 +114,13 @@ function restyle(handle: HostCharacterHandle): void {
     const hex = old.diffuseColor.toHexString();
     let mat = cache.get(hex);
     if (!mat) {
-      mat = look.material(scene, `figur-${hex}`, hex, 'plastik');
+      mat = figureMaterial(hex, 'plastik');
       cache.set(hex, mat);
     }
     mesh.material = mat;
     mesh.receiveShadows = true;
-    if (look.facetted && mesh instanceof Mesh) mesh.convertToFlatShadedMesh();
-    if (look.outline) {
+    if (styleRound1 && look.facetted && mesh instanceof Mesh) mesh.convertToFlatShadedMesh();
+    if (styleRound1 && look.outline) {
       mesh.renderOutline = true;
       mesh.outlineWidth = 0.012;
       mesh.outlineColor = old.diffuseColor.scale(0.3);
@@ -120,9 +151,9 @@ function placeFigure(slot: Slot, at: Vector3, yaw: number): HostCharacterHandle 
   );
   ring.position.copyFrom(at);
   ring.position.y += 0.05;
-  ring.material = look.material(scene, `slot-${String(slot)}`, style.color, 'glanz');
+  ring.material = figureMaterial(style.color, 'glanz');
   ring.receiveShadows = true;
-  if (look.facetted) ring.convertToFlatShadedMesh();
+  if (styleRound1 && look.facetted) ring.convertToFlatShadedMesh();
   handle.play('idle');
   handles.push(handle);
   return handle;
@@ -166,7 +197,45 @@ function stage(): Staging {
       };
 }
 
-const { casters, focus, view } = stage();
+/** Runde 2: Natur-Szene (asynchron, lädt Texturen, HDRI und Pflanzen). */
+async function stageNature(variant: NatureVariant): Promise<Staging & { nature: NatureStage }> {
+  const nature =
+    shot === 'minispiel'
+      ? await buildNatureArena(scene, variant)
+      : await buildNatureBoard(scene, variant);
+  figureMaterial = (hex) => nature.material(hex);
+  if (shot === 'minispiel') {
+    nature.spots.forEach((spot, i) => {
+      placeFigure((i + 1) as Slot, spot, Math.PI + (i - 1.5) * 0.25);
+    });
+    return {
+      nature,
+      casters: nature.casters,
+      focus: new Vector3(0, 1.5, -0.4),
+      view: { alpha: -Math.PI / 2 - 0.35, beta: 0.98, radius: 16 },
+    };
+  }
+  const a = nature.tiles[2] ?? Vector3.Zero();
+  const b = nature.tiles[4] ?? Vector3.Zero();
+  placeFigure(3, a, Math.PI - 0.5);
+  placeFigure(1, b, Math.PI + 0.3);
+  return shot === 'figur'
+    ? {
+        nature,
+        casters: nature.casters,
+        focus: Vector3.Lerp(a, b, 0.5).add(new Vector3(0, 0.9, 0)),
+        view: { alpha: -Math.PI / 2 - 0.25, beta: 1.28, radius: 6.4 },
+      }
+    : {
+        nature,
+        casters: nature.casters,
+        focus: new Vector3(0.2, 0, 0.6),
+        view: { alpha: -Math.PI / 2 - 0.3, beta: 0.9, radius: 27 },
+      };
+}
+
+const staged = natureVariant ? await stageNature(natureVariant) : { ...stage(), nature: null };
+const { casters, focus, view } = staged;
 // Erst das Ziel, dann Winkel/Abstand (setTarget rechnet sie sonst aus der Position neu).
 camera.setTarget(focus);
 camera.alpha = view.alpha;
@@ -176,7 +245,12 @@ for (const handle of handles) {
   for (const mesh of handle.meshes) if (mesh instanceof Mesh) casters.push(mesh);
 }
 
-look.setup({ scene, camera, casters, focusDistance: camera.radius });
+if (staged.nature) {
+  const figures = handles.flatMap((h) => h.meshes);
+  await staged.nature.light(camera, figures, camera.radius);
+} else {
+  look.setup({ scene, camera, casters, focusDistance: camera.radius });
+}
 
 const instrumentation = new SceneInstrumentation(scene);
 instrumentation.captureFrameTime = true;
@@ -185,6 +259,22 @@ await scene.whenReadyAsync(true);
 
 window.__lookdev = {
   ready: true,
+  debug() {
+    return scene.meshes
+      .filter((m) => m.isEnabled() && m.isVisible)
+      .map((m) => {
+        const b = m.getBoundingInfo().boundingBox;
+        return {
+          name: m.name,
+          size: b.extendSizeWorld
+            .scale(2)
+            .asArray()
+            .map((v) => Math.round(v * 10) / 10),
+          center: b.centerWorld.asArray().map((v) => Math.round(v * 10) / 10),
+        };
+      })
+      .filter((d) => (d.center[0] ?? 0) > 7 && !d.name.startsWith('gras'));
+  },
   look: lookId,
   shot,
   step(frames) {
@@ -206,9 +296,59 @@ window.__lookdev = {
   },
 };
 
+document.body.dataset.bereit = 'ja';
+
+/** Umschalter für die interaktive Fassung: setzt den Hash und lädt neu. */
+function buildSwitcher(): void {
+  const nav = document.getElementById('switcher');
+  if (!nav || !natureVariant) return;
+  document.body.dataset.interaktiv = 'ja';
+  const row = (
+    entries: readonly (readonly [string, string])[],
+    current: string,
+    make: (id: string) => string,
+  ): HTMLDivElement => {
+    const div = document.createElement('div');
+    for (const [id, label] of entries) {
+      const link = document.createElement('a');
+      link.href = `#${make(id)}`;
+      link.textContent = label;
+      link.setAttribute('aria-current', String(id === current));
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        location.hash = make(id);
+        location.reload();
+      });
+      div.append(link);
+    }
+    return div;
+  };
+  nav.append(
+    row(
+      [
+        ['natur-morgen', 'Morgen'],
+        ['natur-abend', 'Goldene Stunde'],
+        ['natur-wolken', 'Bewölkt'],
+      ],
+      natureVariant,
+      (id) => `${id}-${shot}`,
+    ),
+    row(
+      [
+        ['brett', 'Brett'],
+        ['figur', 'Figuren'],
+        ['minispiel', 'Minispiel'],
+      ],
+      shot,
+      (id) => `${natureVariant}-${id}`,
+    ),
+  );
+}
+
 if (testMode) {
   scene.render();
 } else {
+  buildSwitcher();
   engine.runRenderLoop(() => {
     scene.render();
   });
