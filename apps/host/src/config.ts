@@ -22,6 +22,20 @@ export interface HostConfig {
    * Controller-Eingabe bis zum nächsten Bild, dazu Browser und Grafikkarte.
    */
   readonly debug: boolean;
+  /**
+   * Start-Knopf startet die M1-Arena statt des Brettspiels (`?arena=1`, M2): sendet
+   * `start { mode: 'arena' }`. Für die M1-Tests und als Testbett für Eingabelatenz.
+   */
+  readonly arena: boolean;
+  /** Rundenzahl für `start` (`?rounds=`, 1–20); `null` = Server-Standard. */
+  readonly rounds: number | null;
+  /**
+   * Lokaler Brett-Modus (`?local=1&board=1`): zeigt das Brett mit festem Beispiel-Spielstand
+   * ohne Server (Screenshots, Anschauen). Ohne `local` wirkungslos.
+   */
+  readonly board: boolean;
+  /** Im lokalen Brett-Modus eine kurze Ereignisfolge in Schleife abspielen (`?demo=1`). */
+  readonly demo: boolean;
 }
 
 export const DEFAULT_CONFIG: HostConfig = {
@@ -31,7 +45,14 @@ export const DEFAULT_CONFIG: HostConfig = {
   test: false,
   joinHintSeconds: 30,
   debug: false,
+  arena: false,
+  rounds: null,
+  board: false,
+  demo: false,
 };
+
+/** Höchstzahl Runden (gleich `MAX_ROUNDS` im Protokoll). */
+const MAX_ROUNDS = 20;
 
 function flag(value: string | null): boolean {
   return value === '1' || value === 'true';
@@ -42,6 +63,7 @@ export function parseHostConfig(search: string): HostConfig {
   const players = Number.parseInt(params.get('players') ?? '', 10);
   const seed = Number.parseInt(params.get('seed') ?? '', 10);
   const joinHint = Number.parseInt(params.get('joinHint') ?? '', 10);
+  const rounds = Number.parseInt(params.get('rounds') ?? '', 10);
   return {
     local: flag(params.get('local')),
     players: Number.isInteger(players) ? Math.min(4, Math.max(1, players)) : DEFAULT_CONFIG.players,
@@ -52,6 +74,10 @@ export function parseHostConfig(search: string): HostConfig {
         ? Math.min(joinHint, 3600)
         : DEFAULT_CONFIG.joinHintSeconds,
     debug: flag(params.get('debug')),
+    arena: flag(params.get('arena')),
+    rounds: Number.isInteger(rounds) ? Math.min(MAX_ROUNDS, Math.max(1, rounds)) : null,
+    board: flag(params.get('board')),
+    demo: flag(params.get('demo')),
   };
 }
 

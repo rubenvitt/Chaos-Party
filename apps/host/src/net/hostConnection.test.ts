@@ -1,8 +1,10 @@
-import { createMessage, encode } from '@chaos-party/protocol';
+import { createMessage, encode, parseServerToHostMessage } from '@chaos-party/protocol';
+import { createDemoMessages } from '../board/demo.ts';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CLOSE_HOST_TAKEN,
   connectHost,
+  createStartMessage,
   type ConnectionStatus,
   type HostConnectionHandlers,
   type SocketLike,
@@ -193,6 +195,42 @@ describe('connectHost', () => {
     t.last().receive(encode(LOBBY));
     expect(t.connection.sendStart()).toBe(true);
     expect(t.last().sent.at(-1)).toBe(encode(createMessage('start', {})));
+  });
+
+  it('sendet start mit Modus und Rundenzahl (M2)', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    expect(t.connection.sendStart({ mode: 'arena' })).toBe(true);
+    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({ v: 2, type: 'start', mode: 'arena' });
+    expect(t.connection.sendStart({ mode: 'board', rounds: 3 })).toBe(true);
+    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({
+      v: 2,
+      type: 'start',
+      mode: 'board',
+      rounds: 3,
+    });
+  });
+
+  it('createStartMessage lässt fehlende Optionen weg und bleibt protokollgültig', () => {
+    expect(createStartMessage()).toEqual(createMessage('start', {}));
+    expect(createStartMessage({ rounds: 5 })).toEqual(createMessage('start', { rounds: 5 }));
+    expect(Object.keys(createStartMessage({ mode: 'board' }))).toEqual(['v', 'type', 'mode']);
+  });
+
+  it('reicht board-Nachrichten weiter und gilt damit als verbunden', () => {
+    const boards: unknown[] = [];
+    const t = setup({ onBoard: (board) => boards.push(board) });
+    t.last().open();
+    const [first] = createDemoMessages();
+    if (!first) throw new Error('Demo fehlt');
+    t.last().receive(encode(first));
+    expect(boards).toEqual([first]);
+    expect(t.connection.status).toBe('connected');
+    // Ungültige board-Nachricht (unbekanntes Feld) wird ignoriert.
+    t.last().receive(JSON.stringify({ ...first, extra: 1 }));
+    expect(boards).toHaveLength(1);
+    expect(parseServerToHostMessage(encode(first)).ok).toBe(true);
   });
 
   it('close() trennt endgültig ohne neuen Versuch', () => {

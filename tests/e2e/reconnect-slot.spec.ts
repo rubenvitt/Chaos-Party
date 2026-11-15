@@ -64,7 +64,7 @@ async function hostWithPhoneInPlay(
 ): Promise<Setup> {
   const host = await openDevice('PC');
   const hostProblems = collectProblems(host);
-  await openHost(host, '/host/?test=1&seed=12');
+  await openHost(host, '/host/?test=1&seed=12&arena=1');
   const phone = await openDevice('iPhone 13');
   const phoneProblems = collectProblems(phone);
   const link = await LinkControl.attach(phone);
@@ -179,7 +179,7 @@ test('geteiltes iPad: alle Plätze kommen zurück, gehaltener Joystick wird losg
 
   // Host verbindet sich und startet, damit die Zonen Joysticks zeigen.
   const host = await openDevice('PC');
-  await host.goto('/host/?test=1&seed=3');
+  await host.goto('/host/?test=1&seed=3&arena=1');
   await expect(host.getByTestId('start-button')).toBeEnabled();
   await host.getByTestId('start-button').click();
   await expect(zone(1)).toHaveAttribute('data-layout', 'joystick-buttons');
