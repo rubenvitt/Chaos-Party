@@ -9,6 +9,7 @@
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
+import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
@@ -100,7 +101,7 @@ export class Wackelturm implements Minigame {
   private readonly debris: Debris[] = [];
   private readonly goldViews = new Map<number, TransformNode>();
   private readonly owned: { dispose(): void; isDisposed?: () => boolean }[] = [];
-  private readonly materials = new Map<string, StandardMaterial>();
+  private readonly materials = new Map<string, Material>();
   private masters: {
     base: Mesh;
     frosting: Mesh[];
@@ -138,12 +139,19 @@ export class Wackelturm implements Minigame {
     );
     camera.fov = 0.78;
     scene.activeCamera = camera;
-    const hemi = new HemisphericLight('wackel-himmel', new Vector3(0.2, 1, -0.3), scene);
-    hemi.intensity = 0.75;
-    hemi.groundColor = Color3.FromHexString('#b48a6a');
-    const sun = new DirectionalLight('wackel-sonne', new Vector3(-0.4, -1, 0.5), scene);
-    sun.intensity = 0.55;
-    this.own(camera, hemi, sun);
+    this.own(camera);
+    if (ctx.look) {
+      // Natur-Look (CHAOS-62): Die Decke ist die Spielfläche, drumherum Wiese vom Host.
+      const { halfX, halfZ } = WACKELTURM_PARAMS;
+      ctx.look.backdrop({ halfX: halfX + 0.8, halfZ: halfZ + 0.8, groundY: -0.3 });
+    } else {
+      const hemi = new HemisphericLight('wackel-himmel', new Vector3(0.2, 1, -0.3), scene);
+      hemi.intensity = 0.75;
+      hemi.groundColor = Color3.FromHexString('#b48a6a');
+      const sun = new DirectionalLight('wackel-sonne', new Vector3(-0.4, -1, 0.5), scene);
+      sun.intensity = 0.55;
+      this.own(hemi, sun);
+    }
 
     this.buildBlanket(scene);
     this.buildMasters(scene);
@@ -338,10 +346,23 @@ export class Wackelturm implements Minigame {
     return item;
   }
 
-  private material(scene: Scene, hex: string, options: { emissive?: number; alpha?: number } = {}) {
+  private material(
+    scene: Scene,
+    hex: string,
+    options: { emissive?: number; alpha?: number } = {},
+  ): Material {
     const key = `${hex}|${String(options.emissive ?? 0)}|${String(options.alpha ?? 1)}`;
     const existing = this.materials.get(key);
     if (existing) return existing;
+    const look = this.ctx?.look;
+    if (look) {
+      const lookMaterial = look.material(hex, {
+        ...(options.emissive !== undefined ? { emissive: options.emissive } : {}),
+        ...(options.alpha !== undefined ? { alpha: options.alpha } : {}),
+      });
+      this.materials.set(key, lookMaterial);
+      return lookMaterial;
+    }
     const material = new StandardMaterial(`wackel-mat-${String(this.materials.size)}`, scene);
     const color = Color3.FromHexString(hex);
     material.diffuseColor = color;
@@ -355,9 +376,13 @@ export class Wackelturm implements Minigame {
   /** Picknickdecke mit Karomuster und Holzrand. */
   private buildBlanket(scene: Scene): void {
     const { halfX, halfZ } = WACKELTURM_PARAMS;
-    const floor = this.own(CreateBox('wackel-tisch', { width: 90, height: 0.2, depth: 70 }, scene));
-    floor.position.set(0, -0.32, 6);
-    floor.material = this.material(scene, '#9bd36a');
+    if (!this.ctx?.look) {
+      const floor = this.own(
+        CreateBox('wackel-tisch', { width: 90, height: 0.2, depth: 70 }, scene),
+      );
+      floor.position.set(0, -0.32, 6);
+      floor.material = this.material(scene, '#9bd36a');
+    }
     const blanket = this.own(
       CreateBox('wackel-decke', { width: halfX * 2, height: 0.2, depth: halfZ * 2 }, scene),
     );

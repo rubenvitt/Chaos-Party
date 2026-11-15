@@ -10,6 +10,10 @@
  * Render-Schleife, Runner (räumt das Minispiel weg), Effekte, Figuren, Szene, Engine.
  *
  * Testmodus: keine Render-Schleife; `step(n)` rechnet n feste Schritte und rendert einmal.
+ *
+ * Natur-Look (CHAOS-62): Die Bühne gibt dem Minispiel `ctx.look` mit (`./natureLook.ts`).
+ * Bestellt es eine Kulisse, setzt die Bühne nach `prepare` Licht, Himmel und Nachbearbeitung
+ * der Stimmung (`?stimmung=`, Grafikstufe `?qualitaet=` bzw. automatisch).
  */
 import { Engine } from '@babylonjs/core/Engines/engine.js';
 import { Color4 } from '@babylonjs/core/Maths/math.color.js';
@@ -27,6 +31,10 @@ import {
   type RunnerState,
 } from '@chaos-party/minigame-sdk/babylon';
 import { loadCharacters, type CharacterLibrary } from '../characters/index.ts';
+import { createAdaptiveQuality } from '../nature/quality.ts';
+import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
+import type { NatureLook } from '../nature/lighting.ts';
+import { createMinigameLook, SOFTWARE_MAX_STEPS, type HostMinigameLook } from './natureLook.ts';
 import type { SoundEngine } from '../fx/audio.ts';
 import { createMinigameFx, type FxStats, type HostMinigameFx } from '../fx/minigameFx.ts';
 import { loadHavok } from '../scene/havok.ts';
@@ -69,7 +77,10 @@ export interface MinigameStage {
 }
 
 /** Figuren-Fabrik, die sich die erzeugten Figuren je Slot merkt (für Jubel/Schmollen). */
-function trackingFactory(library: CharacterFactory): {
+function trackingFactory(
+  library: CharacterLibrary,
+  look: HostMinigameLook,
+): {
   readonly factory: CharacterFactory;
   readonly handles: Map<Slot, CharacterHandle>;
 } {
@@ -80,6 +91,7 @@ function trackingFactory(library: CharacterFactory): {
       create(scene, player) {
         const handle = library.create(scene, player);
         handles.set(player.slot, handle);
+        look.addCaster(handle.shadowCaster);
         return handle;
       },
     },
@@ -100,6 +112,12 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   // Testmodus: Figuren-Animationen laufen je Bild um feste 16 ms (stabile Screenshots).
   scene.useConstantAnimationDeltaTime = testMode;
   const fx: HostMinigameFx = createMinigameFx(scene, { sound: options.sound, testMode });
+  // Stimmung zunächst wie das Brett; der Lichtverlauf je Runde folgt in CHAOS-63.
+  const settings = currentLookSettings(testMode, 'wackelwald', engine.getGlInfo().renderer);
+  applyRenderScale(engine, settings);
+  const look = createMinigameLook(scene, settings);
+  const adaptive = createAdaptiveQuality(settings.quality, settings.automatic);
+  let lighting: NatureLook | null = null;
 
   let status: StageStatus = 'loading';
   let runner: MinigameRunner | null = null;
@@ -124,7 +142,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   };
 
   const ready = (async () => {
-    const loaded = await loadCharacters(scene);
+    const loaded = await loadCharacters(scene, { keepPbr: true });
     if (isDisposed()) {
       loaded.dispose();
       return;
@@ -132,7 +150,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     library = loaded;
     const havok = module.info.physics ? await loadHavok() : null;
     if (isDisposed()) return;
-    const tracked = trackingFactory(loaded);
+    const tracked = trackingFactory(loaded, look);
     handles = tracked.handles;
     runner = createMinigameRunner(module, {
       scene,
@@ -143,11 +161,16 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
       characters: tracked.factory,
       havok,
       testMode,
+      look,
+      // Software-Rendering: bis 4 s Spielzeit je Bild, damit das Ergebnis rechtzeitig kommt.
+      ...(settings.software ? { maxStepsPerAdvance: SOFTWARE_MAX_STEPS } : {}),
       onResult: (result) => {
         options.onResult(result);
       },
     });
     await runner.prepare();
+    if (isDisposed()) return;
+    if (scene.activeCamera) lighting = await look.finish(scene.activeCamera);
     if (isDisposed()) return;
     // Erst wenn alle Shader/Texturen bereit sind, zeigt das erste Bild die ganze Szene
     // (Hintergrund der Anleitung, stabile Screenshots).
@@ -158,9 +181,14 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     renderOnce();
     if (testMode) return;
     let last = performance.now();
+    let seconds = 0;
     engine.runRenderLoop(() => {
       const now = performance.now();
+      const next = adaptive.frame(now - last);
+      if (next) lighting?.setQuality(next);
       runner?.advance((now - last) / 1000);
+      seconds += (now - last) / 1000;
+      look.update(seconds);
       last = now;
       renderOnce();
     });

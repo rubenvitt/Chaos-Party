@@ -1,7 +1,12 @@
 /**
  * Babylon.js-Szene der Brettphase (CHAOS-18/19): Brett prozedural aus der `BoardDefinition`,
  * Spielfiguren, Trophäe, Fallen, Wegweiser, Popups und eine Kamera, die sanft dem aktiven
- * Spieler folgt. Brett aus Grundkörpern (M2), verspielt und vom Sofa aus lesbar.
+ * Spieler folgt.
+ *
+ * Look „Stilisierte Natur“ (CHAOS-62, EXP-009): Insel, Baumscheiben-Felder, Bäume, Teich und
+ * Gras aus `./natureBoard.ts`, Licht, Himmel und Nachbearbeitung aus `../nature/lighting.ts`
+ * nach der Lichtstimmung (`../lighting/moods.ts`, zunächst fest je Brett, `?stimmung=`).
+ * Grafikstufe nach `?qualitaet=` bzw. automatisch nach Bildrate; im Testmodus Stufe `test`.
  *
  * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (Slot n → Figur n,
  * `defaultCharacterFor`) auf einem Spielstein-Sockel in Slot-Farbe, darüber das Slot-Symbol.
@@ -14,14 +19,11 @@
  */
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
-import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
-import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
-import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator.js';
-import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
+import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
-import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder.js';
@@ -30,7 +32,7 @@ import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
-import type { BoardSpace, SpaceKind } from '@chaos-party/game-core';
+import type { BoardSpace } from '@chaos-party/game-core';
 import { defaultCharacterFor } from '@chaos-party/minigame-sdk';
 import type { CharacterAnimation } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS, type SlotNumber } from '@chaos-party/protocol';
@@ -39,6 +41,10 @@ import {
   type CharacterLibrary,
   type HostCharacterHandle,
 } from '../characters/index.ts';
+import { applyNatureLook, type NatureLook } from '../nature/lighting.ts';
+import { NatureMaterials } from '../nature/materials.ts';
+import { createAdaptiveQuality, QUALITY } from '../nature/quality.ts';
+import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { FramePawn, FramePopup } from './director.ts';
 import {
@@ -50,6 +56,7 @@ import {
   spreadPawns,
   type Point2,
 } from './layout.ts';
+import { buildNatureBoard, TILE_TOP, type NatureBoardWorld } from './natureBoard.ts';
 import type { MessageTone } from './texts.ts';
 import type { BoardScene, BoardSceneOptions } from './types.ts';
 
@@ -57,12 +64,13 @@ import type { BoardScene, BoardSceneOptions } from './types.ts';
 const TEST_STEP_MS = 1000 / 60;
 /** Größter Zeitschritt je Frame im Normalbetrieb (Tab im Hintergrund o. ä.). */
 const MAX_STEP_MS = 100;
+/** Bei Software-Rendering (ein Bild dauert 0,5–3 s) bleibt die Regie so in Echtzeit. */
+const MAX_STEP_SOFTWARE_MS = 4000;
 const FONT = '"Nunito Variable", ui-rounded, system-ui, sans-serif';
 const INK = '#1b1530';
 
-/** Höhe der Feldoberfläche über dem Boden. */
-const SPACE_TOP = 0.3;
-const SPACE_DIAMETER = 1.5;
+/** Höhe der Feldoberfläche (Oberkante der Baumscheiben) über dem Boden. */
+const SPACE_TOP = TILE_TOP;
 
 /** Sockel-Radius und Höhe über dem Kopf (Anker für Pfeil, Popups, Getrennt-Marker). */
 const PAWN = { radius: 0.5, height: 2.4 } as const;
@@ -94,47 +102,12 @@ const CAMERA_OFFSET = new Vector3(0, 28, -17.5);
 const CAMERA_AIM_Z = -1.6;
 const CAMERA_HALF_LIFE_MS = 700;
 
-interface KindStyle {
-  readonly color: string;
-  /** Ecken der Feldplatte (32 = rund) – Form zusätzlich zur Farbe. */
-  readonly tessellation: number;
-  readonly rotation: number;
-}
-
-/** Farbe **und** Form je Feldtyp (Farbe allein reicht nicht, VISION/Barrierefreiheit). */
-const KIND_STYLES: Readonly<Record<SpaceKind, KindStyle>> = {
-  start: { color: '#ffffff', tessellation: 4, rotation: Math.PI / 4 },
-  'coins-plus': { color: '#2f7fe0', tessellation: 32, rotation: 0 },
-  'coins-minus': { color: '#e5484d', tessellation: 32, rotation: 0 },
-  item: { color: '#25b46a', tessellation: 4, rotation: Math.PI / 4 },
-  event: { color: '#ffd23f', tessellation: 6, rotation: 0 },
-  trophy: { color: '#9b5cf6', tessellation: 8, rotation: Math.PI / 8 },
-};
-
 const TONE_COLORS: Readonly<Record<MessageTone, { bg: string; fg: string }>> = {
   good: { bg: '#d4f5e6', fg: '#00603f' },
   bad: { bg: '#ffe0e0', fg: '#a3161c' },
   gold: { bg: '#ffe58a', fg: '#6b4a00' },
   neutral: { bg: '#ffffff', fg: INK },
 };
-
-/** Bäume des Wackelwalds in der Brettmitte (feste Lage, deterministisch). */
-const TREES: readonly { x: number; z: number; s: number }[] = [
-  { x: -6.5, z: 4.2, s: 1.1 },
-  { x: -3.2, z: 5.1, s: 0.9 },
-  { x: 0.4, z: 4.4, s: 1.25 },
-  { x: 3.8, z: 5.2, s: 0.95 },
-  { x: -7.4, z: 0.6, s: 1.0 },
-  { x: -4.3, z: 1.7, s: 1.3 },
-  { x: -1.2, z: 1.2, s: 0.85 },
-  { x: 2.2, z: 1.8, s: 1.05 },
-  { x: -5.6, z: -2.6, s: 0.9 },
-  { x: -2.4, z: -2.1, s: 1.15 },
-  { x: 1.1, z: -2.8, s: 0.95 },
-  { x: 4.4, z: -1.6, s: 1.2 },
-  { x: -7.8, z: -5.4, s: 0.8 },
-  { x: 6.2, z: 3.3, s: 0.85 },
-];
 
 interface Pawn {
   readonly slot: SlotNumber;
@@ -146,7 +119,6 @@ interface Pawn {
   readonly marker: TransformNode;
   /** Sockel, Ring und Symbol (ohne Figur). */
   readonly meshes: Mesh[];
-  readonly materials: StandardMaterial[];
   connected: boolean | null;
   /** Aktuelle Blickrichtung (Drehung um y). */
   yaw: number;
@@ -183,7 +155,7 @@ export function createBoardScene(
     !testMode,
   );
   const scene = new Scene(engine);
-  scene.clearColor = new Color4(0, 0, 0, 0); // Himmel kommt als CSS-Verlauf
+
   scene.skipPointerMovePicking = true;
 
   const spaces = new Map<string, BoardSpace>(board.spaces.map((s) => [s.id, s]));
@@ -202,15 +174,32 @@ export function createBoardScene(
   const focus = { x: bounds.center.x, z: bounds.center.z };
   placeCamera();
 
-  const shadows = buildLights();
-  const materials = new Map<string, StandardMaterial>();
+  const look = currentLookSettings(testMode, board.id, engine.getGlInfo().renderer);
+  applyRenderScale(engine, look);
+  // Ohne Umgebungslicht (Sparstufe) spiegelt Metall nichts und würde schwarz.
+  const mats = new NatureMaterials(scene, {
+    reflections: QUALITY[look.quality].environment,
+    detail: QUALITY[look.quality].materialDetail,
+  });
+  const adaptive = createAdaptiveQuality(look.quality, look.automatic);
+  /** Schattenwerfer; das Licht entsteht erst, wenn der Himmel (HDRI) geladen ist. */
+  const casters = new Set<AbstractMesh>();
+  let lighting: NatureLook | null = null;
+  let world: NatureBoardWorld | null = null;
+  const addCaster = (mesh: AbstractMesh): void => {
+    casters.add(mesh);
+    lighting?.addCaster(mesh);
+  };
+  const removeCaster = (mesh: AbstractMesh): void => {
+    casters.delete(mesh);
+    lighting?.removeCaster(mesh);
+  };
   const pawns = new Map<SlotNumber, Pawn>();
   const trophies = new Map<string, TransformNode>();
   const traps = new Map<string, TransformNode>();
   const popups = new Map<number, Label>();
   /** Popups, auf die eine Figur schon reagiert hat (Animation einmal je Popup). */
   const reacted = new Set<number>();
-  const trees: TransformNode[] = [];
   let characters: CharacterLibrary | null = null;
   let activeRing: Mesh | undefined;
   let activeArrow: Mesh | undefined;
@@ -224,20 +213,37 @@ export function createBoardScene(
   const ready = (async () => {
     await loadFont();
     if (isDisposed()) throw new Error('Brett-Szene wurde vor dem Aufbau entsorgt');
-    buildIsland();
-    buildDecor();
-    buildPaths();
-    buildSpaces();
+    const builtWorld = buildNatureBoard(scene, board, {
+      mats,
+      grassTip: look.mood.grassTip,
+      glow: look.mood.night?.tileGlow ?? 0,
+    });
+    world = builtWorld;
+    for (const [id, node] of builtWorld.trophies) trophies.set(id, node);
+    for (const mesh of builtWorld.casters) casters.add(mesh);
     buildSignposts();
     buildActiveMarker();
     // Figuren vorladen (GLB, einmal je Szene); im Test laufen Animationen in festen Schritten.
     scene.useConstantAnimationDeltaTime = testMode;
-    const library = await loadCharacters(scene);
+    const library = await loadCharacters(scene, { keepPbr: true });
     if (isDisposed()) {
       library.dispose();
       throw new Error('Brett-Szene wurde beim Laden der Figuren entsorgt');
     }
     characters = library;
+    const lit = await applyNatureLook(scene, camera, {
+      mood: look.mood,
+      quality: look.quality,
+      // Schärfe auf dem Brett, nur Rand und Horizont werden weich (Lesbarkeit zuerst).
+      focus: { distance: CAMERA_OFFSET.length(), fStop: 11 },
+      viewDistance: CAMERA_OFFSET.length(),
+      lanterns: builtWorld.lanterns,
+      terrain: builtWorld.terrain,
+      grass: builtWorld.grass,
+    });
+    if (isDisposed()) throw new Error('Brett-Szene wurde beim Laden des Himmels entsorgt');
+    lighting = lit;
+    for (const mesh of casters) lit.addCaster(mesh);
     built = true;
     update(0);
     await scene.whenReadyAsync(true);
@@ -246,7 +252,10 @@ export function createBoardScene(
       scene.render();
     } else {
       engine.runRenderLoop(() => {
-        update(Math.min(MAX_STEP_MS, engine.getDeltaTime()));
+        const dt = engine.getDeltaTime();
+        const next = adaptive.frame(dt);
+        if (next) lighting?.setQuality(next);
+        update(Math.min(look.software ? MAX_STEP_SOFTWARE_MS : MAX_STEP_MS, dt));
         scene.render();
       });
     }
@@ -266,439 +275,14 @@ export function createBoardScene(
     }
   }
 
-  function buildLights(): ShadowGenerator {
-    const hemi = new HemisphericLight('himmel', new Vector3(0.2, 1, -0.3), scene);
-    hemi.intensity = 0.7;
-    hemi.diffuse = new Color3(1, 0.97, 0.92);
-    hemi.groundColor = new Color3(0.5, 0.45, 0.7);
-    hemi.specular = new Color3(0.05, 0.05, 0.05);
-
-    const direction = new Vector3(0.45, -1, 0.35).normalize();
-    const sun = new DirectionalLight('sonne', direction, scene);
-    sun.position = direction.scale(-30);
-    sun.intensity = 0.55;
-    sun.specular = new Color3(0.2, 0.2, 0.2);
-    sun.shadowMinZ = 10;
-    sun.shadowMaxZ = 50;
-    const generator = new ShadowGenerator(1024, sun);
-    generator.usePercentageCloserFiltering = true;
-    generator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-    generator.bias = 0.004;
-    generator.darkness = 0.5;
-    return generator;
-  }
-
-  /** Geteiltes Material je Farbe (und Leuchtkraft). */
-  function material(hex: string, emissive = 0.1, alpha = 1): StandardMaterial {
-    const key = `${hex}|${emissive}|${alpha}`;
-    const existing = materials.get(key);
-    if (existing) return existing;
-    const mat = new StandardMaterial(`mat-${key}`, scene);
-    const color = Color3.FromHexString(hex);
-    mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(emissive);
-    mat.specularColor = new Color3(0.08, 0.08, 0.08);
-    mat.alpha = alpha;
-    materials.set(key, mat);
-    return mat;
-  }
-
-  /** Eigenes (nicht geteiltes) Material, z. B. für halbtransparente Figuren. */
-  function ownMaterial(name: string, hex: string, emissive: number): StandardMaterial {
-    const mat = new StandardMaterial(name, scene);
-    const color = Color3.FromHexString(hex);
-    mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(emissive);
-    mat.specularColor = new Color3(0.1, 0.1, 0.1);
-    return mat;
-  }
-
-  /** Statische Teile je Material sammeln und am Ende zu wenigen Meshes verschmelzen. */
-  const staticParts = new Map<StandardMaterial, Mesh[]>();
-  function addStatic(mesh: Mesh, mat: StandardMaterial, receiveShadows = true): void {
-    mesh.material = mat;
-    mesh.receiveShadows = receiveShadows;
-    const list = staticParts.get(mat) ?? [];
-    list.push(mesh);
-    staticParts.set(mat, list);
-  }
-  function mergeStatic(): void {
-    for (const [mat, list] of staticParts) {
-      const merged = Mesh.MergeMeshes(list, true, true);
-      if (merged) {
-        merged.material = mat;
-        merged.receiveShadows = true;
-        merged.isPickable = false;
-        merged.freezeWorldMatrix();
-      }
-    }
-    staticParts.clear();
+  /** Lackiertes Spielmaterial (Sockel, Fallen, Marker); `emissive` hält Signalfarben hell. */
+  function material(hex: string, emissive = 0.1): Material {
+    return mats.plain(hex, { roughness: 0.4, clearCoat: 0.5, glow: emissive * 0.6 });
   }
 
   function spacePos(id: string): Point2 {
     const space = spaces.get(id);
     return space ? space.position : bounds.center;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Insel, Deko, Wege, Felder
-  // ---------------------------------------------------------------------------
-
-  /** Abgerundetes Rechteck aus Kästen und Eck-Zylindern (Oberkante bei y = top). */
-  function roundedSlab(
-    name: string,
-    width: number,
-    depth: number,
-    radius: number,
-    height: number,
-    top: number,
-    mat: StandardMaterial,
-  ): void {
-    const y = top - height / 2;
-    const a = CreateBox(`${name}-a`, { width: width - 2 * radius, height, depth }, scene);
-    a.position.y = y;
-    addStatic(a, mat);
-    const b = CreateBox(`${name}-b`, { width, height, depth: depth - 2 * radius }, scene);
-    b.position.y = y;
-    addStatic(b, mat);
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const c = CreateCylinder(
-          `${name}-c`,
-          { diameter: radius * 2, height, tessellation: 24 },
-          scene,
-        );
-        c.position.set(sx * (width / 2 - radius), y, sz * (depth / 2 - radius));
-        addStatic(c, mat);
-      }
-    }
-  }
-
-  function buildIsland(): void {
-    const width = bounds.maxX - bounds.minX + 5;
-    const depth = bounds.maxZ - bounds.minZ + 5;
-    roundedSlab('erde', width + 0.8, depth + 0.8, 3.4, 1.6, -0.25, material('#a8754d', 0.05));
-    roundedSlab('gras', width, depth, 3, 0.5, 0, material('#8fd16a', 0.06));
-  }
-
-  function buildDecor(): void {
-    // Wackelwald: Bäume mit Kronen in zwei Grüntönen, die in Simulationszeit wackeln.
-    const trunkMat = material('#8a5a3b', 0.05);
-    const leafA = material('#3f9e4d', 0.08);
-    const leafB = material('#57b85a', 0.08);
-    TREES.forEach((t, i) => {
-      const root = new TransformNode(`baum-${i}`, scene);
-      root.position.set(t.x, 0, t.z);
-      root.scaling.setAll(t.s);
-      const trunk = CreateCylinder(
-        'stamm',
-        { diameterTop: 0.25, diameterBottom: 0.4, height: 1, tessellation: 10 },
-        scene,
-      );
-      trunk.parent = root;
-      trunk.position.y = 0.5;
-      trunk.material = trunkMat;
-      const lower = CreateCylinder(
-        'krone',
-        { diameterTop: 0, diameterBottom: 1.8, height: 1.6, tessellation: 14 },
-        scene,
-      );
-      lower.parent = root;
-      lower.position.y = 1.6;
-      lower.material = i % 2 === 0 ? leafA : leafB;
-      const upper = CreateCylinder(
-        'krone',
-        { diameterTop: 0, diameterBottom: 1.3, height: 1.2, tessellation: 14 },
-        scene,
-      );
-      upper.parent = root;
-      upper.position.y = 2.35;
-      upper.material = i % 2 === 0 ? leafB : leafA;
-      for (const m of [trunk, lower, upper]) {
-        m.receiveShadows = true;
-        m.isPickable = false;
-      }
-      trees.push(root);
-    });
-
-    // Teich neben der Sumpfabkürzung.
-    const pond = CreateCylinder('teich', { diameter: 1, height: 0.06, tessellation: 40 }, scene);
-    pond.scaling.set(3.6, 1, 4.8);
-    pond.position.set(8.4, 0.04, -0.6);
-    addStatic(pond, material('#4fb8e8', 0.2));
-    for (const [x, z] of [
-      [7.6, 0.6],
-      [9.1, -1.7],
-      [8.2, -2.2],
-    ] as const) {
-      const pad = CreateCylinder(
-        'seerose',
-        { diameter: 0.6, height: 0.05, tessellation: 12 },
-        scene,
-      );
-      pad.position.set(x, 0.09, z);
-      addStatic(pad, leafB);
-    }
-
-    // Pilze am Pilzpfad (außen links).
-    const stem = material('#fff6e6', 0.15);
-    const cap = material('#e8413c', 0.12);
-    for (const [x, z, s] of [
-      [-17.4, 3.2, 1],
-      [-17.6, -1.4, 0.8],
-      [-17.2, -4.0, 1.15],
-    ] as const) {
-      const st = CreateCylinder(
-        'pilz-stiel',
-        { diameter: 0.35 * s, height: 0.6 * s, tessellation: 10 },
-        scene,
-      );
-      st.position.set(x, 0.3 * s, z);
-      addStatic(st, stem);
-      const hat = CreateSphere('pilz-hut', { diameter: 1 * s, segments: 12, slice: 0.5 }, scene);
-      hat.position.set(x, 0.55 * s, z);
-      addStatic(hat, cap);
-    }
-
-    // Felsen am Klippenweg (außen rechts).
-    const rock = material('#9aa0b5', 0.08);
-    for (const [x, z, s] of [
-      [17.5, -2.4, 1],
-      [17.4, 2.0, 0.8],
-      [17.2, 5.6, 0.7],
-    ] as const) {
-      const r = CreateSphere('fels', { diameter: 1.4 * s, segments: 4 }, scene);
-      r.scaling.y = 0.7;
-      r.position.set(x, 0.3 * s, z);
-      addStatic(r, rock);
-    }
-
-    // Planken unter der Wackelbrücke (links innen).
-    const plank = material('#c48a55', 0.08);
-    const bridge = ['s35', 's36', 's37'].filter((id) => spaces.has(id));
-    for (let i = 0; i + 1 < bridge.length; i++) {
-      const a = spacePos(bridge[i] ?? '');
-      const b = spacePos(bridge[i + 1] ?? '');
-      for (let k = 1; k <= 5; k++) {
-        const f = k / 6;
-        const p = CreateBox('planke', { width: 1.3, height: 0.08, depth: 0.32 }, scene);
-        p.position.set(a.x + (b.x - a.x) * f, 0.06, a.z + (b.z - a.z) * f);
-        p.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x) + Math.PI / 2;
-        addStatic(p, plank);
-      }
-    }
-  }
-
-  function buildPaths(): void {
-    const stone = material('#fff1d0', 0.12);
-    const arrow = material('#ffffff', 0.3);
-    for (const space of board.spaces) {
-      for (const nextId of space.next) {
-        const a = space.position;
-        const b = spacePos(nextId);
-        const dx = b.x - a.x;
-        const dz = b.z - a.z;
-        const length = Math.hypot(dx, dz);
-        if (length === 0) continue;
-        const ux = dx / length;
-        const uz = dz / length;
-        const inner = length - SPACE_DIAMETER - 0.2;
-        if (inner <= 0) continue;
-        const start = SPACE_DIAMETER / 2 + 0.1;
-        // Pfeil in der Mitte zeigt die Laufrichtung, Steine davor und dahinter.
-        const mid = start + inner / 2;
-        const chevron = CreateCylinder(
-          'pfeil',
-          { diameter: 0.62, height: 0.06, tessellation: 3 },
-          scene,
-        );
-        chevron.scaling.x = 1.25;
-        chevron.position.set(a.x + ux * mid, 0.05, a.z + uz * mid);
-        chevron.rotation.y = Math.atan2(-dz, dx);
-        addStatic(chevron, arrow);
-        const stones = Math.max(0, Math.floor(inner / 0.75) - 1);
-        for (let k = 0; k < stones; k++) {
-          const d = start + ((k + 0.5) / stones) * inner;
-          if (Math.abs(d - mid) < 0.45) continue;
-          const s = CreateCylinder(
-            'stein',
-            { diameter: 0.28, height: 0.05, tessellation: 10 },
-            scene,
-          );
-          s.position.set(a.x + ux * d, 0.04, a.z + uz * d);
-          addStatic(s, stone);
-        }
-      }
-    }
-  }
-
-  function buildSpaces(): void {
-    const outline = material(INK, 0);
-    const white = material('#ffffff', 0.35);
-    const pedestal = material('#d9b44a', 0.25);
-    const flagRed = material('#e5484d', 0.2);
-    for (const space of board.spaces) {
-      const { x, z } = space.position;
-      const style = KIND_STYLES[space.kind];
-      // Dunkler Rand unten (Cartoon-Umriss), farbige Platte darüber.
-      const rim = CreateCylinder(
-        'feld-rand',
-        { diameter: SPACE_DIAMETER + 0.16, height: 0.22, tessellation: style.tessellation },
-        scene,
-      );
-      rim.position.set(x, 0.11, z);
-      rim.rotation.y = style.rotation;
-      addStatic(rim, outline);
-      const plate = CreateCylinder(
-        'feld',
-        { diameter: SPACE_DIAMETER, height: 0.2, tessellation: style.tessellation },
-        scene,
-      );
-      plate.position.set(x, 0.2, z);
-      plate.rotation.y = style.rotation;
-      addStatic(plate, material(style.color, 0.12));
-
-      const top = SPACE_TOP + 0.03;
-      switch (space.kind) {
-        case 'coins-plus': {
-          const h = CreateBox('plus-h', { width: 0.78, height: 0.06, depth: 0.22 }, scene);
-          h.position.set(x, top, z);
-          addStatic(h, white);
-          const v = CreateBox('plus-v', { width: 0.22, height: 0.06, depth: 0.78 }, scene);
-          v.position.set(x, top, z);
-          addStatic(v, white);
-          break;
-        }
-        case 'coins-minus': {
-          const h = CreateBox('minus', { width: 0.82, height: 0.06, depth: 0.24 }, scene);
-          h.position.set(x, top, z);
-          addStatic(h, white);
-          break;
-        }
-        case 'item': {
-          // Geschenk: Würfel mit Schleife.
-          const box = CreateBox('geschenk', { size: 0.5 }, scene);
-          box.position.set(x, top + 0.25, z);
-          box.rotation.y = Math.PI / 4;
-          addStatic(box, white);
-          const ribbonA = CreateBox('schleife', { width: 0.54, height: 0.52, depth: 0.12 }, scene);
-          ribbonA.position.set(x, top + 0.25, z);
-          ribbonA.rotation.y = Math.PI / 4;
-          addStatic(ribbonA, material('#e5484d', 0.2));
-          const ribbonB = CreateBox('schleife', { width: 0.12, height: 0.52, depth: 0.54 }, scene);
-          ribbonB.position.set(x, top + 0.25, z);
-          ribbonB.rotation.y = Math.PI / 4;
-          addStatic(ribbonB, material('#e5484d', 0.2));
-          break;
-        }
-        case 'event': {
-          // Ausrufezeichen.
-          const bar = CreateBox('ausruf', { width: 0.2, height: 0.55, depth: 0.2 }, scene);
-          bar.position.set(x, top + 0.48, z);
-          addStatic(bar, outline);
-          const dot = CreateSphere('ausruf-punkt', { diameter: 0.22, segments: 8 }, scene);
-          dot.position.set(x, top + 0.1, z);
-          addStatic(dot, outline);
-          break;
-        }
-        case 'trophy': {
-          const base = CreateCylinder(
-            'sockel',
-            { diameterTop: 0.6, diameterBottom: 0.8, height: 0.16, tessellation: 16 },
-            scene,
-          );
-          base.position.set(x, top + 0.06, z);
-          addStatic(base, pedestal);
-          break;
-        }
-        case 'start': {
-          // Schachbrett-Quadrate und eine Fahne.
-          for (const [ox, oz] of [
-            [-0.22, -0.22],
-            [0.22, 0.22],
-          ] as const) {
-            const sq = CreateBox('start-feld', { width: 0.44, height: 0.04, depth: 0.44 }, scene);
-            sq.position.set(x + ox, top, z + oz);
-            addStatic(sq, outline);
-          }
-          const pole = CreateCylinder(
-            'fahnenmast',
-            { diameter: 0.08, height: 1.5, tessellation: 8 },
-            scene,
-          );
-          pole.position.set(x + 0.6, top + 0.75, z + 0.5);
-          addStatic(pole, outline);
-          const flag = CreateBox('fahne', { width: 0.6, height: 0.38, depth: 0.04 }, scene);
-          flag.position.set(x + 0.9, top + 1.3, z + 0.5);
-          addStatic(flag, flagRed);
-          break;
-        }
-      }
-      if (space.kind === 'trophy') trophies.set(space.id, buildTrophy(space));
-    }
-    mergeStatic();
-  }
-
-  /** Goldener Pokal über einem Trophäenfeld; sichtbar nur, solange das Feld aktiv ist. */
-  function buildTrophy(space: BoardSpace): TransformNode {
-    const gold = material('#ffc83d', 0.45);
-    const root = new TransformNode(`pokal-${space.id}`, scene);
-    root.position.set(space.position.x, SPACE_TOP + 0.15, space.position.z);
-    const parts: Mesh[] = [];
-    const foot = CreateCylinder(
-      'pokal-fuss',
-      { diameterTop: 0.25, diameterBottom: 0.55, height: 0.18, tessellation: 16 },
-      scene,
-    );
-    foot.position.y = 0.09;
-    parts.push(foot);
-    const stem = CreateCylinder(
-      'pokal-stiel',
-      { diameter: 0.14, height: 0.3, tessellation: 10 },
-      scene,
-    );
-    stem.position.y = 0.33;
-    parts.push(stem);
-    const bowl = CreateCylinder(
-      'pokal-schale',
-      { diameterTop: 0.85, diameterBottom: 0.3, height: 0.62, tessellation: 20 },
-      scene,
-    );
-    bowl.position.y = 0.78;
-    parts.push(bowl);
-    for (const side of [-1, 1]) {
-      const handle = CreateTorus(
-        'pokal-henkel',
-        { diameter: 0.38, thickness: 0.08, tessellation: 16 },
-        scene,
-      );
-      handle.rotation.x = Math.PI / 2;
-      handle.position.set(side * 0.44, 0.84, 0);
-      parts.push(handle);
-    }
-    const star = CreateCylinder(
-      'pokal-stern',
-      { diameter: 0.26, height: 0.06, tessellation: 5 },
-      scene,
-    );
-    star.rotation.x = Math.PI / 2;
-    star.position.set(0, 0.8, -0.34);
-    parts.push(star);
-    for (const p of parts) {
-      p.parent = root;
-      p.material = p === star ? material('#ffffff', 0.5) : gold;
-      shadows.addShadowCaster(p, false);
-    }
-    const glow = CreateTorus(
-      'pokal-glanz',
-      { diameter: 1.9, thickness: 0.1, tessellation: 32 },
-      scene,
-    );
-    glow.parent = root;
-    glow.position.y = -0.1;
-    glow.material = material('#ffe58a', 0.9);
-    root.setEnabled(false);
-    return root;
   }
 
   // ---------------------------------------------------------------------------
@@ -765,7 +349,7 @@ export function createBoardScene(
   }
 
   function buildSignposts(): void {
-    const wood = material('#8a5a3b', 0.08);
+    const wood = mats.textured('bark_brown_02', { u: 0.5, v: 1, tint: '#b39c88' });
     for (const fork of board.spaces) {
       if (fork.next.length < 2) continue;
       for (const targetId of fork.next) {
@@ -782,7 +366,7 @@ export function createBoardScene(
         post.position.set(p.x, 0.75, p.z);
         post.material = wood;
         post.isPickable = false;
-        shadows.addShadowCaster(post, false);
+        addCaster(post);
         const label = createLabel(`wegweiser-${target.id}`, {
           text: target.label,
           bg: '#fff3d6',
@@ -893,7 +477,7 @@ export function createBoardScene(
       { diameter: PAWN.radius * 2 + 0.16, height: 0.12, tessellation: 24 },
       scene,
     );
-    const slotMat = ownMaterial(`figur-${slot}-mat`, style.color, 0.2);
+    const slotMat = mats.plain(style.color, { roughness: 0.35, clearCoat: 0.6, glow: 0.12 });
     base.parent = root;
     base.position.y = 0.08;
     base.material = slotMat;
@@ -931,9 +515,9 @@ export function createBoardScene(
     const meshes: Mesh[] = [baseRim, base, ring, symbol];
     for (const m of meshes) {
       m.isPickable = false;
-      shadows.addShadowCaster(m, false);
+      addCaster(m);
     }
-    shadows.addShadowCaster(character.shadowCaster, false);
+    addCaster(character.shadowCaster);
 
     // Getrennt-Marker wie in der Arena (CHAOS-12): „!“ in Warnorange.
     const marker = new TransformNode(`figur-${slot}-getrennt`, scene);
@@ -962,7 +546,6 @@ export function createBoardScene(
       symbol,
       marker,
       meshes,
-      materials: [slotMat],
       connected: null,
       yaw: FACE_CAMERA,
       position: new Vector3(),
@@ -980,11 +563,10 @@ export function createBoardScene(
 
   function disposePawn(pawn: Pawn): void {
     for (const m of [...pawn.meshes, pawn.character.shadowCaster]) {
-      shadows.removeShadowCaster(m, false);
+      removeCaster(m);
     }
     pawn.character.dispose();
     pawn.root.dispose(false, false);
-    for (const mat of pawn.materials) mat.dispose();
   }
 
   /** Dreht die Figur weich (kürzester Weg) in Richtung `target`. */
@@ -1231,7 +813,8 @@ export function createBoardScene(
     syncActive(view?.activeSlot ?? null);
     syncPopups(frame.popups);
     updateCamera(dtMs, view?.activeSlot ?? null);
-    trees.forEach((tree, i) => {
+    lighting?.update(simMs / 1000);
+    world?.trees.forEach((tree, i) => {
       tree.rotation.z = 0.035 * Math.sin(simMs / 700 + i * 1.7);
       tree.rotation.x = 0.025 * Math.sin(simMs / 900 + i);
     });
@@ -1242,10 +825,13 @@ export function createBoardScene(
     stepFrames(n) {
       if (!testMode) throw new Error('stepFrames ist nur im Testmodus verfügbar');
       if (!built || disposed) return;
+      // Alle Schritte rechnen (Regie, Figuren-Animationen), aber nur das letzte Bild zeichnen:
+      // wie `MinigameStage.step` – auf Software-GPUs kostet jedes Bild viel (CHAOS-62).
       for (let i = 0; i < n; i++) {
         update(TEST_STEP_MS);
-        scene.render();
+        if (i < n - 1) scene.animate();
       }
+      if (n > 0) scene.render();
     },
     getPawnPositions(): PlayerPosition[] {
       return [...pawns.values()]
@@ -1268,6 +854,7 @@ export function createBoardScene(
         vendor: gl.vendor,
         width: engine.getRenderWidth(),
         height: engine.getRenderHeight(),
+        ...(lighting ? { quality: `${lighting.quality}${look.automatic ? ' (auto)' : ''}` } : {}),
       };
     },
     dispose() {

@@ -1,0 +1,22 @@
+{
+  "$comment": "CHAOS-62: CC0-Assets von Poly Haven (https://polyhaven.com/license) für den Natur-Look im Spiel. Import mit `pnpm --filter @chaos-party/assets import:polyhaven` (braucht ImageMagick mit WebP). Texturen als 512×512-WebP nach textures/nature/, Himmel als 512×256-HDR nach textures/sky/; das Skript schreibt die Manifest-Einträge (natur-…, himmel-…).",
+  "license": "CC0-1.0",
+  "textureSize": 512,
+  "skyWidth": 512,
+  "textures": [
+    { "id": "leafy_grass", "use": "Wiese (Gelände)" },
+    { "id": "brown_mud_rocks_01", "use": "Erdkante der Insel" },
+    { "id": "bark_brown_02", "use": "Rinde (Bäume, Baumscheiben-Rand, Pfosten)" },
+    { "id": "mossy_rock", "use": "Moosfelsen und Trittsteine" },
+    { "id": "oak_veneer_01", "use": "Holz der Baumscheiben-Felder" },
+    { "id": "brown_planks_05", "use": "Bretter (Wegweiser, Brücke)" }
+  ],
+  "skies": [
+    { "id": "qwantani_mid_morning_puresky", "use": "Stimmung Morgen" },
+    { "id": "qwantani_noon_puresky", "use": "Stimmung Mittag" },
+    { "id": "kloofendal_48d_partly_cloudy_puresky", "use": "Stimmung Bewölkt" },
+    { "id": "qwantani_late_afternoon_puresky", "use": "Stimmung Goldene Stunde" },
+    { "id": "qwantani_dusk_2_puresky", "use": "Stimmung Dämmerung" },
+    { "id": "qwantani_moon_noon_puresky", "use": "Stimmung Nacht" }
+  ]
+}

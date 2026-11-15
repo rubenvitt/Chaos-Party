@@ -20,7 +20,11 @@ import { useEffect, useRef, useState } from 'react';
 import { loadCharacters } from '../characters/index.ts';
 import { soundEngine } from '../fx/audio.ts';
 import { createMinigameFx } from '../fx/minigameFx.ts';
+import { createAdaptiveQuality } from '../nature/quality.ts';
+import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
+import type { NatureLook } from '../nature/lighting.ts';
 import { loadHavok } from '../scene/havok.ts';
+import { createMinigameLook, SOFTWARE_MAX_STEPS } from './natureLook.ts';
 import { MinigameKeyboard } from './keyboard.ts';
 import { previewPlayers } from './players.ts';
 import type { ChaosMinigameTestHook } from './testHook.ts';
@@ -52,6 +56,12 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
     scene.useConstantAnimationDeltaTime = test;
     // Klänge/Partikel/Wackeln (CHAOS-33); im Testmodus nur gezählt.
     const fx = createMinigameFx(scene, { sound: soundEngine(), testMode: test });
+    // Natur-Look wie im Spiel (CHAOS-62): Kulisse, Licht, Grafikstufe.
+    const settings = currentLookSettings(test, 'wackelwald', engine.getGlInfo().renderer);
+    applyRenderScale(engine, settings);
+    const look = createMinigameLook(scene, settings);
+    const adaptive = createAdaptiveQuality(settings.quality, settings.automatic);
+    let lighting: NatureLook | null = null;
     const life = { active: true };
     const isActive = () => life.active;
     let runner: MinigameRunner | null = null;
@@ -105,7 +115,7 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
     if (test) window.__chaosMinigame = hook;
 
     void (async () => {
-      const library = await loadCharacters(scene);
+      const library = await loadCharacters(scene, { keepPbr: true });
       disposeLibrary = () => {
         library.dispose();
       };
@@ -116,14 +126,24 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
         players: previewPlayers(players),
         seed,
         fx,
-        characters: library,
+        characters: {
+          create(target, player) {
+            const handle = library.create(target, player);
+            look.addCaster(handle.shadowCaster);
+            return handle;
+          },
+        },
         havok,
         testMode: test,
+        look,
+        ...(settings.software ? { maxStepsPerAdvance: SOFTWARE_MAX_STEPS } : {}),
         onResult: () => {
           setStatus('finished');
         },
       });
       await runner.prepare();
+      if (!isActive()) return;
+      if (scene.activeCamera) lighting = await look.finish(scene.activeCamera);
       if (!isActive()) return;
       runner.start();
       setStatus('running');
@@ -135,9 +155,14 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
       if (test) return;
       let last = performance.now();
       let hudAt = 0;
+      let seconds = 0;
       engine.runRenderLoop(() => {
         const now = performance.now();
+        const next = adaptive.frame(now - last);
+        if (next) lighting?.setQuality(next);
         runner?.advance((now - last) / 1000);
+        seconds += (now - last) / 1000;
+        look.update(seconds);
         last = now;
         scene.render();
         if (runner && now - hudAt > 100) {

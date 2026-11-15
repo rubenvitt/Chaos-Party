@@ -57,7 +57,9 @@ test.describe('Messanzeige (?debug=1)', () => {
     // Render-Schleife läuft: Bildrate und Bildabstand sind Zahlen, Grafik ist bekannt.
     await expect(hostOverlay.getByTestId('debug-fps')).toHaveText(FPS);
     await expect(hostOverlay.getByTestId('debug-frame-p95')).toHaveText(MS);
-    await expect(hostOverlay.getByTestId('debug-renderer')).toHaveText(/^WebGL[12] .+ \d+×\d+$/);
+    await expect(hostOverlay.getByTestId('debug-renderer')).toHaveText(
+      /^WebGL[12] .+ \d+×\d+( Grafik .+)?$/,
+    );
     // Noch keine Eingabe: kein Messwert statt 0.
     await expect(hostOverlay.getByTestId('debug-input-median')).toHaveText('–');
 

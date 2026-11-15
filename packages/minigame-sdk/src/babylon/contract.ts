@@ -29,7 +29,12 @@
  * - **Anzeige:** Kamera setzt das Minispiel in `prepare`. Text-Overlays (Anleitung, Countdown,
  *   Punkte, Ergebnis) macht der Host aus `info` und `getHud()`; das Minispiel zeichnet kein
  *   eigenes HTML.
+ * - **Look (CHAOS-62, optional):** Gibt die Laufzeit `ctx.look` mit, ruft das Minispiel in
+ *   `prepare` genau einmal `look.backdrop(…)` auf und legt dann **kein** eigenes Licht, keinen
+ *   Boden bis zum Horizont und keinen Hintergrund an; Materialien holt es über
+ *   `look.material(…)`. Ohne `ctx.look` (Tests, Vorschau) baut es wie bisher alles selbst.
  */
+import type { Material } from '@babylonjs/core/Materials/material.js';
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
 import type { CharacterId, MinigameInfo, MinigameInput, MinigameResult, Slot } from '../info.ts';
@@ -119,6 +124,47 @@ export interface CharacterFactory {
   create(scene: Scene, player: MinigamePlayer): CharacterHandle;
 }
 
+/** Oberfläche eines Materials im Look der Laufzeit. */
+export type LookFinish = 'matt' | 'lack' | 'glanz' | 'metall' | 'stoff';
+
+export interface LookMaterialOptions {
+  /** Eigenleuchten als Anteil der Farbe (Signalfarben, Slot-Ringe), 0–1. */
+  readonly emissive?: number;
+  readonly alpha?: number;
+  /** Standard `lack`. */
+  readonly finish?: LookFinish;
+  /** Licht scheint durch (Pudding, Blätter, Stoff), 0–1. */
+  readonly translucency?: number;
+}
+
+/** Spielfläche um den Ursprung, die die Kulisse frei und eben lässt. */
+export interface LookArea {
+  /** Halbe Breite (x) und Tiefe (z) der freien Fläche. */
+  readonly halfX: number;
+  readonly halfZ: number;
+  /** Höhe der Wiese (Standard 0). Fallen Figuren hinunter, liegt die Wiese tiefer. */
+  readonly groundY?: number;
+  /** Kulisse unter der Spielfläche: Wiese oder Picknickdecke (Standard `wiese`). */
+  readonly surface?: 'wiese' | 'decke';
+}
+
+/**
+ * Look der Laufzeit (CHAOS-62, „Stilisierte Natur“): Kulisse, Licht, Himmel und
+ * Nachbearbeitung kommen vom Host; das Minispiel bringt nur seine Spielfläche mit.
+ */
+export interface MinigameLook {
+  /**
+   * Neues Material im Look (gehört dem Minispiel wie ein selbst angelegtes: in `dispose()`
+   * entsorgen). Gleiche Wünsche dürfen ein Material teilen, das regelt das Minispiel.
+   */
+  material(hex: string, options?: LookMaterialOptions): Material;
+  /**
+   * Kulisse um die Spielfläche: Wiese oder Decke, Gras, Bäume, Himmel, Licht, Schatten.
+   * Alles, was sie anlegt, gehört der Laufzeit. Höchstens einmal je Minispiel aufrufen.
+   */
+  backdrop(area: LookArea): void;
+}
+
 export interface MinigameContext {
   readonly scene: Scene;
   readonly players: readonly MinigamePlayer[];
@@ -130,6 +176,8 @@ export interface MinigameContext {
   readonly characters: CharacterFactory;
   /** Testmodus: keine Zufalls-Kamerafahrten, Effekte knapp (Screenshots stabil). */
   readonly testMode: boolean;
+  /** Look der Laufzeit (Host); fehlt in Tests und Vorschauen ohne Look. */
+  readonly look?: MinigameLook;
 }
 
 /** Laufende Anzeige für den Host-HUD (Punkte je Slot, Restzeit, optional Status). */

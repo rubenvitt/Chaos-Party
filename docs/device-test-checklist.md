@@ -204,3 +204,19 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | Passen Figuren und Stil zur Produktrichtung? | |
 | Lieblings- und schwächstes Minispiel, warum? | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
+
+## 11. Natur-Look am PC und Fernseher (für CHAOS-56/CHAOS-62)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-62 · **ADR:** [ADR-014](decisions/ADR-014-natur-look.md) · Belege der Automatik: `docs/screenshots/chaos62-*.jpg` (volle Stufe, Software-Rendering, nur Optik, keine Bildrate)
+
+Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“).
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| N1 | Brett 2 min laufen lassen (2–4 Spieler), Messzeile kopieren | ≥ 50 fps bei `hoch`; bleibt die Stufe auf „hoch (auto)“ oder stuft die Automatik ab? Wert und GPU notieren | | |
+| N2 | Jedes Minispiel einmal mit `?debug=1` | flüssig (≥ 50 fps), Stufe notieren | | |
+| N3 | Zum Vergleich `?qualitaet=mittel` und `?qualitaet=niedrig` | fps je Stufe; sieht man den Unterschied aus 3 m? | | |
+| N4 | Ruckeln beim Wechsel Brett → Minispiel → Brett | kein langes Standbild beim Laden (Himmel, Texturen) | | |
+| N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
+| N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Vorgriff auf CHAOS-63) | | |
+| N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |

@@ -4,6 +4,10 @@
  * stilisierten Formen und tausenden Grashalmen. Lichtstimmungen kommen als Daten aus
  * `../lighting/moods.ts` (CHAOS-60), nachts mit Laternen, Glühwürmchen und leuchtenden Feldern.
  *
+ * Werkbank, nicht Spielcode: Das Spiel nutzt seit CHAOS-62 die Module unter `../nature/`
+ * (Gelände, Gras, Pflanzen, Licht, Grafikstufen) und die eingecheckten, verkleinerten Assets
+ * aus `@chaos-party/assets` (ADR-014). Änderungen am Look dort vornehmen.
+ *
  * Assets liegen nach `node scripts/fetch-lookdev-assets.mjs` unter
  * `apps/host/public/lookdev-assets/` (nicht eingecheckt) und werden vom Dev-Server unter
  * `/host/lookdev-assets/` ausgeliefert.

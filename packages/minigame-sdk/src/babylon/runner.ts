@@ -21,6 +21,7 @@ import {
   type Minigame,
   type MinigameFx,
   type MinigameHud,
+  type MinigameLook,
   type MinigameModule,
   type MinigamePlayer,
 } from './contract.ts';
@@ -50,6 +51,14 @@ export interface RunnerOptions {
   /** Pflicht, wenn `info.physics`. */
   readonly havok?: HavokInstance | null;
   readonly testMode?: boolean;
+  /** Look des Hosts (CHAOS-62); fehlt in Tests. */
+  readonly look?: MinigameLook;
+  /**
+   * Höchstzahl fester Schritte je `advance` (Standard `MAX_STEPS_PER_ADVANCE`). Der Host hebt
+   * sie bei Software-Rendering an (Bilder dauern dort ≥ 0,25 s), damit die Spielzeit mit der
+   * echten Zeit Schritt hält und das Ergebnis rechtzeitig beim Server ist.
+   */
+  readonly maxStepsPerAdvance?: number;
   /** Einmal, sobald ein gültiges Ergebnis feststeht. */
   readonly onResult?: (result: RunnerResult) => void;
 }
@@ -99,6 +108,7 @@ export function createMinigameRunner(
   let state: RunnerState = 'created';
   let paused = false;
   let accumulator = 0;
+  const maxSteps = Math.max(1, Math.floor(options.maxStepsPerAdvance ?? MAX_STEPS_PER_ADVANCE));
   let steps = 0;
   let result: RunnerResult | null = null;
   let physicsStep: ((seconds: number) => void) | null = null;
@@ -198,6 +208,7 @@ export function createMinigameRunner(
         fx: options.fx,
         characters: options.characters,
         testMode: options.testMode ?? false,
+        ...(options.look ? { look: options.look } : {}),
       });
       // Während `prepare` entsorgt? Dann nicht wiederbeleben.
       if ((state as RunnerState) === 'preparing') state = 'ready';
@@ -242,13 +253,13 @@ export function createMinigameRunner(
       if ((state !== 'running' && state !== 'finished') || paused) return 0;
       accumulator += Math.max(0, seconds);
       let done = 0;
-      while (accumulator >= FIXED_STEP_SECONDS && done < MAX_STEPS_PER_ADVANCE) {
+      while (accumulator >= FIXED_STEP_SECONDS && done < maxSteps) {
         accumulator -= FIXED_STEP_SECONDS;
         fixedStep();
         done++;
       }
       // Rückstand nach einem Hänger verwerfen statt nachzuholen.
-      if (done === MAX_STEPS_PER_ADVANCE) accumulator = Math.min(accumulator, FIXED_STEP_SECONDS);
+      if (done === maxSteps) accumulator = Math.min(accumulator, FIXED_STEP_SECONDS);
       return done;
     },
     step(count = 1) {

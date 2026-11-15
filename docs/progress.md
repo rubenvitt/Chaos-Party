@@ -94,6 +94,8 @@ Stand 2026-11-15 (M3), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
 | `pnpm test:e2e --trace off` | ok – 108 Tests in 15 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~3,5 min |
 | `pnpm check:assets` / `pnpm generate:assets` | Asset-Manifest prüfen / Figuren und Porträts neu erzeugen (Blender-venv, ADR-013) |
+| `pnpm --filter @chaos-party/assets import:polyhaven` | ok (2026-11-15, CHAOS-62) – 18 Natur-Texturen (512²-WebP) und 6 Himmel (512 × 256-HDR) von Poly Haven, ≈ 5 s, braucht ImageMagick mit WebP |
+| `/host/?local=1&board=1&qualitaet=<hoch\|mittel\|niedrig\|minimal>&stimmung=<id>` | Brett im Natur-Look mit fester Grafikstufe und Lichtstimmung (CHAOS-62); ohne `qualitaet` startet `hoch` mit Automatik |
 | `packages/assets/blender/portraits-all.sh` | ok (2026-11-15, CHAOS-61) – vier Porträts + Masken in ≈ 40 s (Cycles CPU), 7–12 KiB je Bild |
 | `/host/?local=1&minigame=<id>&players=4` | Minispiel ohne Server mit Tastatur (`&flow=1` mit Anleitung und Ergebnis) |
 | `lookdev.html?look=natur-<morgen\|mittag\|wolken\|abend\|daemmerung\|nacht>&shot=<brett\|figur\|minispiel>` | Look-Dev-Vitrine (Dev-Server, vorher `node scripts/fetch-lookdev-assets.mjs`); `&tune={…}` überschreibt Felder einer Lichtstimmung |
@@ -110,7 +112,7 @@ Details: [`testing.md`](testing.md).
 | Datei | Zweck |
 |---|---|
 | [`assumptions.md`](assumptions.md) | Annahmen mit Validierungsweg und Stand |
-| [`decisions/`](decisions/README.md) | ADR-001 … ADR-012 |
+| [`decisions/`](decisions/README.md) | ADR-001 … ADR-014 |
 | [`experiments.md`](experiments.md) | Experiment-Log (EXP-001 … EXP-004 aus M2, EXP-005 … EXP-007 aus M3) |
 | [`testing.md`](testing.md) | Test-Suiten, Ausführen, Baselines, Abdeckung je M1-Lieferumfang |
 | [`m1-demo.md`](m1-demo.md) | M1 auf echten Geräten ausprobieren |
@@ -128,7 +130,7 @@ Details: [`testing.md`](testing.md).
 ## Nächste Schritte
 
 1. PR #5 (M2) und #6 (M3) mergen.
-2. Grafik-Neuausrichtung CHAOS-56: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht (Laternen, Glühwürmchen, leuchtende Felder), Ruben wählte den Lichtwechsel im Lauf der Partie (Runde 1 morgens, letzte Runde nachts). Als Nächstes: Natur-Look ins Spiel (CHAOS-62), danach Lichtverlauf je Runde (CHAOS-63).
+2. Grafik-Neuausrichtung CHAOS-56: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht (Laternen, Glühwürmchen, leuchtende Felder), Ruben wählte den Lichtwechsel im Lauf der Partie (Runde 1 morgens, letzte Runde nachts). Natur-Look im Spiel (CHAOS-62, ADR-014): Modul `apps/host/src/nature/`, Brett als Insel mit Baumscheiben-Feldern (`board/natureBoard.ts`), Minispiele über den optionalen Vertrag `ctx.look` (Kulisse, PBR-Materialien), CC0-Texturen und -Himmel im Asset-Paket, Grafikstufen `hoch`/`mittel`/`niedrig` mit Automatik und Sparstufe `minimal` (Testmodus, Software-Rendering). Bilder: `docs/screenshots/chaos62-*.jpg`. Offen: Bildrate am Ziel-PC (Gerätecheckliste N1–N7). Als Nächstes: Lichtverlauf je Runde (CHAOS-63).
 3. M4 (CHAOS-4): frei sind CHAOS-36 (Lobby/Charakterwahl/Rundenzahl/Start-Pause-Ende), CHAOS-37 (Rundenende, Siegerbildschirm), CHAOS-38 (Controller komplett), CHAOS-47 (iPad-Nachtest, Ruben), CHAOS-55 (Minispiel-Feinschliff).
 
 ## Offene Risiken (Kurzfassung)
