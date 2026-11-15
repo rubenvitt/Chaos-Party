@@ -1,6 +1,10 @@
 import type { Pacing, RuleSet } from '../types.ts';
 
-/** Startwerte der Regeln; werden per Experiment justiert (CHAOS-24). */
+/**
+ * Standardregeln. Festgelegt per Bot-Simulation in CHAOS-24 (`docs/experiments.md`,
+ * EXP-001 … EXP-004; Startwerte davor: `START_RULES` in `experiments.ts`). Ob sich das gut
+ * anfühlt, entscheidet der Playtest bei der M2-Abnahme.
+ */
 export const DEFAULT_RULES: RuleSet = {
   diceFaces: [1, 2, 3, 4, 5, 6],
   economy: {
@@ -9,12 +13,17 @@ export const DEFAULT_RULES: RuleSet = {
     coinsMinus: 3,
     minigameRewards: [10, 5, 3, 0],
   },
-  trophy: { price: 20, mode: 'wandering' },
+  // EXP-002: 3 von 6 Kandidaten aktiv, Preis 15 – sonst fallen in 5 Runden kaum Trophäen.
+  trophy: { price: 15, mode: 'wandering', activeCount: 3 },
   items: {
     capacity: 3,
+    // EXP-003: Start-Item und Fallen beim Darüberlaufen, damit Sabotage überhaupt vorkommt;
+    // Verluste passend zum niedrigeren Trophäenpreis etwas kleiner.
+    startItems: 1,
     weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
-    stealAmount: 6,
-    trapAmount: 5,
+    stealAmount: 5,
+    trapAmount: 4,
+    trapTrigger: 'pass',
   },
   pacing: {
     turnStartMs: 1200,

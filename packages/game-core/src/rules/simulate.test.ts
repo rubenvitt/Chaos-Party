@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES } from './defaults.ts';
-import { simulateGame, summarizeSimulations } from './simulate.ts';
+import type { BoardDefinition } from '../types.ts';
+import { DEFAULT_RULES, withRules } from './defaults.ts';
+import { createRng } from '../rng.ts';
+import { sampleDelay, simulateGame, summarizeSimulations } from './simulate.ts';
 import { TEST_BOARD } from './testBoards.ts';
 
 describe('simulateGame', () => {
@@ -88,6 +90,108 @@ describe('simulateGame', () => {
       policy: { decisionMs: [3000, 3000], itemUseChance: 0 },
     });
     expect(slow.durationMs).toBeGreaterThan(fast.durationMs);
+  });
+});
+
+describe('Kennzahlen für die Experimente (CHAOS-24)', () => {
+  it('Sabotage-Verluste: je Klau/Falle ein Eintrag mit Bestand davor', () => {
+    const r = simulateGame({
+      board: TEST_BOARD,
+      rounds: 8,
+      seed: 5,
+      players: 4,
+      policy: { itemUseChance: 1, reactionChance: 0 },
+    });
+    const steals = r.sabotageLosses.filter((l) => l.kind === 'steal');
+    const traps = r.sabotageLosses.filter((l) => l.kind === 'trap');
+    // Ohne Reaktion und ohne Schild: jeder Klau führt zu einem Eintrag.
+    expect(steals).toHaveLength(r.coinSteals);
+    expect(traps).toHaveLength(r.trapsTriggered);
+    expect(steals.reduce((s, l) => s + l.amount, 0)).toBe(r.coinsStolen);
+    expect(traps.reduce((s, l) => s + l.amount, 0)).toBe(r.coinsLostToTraps);
+    for (const l of r.sabotageLosses) {
+      expect(l.amount).toBeLessThanOrEqual(l.before);
+      expect(l.amount).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('Reaktionsfenster: Wartezeit je Fenster, höchstens die Fensterdauer', () => {
+    const r = simulateGame({
+      board: TEST_BOARD,
+      rounds: 8,
+      seed: 5,
+      players: 4,
+      policy: { itemUseChance: 1, reactionChance: 1, reactionDelayMs: [500, 5000] },
+    });
+    expect(r.reactionWaitsMs).toHaveLength(r.coinSteals);
+    for (const wait of r.reactionWaitsMs) {
+      expect(wait).toBeGreaterThanOrEqual(500);
+      expect(wait).toBeLessThanOrEqual(DEFAULT_RULES.pacing.reactionWindowMs);
+    }
+  });
+
+  it('trophyPathChance: Bots steuern an der Verzweigung die Trophäe an', () => {
+    // Gabel f: oben x1 (Trophäe) oder unten y1 → y2 (keine Trophäe), beide treffen sich in m.
+    const board: BoardDefinition = {
+      id: 'gabel',
+      name: 'Gabel',
+      start: 'st',
+      spaces: [
+        { id: 'st', kind: 'start', position: { x: 0, z: 0 }, next: ['f'] },
+        { id: 'f', kind: 'coins-plus', position: { x: 1, z: 0 }, next: ['x1', 'y1'] },
+        { id: 'x1', kind: 'trophy', position: { x: 2, z: 1 }, next: ['m'] },
+        { id: 'y1', kind: 'coins-plus', position: { x: 2, z: -1 }, next: ['y2'] },
+        { id: 'y2', kind: 'coins-plus', position: { x: 3, z: -1 }, next: ['m'] },
+        { id: 'm', kind: 'coins-plus', position: { x: 4, z: 0 }, next: ['st'] },
+      ],
+    };
+    const rules = withRules({
+      diceFaces: [1, 2],
+      trophy: { mode: 'fixed', price: 1 },
+      economy: { startCoins: 100 },
+    });
+    const bought = (trophyPathChance: number): number =>
+      Array.from({ length: 20 }, (_, i) =>
+        simulateGame({
+          board,
+          rules,
+          rounds: 6,
+          seed: i + 1,
+          players: 2,
+          policy: { trophyPathChance, itemUseChance: 0 },
+        }),
+      ).reduce((sum, r) => sum + r.trophiesBought, 0);
+    expect(bought(1)).toBeGreaterThan(bought(0) * 1.3);
+  });
+
+  it('sampleDelay: Bereich gleichverteilt, log-normal mit Untergrenze, deterministisch', () => {
+    const rng = createRng(1);
+    for (let i = 0; i < 200; i++) {
+      const uniform = sampleDelay(rng, [100, 200]);
+      expect(uniform).toBeGreaterThanOrEqual(100);
+      expect(uniform).toBeLessThanOrEqual(200);
+    }
+    const model = { medianMs: 1500, sigma: 0.4, minMs: 600 };
+    const a = Array.from(
+      { length: 2000 },
+      (
+        (r) => () =>
+          sampleDelay(r, model)
+      )(createRng(7)),
+    );
+    const b = Array.from(
+      { length: 2000 },
+      (
+        (r) => () =>
+          sampleDelay(r, model)
+      )(createRng(7)),
+    );
+    expect(a).toEqual(b);
+    expect(Math.min(...a)).toBeGreaterThanOrEqual(600);
+    const sorted = [...a].sort((x, y) => x - y);
+    const median = sorted[1000] ?? 0;
+    expect(median).toBeGreaterThan(1350);
+    expect(median).toBeLessThan(1650);
   });
 });
 

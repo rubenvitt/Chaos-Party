@@ -22,7 +22,7 @@ import type {
 } from '../types.ts';
 
 /** Ausgang des gerade animierten Bewegungsabschnitts. */
-export type MovePending = 'path' | 'trophy' | 'land';
+export type MovePending = 'path' | 'trophy' | 'trap' | 'land';
 
 export interface MoveState {
   /** Noch zu laufende Felder. */

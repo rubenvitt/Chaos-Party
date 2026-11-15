@@ -4,6 +4,7 @@
  */
 import { pickWeighted } from '../rng.ts';
 import type { ItemKind, Slot } from '../types.ts';
+import { transferCoins } from './economy.ts';
 import { activePlayer, playerOf, type Ctx } from './internal.ts';
 import { openRollPrompt, openTargetPrompt } from './prompts.ts';
 import { openReaction } from './reaction.ts';
@@ -66,4 +67,31 @@ export function gainRandomItem(ctx: Ctx, slot: Slot): void {
   if (item === null) return;
   player.items.push(item);
   ctx.events.push({ type: 'item-gained', slot, item });
+}
+
+/** Liegt auf `spaceId` eine Falle, die `slot` auslösen würde (fremde Besitzerin)? */
+export function hasForeignTrap(ctx: Ctx, spaceId: string, slot: Slot): boolean {
+  return ctx.d.traps.some((trap) => trap.spaceId === spaceId && trap.owner !== slot);
+}
+
+/** Fremde Falle auf dem Feld des Spielers am Zug auslösen (eigene Fallen lösen nicht aus). */
+export function triggerTrap(ctx: Ctx): void {
+  const { d } = ctx;
+  const player = activePlayer(ctx);
+  const index = d.traps.findIndex(
+    (trap) => trap.spaceId === player.spaceId && trap.owner !== player.slot,
+  );
+  if (index < 0) return;
+  const trap = d.traps[index];
+  if (!trap) return;
+  d.traps.splice(index, 1);
+  const amount = Math.min(ctx.rules.items.trapAmount, player.coins);
+  ctx.events.push({
+    type: 'trap-triggered',
+    slot: player.slot,
+    owner: trap.owner,
+    spaceId: trap.spaceId,
+    amount,
+  });
+  transferCoins(ctx, player.slot, trap.owner, amount, 'trap');
 }

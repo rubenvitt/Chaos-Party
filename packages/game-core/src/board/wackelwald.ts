@@ -20,10 +20,13 @@
  *   (s35–s37, 3 Felder, mit Trophäen-Kandidat); beide treffen sich in s38.
  * - Eine Runde ist 32–36 Felder lang (kürzeste/längste Wegwahl).
  *
- * Die Verteilung ist ein Startpunkt; Experimente (CHAOS-24) justieren später.
+ * Feldverteilung nach den Experimenten EXP-002/EXP-003 (CHAOS-24, `docs/experiments.md`):
  * - Kurze Wege sind riskanter (Minus- und Ereignisfelder), lange Wege sicherer (Plus, Item).
- * - Trophäen-Kandidaten liegen über den Kurs verteilt: rechts außen, oben Mitte, links auf der
- *   Abkürzung, unten links kurz vor dem Start.
+ * - Sechs Trophäen-Kandidaten über den Kurs verteilt: an Gabel A auf beiden Wegen (s12
+ *   Klippenweg, s16 Sumpfabkürzung), oben (s21, s24), links auf der Brücke (s36) und unten
+ *   links kurz vor dem Start (s42). So liegt auch in kurzen Partien (5 Runden ≈ 18 Felder je
+ *   Spieler) meist eine aktive Trophäe in Reichweite.
+ * - Sechs Item-Felder etwa alle sechs Felder (s04, s10, s19, s26, s32, s39).
  */
 import type { BoardDefinition, BoardSpace, SpaceKind } from '../types.ts';
 
@@ -56,13 +59,13 @@ const ROWS: readonly Row[] = [
   // Gabel A, kurzer riskanter Weg innen
   ['s14', 'coins-minus', 11.5, -4.8, 's15', 'Sumpfabkürzung'],
   ['s15', 'event', 11.2, -1.8, 's16'],
-  ['s16', 'coins-plus', 11.2, 1.2, 's17'],
+  ['s16', 'trophy', 11.2, 1.2, 's17'],
   ['s17', 'coins-minus', 11.5, 4.2, 's18'],
   // Oben: Zusammenführung A → Gabel B
   ['s18', 'coins-plus', 13.4, 6.6, 's19'],
-  ['s19', 'coins-plus', 11.4, 8.2, 's20'],
+  ['s19', 'item', 11.4, 8.2, 's20'],
   ['s20', 'event', 9, 8.6, 's21'],
-  ['s21', 'coins-plus', 6.4, 8.6, 's22'],
+  ['s21', 'trophy', 6.4, 8.6, 's22'],
   ['s22', 'coins-minus', 3.9, 8.6, 's23'],
   ['s23', 'coins-plus', 1.3, 8.6, 's24'],
   ['s24', 'trophy', -1.3, 8.6, 's25'],
@@ -83,7 +86,7 @@ const ROWS: readonly Row[] = [
   ['s37', 'event', -11.1, -4.1, 's38'],
   // Unten links: Zusammenführung B → Start
   ['s38', 'coins-plus', -13.4, -7.2, 's39'],
-  ['s39', 'coins-plus', -11.4, -8.4, 's40'],
+  ['s39', 'item', -11.4, -8.4, 's40'],
   ['s40', 'coins-minus', -9.2, -8.6, 's41'],
   ['s41', 'coins-plus', -6.9, -8.6, 's42'],
   ['s42', 'trophy', -4.6, -8.6, 's43'],

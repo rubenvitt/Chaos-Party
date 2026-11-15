@@ -14,6 +14,7 @@ import type {
   StepResult,
 } from '../types.ts';
 import { withRules, ZERO_PACING, type RuleOverrides } from './defaults.ts';
+import { START_RULES } from './experiments.ts';
 import { createGame, step } from './machine.ts';
 import { TEST_BOARD } from './testBoards.ts';
 
@@ -24,7 +25,7 @@ export interface Run {
 
 export interface NewGameOptions {
   readonly board?: BoardDefinition;
-  /** Abweichungen von den Standardregeln; Pacing ist ohne Angabe 0. */
+  /** Abweichungen von `TEST_RULES`; Pacing ist ohne Angabe 0. */
   readonly rules?: RuleOverrides;
   /** Volles Regelwerk (hat Vorrang vor `rules`). */
   readonly ruleSet?: RuleSet;
@@ -35,14 +36,24 @@ export interface NewGameOptions {
 
 export const NAMES = ['Rot', 'Blau', 'Grün', 'Gelb'] as const;
 
+/**
+ * Feste Grundregeln der Regel-Tests (die Startwerte vor CHAOS-24, mit echtem Pacing).
+ * Tests prüfen Regelverhalten mit festen Zahlen und hängen so nicht an der Balance von
+ * `DEFAULT_RULES`, die per Experiment geändert wird.
+ */
+export const TEST_RULES: RuleSet = START_RULES;
+
 export function newGame(options: NewGameOptions = {}): GameState {
   const count = options.players ?? 2;
   const rules =
     options.ruleSet ??
-    withRules({
-      ...options.rules,
-      pacing: { ...ZERO_PACING, ...options.rules?.pacing },
-    });
+    withRules(
+      {
+        ...options.rules,
+        pacing: { ...ZERO_PACING, ...options.rules?.pacing },
+      },
+      TEST_RULES,
+    );
   return createGame({
     board: options.board ?? TEST_BOARD,
     rules,

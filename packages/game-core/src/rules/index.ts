@@ -29,10 +29,14 @@ export {
 export { toPublicView, type PublicGameView, type PublicPlayer, type PublicPrompt } from './view.ts';
 export {
   DEFAULT_BOT_POLICY,
+  sampleDelay,
   simulateGame,
   summarizeSimulations,
   type BotPolicy,
+  type DelayModel,
+  type LogNormalMs,
   type MsRange,
+  type SabotageLoss,
   type SimulationOptions,
   type SimulationPlayerResult,
   type SimulationResult,
