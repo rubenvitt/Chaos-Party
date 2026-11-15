@@ -13,6 +13,7 @@ import type {
   GamePhase,
   GameState,
   ItemKind,
+  MinigameState,
   PlayerState,
   Prompt,
   RankingEntry,
@@ -57,6 +58,10 @@ export interface Internal {
   reaction: ReactionState | null;
   /** Ursprüngliche Frist des offenen Prompts (ohne Verkürzung durch Disconnect). */
   promptBaseDeadline: number | null;
+  /** Noch nicht gespielte Minispiele der aktuellen Mischung (M3). */
+  minigameBag: string[];
+  /** Zuletzt gespieltes Minispiel (keine direkte Wiederholung beim Neumischen). */
+  minigameLast: string | null;
 }
 
 export type MutablePlayer = { -readonly [K in keyof PlayerState]: PlayerState[K] } & {
@@ -77,6 +82,7 @@ export interface Draft {
   resumeAt: number | null;
   now: number;
   ranking: readonly RankingEntry[] | null;
+  minigame: MinigameState | null;
   config: GameState['config'];
   internal: Internal;
 }
@@ -121,9 +127,11 @@ export function openDraft(state: GameState): Ctx {
     resumeAt: state.resumeAt,
     now: state.now,
     ranking: state.ranking,
+    minigame: state.minigame,
     config: state.config,
     internal: {
       ...internal,
+      minigameBag: [...internal.minigameBag],
       move: internal.move ? { ...internal.move } : null,
       reaction: internal.reaction ? { ...internal.reaction } : null,
     },
@@ -154,6 +162,7 @@ export function closeDraft(ctx: Ctx): GameState {
     resumeAt: d.resumeAt,
     now: d.now,
     ranking: d.ranking,
+    minigame: d.minigame,
     config: d.config,
     internal: internal as unknown as Readonly<Record<string, unknown>>,
   };

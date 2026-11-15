@@ -5,6 +5,7 @@
 import type {
   GamePhase,
   ItemKind,
+  MinigamePlacement,
   PromptKind,
   PromptOption,
   RankingEntry,
@@ -48,6 +49,20 @@ export interface PublicGameView {
   readonly remainingMs: number | null;
   readonly stepMs: number;
   readonly ranking: readonly RankingEntry[] | null;
+  readonly minigame: PublicMinigame | null;
+}
+
+/** Minispiel der Runde für den Host (M3): Kennung, Seed, gelaufene Spielzeit, Ergebnis. */
+export interface PublicMinigame {
+  readonly id: string;
+  readonly round: number;
+  readonly seed: number;
+  readonly playMs: number;
+  /** Seit Beginn von `minigame-play` vergangene Zeit (ms) oder `null` davor. */
+  readonly elapsedMs: number | null;
+  readonly placements: readonly MinigamePlacement[] | null;
+  readonly highlights: readonly string[];
+  readonly aborted: boolean;
 }
 
 function remaining(until: number | null, at: number): number | null {
@@ -89,5 +104,22 @@ export function toPublicView(state: GameState, at: number = state.now): PublicGa
     remainingMs: remaining(state.resumeAt, at),
     stepMs: state.config.rules.pacing.stepMs,
     ranking: state.ranking ? state.ranking.map((r) => ({ ...r })) : null,
+    minigame: state.minigame
+      ? {
+          id: state.minigame.id,
+          round: state.minigame.round,
+          seed: state.minigame.seed,
+          playMs: state.minigame.playMs,
+          elapsedMs:
+            state.minigame.playStartedAt === null
+              ? null
+              : Math.max(0, Math.floor(at - state.minigame.playStartedAt)),
+          placements: state.minigame.placements
+            ? state.minigame.placements.map((p) => ({ ...p }))
+            : null,
+          highlights: [...state.minigame.highlights],
+          aborted: state.minigame.aborted,
+        }
+      : null,
   };
 }

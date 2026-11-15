@@ -67,6 +67,11 @@ export interface Pacing {
   readonly minigameIntroMs: number;
   readonly minigamePlayMs: number;
   readonly minigameResultsMs: number;
+  /**
+   * Echte Minispiele (M3): So lange wartet `minigame-play` über die Spielzeit hinaus auf das
+   * Ergebnis vom Host, dann gilt das Minispiel als abgebrochen (keine Münzen). Fehlt = 15 s.
+   */
+  readonly minigameResultGraceMs?: number;
   readonly roundEndMs: number;
   /** Dauer des Reaktionsfensters (CHAOS-21). */
   readonly reactionWindowMs: number;
@@ -82,7 +87,7 @@ export interface RuleSet {
     readonly coinsPlus: number;
     /** Verlust auf `coins-minus`; Münzen fallen nie unter 0. */
     readonly coinsMinus: number;
-    /** Belohnung des Platzhalter-Minispiels je Platz (Index 0 = Platz 1). */
+    /** Münzen je Minispiel-Platz (Index 0 = Platz 1); Gleichstand = gleiche Belohnung. */
     readonly minigameRewards: readonly number[];
   };
   readonly trophy: {
@@ -123,6 +128,17 @@ export interface GamePlayerConfig {
   readonly name: string;
 }
 
+/**
+ * Ein Minispiel aus Sicht der Regeln (M3, ADR-012): nur Kennung, Spielzeit und Wertungsart.
+ * Die Steckbriefe liegen in `@chaos-party/minigames/catalog`, die Logik im Host.
+ */
+export interface MinigameSpec {
+  readonly id: string;
+  /** Reine Spielzeit in ms (der Host meldet das Ergebnis spätestens kurz danach). */
+  readonly playMs: number;
+  readonly scoring: 'higher' | 'lower';
+}
+
 export interface GameConfig {
   readonly board: BoardDefinition;
   readonly rules: RuleSet;
@@ -131,6 +147,35 @@ export interface GameConfig {
   readonly seed: number;
   /** 1–4 Spieler (M2-Ziel 2–4; 1 nur für Tests/Demo). */
   readonly players: readonly GamePlayerConfig[];
+  /**
+   * Minispiele der Partie (M3). Je Runde zieht game-core per Seed eines (ohne Wiederholung,
+   * bis alle dran waren). Leer oder fehlend = Platzhalter aus M2 (Rangfolge per Seed).
+   */
+  readonly minigames?: readonly MinigameSpec[];
+}
+
+/** Platz im Minispiel (gleich `MinigamePlacement` aus dem minigame-sdk). */
+export interface MinigamePlacement {
+  readonly slot: Slot;
+  readonly place: number;
+  readonly score: number;
+}
+
+/** Laufendes bzw. letztes Minispiel der Runde (öffentlich, geht an den Host). */
+export interface MinigameState {
+  /** `placeholder` = M2-Platzhalter ohne Host-Logik. */
+  readonly id: string;
+  readonly round: number;
+  /** Seed für die Minispiel-Logik im Host (uint32). */
+  readonly seed: number;
+  readonly playMs: number;
+  /** Beginn von `minigame-play` (Server-Uhr) oder `null` davor. */
+  readonly playStartedAt: number | null;
+  /** Ergebnis nach `minigame-play`; `null` solange offen. */
+  readonly placements: readonly MinigamePlacement[] | null;
+  readonly highlights: readonly string[];
+  /** Kein (gültiges) Ergebnis in der Frist → keine Münzen. */
+  readonly aborted: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +285,14 @@ export interface GameState {
   readonly now: number;
   /** Endstand, sobald `phase === 'game-results'`. */
   readonly ranking: readonly RankingEntry[] | null;
-  readonly config: { readonly rules: RuleSet; readonly seed: number };
+  /** Minispiel der aktuellen Runde ab `minigame-intro` bis zum Rundenende, sonst `null`. */
+  readonly minigame: MinigameState | null;
+  readonly config: {
+    readonly rules: RuleSet;
+    readonly seed: number;
+    /** Minispiele der Partie (leer = Platzhalter). */
+    readonly minigames: readonly MinigameSpec[];
+  };
   /** Interner Zustand der Regeln (Bewegung, RNG, Zähler). Form bestimmt game-core. */
   readonly internal: Readonly<Record<string, unknown>>;
 }
@@ -268,6 +320,15 @@ export type GameCommand =
       readonly slot: Slot;
       readonly connected: boolean;
       readonly at: number;
+    }
+  /** Ergebnis des laufenden Minispiels vom Host (M3); wird vollständig geprüft. */
+  | {
+      readonly type: 'minigame-result';
+      readonly minigameId: string;
+      readonly round: number;
+      readonly placements: readonly MinigamePlacement[];
+      readonly highlights?: readonly string[];
+      readonly at: number;
     };
 
 export type GameErrorCode =
@@ -276,6 +337,7 @@ export type GameErrorCode =
   | 'stale-prompt'
   | 'invalid-option'
   | 'unknown-player'
+  | 'invalid-result'
   | 'time-went-back';
 
 export interface GameError {
@@ -360,8 +422,14 @@ export type GameEvent =
       readonly reason: 'disconnected' | 'timeout';
     }
   | { readonly type: 'turn-ended'; readonly slot: Slot }
-  | { readonly type: 'minigame-started'; readonly minigame: 'placeholder' }
-  | { readonly type: 'minigame-results'; readonly ranking: readonly Slot[] }
+  | { readonly type: 'minigame-started'; readonly minigame: string }
+  | {
+      readonly type: 'minigame-results';
+      /** Slots nach Platz (bei Gleichstand nach Slot); leer bei Abbruch. */
+      readonly ranking: readonly Slot[];
+      readonly placements: readonly MinigamePlacement[];
+      readonly aborted: boolean;
+    }
   | { readonly type: 'round-ended'; readonly round: number }
   | { readonly type: 'game-ended'; readonly ranking: readonly RankingEntry[] };
 

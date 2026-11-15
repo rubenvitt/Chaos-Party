@@ -7,15 +7,17 @@ const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean, board: b
   join: [true, false, false],
   reconnect: [true, true, true],
   ready: [true, false, false],
-  move: [false, true, false],
-  press: [false, true, false],
-  release: [false, true, false],
+  // Brettphase: nur während eines Minispiels angeboten (prüft die Session über den Kontext).
+  move: [false, true, true],
+  press: [false, true, true],
+  release: [false, true, true],
   gesture: [false, true, false],
   reaction: [false, true, false],
   heartbeat: [true, true, true],
   'host-hello': [true, true, true],
   start: [true, false, false],
   choose: [false, false, true],
+  'minigame-result': [false, false, true],
 };
 
 const PHASE_INDEX: Record<Phase, 0 | 1 | 2> = { lobby: 0, play: 1, board: 2 };

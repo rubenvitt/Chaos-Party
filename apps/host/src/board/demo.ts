@@ -72,6 +72,7 @@ export const DEMO_VIEW: BoardView = {
   remainingMs: null,
   stepMs: 320,
   ranking: null,
+  minigame: null,
 };
 
 type PlayerPatch = Partial<Omit<BoardPlayer, 'slot'>>;

@@ -254,7 +254,17 @@ describe('createBoardDirector', () => {
       msg(
         { ...DEMO_VIEW, gamePhase: 'minigame-results', activeSlot: null, prompt: null },
         [
-          { type: 'minigame-results', ranking: [3, 1, 2, 4] },
+          {
+            type: 'minigame-results',
+            ranking: [3, 1, 2, 4],
+            placements: [
+              { slot: 3, place: 1, score: 0 },
+              { slot: 1, place: 2, score: 0 },
+              { slot: 2, place: 3, score: 0 },
+              { slot: 4, place: 4, score: 0 },
+            ],
+            aborted: false,
+          },
           { type: 'coins-changed', slot: 3, delta: 10, balance: 28, reason: 'minigame' },
         ],
         1,

@@ -66,6 +66,8 @@ const PRESENTATION: Readonly<Record<UiErrorCode, ErrorPresentation>> = {
   'stale-seq': { severity: 'silent', text: 'Eine Eingabe kam zu spät an.' },
   'rate-limited': { severity: 'toast', text: 'Nicht so hastig! Kurz durchatmen.' },
   'invalid-choice': { severity: 'toast', text: 'Zu spät – die Entscheidung ist schon gefallen.' },
+  // Nur für den Host; ein Controller bekommt den Code nie, Text der Vollständigkeit halber.
+  'invalid-result': { severity: 'toast', text: 'Das Minispiel-Ergebnis wurde nicht angenommen.' },
   internal: {
     severity: 'toast',
     text: 'Der Spiel-PC hat ein Problem. Versuch es gleich noch mal.',

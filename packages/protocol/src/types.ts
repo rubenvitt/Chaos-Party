@@ -12,6 +12,7 @@ import type {
   ClientMessageSchema,
   COIN_REASONS,
   ControllerBoardInfoSchema,
+  ControllerMinigameInfoSchema,
   ContextMessageSchema,
   ControllerMessageSchema,
   ERROR_CODES,
@@ -33,6 +34,9 @@ import type {
   LAYOUTS,
   LobbyMessageSchema,
   LobbyPlayerSchema,
+  MinigameControlsSchema,
+  MinigamePlacementSchema,
+  MinigameResultMessageSchema,
   MoveMessageSchema,
   PHASES,
   PlayerInfoSchema,
@@ -82,6 +86,7 @@ export type ControllerMessage = z.infer<typeof ControllerMessageSchema>;
 // Host → Server
 export type HostHelloMessage = z.infer<typeof HostHelloMessageSchema>;
 export type StartMessage = z.infer<typeof StartMessageSchema>;
+export type MinigameResultMessage = z.infer<typeof MinigameResultMessageSchema>;
 export type HostMessage = z.infer<typeof HostMessageSchema>;
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -94,6 +99,9 @@ export type ContextMessage = z.infer<typeof ContextMessageSchema>;
 export type PromptOptionInfo = z.infer<typeof PromptOptionSchema>;
 export type PromptInfo = z.infer<typeof PromptSchema>;
 export type ControllerBoardInfo = z.infer<typeof ControllerBoardInfoSchema>;
+export type ControllerMinigameInfo = z.infer<typeof ControllerMinigameInfoSchema>;
+export type MinigamePlacementInfo = z.infer<typeof MinigamePlacementSchema>;
+export type MinigameControlsInfo = z.infer<typeof MinigameControlsSchema>;
 export type FeedbackMessage = z.infer<typeof FeedbackMessageSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 export type HeartbeatAckMessage = z.infer<typeof HeartbeatAckMessageSchema>;

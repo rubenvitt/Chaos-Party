@@ -96,7 +96,17 @@ describe('eventText', () => {
       text({ type: 'player-auto', slot: 4, option: 'roll', reason: 'disconnected' }),
     ).toContain('Rosa ist getrennt');
     expect(text({ type: 'round-started', round: 3 })).toBe('Runde 3 beginnt!');
-    expect(text({ type: 'minigame-results', ranking: [4, 1] })).toBe('Minispiel: Rosa gewinnt!');
+    expect(
+      text({
+        type: 'minigame-results',
+        ranking: [4, 1],
+        placements: [
+          { slot: 4, place: 1, score: 0 },
+          { slot: 1, place: 2, score: 0 },
+        ],
+        aborted: false,
+      }),
+    ).toBe('Minispiel: Rosa gewinnt!');
   });
 
   it('schweigt bei Ereignissen, die Banner, Status oder andere Meldungen schon zeigen', () => {

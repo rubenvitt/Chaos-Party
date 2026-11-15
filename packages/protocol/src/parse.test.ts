@@ -164,7 +164,7 @@ describe('kaputte Eingaben', () => {
     ['kein JSON', '{v:1'],
     ['Zahl', '42'],
     ['null', 'null'],
-    ['Array', '[{"v":2,"type":"start"}]'],
+    ['Array', '[{"v":3,"type":"start"}]'],
     ['String-JSON', '"start"'],
   ])('%s → bad-message', (_name, raw) => {
     expectError(parseClientMessage(raw), 'bad-message');
@@ -178,24 +178,24 @@ describe('kaputte Eingaben', () => {
   );
 
   it('zu lange Nachricht → too-large, ohne JSON zu lesen', () => {
-    const raw = JSON.stringify({ v: 2, type: 'heartbeat', t: 1, pad: 'x'.repeat(5000) });
+    const raw = JSON.stringify({ v: 3, type: 'heartbeat', t: 1, pad: 'x'.repeat(5000) });
     expect(raw.length).toBeGreaterThan(MAX_MESSAGE_LENGTH);
     expectError(parseClientMessage(raw), 'too-large');
     expectError(parseClientMessage('{'.repeat(MAX_MESSAGE_LENGTH + 1)), 'too-large');
   });
 
   it('Nachricht genau an der Grenze wird noch gelesen', () => {
-    const base = '{"v":2,"type":"heartbeat","t":1}';
+    const base = '{"v":3,"type":"heartbeat","t":1}';
     const raw = base + ' '.repeat(MAX_MESSAGE_LENGTH - base.length);
     expect(raw.length).toBe(MAX_MESSAGE_LENGTH);
     expect(parseClientMessage(raw).ok).toBe(true);
   });
 
   it('unbekannter Typ → bad-message', () => {
-    expectError(parseClientMessage('{"v":2,"type":"teleport","slot":1}'), 'bad-message');
-    expectError(parseClientMessage('{"v":2}'), 'bad-message');
+    expectError(parseClientMessage('{"v":3,"type":"teleport","slot":1}'), 'bad-message');
+    expectError(parseClientMessage('{"v":3}'), 'bad-message');
     expectError(
-      parseServerMessage('{"v":2,"type":"join","joinCode":"AB12","seats":1}'),
+      parseServerMessage('{"v":3,"type":"join","joinCode":"AB12","seats":1}'),
       'bad-message',
     );
   });
@@ -204,7 +204,7 @@ describe('kaputte Eingaben', () => {
 describe('Versionen', () => {
   it.each([
     ['v: 1', '{"v":1,"type":"start"}'],
-    ['v: 3', '{"v":3,"type":"start"}'],
+    ['v: 4', '{"v":4,"type":"start"}'],
     ['v: 0', '{"v":0,"type":"start"}'],
     ['v als String', '{"v":"1","type":"start"}'],
     ['v: null', '{"v":null,"type":"start"}'],
@@ -219,7 +219,7 @@ describe('Versionen', () => {
   });
 
   it('Versionsfehler gewinnt vor Schemafehlern', () => {
-    expectError(parseClientMessage('{"v":3,"type":"move","slot":9,"seq":-1}'), 'version-mismatch');
+    expectError(parseClientMessage('{"v":4,"type":"move","slot":9,"seq":-1}'), 'version-mismatch');
   });
 });
 
@@ -234,18 +234,18 @@ describe('manipulierte Nachrichten', () => {
     ['Slot 5', tamper(ready, { slot: 5 })],
     ['Slot 1.5', tamper(ready, { slot: 1.5 })],
     ['Slot als String', tamper(ready, { slot: '1' })],
-    ['Slot fehlt', JSON.stringify({ v: 2, type: 'ready', seq: 1 })],
+    ['Slot fehlt', JSON.stringify({ v: 3, type: 'ready', seq: 1 })],
     ['seq negativ', tamper(ready, { seq: -1 })],
     ['seq gebrochen', tamper(ready, { seq: 1.5 })],
     ['seq zu groß', tamper(ready, { seq: Number.MAX_SAFE_INTEGER + 2 })],
-    ['seq fehlt', JSON.stringify({ v: 2, type: 'ready', slot: 1 })],
+    ['seq fehlt', JSON.stringify({ v: 3, type: 'ready', slot: 1 })],
     ['x > 1', tamper(move, { x: 1.01 })],
     ['y < -1', tamper(move, { y: -2 })],
     ['Vektor zu lang', tamper(move, { x: 0.9, y: 0.9 })],
     ['x als String', tamper(move, { x: '0' })],
     ['x null (aus NaN/Infinity in JSON)', JSON.stringify({ ...move, x: Number.NaN })],
-    ['y fehlt', JSON.stringify({ v: 2, type: 'move', slot: 1, seq: 1, x: 0 })],
-    ['x riesig', '{"v":2,"type":"move","slot":1,"seq":1,"x":1e400,"y":0}'],
+    ['y fehlt', JSON.stringify({ v: 3, type: 'move', slot: 1, seq: 1, x: 0 })],
+    ['x riesig', '{"v":3,"type":"move","slot":1,"seq":1,"x":1e400,"y":0}'],
     ['unbekannter Knopf', tamper(press, { button: 'c' })],
     ['unbekannte Geste', tamper({ ...ready, type: 'gesture' }, { kind: 'shake' })],
     ['windowId negativ', tamper({ ...ready, type: 'reaction' }, { windowId: -1 })],
@@ -262,13 +262,13 @@ describe('manipulierte Nachrichten', () => {
     ['Name mit Steuerzeichen', tamper(join, { names: ['A\u0000B'] })],
     ['Name mit Bidi-Override', tamper(join, { names: ['A\u202EB'] })],
     ['Name mit Rand-Leerraum', tamper(join, { names: [' Mia'] })],
-    ['Token zu kurz', JSON.stringify({ v: 2, type: 'reconnect', sessionToken: 'abc' })],
+    ['Token zu kurz', JSON.stringify({ v: 3, type: 'reconnect', sessionToken: 'abc' })],
     [
       'Token mit Sonderzeichen',
-      JSON.stringify({ v: 2, type: 'reconnect', sessionToken: `${TOKEN}<>` }),
+      JSON.stringify({ v: 3, type: 'reconnect', sessionToken: `${TOKEN}<>` }),
     ],
-    ['Heartbeat ohne t', '{"v":2,"type":"heartbeat"}'],
-    ['Heartbeat t als String', '{"v":2,"type":"heartbeat","t":"now"}'],
+    ['Heartbeat ohne t', '{"v":3,"type":"heartbeat"}'],
+    ['Heartbeat t als String', '{"v":3,"type":"heartbeat","t":"now"}'],
   ])('%s → bad-message', (_name, raw) => {
     expectError(parseClientMessage(raw), 'bad-message');
   });
@@ -278,7 +278,7 @@ describe('manipulierte Nachrichten', () => {
     (value) => {
       expectError(parseClientMessage({ ...move, x: value }), 'bad-message');
       expectError(parseClientMessage({ ...ready, seq: value }), 'bad-message');
-      expectError(parseClientMessage({ v: 2, type: 'heartbeat', t: value }), 'bad-message');
+      expectError(parseClientMessage({ v: 3, type: 'heartbeat', t: value }), 'bad-message');
     },
   );
 
@@ -290,9 +290,9 @@ describe('manipulierte Nachrichten', () => {
 
   it('__proto__ und constructor als Schlüssel werden abgelehnt und verschmutzen nichts', () => {
     const raws = [
-      '{"v":2,"type":"heartbeat","t":1,"__proto__":{"polluted":true}}',
-      '{"v":2,"type":"heartbeat","t":1,"constructor":{"prototype":{"polluted":true}}}',
-      '{"v":2,"type":"join","joinCode":"AB12","seats":1,"names":["A"],"__proto__":{"seats":4}}',
+      '{"v":3,"type":"heartbeat","t":1,"__proto__":{"polluted":true}}',
+      '{"v":3,"type":"heartbeat","t":1,"constructor":{"prototype":{"polluted":true}}}',
+      '{"v":3,"type":"join","joinCode":"AB12","seats":1,"names":["A"],"__proto__":{"seats":4}}',
     ];
     for (const raw of raws) {
       expectError(parseClientMessage(raw), 'bad-message');
@@ -320,7 +320,7 @@ describe('manipulierte Server-Nachrichten', () => {
     [
       'Lobby mit javascript:-Link',
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: 'lobby',
         joinCode: 'AB12',
         joinUrl: 'javascript:alert(1)',
@@ -331,7 +331,7 @@ describe('manipulierte Server-Nachrichten', () => {
     [
       'Lobby mit javascript:-Alternative',
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: 'lobby',
         joinCode: 'AB12',
         joinUrlAlternatives: ['javascript:alert(1)'],
@@ -342,7 +342,7 @@ describe('manipulierte Server-Nachrichten', () => {
     [
       'Lobby mit zu vielen Alternativen',
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: 'lobby',
         joinCode: 'AB12',
         joinUrlAlternatives: Array.from({ length: 9 }, (_, i) => `http://10.0.0.${String(i)}/`),
@@ -352,21 +352,21 @@ describe('manipulierte Server-Nachrichten', () => {
     ],
     [
       'Input mit ungültigem Intent',
-      JSON.stringify({ v: 2, type: 'input', intent: { type: 'join', slot: 1, seq: 1 }, at: 1 }),
+      JSON.stringify({ v: 3, type: 'input', intent: { type: 'join', slot: 1, seq: 1 }, at: 1 }),
     ],
     [
       'Input mit Version im Intent',
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: 'input',
-        intent: { v: 2, type: 'press', slot: 1, seq: 1, button: 'a' },
+        intent: { v: 3, type: 'press', slot: 1, seq: 1, button: 'a' },
         at: 1,
       }),
     ],
     [
       'Context mit unbekannter Phase',
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: 'context',
         slot: 1,
         phase: 'arena',
@@ -376,7 +376,7 @@ describe('manipulierte Server-Nachrichten', () => {
     ],
     [
       'Error mit unbekanntem Code',
-      JSON.stringify({ v: 2, type: 'error', code: 'oops', message: '' }),
+      JSON.stringify({ v: 3, type: 'error', code: 'oops', message: '' }),
     ],
   ])('%s → bad-message', (_name, raw) => {
     expectError(parseServerMessage(raw), 'bad-message');

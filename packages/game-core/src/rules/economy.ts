@@ -2,7 +2,7 @@
  * Münzen, Trophäen und Wertung. Münzen fallen nie unter 0; Ereignisse tragen immer das
  * tatsächliche Delta. Deltas von 0 erzeugen kein `coins-changed`.
  */
-import { pickOne, shuffled } from '../rng.ts';
+import { pickOne } from '../rng.ts';
 import type { CoinReason, PlayerState, RankingEntry, Slot } from '../types.ts';
 import { playerOf, type Ctx } from './internal.ts';
 
@@ -74,18 +74,6 @@ export function buyTrophy(ctx: Ctx, slot: Slot): void {
 
 export function canAffordTrophy(ctx: Ctx, slot: Slot): boolean {
   return playerOf(ctx, slot).coins >= ctx.rules.trophy.price;
-}
-
-/** Platzhalter-Minispiel: Rangfolge per seeded Shuffle, Münzen laut `minigameRewards`. */
-export function resolvePlaceholderMinigame(ctx: Ctx): void {
-  const ranking = shuffled(
-    ctx.rng,
-    ctx.d.players.map((p) => p.slot),
-  );
-  ctx.events.push({ type: 'minigame-results', ranking });
-  ranking.forEach((slot, index) => {
-    changeCoins(ctx, slot, ctx.rules.economy.minigameRewards[index] ?? 0, 'minigame');
-  });
 }
 
 /**

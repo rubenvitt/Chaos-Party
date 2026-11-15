@@ -251,7 +251,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     const jumps = await page.evaluate(() => window.__chaos?.board?.jumps ?? 0);
     const view = await demoView(page, 3);
     await feed(page, {
-      v: 2,
+      v: 3,
       type: 'board',
       view,
       events: [{ type: 'moved', slot: 3, path: ['s38', 's39', 's40'] }],
@@ -274,7 +274,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     const players = base.players as { slot: number; coins: number }[];
 
     await feed(page, {
-      v: 2,
+      v: 3,
       type: 'board',
       view: {
         ...base,
@@ -292,11 +292,21 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(minigame).toContainText('noch 3 s');
 
     await feed(page, {
-      v: 2,
+      v: 3,
       type: 'board',
       view: { ...base, gamePhase: 'minigame-results', activeSlot: null, prompt: null },
       events: [
-        { type: 'minigame-results', ranking: [4, 2, 1, 3] },
+        {
+          type: 'minigame-results',
+          ranking: [4, 2, 1, 3],
+          placements: [
+            { slot: 4, place: 1, score: 0 },
+            { slot: 2, place: 2, score: 0 },
+            { slot: 1, place: 3, score: 0 },
+            { slot: 3, place: 4, score: 0 },
+          ],
+          aborted: false,
+        },
         { type: 'coins-changed', slot: 4, delta: 10, balance: 13, reason: 'minigame' },
       ],
       eventSeq: 1,
@@ -307,7 +317,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(minigame).toContainText('+10 Münzen');
 
     await feed(page, {
-      v: 2,
+      v: 3,
       type: 'board',
       view: {
         ...base,

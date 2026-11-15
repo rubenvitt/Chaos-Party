@@ -130,6 +130,12 @@ importers:
       '@chaos-party/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@chaos-party/minigame-sdk':
+        specifier: workspace:*
+        version: link:../../packages/minigame-sdk
+      '@chaos-party/minigames':
+        specifier: workspace:*
+        version: link:../../packages/minigames
       '@chaos-party/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -153,7 +159,11 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
-  packages/game-core: {}
+  packages/game-core:
+    dependencies:
+      '@chaos-party/minigame-sdk':
+        specifier: workspace:*
+        version: link:../minigame-sdk
 
   packages/metrics: {}
 

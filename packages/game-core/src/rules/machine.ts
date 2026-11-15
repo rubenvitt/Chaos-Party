@@ -17,7 +17,7 @@ import type {
   Slot,
   StepResult,
 } from '../types.ts';
-import { rankPlayers, resolvePlaceholderMinigame } from './economy.ts';
+import { rankPlayers } from './economy.ts';
 import {
   closeDraft,
   openDraft,
@@ -38,6 +38,13 @@ import {
   ROLL_OPTION,
   slotOption,
 } from './prompts.ts';
+import {
+  checkMinigameResult,
+  enterMinigame,
+  expireMinigame,
+  finishMinigame,
+  startMinigamePlay,
+} from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
 import { enterSpaceEvent } from './spaces.ts';
 
@@ -80,6 +87,16 @@ function assertConfig(config: GameConfig): void {
   if (!Number.isInteger(rules.items.startItems) || rules.items.startItems < 0) {
     throw new RangeError('items.startItems muss eine ganze Zahl ≥ 0 sein');
   }
+  const minigameIds = new Set<string>();
+  for (const spec of config.minigames ?? []) {
+    if (!/^[a-z0-9-]{3,32}$/.test(spec.id))
+      throw new RangeError(`Minispiel-ID ${spec.id} ungültig`);
+    if (minigameIds.has(spec.id)) throw new RangeError(`Minispiel ${spec.id} doppelt`);
+    minigameIds.add(spec.id);
+    if (!Number.isInteger(spec.playMs) || spec.playMs < 1_000) {
+      throw new RangeError(`Minispiel ${spec.id}: playMs muss ≥ 1000 sein`);
+    }
+  }
   if (rules.diceFaces.length === 0) throw new RangeError('diceFaces ist leer');
   if (rules.diceFaces.some((face) => !Number.isInteger(face) || face < 0)) {
     throw new RangeError('diceFaces: nur ganze Zahlen ≥ 0');
@@ -109,6 +126,8 @@ export function createGame(config: GameConfig): GameState {
     move: null,
     reaction: null,
     promptBaseDeadline: null,
+    minigameBag: [],
+    minigameLast: null,
   };
   return {
     boardId: board.id,
@@ -132,7 +151,8 @@ export function createGame(config: GameConfig): GameState {
     resumeAt: null,
     now: 0,
     ranking: null,
-    config: { rules, seed },
+    minigame: null,
+    config: { rules, seed, minigames: (config.minigames ?? []).map((spec) => ({ ...spec })) },
     internal: internal as unknown as Readonly<Record<string, unknown>>,
   };
 }
@@ -158,6 +178,7 @@ function startRound(ctx: Ctx, t: number): void {
   const { d } = ctx;
   d.round += 1;
   d.internal.turnIndex = 0;
+  d.minigame = null;
   ctx.events.push({ type: 'round-started', round: d.round });
   startTurn(ctx, t);
 }
@@ -190,9 +211,7 @@ function afterTurn(ctx: Ctx, t: number): void {
     startTurn(ctx, t);
     return;
   }
-  d.activeSlot = null;
-  ctx.events.push({ type: 'minigame-started', minigame: 'placeholder' });
-  schedule(ctx, 'minigame-intro', t, ctx.rules.pacing.minigameIntroMs);
+  enterMinigame(ctx, t);
 }
 
 function finishGame(ctx: Ctx): void {
@@ -230,11 +249,10 @@ function resume(ctx: Ctx, t: number): void {
       afterTurn(ctx, t);
       return;
     case 'minigame-intro':
-      schedule(ctx, 'minigame-play', t, pacing.minigamePlayMs);
+      startMinigamePlay(ctx, t);
       return;
     case 'minigame-play':
-      resolvePlaceholderMinigame(ctx);
-      schedule(ctx, 'minigame-results', t, pacing.minigameResultsMs);
+      expireMinigame(ctx, t);
       return;
     case 'minigame-results':
       ctx.events.push({ type: 'round-ended', round: d.round });
@@ -403,6 +421,18 @@ export function step(state: GameState, command: GameCommand): StepResult {
         return fail(state, 'invalid-option', `Option ${command.option} steht nicht zur Wahl`);
       }
       applyOption(ctx, command.option, at);
+      break;
+    }
+    case 'minigame-result': {
+      const check = checkMinigameResult(ctx, command);
+      if (!check.ok) {
+        return fail(
+          state,
+          d.phase === 'minigame-play' ? 'invalid-result' : 'wrong-phase',
+          check.message,
+        );
+      }
+      finishMinigame(ctx, command.placements, command.highlights ?? [], at);
       break;
     }
   }

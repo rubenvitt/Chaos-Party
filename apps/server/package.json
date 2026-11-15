@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@chaos-party/game-core": "workspace:*",
+    "@chaos-party/minigame-sdk": "workspace:*",
+    "@chaos-party/minigames": "workspace:*",
     "@chaos-party/protocol": "workspace:*",
     "uqr": "^0.1.3",
     "ws": "^8.22.1"

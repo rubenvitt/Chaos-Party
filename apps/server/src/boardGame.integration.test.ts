@@ -291,7 +291,8 @@ function setupGame(
   options: { rounds?: number; policy?: Partial<BotPolicy>; seats?: number[] } = {},
 ): Harness {
   const h = new Harness(
-    { game: { seed, rounds: options.rounds ?? 3 } },
+    // M2-Ablauf mit Minispiel-Platzhalter; echte Minispiele: minigame.integration.test.ts (M3).
+    { game: { seed, rounds: options.rounds ?? 3, minigames: [] } },
     { useItems: true, reaction: 'brace', ...options.policy },
     seed,
   );

@@ -31,6 +31,7 @@ import {
   type ControllerMessage,
   type ErrorCode,
   type HostMessage,
+  type MinigameResultMessage,
   type InputIntent,
   type JoinMessage,
   type Layout,
@@ -200,6 +201,7 @@ interface SlotContext {
   actions: Action[];
   prompt?: ContextMessage['prompt'];
   board?: ContextMessage['board'];
+  minigame?: ContextMessage['minigame'];
 }
 
 const LOBBY_CONTEXT: SlotContext = { layout: 'lobby', actions: ['ready'] };
@@ -465,7 +467,28 @@ export class Session {
       case 'start':
         this.start(conn, message);
         return;
+      case 'minigame-result':
+        this.minigameResult(conn, message);
+        return;
     }
+  }
+
+  /** Ergebnis des laufenden Minispiels vom Host (M3): game-core prüft es vollständig. */
+  private minigameResult(host: Connection, message: MinigameResultMessage): void {
+    if (this.phaseValue !== 'board' || !this.game) {
+      this.reject(host, 'out-of-phase', 'Kein Spiel läuft');
+      return;
+    }
+    const result = this.game.apply({
+      type: 'minigame-result',
+      minigameId: message.minigameId,
+      round: message.round,
+      placements: message.placements,
+      ...(message.highlights === undefined ? {} : { highlights: message.highlights }),
+      at: this.now(),
+    });
+    // Abgelehnt (zu spät, doppelt, ungültig): Host bekommt den Grund, Partie läuft weiter.
+    if (!result.ok) this.reject(host, 'invalid-result', result.error.message);
   }
 
   // -------------------------------------------------------------------------
@@ -821,11 +844,19 @@ export class Session {
     return player.ready ? WAIT_CONTEXT : LOBBY_CONTEXT;
   }
 
-  /** Brettphase: eigener Stand, und `choose` nur mit offenem Prompt dieses Slots. */
+  /**
+   * Brettphase: eigener Stand, und `choose` nur mit offenem Prompt dieses Slots. Während
+   * eines Minispiels (M3) Anleitung/Ergebnis, im Spiel Joystick + Knöpfe laut Steckbrief.
+   */
   private boardContextFor(slot: SlotNumber): SlotContext {
     const game = this.game;
     const board = game?.infoFor(slot);
     if (!game || !board) return WAIT_CONTEXT;
+    const minigame = game.minigameFor(slot);
+    if (minigame?.stage === 'play') {
+      return { layout: 'joystick-buttons', actions: game.minigameActions(), board, minigame };
+    }
+    if (minigame) return { layout: 'board', actions: [], board, minigame };
     const prompt = game.promptFor(slot, this.now());
     return prompt
       ? { layout: 'board', actions: ['choose'], prompt, board }
@@ -844,6 +875,7 @@ export class Session {
       actions: [...context.actions],
       ...(context.prompt === undefined ? {} : { prompt: context.prompt }),
       ...(context.board === undefined ? {} : { board: context.board }),
+      ...(context.minigame === undefined ? {} : { minigame: context.minigame }),
     });
     this.send(to, message);
   }

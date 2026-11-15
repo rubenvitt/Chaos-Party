@@ -101,6 +101,8 @@ export const ERROR_CODES = [
   'rate-limited',
   /** Wahl passt nicht zum aktuellen Prompt (veraltet, falsche Option, nicht dran). */
   'invalid-choice',
+  /** Minispiel-Ergebnis vom Host passt nicht (falsche Runde, Wertung, zu spät). */
+  'invalid-result',
   'internal',
 ] as const;
 
@@ -143,6 +145,13 @@ export const CountSchema = z.int().nonnegative().max(1_000_000);
 export const MAX_ROUNDS = 20;
 /** Höchstzahl Ereignisse in einer `board`-Nachricht. */
 export const MAX_BOARD_EVENTS = 64;
+/** Kennung eines Minispiels (gleich `MINIGAME_ID_PATTERN` im minigame-sdk). */
+export const MinigameIdSchema = z.string().regex(/^[a-z0-9-]{3,32}$/);
+/** Seed eines Minispiels (uint32). */
+export const MinigameSeedSchema = z.int().min(0).max(0xffff_ffff);
+/** Punktzahl im Minispiel (ganzzahlig, wie `MAX_SCORE` im minigame-sdk). */
+export const MinigameScoreSchema = z.int().min(-1_000_000).max(1_000_000);
+export const MINIGAME_STAGES = ['intro', 'play', 'results'] as const;
 
 /**
  * Steuerzeichen (C0, DEL, C1) und Bidi-Steuerzeichen sind in Anzeigetexten
@@ -185,6 +194,39 @@ function stickInRange(stick: { x: number; y: number }): boolean {
 }
 
 const STICK_ISSUE = { message: 'Joystick-Vektor länger als 1', path: ['x'] };
+
+// ---------------------------------------------------------------------------
+// Minispiele (M3, ADR-012)
+// ---------------------------------------------------------------------------
+
+export const MinigamePlacementSchema = z.strictObject({
+  slot: SlotSchema,
+  place: z.int().min(1).max(MAX_PLAYERS),
+  score: MinigameScoreSchema,
+});
+
+export const MinigameHighlightsSchema = z.array(displayText(64)).max(4);
+
+/** Bedienung am Controller: Text je Element oder `null` = nicht angeboten. */
+export const MinigameControlsSchema = z.strictObject({
+  joystick: displayText(16).nullable(),
+  a: displayText(16).nullable(),
+  b: displayText(16).nullable(),
+});
+
+/** Minispiel aus Sicht eines Controllers (Anleitung, Bedienung, eigenes Ergebnis). */
+export const ControllerMinigameInfoSchema = z.strictObject({
+  id: MinigameIdSchema,
+  title: displayText(24),
+  tagline: displayText(64),
+  instructions: z.array(displayText(64)).min(1).max(3),
+  controls: MinigameControlsSchema,
+  stage: z.enum(MINIGAME_STAGES),
+  /** Nur in `results`: eigener Platz und Punkte (fehlt bei Abbruch). */
+  place: z.int().min(1).max(MAX_PLAYERS).optional(),
+  score: MinigameScoreSchema.optional(),
+  scoreUnit: displayText(16),
+});
 
 // ---------------------------------------------------------------------------
 // Eingabe-Intents (ohne Umschlag), auch zur Weiterleitung an den Host
@@ -342,10 +384,28 @@ export const StartMessageSchema = z.strictObject({
   rounds: z.int().min(1).max(MAX_ROUNDS).optional(),
 });
 
+/**
+ * Ergebnis des laufenden Minispiels (M3). Der Host spielt das Minispiel, der Server prüft das
+ * Ergebnis in game-core (Teilnehmer, Wertung, Runde) und verteilt erst dann Münzen.
+ */
+export const MinigameResultMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('minigame-result'),
+  minigameId: MinigameIdSchema,
+  round: CountSchema,
+  placements: z
+    .array(MinigamePlacementSchema)
+    .min(1)
+    .max(MAX_PLAYERS)
+    .refine(hasUniqueSlots, 'Slots doppelt'),
+  highlights: MinigameHighlightsSchema.optional(),
+});
+
 export const HostMessageSchema = z.discriminatedUnion('type', [
   HostHelloMessageSchema,
   StartMessageSchema,
   HeartbeatMessageSchema,
+  MinigameResultMessageSchema,
 ]);
 
 /** Alles, was ein Client senden darf (vor dem Handshake ist die Rolle noch unbekannt). */
@@ -353,6 +413,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   ...controllerMessageOptions,
   HostHelloMessageSchema,
   StartMessageSchema,
+  MinigameResultMessageSchema,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -419,6 +480,8 @@ export const ContextMessageSchema = z.strictObject({
   prompt: PromptSchema.optional(),
   /** Nur in Phase `board`: eigener Stand und wer dran ist. */
   board: ControllerBoardInfoSchema.optional(),
+  /** Nur in Phase `board` während eines Minispiels (Intro, Spiel, Ergebnis). */
+  minigame: ControllerMinigameInfoSchema.optional(),
 });
 
 export const FeedbackMessageSchema = z.strictObject({
@@ -531,6 +594,20 @@ export const BoardViewSchema = z.strictObject({
   /** Takt je Feld beim Laufen (ms); der Host animiert damit. */
   stepMs: CountSchema,
   ranking: z.array(RankingEntrySchema).max(MAX_PLAYERS).nullable(),
+  /** Minispiel der Runde (ab `minigame-intro` bis Rundenende), sonst `null`. */
+  minigame: z
+    .strictObject({
+      id: MinigameIdSchema,
+      round: CountSchema,
+      seed: MinigameSeedSchema,
+      playMs: CountSchema,
+      /** Seit Beginn von `minigame-play` vergangen (ms) oder `null` davor. */
+      elapsedMs: z.int().nonnegative().nullable(),
+      placements: z.array(MinigamePlacementSchema).max(MAX_PLAYERS).nullable(),
+      highlights: MinigameHighlightsSchema,
+      aborted: z.boolean(),
+    })
+    .nullable(),
 });
 
 const slotField = { slot: SlotSchema };
@@ -603,10 +680,12 @@ export const BoardEventSchema = z.discriminatedUnion('type', [
     reason: z.enum(['disconnected', 'timeout']),
   }),
   z.strictObject({ type: z.literal('turn-ended'), ...slotField }),
-  z.strictObject({ type: z.literal('minigame-started'), minigame: z.literal('placeholder') }),
+  z.strictObject({ type: z.literal('minigame-started'), minigame: MinigameIdSchema }),
   z.strictObject({
     type: z.literal('minigame-results'),
     ranking: z.array(SlotSchema).max(MAX_PLAYERS),
+    placements: z.array(MinigamePlacementSchema).max(MAX_PLAYERS),
+    aborted: z.boolean(),
   }),
   z.strictObject({ type: z.literal('round-ended'), round: CountSchema }),
   z.strictObject({

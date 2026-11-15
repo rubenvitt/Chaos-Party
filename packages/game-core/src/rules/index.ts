@@ -26,7 +26,14 @@ export {
   itemOption,
   slotOption,
 } from './prompts.ts';
-export { toPublicView, type PublicGameView, type PublicPlayer, type PublicPrompt } from './view.ts';
+export {
+  toPublicView,
+  type PublicGameView,
+  type PublicMinigame,
+  type PublicPlayer,
+  type PublicPrompt,
+} from './view.ts';
+export { DEFAULT_MINIGAME_RESULT_GRACE_MS, PLACEHOLDER_MINIGAME } from './minigame.ts';
 export {
   DEFAULT_BOT_POLICY,
   sampleDelay,

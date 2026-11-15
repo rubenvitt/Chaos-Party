@@ -17,16 +17,20 @@ import {
   type GameError,
   type GameEvent,
   type GameState,
+  type MinigameSpec,
   type Prompt,
   type RuleSet,
   type Slot,
 } from '@chaos-party/game-core';
+import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
   type BoardEvent,
   type BoardMessage,
   type BoardView,
   type ControllerBoardInfo,
+  type ControllerMinigameInfo,
+  type MinigameControlsInfo,
   type PromptInfo,
 } from '@chaos-party/protocol';
 
@@ -38,15 +42,33 @@ export interface BoardGameSettings {
   readonly seed?: number | undefined;
   readonly rules: RuleSet;
   readonly boardId: string;
+  /**
+   * Minispiele der Partie (M3, ADR-012). Standard: die Rotation aus dem Katalog
+   * (`@chaos-party/minigames/catalog`); leer = M2-Platzhalter ohne Host-Logik.
+   */
+  readonly minigames: readonly MinigameSpec[];
 }
 
 export const DEFAULT_ROUNDS = 5;
+
+/** Spezifikationen der Katalog-Rotation für game-core. */
+export function catalogMinigames(): MinigameSpec[] {
+  return rotationInfos().map((info) => ({
+    id: info.id,
+    playMs: info.durationMs,
+    scoring: info.scoring,
+  }));
+}
 
 export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
   rounds: DEFAULT_ROUNDS,
   rules: DEFAULT_RULES,
   boardId: DEFAULT_BOARD.id,
+  minigames: catalogMinigames(),
 };
+
+/** Welche Eingaben ein Minispiel am Controller anbietet. */
+export type MinigameAction = 'move' | 'button-a' | 'button-b';
 
 export interface BoardGamePlayer {
   readonly slot: Slot;
@@ -92,6 +114,7 @@ export class BoardGame {
       rounds: settings.rounds,
       seed,
       players: players.map((player) => ({ slot: player.slot, name: player.name })),
+      minigames: settings.minigames,
     });
   }
 
@@ -169,7 +192,68 @@ export class BoardGame {
       remainingMs: state.resumeAt === null ? null : remaining(state.resumeAt, now),
       stepMs: state.config.rules.pacing.stepMs,
       ranking: state.ranking ? state.ranking.map((entry) => ({ ...entry })) : null,
+      minigame: state.minigame
+        ? {
+            id: state.minigame.id,
+            round: state.minigame.round,
+            seed: state.minigame.seed,
+            playMs: state.minigame.playMs,
+            elapsedMs:
+              state.minigame.playStartedAt === null
+                ? null
+                : Math.max(0, Math.floor(now - state.minigame.playStartedAt)),
+            placements: state.minigame.placements
+              ? state.minigame.placements.map((entry) => ({ ...entry }))
+              : null,
+            highlights: [...state.minigame.highlights],
+            aborted: state.minigame.aborted,
+          }
+        : null,
     };
+  }
+
+  /**
+   * Minispiel aus Sicht eines Controllers (Anleitung, Bedienung, eigenes Ergebnis) oder
+   * `undefined` außerhalb der Minispiel-Phasen und beim Platzhalter (kein Steckbrief).
+   */
+  minigameFor(slot: Slot): ControllerMinigameInfo | undefined {
+    const state = this.stateValue;
+    const minigame = state.minigame;
+    if (!minigame) return undefined;
+    const stage =
+      state.phase === 'minigame-intro'
+        ? 'intro'
+        : state.phase === 'minigame-play'
+          ? 'play'
+          : state.phase === 'minigame-results'
+            ? 'results'
+            : null;
+    const info = getMinigameInfo(minigame.id);
+    if (!stage || !info) return undefined;
+    const own = minigame.placements?.find((entry) => entry.slot === slot);
+    return {
+      id: info.id,
+      title: info.title,
+      tagline: info.tagline,
+      instructions: [...info.instructions],
+      controls: controlsOf(info.controls),
+      stage,
+      scoreUnit: info.scoreUnit,
+      ...(own ? { place: own.place, score: own.score } : {}),
+    };
+  }
+
+  /** Eingaben, die gerade (Minispiel läuft) angeboten werden; sonst leer. */
+  minigameActions(): MinigameAction[] {
+    const state = this.stateValue;
+    if (state.phase !== 'minigame-play' || !state.minigame) return [];
+    const info = getMinigameInfo(state.minigame.id);
+    if (!info) return [];
+    const actions: MinigameAction[] = [];
+    if (info.controls.joystick !== null) actions.push('move');
+    if (info.controls.a !== null) actions.push('button-a');
+    if (info.controls.b !== null) actions.push('button-b');
+    return actions;
   }
 
   /** Prompt dieses Slots (oder `undefined`) für den Controller-Kontext. */
@@ -204,7 +288,16 @@ function viewKey(view: BoardView): string {
     ...view,
     remainingMs: null,
     prompt: view.prompt ? { ...view.prompt, remainingMs: null } : null,
+    minigame: view.minigame ? { ...view.minigame, elapsedMs: null } : null,
   });
+}
+
+function controlsOf(controls: {
+  readonly joystick: string | null;
+  readonly a: string | null;
+  readonly b: string | null;
+}): MinigameControlsInfo {
+  return { joystick: controls.joystick, a: controls.a, b: controls.b };
 }
 
 function remaining(deadline: number, now: number): number {

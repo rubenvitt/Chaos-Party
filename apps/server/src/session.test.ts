@@ -129,13 +129,13 @@ describe('Session: Beitreten', () => {
     const out = t.join(1);
     const [welcome] = ofType(out, 1, 'welcome');
     expect(welcome).toEqual({
-      v: 2,
+      v: 3,
       type: 'welcome',
       sessionToken: 'token-0000000000000001',
       players: [{ slot: 1, color: '#0072B2', label: 'Blau' }],
     });
     expect(ofType(out, 1, 'context')).toEqual([
-      { v: 2, type: 'context', slot: 1, phase: 'lobby', layout: 'lobby', actions: ['ready'] },
+      { v: 3, type: 'context', slot: 1, phase: 'lobby', layout: 'lobby', actions: ['ready'] },
     ]);
   });
 
@@ -242,7 +242,7 @@ describe('Session: Host', () => {
   it('sendet nach host-hello sofort die Lobby und bei Änderungen erneut', () => {
     const t = setup();
     expect(lastLobby(t.host())).toEqual({
-      v: 2,
+      v: 3,
       type: 'lobby',
       joinCode: CODE,
       phase: 'lobby',
@@ -271,7 +271,7 @@ describe('Session: Host', () => {
     t.host();
     expect(ofType(t.send(HOST, createMessage('host-hello', {})), HOST, 'lobby')).toHaveLength(1);
     expect(to(t.send(HOST, createMessage('heartbeat', { t: 42 })), HOST)).toEqual([
-      { v: 2, type: 'heartbeat-ack', t: 42 },
+      { v: 3, type: 'heartbeat-ack', t: 42 },
     ]);
   });
 
@@ -298,7 +298,7 @@ describe('Session: Host', () => {
       layout: 'joystick-buttons',
       actions: ['move', 'button-a', 'button-b'],
     };
-    expect(ofType(out, 1, 'context')).toEqual([{ v: 2, type: 'context', slot: 1, ...play }]);
+    expect(ofType(out, 1, 'context')).toEqual([{ v: 3, type: 'context', slot: 1, ...play }]);
     expect(ofType(out, 2, 'context').map((c) => [c.slot, c.layout])).toEqual([
       [2, 'joystick-buttons'],
       [3, 'joystick-buttons'],
@@ -314,7 +314,7 @@ describe('Session: Eingaben', () => {
     t.join(1);
     const out = t.send(1, ready(1, 1));
     expect(ofType(out, 1, 'context')).toEqual([
-      { v: 2, type: 'context', slot: 1, phase: 'lobby', layout: 'wait', actions: [] },
+      { v: 3, type: 'context', slot: 1, phase: 'lobby', layout: 'wait', actions: [] },
     ]);
     expect(lastLobby(out).players[0]?.ready).toBe(true);
     // Wiederholtes ready ist harmlos und erzeugt keinen neuen Kontext.
@@ -327,7 +327,7 @@ describe('Session: Eingaben', () => {
     t.join(1);
     const out = t.send(1, move(1, 1));
     expect(ofType(out, 1, 'error')).toEqual([
-      { v: 2, type: 'error', code: 'out-of-phase', message: expect.any(String) as string, seq: 1 },
+      { v: 3, type: 'error', code: 'out-of-phase', message: expect.any(String) as string, seq: 1 },
     ]);
     expect(ofType(out, HOST, 'input')).toEqual([]);
   });
@@ -338,7 +338,7 @@ describe('Session: Eingaben', () => {
     const out = t.send(2, move(2, 1, 0.6, -0.8));
     expect(ofType(out, HOST, 'input')).toEqual([
       {
-        v: 2,
+        v: 3,
         type: 'input',
         intent: { type: 'move', slot: 2, seq: 1, x: 0.6, y: -0.8 },
         at: t.clock,
@@ -390,7 +390,7 @@ describe('Session: Eingaben', () => {
     t.join(1);
     t.advance(500);
     expect(to(t.send(1, createMessage('heartbeat', { t: 12.5 })), 1)).toEqual([
-      { v: 2, type: 'heartbeat-ack', t: 12.5 },
+      { v: 3, type: 'heartbeat-ack', t: 12.5 },
     ]);
     expect(t.session.snapshot().players[0]?.lastSeenAt).toBe(t.clock);
   });
@@ -417,7 +417,7 @@ describe('Session: Verbindungsabbruch und Reconnect', () => {
     t.connect(2);
     const out = t.send(2, createMessage('reconnect', { sessionToken: token }));
     expect(ofType(out, 2, 'welcome')[0]).toEqual({
-      v: 2,
+      v: 3,
       type: 'welcome',
       sessionToken: token,
       players: [
@@ -472,10 +472,10 @@ describe('Session: Missbrauchsschutz', () => {
     expect(errorCodes(t.raw(1, '{kaputt'), 1)).toEqual(['bad-message']);
     expect(errorCodes(t.raw(1, ''), 1)).toEqual(['bad-message']);
     expect(errorCodes(t.raw(1, 'x'.repeat(MAX_MESSAGE_LENGTH + 1)), 1)).toEqual(['too-large']);
-    expect(errorCodes(t.send(1, { v: 3, type: 'heartbeat', t: 1 }), 1)).toEqual([
+    expect(errorCodes(t.send(1, { v: 4, type: 'heartbeat', t: 1 }), 1)).toEqual([
       'version-mismatch',
     ]);
-    expect(errorCodes(t.send(1, { v: 2, type: 'teleport', slot: 1 }), 1)).toEqual(['bad-message']);
+    expect(errorCodes(t.send(1, { v: 3, type: 'teleport', slot: 1 }), 1)).toEqual(['bad-message']);
     expect(errorCodes(t.send(1, { ...move(1, 1), playerId: 2 }), 1)).toEqual(['bad-message']);
   });
 
@@ -768,10 +768,10 @@ describe('Session: Herzschlag, Timeouts und Token-Politik (CHAOS-12)', () => {
     t.connect(2);
     expect(errorCodes(t.send(2, reconnect(foreign)), 2)).toEqual(['bad-token']);
     // Kein gültiges Token-Format → Schemafehler.
-    expect(errorCodes(t.send(2, { v: 2, type: 'reconnect', sessionToken: 'kurz' }), 2)).toEqual([
+    expect(errorCodes(t.send(2, { v: 3, type: 'reconnect', sessionToken: 'kurz' }), 2)).toEqual([
       'bad-message',
     ]);
-    const script = { v: 2, type: 'reconnect', sessionToken: '<script>alert(1)</script>' };
+    const script = { v: 3, type: 'reconnect', sessionToken: '<script>alert(1)</script>' };
     expect(errorCodes(t.send(2, script), 2)).toEqual(['bad-message']);
     // Die Verbindung darf es danach noch richtig versuchen.
     expect(ofType(t.send(2, reconnect('token-0000000000000001')), 2, 'welcome')).toHaveLength(1);
