@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 
 import figurkit as k  # importiert bpy zuerst
+from clips import standard_clips
 from mathutils import Vector
 
 FUR = k.hex_color("#8f8b95")
@@ -120,7 +121,7 @@ def build_tail():
 
 
 def build_head():
-    head = k.sphere("kopf", tuple(HEAD_CENTER), 0.36, scale=(1.12, 1.0, 0.95), segments=64, rings=32)
+    head = k.sphere("kopf", tuple(HEAD_CENTER), 0.36, scale=(1.12, 1.0, 0.95), segments=44, rings=24)
     snout = Vector((0, -0.33, -0.07))
     k.deform(head, k.bump(snout, Vector((0, -1, -0.15)), 0.16, 0.17))
     for side in (1, -1):
@@ -153,9 +154,9 @@ def build_head():
 def build_ears():
     ears = []
     for side in (1, -1):
-        ear = k.sphere(f"ohr-{side}", (side * 0.25, 0.03, 1.4), 0.12, scale=(1.0, 0.42, 1.25), segments=32, rings=16)
+        ear = k.sphere(f"ohr-{side}", (side * 0.25, 0.03, 1.4), 0.12, scale=(1.0, 0.42, 1.25), segments=20, rings=10)
         ear.rotation_euler = (0, math.radians(-side * 22), 0)
-        inner = k.sphere(f"ohr-innen-{side}", (side * 0.25, -0.012, 1.39), 0.085, scale=(1.0, 0.25, 1.15), segments=24, rings=12)
+        inner = k.sphere(f"ohr-innen-{side}", (side * 0.25, -0.012, 1.39), 0.085, scale=(1.0, 0.25, 1.15), segments=16, rings=8)
         inner.rotation_euler = (0, math.radians(-side * 22), 0)
         k.paint(ear, lambda p, nrm: mix(FUR, MASK, smoothstep(0.05, 0.13, p.z)))
         k.paint(inner, lambda p, nrm: EAR_INNER)
@@ -168,11 +169,11 @@ def build_face():
     parts = []
     for side in (1, -1):
         x = side * 0.13
-        parts.append(k.sphere(f"lederhaut-{side}", (x, -0.3, 1.16), 0.085, scale=(1.0, 0.7, 1.12)))
-        parts.append(k.sphere(f"iris-{side}", (x, -0.352, 1.157), 0.056, scale=(1.0, 0.55, 1.1)))
-        parts.append(k.sphere(f"pupille-{side}", (x, -0.378, 1.156), 0.032, scale=(1.0, 0.5, 1.1)))
-        parts.append(k.sphere(f"glanz-{side}", (x + 0.022, -0.395, 1.19), 0.013, segments=12, rings=8))
-    nose = k.sphere("nase", (0, -0.505, 1.065), 0.052, scale=(1.35, 0.9, 0.9))
+        parts.append(k.sphere(f"lederhaut-{side}", (x, -0.3, 1.16), 0.085, scale=(1.0, 0.7, 1.12), segments=24, rings=12))
+        parts.append(k.sphere(f"iris-{side}", (x, -0.352, 1.157), 0.056, scale=(1.0, 0.55, 1.1), segments=20, rings=10))
+        parts.append(k.sphere(f"pupille-{side}", (x, -0.378, 1.156), 0.032, scale=(1.0, 0.5, 1.1), segments=16, rings=8))
+        parts.append(k.sphere(f"glanz-{side}", (x + 0.022, -0.395, 1.19), 0.013, segments=8, rings=6))
+    nose = k.sphere("nase", (0, -0.505, 1.065), 0.052, scale=(1.35, 0.9, 0.9), segments=20, rings=10)
     colors = {"lederhaut": SCLERA, "iris": IRIS, "pupille": PUPIL, "glanz": SCLERA, "nase": NOSE}
     for part in parts + [nose]:
         tone = colors[part.name.split("-")[0]]
@@ -181,10 +182,10 @@ def build_face():
 
 
 def build_scarf():
-    ring = k.torus("halstuch", (0, 0, 0.83), 0.165, 0.055)
+    ring = k.torus("halstuch", (0, 0, 0.83), 0.165, 0.055, segments=32, sides=10)
     ring.scale = (1.0, 1.0, 0.75)
-    knot = k.sphere("knoten", (0.09, -0.17, 0.79), 0.07, scale=(1.0, 0.7, 0.9))
-    tip = k.sphere("zipfel", (0.12, -0.19, 0.7), 0.06, scale=(0.8, 0.4, 1.4))
+    knot = k.sphere("knoten", (0.09, -0.17, 0.79), 0.07, scale=(1.0, 0.7, 0.9), segments=16, rings=8)
+    tip = k.sphere("zipfel", (0.12, -0.19, 0.7), 0.06, scale=(0.8, 0.4, 1.4), segments=16, rings=8)
     tip.rotation_euler = (0, math.radians(-20), 0)
     return k.join([ring, knot, tip], "halstuch")
 
@@ -205,153 +206,23 @@ BONES = [
 ANIMATED = ["huepfer", "spine", "kopf", "arm-l", "arm-r", "bein-l", "bein-r", "schwanz-1", "schwanz-2"]
 
 
-def wave(seconds: float, steps: int, pose_at) -> list[tuple[float, k.Pose]]:
-    return [(seconds * i / steps, pose_at(i / steps)) for i in range(steps + 1)]
+def tail_extra(name: str, p: float) -> k.Pose:
+    """Buschschwanz: wedelt im Stand, schwingt beim Laufen, hängt bei Trauer."""
+    from clips import s
 
-
-def s(phase: float, cycles: float = 1, offset: float = 0) -> float:
-    return math.sin((phase * cycles + offset) * 2 * math.pi)
-
-
-def tail_sway(phase: float, amp: float = 1.0) -> k.Pose:
-    return {
-        "schwanz-1": {"rot": (0, 0, 10 * amp * s(phase))},
-        "schwanz-2": {"rot": (6 * amp * s(phase, 1, 0.1), 0, 16 * amp * s(phase, 1, -0.15))},
+    amp = {"idle": 1.0, "run": 1.4, "cheer": 1.6}.get(name, 0.6)
+    cycles = {"run": 2, "cheer": 3}.get(name, 1)
+    pose: k.Pose = {
+        "schwanz-1": {"rot": (0, 0, 10 * amp * s(p, cycles))},
+        "schwanz-2": {"rot": (6 * amp * s(p, cycles, 0.1), 0, 16 * amp * s(p, cycles, -0.15))},
     }
-
-
-def clips() -> list[k.Clip]:
-    out: list[k.Clip] = []
-
-    def idle(p: float) -> k.Pose:
-        pose: k.Pose = {
-            "huepfer": {"scale": (1.0 - 0.012 * s(p, 2), 1.0 + 0.02 * s(p, 2), 1.0 - 0.012 * s(p, 2))},
-            "spine": {"rot": (2 * s(p), 0, 1.5 * s(p, 1, 0.25))},
-            "kopf": {"rot": (3 * s(p, 1, 0.1), 6 * s(p, 1, 0.3), 4 * s(p, 1))},
-            "arm-l": {"rot": (4 * s(p, 2), 0, -3)},
-            "arm-r": {"rot": (4 * s(p, 2, 0.5), 0, 3)},
-        }
-        pose.update(tail_sway(p))
-        return pose
-
-    out.append(k.Clip("idle", 2.4, wave(2.4, 24, idle), loop=True))
-
-    def run(p: float) -> k.Pose:
-        pose: k.Pose = {
-            "huepfer": {"loc": (0, 0.05 * abs(s(p)), 0)},
-            "spine": {"rot": (12, 6 * s(p), 0)},
-            "kopf": {"rot": (-8, -6 * s(p), 0)},
-            "bein-l": {"rot": (-40 * s(p), 0, 0)},
-            "bein-r": {"rot": (40 * s(p), 0, 0)},
-            "arm-l": {"rot": (45 * s(p), 0, 0)},
-            "arm-r": {"rot": (-45 * s(p), 0, 0)},
-        }
-        pose.update(tail_sway(p * 2, 1.4))
-        return pose
-
-    out.append(k.Clip("run", 0.5, wave(0.5, 10, run), loop=True))
-
-    rest: k.Pose = {}
-    squash = {"huepfer": {"scale": (1.18, 0.78, 1.18)}}
-    out.append(
-        k.Clip(
-            "jump",
-            0.8,
-            [
-                (0.0, rest),
-                (0.1, {**squash, "arm-l": {"rot": (-20, 0, 0)}, "arm-r": {"rot": (-20, 0, 0)}}),
-                (
-                    0.38,
-                    {
-                        "huepfer": {"loc": (0, 0.55, 0), "scale": (0.9, 1.15, 0.9)},
-                        "arm-l": {"rot": (0, 0, -70)},
-                        "arm-r": {"rot": (0, 0, 70)},
-                        "bein-l": {"rot": (25, 0, 0)},
-                        "bein-r": {"rot": (25, 0, 0)},
-                        "schwanz-1": {"rot": (-25, 0, 0)},
-                    },
-                ),
-                (0.62, squash),
-                (0.8, rest),
-            ],
-        )
-    )
-    out.append(
-        k.Clip(
-            "hit",
-            0.7,
-            [
-                (0.0, rest),
-                (
-                    0.12,
-                    {
-                        "huepfer": {"scale": (1.15, 0.8, 1.15), "loc": (0, -0.03, 0)},
-                        "spine": {"rot": (-22, 0, 8)},
-                        "kopf": {"rot": (-15, 0, 18)},
-                        "arm-l": {"rot": (0, 0, -55)},
-                        "arm-r": {"rot": (0, 0, 55)},
-                        "schwanz-1": {"rot": (30, 0, 0)},
-                    },
-                ),
-                (0.35, {"spine": {"rot": (6, 0, -4)}, "kopf": {"rot": (5, 0, -8)}}),
-                (0.7, rest),
-            ],
-        )
-    )
-
-    def cheer(p: float) -> k.Pose:
-        hop = max(0.0, s(p, 2)) * 0.32
-        pose: k.Pose = {
-            "huepfer": {"loc": (0, hop, 0), "rot": (0, 360 * smoothstep(0.15, 0.65, p), 0)},
-            "arm-l": {"rot": (0, 0, -150 + 15 * s(p, 4))},
-            "arm-r": {"rot": (0, 0, 150 - 15 * s(p, 4))},
-            "kopf": {"rot": (-12, 0, 8 * s(p, 2))},
-            "bein-l": {"rot": (20 * max(0.0, s(p, 2)), 0, 0)},
-            "bein-r": {"rot": (20 * max(0.0, s(p, 2)), 0, 0)},
-        }
-        pose.update(tail_sway(p * 3, 1.6))
-        if p >= 0.999:
-            return {}
-        return pose
-
-    out.append(k.Clip("cheer", 1.5, wave(1.5, 30, cheer)))
-
-    def sad(p: float) -> k.Pose:
-        w = smoothstep(0.0, 0.3, p) * (1 - smoothstep(0.8, 1.0, p))
-        return {
-            "huepfer": {"scale": (1 + 0.05 * w, 1 - 0.08 * w, 1 + 0.05 * w)},
-            "spine": {"rot": (22 * w, 0, 0)},
-            "kopf": {"rot": (28 * w, 0, 10 * w * s(p, 1.5))},
-            "arm-l": {"rot": (8 * w, 0, 6 * w)},
-            "arm-r": {"rot": (8 * w, 0, -6 * w)},
-            "schwanz-1": {"rot": (35 * w, 0, 0)},
-            "schwanz-2": {"rot": (25 * w, 0, 0)},
-        }
-
-    out.append(k.Clip("sad", 1.6, wave(1.6, 16, sad)))
-
-    out.append(
-        k.Clip(
-            "fall",
-            1.1,
-            [
-                (0.0, rest),
-                (0.15, {"huepfer": {"rot": (-15, 0, 0)}, "arm-l": {"rot": (0, 0, -80)}, "arm-r": {"rot": (0, 0, 80)}}),
-                (
-                    0.45,
-                    {
-                        "huepfer": {"rot": (0, 0, 85), "loc": (0, -0.12, 0)},
-                        "kopf": {"rot": (0, 0, 15)},
-                        "bein-l": {"rot": (-30, 0, 0)},
-                        "bein-r": {"rot": (20, 0, 0)},
-                    },
-                ),
-                (0.75, {"huepfer": {"rot": (0, 0, 80), "loc": (0, -0.12, 0)}}),
-                (1.1, rest),
-            ],
-        )
-    )
-    return out
+    if name == "sad":
+        pose = {"schwanz-1": {"rot": (35, 0, 0)}, "schwanz-2": {"rot": (25, 0, 0)}}
+    if name == "jump":
+        pose = {"schwanz-1": {"rot": (-25 * s(p, 0.5), 0, 0)}}
+    if name == "hit":
+        pose = {"schwanz-1": {"rot": (30, 0, 0)}}
+    return pose
 
 
 def build() -> None:
@@ -378,4 +249,4 @@ def build() -> None:
     k.attach(head, rig, "kopf")
     k.attach(face, rig, "kopf")
     k.attach(scarf, rig, "spine")
-    k.bake_clips(rig, clips(), ANIMATED)
+    k.bake_clips(rig, standard_clips(tail_extra), ANIMATED)

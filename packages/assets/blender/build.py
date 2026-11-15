@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import figurkit  # noqa: E402
 
-FIGURES = {"raccoon": "raccoon"}
+FIGURES = {"raccoon": "raccoon", "robot": "robot", "cactus": "cactus", "sock": "sock"}
 
 
 def main() -> None:

@@ -142,9 +142,12 @@ const library = await loadCharacters(
   newFigures
     ? {
         keepPbr: true,
-        sources: {
-          raccoon: `${import.meta.env.BASE_URL}lookdev-figures/raccoon.glb${FIGURE_SUFFIX}`,
-        },
+        sources: Object.fromEntries(
+          (['robot', 'cactus', 'raccoon', 'sock'] as const).map((id) => [
+            id,
+            `${import.meta.env.BASE_URL}lookdev-figures/${id}.glb${FIGURE_SUFFIX}`,
+          ]),
+        ),
       }
     : {},
 );
@@ -162,7 +165,7 @@ function placeFigure(slot: Slot, at: Vector3, yaw: number): HostCharacterHandle 
   handle.root.position.copyFrom(at);
   handle.root.rotation.y = yaw;
   // Neue Figuren bringen ihre PBR-Materialien mit (Fell, Vertexfarben); nicht umfärben.
-  if (!(newFigures && defaultCharacterFor(slot) === 'raccoon')) restyle(handle);
+  if (!newFigures) restyle(handle);
   // Slot-Ring unter der Figur (Farbe + Symbol am Abzeichen).
   const ring = CreateTorus(
     `slot-ring-${String(slot)}`,

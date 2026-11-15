@@ -361,3 +361,102 @@ def export_glb(path: str) -> None:
         export_force_sampling=True,
         export_optimize_animation_size=True,
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# Harte Formen (Roboter, Topf, Knöpfe)
+# ---------------------------------------------------------------------------------------------
+
+
+def rounded_box(
+    name: str, at: Vec, size: Vec, radius: float, *, segments: int = 4
+) -> bpy.types.Object:
+    """Kasten mit gerundeten Kanten (Bevel, angewendet) – wie lackiertes Blechspielzeug."""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co = Vector((v.co.x * size[0], v.co.y * size[1], v.co.z * size[2]))
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = _link(bpy.data.objects.new(name, mesh))
+    obj.location = at
+    bevel = obj.modifiers.new("kante", "BEVEL")
+    bevel.width = radius
+    bevel.segments = segments
+    bevel.limit_method = "NONE"
+    bevel.harden_normals = False
+    _apply_modifiers(obj)
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    return obj
+
+
+def cylinder(
+    name: str,
+    at: Vec,
+    radius: float,
+    depth: float,
+    *,
+    radius_top: float | None = None,
+    segments: int = 24,
+    axis: str = "Z",
+) -> bpy.types.Object:
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_cone(
+        bm,
+        cap_ends=True,
+        cap_tris=False,
+        segments=segments,
+        radius1=radius,
+        radius2=radius if radius_top is None else radius_top,
+        depth=depth,
+    )
+    if axis != "Z":
+        for v in bm.verts:
+            x, y, z = v.co
+            v.co = Vector((z, y, -x)) if axis == "X" else Vector((x, z, -y))
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = _link(bpy.data.objects.new(name, mesh))
+    obj.location = at
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    return obj
+
+
+def lathe(name: str, profile: Sequence[tuple[float, float]], *, segments: int = 40) -> bpy.types.Object:
+    """Drehkörper um Z aus (Radius, Höhe)-Punkten (Topf, Pokal, Knopf)."""
+    verts: list[Vector] = []
+    faces: list[tuple[int, ...]] = []
+    rings = len(profile)
+    for i in range(segments):
+        a = 2 * math.pi * i / segments
+        for r, z in profile:
+            verts.append(Vector((r * math.cos(a), r * math.sin(a), z)))
+    for i in range(segments):
+        n = (i + 1) % segments
+        for j in range(rings - 1):
+            faces.append((i * rings + j, n * rings + j, n * rings + j + 1, i * rings + j + 1))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = _link(bpy.data.objects.new(name, mesh))
+    bpy.context.view_layer.objects.active = obj
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    # Normalen nach außen (Reihenfolge der Profilpunkte egal).
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    return obj
+
+
+def solid(obj: bpy.types.Object, color: Color) -> bpy.types.Object:
+    """Einfarbig per Vertexfarbe (für Teile, die sich ein Material teilen)."""
+    paint(obj, lambda p, n: color)
+    return obj
