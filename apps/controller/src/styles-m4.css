@@ -852,6 +852,8 @@
   font-size: 40px;
   white-space: normal;
   text-align: center;
+  /* „Geteilter / Platz 1!“ statt eines einsamen „1!“ in der zweiten Zeile (CHAOS-40). */
+  text-wrap: balance;
 }
 
 .minigame-card[data-compact='true'] .result-place[data-tied='true'] b {

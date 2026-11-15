@@ -138,6 +138,8 @@ export class FakeSession {
   readonly characters = new Map<SlotNumber, CharacterId>();
   /** Figuren anderer Geräte (z. B. zweites iPhone), für `takenCharacters`. */
   private externalTaken: CharacterId[] = [];
+  /** Besitzer-Slots dieser Figuren, soweit bekannt (für `takenBy`, CHAOS-40). */
+  private externalOwners: Partial<Record<CharacterId, SlotNumber>> = {};
   /** Eingestellte Rundenzahl (Lobby-Anzeige). */
   rounds = 5;
   /**
@@ -258,9 +260,16 @@ export class FakeSession {
     for (const message of held) this.pick(message);
   }
 
-  /** Andere Geräte haben diese Figuren (z. B. zweites iPhone wählt Kalle): Lobby neu senden. */
-  setExternalTaken(characters: CharacterId[]) {
+  /**
+   * Andere Geräte haben diese Figuren (z. B. zweites iPhone wählt Kalle): Lobby neu senden.
+   * `owners` nennt den Besitzer-Slot (geht als `takenBy` mit); ohne Eintrag bleibt er offen.
+   */
+  setExternalTaken(
+    characters: CharacterId[],
+    owners: Partial<Record<CharacterId, SlotNumber>> = {},
+  ) {
     this.externalTaken = characters;
+    this.externalOwners = owners;
     if (this.phase === 'lobby') for (const slot of this.slots()) this.sendLobby(slot);
   }
 
@@ -272,9 +281,21 @@ export class FakeSession {
   }
 
   lobbyInfo(slot: SlotNumber): ControllerLobbyInfo {
+    const owners = new Map<CharacterId, SlotNumber>();
+    for (const character of this.externalTaken) {
+      const owner = this.externalOwners[character];
+      if (owner !== undefined) owners.set(character, owner);
+    }
+    for (const [other, character] of this.characters)
+      if (other !== slot) owners.set(character, other);
+    const takenCharacters = this.takenFor(slot);
     return {
       character: this.characters.get(slot) ?? null,
-      takenCharacters: this.takenFor(slot),
+      takenCharacters,
+      takenBy: takenCharacters.flatMap((character) => {
+        const owner = owners.get(character);
+        return owner === undefined ? [] : [{ character, slot: owner }];
+      }),
       rounds: this.rounds,
     };
   }

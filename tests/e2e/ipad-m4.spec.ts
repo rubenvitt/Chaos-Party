@@ -164,6 +164,33 @@ test('vier Zonen: jede wählt gleichzeitig ihre Figur, Nachbarn sehen sie in der
   await expect(zone(page, 1).getByTestId('ready-done')).toBeVisible();
 });
 
+test('Figur weggeschnappt: Hinweis erscheint in der betroffenen Zone, mit ihr gedreht', async ({
+  page,
+}, testInfo) => {
+  await joinLobby(page, 2);
+  const touch = await TouchScreen.create(page);
+  const rotation = await zone(page, 1).getAttribute('data-rotation');
+  fake.holdPicks = true;
+  await touch.tap(await centerOf(card(page, 1, 'robot')));
+  await expect(card(page, 1, 'robot')).toHaveAttribute('data-pending', 'true');
+  // Ein iPhone (Platz 3) schnappt sich Schraubi, dann kommt die Ablehnung.
+  fake.setExternalTaken(['robot'], { robot: 3 });
+  fake.flushPicks();
+  const toast = zone(page, 1).getByTestId('toast');
+  await expect(toast).toHaveAttribute('data-code', 'character-taken');
+  await expect(toast).toHaveAttribute('data-slot', '1');
+  await expect(toast).toContainText('geschnappt');
+  // Nur in dieser Zone, kein Hinweis mittig über beiden Zonen.
+  await expect(page.getByTestId('toast')).toHaveCount(1);
+  await expect(zone(page, 2).getByTestId('toast')).toHaveCount(0);
+  await expect(zone(page, 1)).toHaveAttribute('data-rotation', rotation ?? '');
+  // Besitzer-Farbe geräteübergreifend: Grün (Platz 3) hat Schraubi.
+  await expect(card(page, 1, 'robot')).toHaveAttribute('data-owner', '3');
+  await expect(card(page, 2, 'robot')).toHaveAttribute('data-owner', '3');
+  await expectInsideZones(page, 2);
+  await beleg(page, '2-zonen-weggeschnappt', testInfo.project.name);
+});
+
 test('drei Zonen: Lobby passt, freies Feld oben links', async ({ page }, testInfo) => {
   await joinLobby(page, 3);
   await expect(zone(page, 4)).toHaveCount(0);

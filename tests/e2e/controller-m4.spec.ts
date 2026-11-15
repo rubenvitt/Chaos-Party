@@ -134,9 +134,11 @@ test('Lobby: Figur wählen, Rundenzahl, vergebene ausgegraut, bereit und Umwähl
   await expect(card(page, 'sock')).toContainText('Socke Sigi');
 
   // Jemand anderes (anderes Gerät) hat Kalle: ausgegraut, Antippen sendet nichts.
-  fake.setExternalTaken(['cactus']);
+  // Der Server nennt den Besitzer (`takenBy`, CHAOS-40): Karte in Orange mit ▲.
+  fake.setExternalTaken(['cactus'], { cactus: 2 });
   await expect(card(page, 'cactus')).toHaveAttribute('data-state', 'taken');
-  await expect(card(page, 'cactus')).toContainText('vergeben');
+  await expect(card(page, 'cactus')).toHaveAttribute('data-owner', '2');
+  await expect(card(page, 'cactus')).toContainText('Orange hat sie');
   await card(page, 'cactus').tap({ force: true });
 
   await card(page, 'raccoon').tap();

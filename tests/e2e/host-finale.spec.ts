@@ -152,7 +152,10 @@ test.describe('Finale: Trophäenzählung und Siegerbildschirm (lokal, Production
     await expect(page.getByTestId('finale-coins-1')).toHaveText('9');
     await expect(page.getByTestId('finale-card-3')).toHaveAttribute('data-revealed', 'false');
     if (process.env.HOST_FINALE_BELEG) {
-      await page.screenshot({ path: 'docs/screenshots/m4-trophaeenzaehlung.png' });
+      await page.screenshot({
+        path: 'docs/screenshots/m4-trophaeenzaehlung.png',
+        animations: 'disabled',
+      });
     }
     await expect(page).toHaveScreenshot('host-finale-zaehlung.png', { mask: finaleMask(page) });
 
@@ -192,7 +195,10 @@ test.describe('Finale: Trophäenzählung und Siegerbildschirm (lokal, Production
     );
     if (process.env.HOST_FINALE_BELEG) {
       // Ungemaskierter Beleg: HOST_FINALE_BELEG=1 pnpm test:e2e host-finale
-      await page.screenshot({ path: 'docs/screenshots/m4-siegerbildschirm.png' });
+      await page.screenshot({
+        path: 'docs/screenshots/m4-siegerbildschirm.png',
+        animations: 'disabled',
+      });
     }
     await expect(page).toHaveScreenshot('host-finale-sieger.png', { mask: finaleMask(page) });
     expectNoProblems(problems, 'Host');

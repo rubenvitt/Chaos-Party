@@ -4,8 +4,9 @@
  *
  * Der Server entscheidet, was geht (`actions`: `ready`, `pick-character`) und welche Figuren
  * vergeben sind (`lobby.takenCharacters`). Der Controller zeigt nur: eigene Wahl hervorgehoben
- * (auch eine gerade gesendete, noch unbestätigte), vergebene Figuren ausgegraut – mit der Farbe
- * des Besitzers, wenn er auf demselben Gerät sitzt (geteiltes iPad), sonst neutral.
+ * (auch eine gerade gesendete, noch unbestätigte), vergebene Figuren ausgegraut – mit Farbe und
+ * Symbol des Besitzers laut `lobby.takenBy` (geräteübergreifend, CHAOS-40). Fehlt `takenBy`
+ * (älterer Server), hilft das eigene Gerät: Nachbarzonen eines geteilten iPads; sonst neutral.
  */
 import {
   CHARACTER_IDS,
@@ -24,7 +25,7 @@ export interface CharacterCard {
   readonly state: CharacterCardState;
   /** Eigene Wahl ist gesendet, aber noch nicht vom Server bestätigt. */
   readonly pending: boolean;
-  /** Besitzer einer vergebenen Figur, falls er auf diesem Gerät sitzt; sonst `null`. */
+  /** Besitzer einer vergebenen Figur (Server `takenBy` bzw. Nachbarzone), sonst `null`. */
   readonly ownerSlot: SlotNumber | null;
   /** Antippen wählt diese Figur (frei und Wählen erlaubt). */
   readonly selectable: boolean;
@@ -80,7 +81,11 @@ export function describeLobby(
   const ready = context.layout === 'wait';
   const cards = CHARACTER_IDS.map((id): CharacterCard => {
     const state: CharacterCardState = id === mine ? 'mine' : taken.has(id) ? 'taken' : 'free';
-    const owner = state === 'taken' ? siblings.find((s) => s.character === id) : undefined;
+    const owner =
+      state !== 'taken'
+        ? undefined
+        : (lobby.takenBy?.find((entry) => entry.character === id) ??
+          siblings.find((s) => s.character === id));
     return {
       id,
       name: CHARACTER_NAMES[id].name,

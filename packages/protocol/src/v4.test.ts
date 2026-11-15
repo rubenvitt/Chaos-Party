@@ -20,7 +20,7 @@ import {
   parseServerToHostMessage,
 } from './parse.ts';
 import { isIntentAllowed } from './phase.ts';
-import type { BoardView, LobbyMessage } from './types.ts';
+import type { BoardView, ControllerLobbyInfo, LobbyMessage } from './types.ts';
 import { PROTOCOL_VERSION } from './version.ts';
 
 const SETTINGS = { rounds: 5, roundPresets: [3, 5, 8] };
@@ -304,6 +304,34 @@ describe('Server → Controller (v4)', () => {
     expect(parseServerToControllerMessage(encode(message)).ok).toBe(true);
     const bad = { ...message, lobby: { character: 'dragon', takenCharacters: [], rounds: 5 } };
     expect(parseServerToControllerMessage(encode(bad as never)).ok).toBe(false);
+  });
+
+  it('Lobby-Kontext mit Besitzer-Slot vergebener Figuren (takenBy, optional)', () => {
+    const lobby: ControllerLobbyInfo = {
+      character: null,
+      takenCharacters: ['robot', 'sock'],
+      takenBy: [
+        { character: 'robot', slot: 3 },
+        { character: 'sock', slot: 2 },
+      ],
+      rounds: 10,
+    };
+    const message = createMessage('context', {
+      slot: 1,
+      phase: 'lobby',
+      layout: 'lobby',
+      actions: ['ready', 'pick-character'],
+      lobby,
+    });
+    expect(parseServerToControllerMessage(encode(message)).ok).toBe(true);
+    for (const takenBy of [
+      [{ character: 'robot', slot: 5 }],
+      [{ character: 'dragon', slot: 2 }],
+      [{ character: 'robot', slot: 2, extra: true }],
+    ]) {
+      const bad = { ...message, lobby: { ...lobby, takenBy } };
+      expect(parseServerToControllerMessage(encode(bad as never)).ok).toBe(false);
+    }
   });
 
   it('Brett-Kontext mit Pause und Endstand (Platz, geteilt, vorzeitig)', () => {

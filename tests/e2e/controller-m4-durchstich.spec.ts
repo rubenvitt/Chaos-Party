@@ -231,9 +231,13 @@ test('gemischt: zwei iPhones und ein iPad mit zwei Zonen wählen je eine eigene 
   for (const slot of [3, 4]) {
     await expect(zone(slot).getByTestId('character-robot')).toHaveAttribute('data-state', 'taken');
     await expect(zone(slot).getByTestId('character-cactus')).toHaveAttribute('data-state', 'taken');
-    // Besitzer auf anderen Geräten: unbekannt, neutral ausgegraut.
-    await expect(zone(slot).getByTestId('character-robot')).toHaveAttribute('data-owner', '');
+    // Besitzer auf anderen Geräten (Server `takenBy`, CHAOS-40): Farbe und Name des iPhones.
+    await expect(zone(slot).getByTestId('character-robot')).toHaveAttribute('data-owner', '1');
+    await expect(zone(slot).getByTestId('character-cactus')).toHaveAttribute('data-owner', '2');
+    await expect(zone(slot).getByTestId('character-robot')).toContainText('Blau hat sie');
   }
+  // … und umgekehrt: iPhone A sieht Kalle in Orange (iPhone B).
+  await expect(card(a.page, 'cactus')).toHaveAttribute('data-owner', '2');
 
   // Zone 3 und Zone 4 wählen gleichzeitig mit zwei Fingern.
   const touch = await TouchScreen.create(ipad);
