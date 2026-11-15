@@ -88,6 +88,16 @@ export interface MinigameResult {
 export const CHARACTER_IDS = ['robot', 'cactus', 'raccoon', 'sock'] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 
+/** Anzeigename und Kurzbeschreibung je Figur (Lobby, Ergebnis, Controller). */
+export const CHARACTER_NAMES: Readonly<
+  Record<CharacterId, { readonly name: string; readonly blurb: string }>
+> = {
+  robot: { name: 'Schraubi', blurb: 'Aufzieh-Roboter mit Wackelantenne' },
+  cactus: { name: 'Kalle Kaktus', blurb: 'Stacheliger Coolmann mit Sonnenbrille' },
+  raccoon: { name: 'Wusel', blurb: 'Waschbär mit Diebesmaske und Ringelschwanz' },
+  sock: { name: 'Socke Sigi', blurb: 'Einzelsocke auf der Suche nach Ruhm' },
+};
+
 /** Standard-Zuordnung bis zur Charakterwahl in M4: Slot n → n-te Figur. */
 export function defaultCharacterFor(slot: Slot): CharacterId {
   return CHARACTER_IDS[slot - 1] ?? 'robot';
