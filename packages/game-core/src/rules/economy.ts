@@ -43,19 +43,23 @@ export function trophyCandidates(ctx: Ctx): string[] {
 }
 
 /**
- * Bei `wandering`: die aktive Trophäe springt zu einem anderen `trophy`-Feld (seeded).
- * Gibt es kein anderes, bleibt sie. Bei `fixed` passiert nichts.
+ * Bei `wandering`: eine aktive Trophäe springt zu einem freien `trophy`-Feld (seeded).
+ * `from` = die gekaufte Trophäe; ohne `from` (Brett-Ereignis) die einzige bzw. eine
+ * zufällige aktive. Gibt es kein freies Feld, bleibt sie. Bei `fixed` passiert nichts.
  */
-export function wanderTrophy(ctx: Ctx): void {
+export function wanderTrophy(ctx: Ctx, from?: string): void {
   const { d } = ctx;
   if (ctx.rules.trophy.mode !== 'wandering') return;
-  const from = d.trophySpaces[0];
-  if (from === undefined) return;
-  const others = trophyCandidates(ctx).filter((id) => id !== from);
+  const moving =
+    from ?? (d.trophySpaces.length > 1 ? pickOne(ctx.rng, d.trophySpaces) : d.trophySpaces[0]);
+  if (moving === undefined) return;
+  const index = d.trophySpaces.indexOf(moving);
+  if (index < 0) return;
+  const others = trophyCandidates(ctx).filter((id) => !d.trophySpaces.includes(id));
   if (others.length === 0) return;
   const to = pickOne(ctx.rng, others);
-  d.trophySpaces = [to];
-  ctx.events.push({ type: 'trophy-moved', from, to });
+  d.trophySpaces = d.trophySpaces.map((id, i) => (i === index ? to : id));
+  ctx.events.push({ type: 'trophy-moved', from: moving, to });
 }
 
 /** Trophäe auf dem aktuellen Feld des aktiven Spielers kaufen (Prüfung macht der Aufrufer). */
@@ -65,7 +69,7 @@ export function buyTrophy(ctx: Ctx, slot: Slot): void {
   changeCoins(ctx, slot, -ctx.rules.trophy.price, 'trophy');
   player.trophies += 1;
   ctx.events.push({ type: 'trophy-bought', slot, spaceId });
-  wanderTrophy(ctx);
+  wanderTrophy(ctx, spaceId);
 }
 
 export function canAffordTrophy(ctx: Ctx, slot: Slot): boolean {

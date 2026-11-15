@@ -88,20 +88,32 @@ export interface RuleSet {
   readonly trophy: {
     readonly price: number;
     /**
-     * `wandering`: genau ein `trophy`-Feld ist aktiv; nach dem Kauf wandert die Trophäe
-     * (seeded) zu einem anderen `trophy`-Feld. `fixed`: alle `trophy`-Felder sind aktiv.
+     * `wandering`: `activeCount` `trophy`-Felder sind aktiv; nach dem Kauf wandert die
+     * Trophäe (seeded) zu einem anderen, freien `trophy`-Feld. `fixed`: alle sind aktiv.
      */
     readonly mode: 'wandering' | 'fixed';
+    /**
+     * Nur bei `wandering`: so viele `trophy`-Felder sind gleichzeitig aktiv (höchstens alle).
+     * Nach einem Kauf wandert genau die gekaufte Trophäe zu einem gerade freien Feld.
+     */
+    readonly activeCount: number;
   };
   readonly items: {
     /** Höchstzahl gleichzeitig gehaltener Items. */
     readonly capacity: number;
+    /** So viele zufällige Items (Gewichte wie auf `item`-Feldern) bekommt jeder beim Start. */
+    readonly startItems: number;
     /** Ziehgewichte auf `item`-Feldern. */
     readonly weights: Readonly<Record<ItemKind, number>>;
     /** Münzklau: so viele Münzen (höchstens Bestand des Ziels). */
     readonly stealAmount: number;
     /** Falle: so viele Münzen gehen an die Besitzerin. */
     readonly trapAmount: number;
+    /**
+     * Wann eine fremde Falle auslöst: `land` nur beim Landen auf dem Feld, `pass` auch beim
+     * Darüberlaufen (die Bewegung hält kurz an, dann geht sie weiter).
+     */
+    readonly trapTrigger: 'land' | 'pass';
   };
   readonly pacing: Pacing;
 }

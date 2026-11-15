@@ -27,7 +27,7 @@ import {
   type Ctx,
   type Internal,
 } from './internal.ts';
-import { useCoinSteal, useItemFromRoll } from './items.ts';
+import { gainRandomItem, useCoinSteal, useItemFromRoll } from './items.ts';
 import { choosePath, decideTrophy, resumeMovement, rollDice } from './movement.ts';
 import {
   ACTIVE_ITEMS,
@@ -74,6 +74,12 @@ function assertConfig(config: GameConfig): void {
       if (!spaces.has(next)) throw new RangeError(`Feld ${space.id}: Nachfolger ${next} fehlt`);
     }
   }
+  if (!Number.isInteger(rules.trophy.activeCount) || rules.trophy.activeCount < 1) {
+    throw new RangeError('trophy.activeCount muss eine ganze Zahl ≥ 1 sein');
+  }
+  if (!Number.isInteger(rules.items.startItems) || rules.items.startItems < 0) {
+    throw new RangeError('items.startItems muss eine ganze Zahl ≥ 0 sein');
+  }
   if (rules.diceFaces.length === 0) throw new RangeError('diceFaces ist leer');
   if (rules.diceFaces.some((face) => !Number.isInteger(face) || face < 0)) {
     throw new RangeError('diceFaces: nur ganze Zahlen ≥ 0');
@@ -86,8 +92,13 @@ export function createGame(config: GameConfig): GameState {
   const { board, rules, seed } = config;
   const rng = createRng(seed);
   const trophies = board.spaces.filter((s) => s.kind === 'trophy').map((s) => s.id);
+  const active = Math.min(rules.trophy.activeCount, trophies.length);
   const trophySpaces =
-    rules.trophy.mode === 'fixed' || trophies.length === 0 ? trophies : [pickOne(rng, trophies)];
+    rules.trophy.mode === 'fixed' || trophies.length === 0
+      ? trophies
+      : active <= 1
+        ? [pickOne(rng, trophies)]
+        : shuffled(rng, trophies).slice(0, active);
   const internal: Internal = {
     board,
     rng: rng.state(),
@@ -158,6 +169,10 @@ function startGame(ctx: Ctx, t: number): void {
     d.players.map((p) => p.slot),
   );
   ctx.events.push({ type: 'game-started', order: [...d.turnOrder] });
+  // Start-Items in Zugreihenfolge (Ereignisse zeigen sie am PC und am Controller).
+  for (let i = 0; i < ctx.rules.items.startItems; i++) {
+    for (const slot of d.turnOrder) gainRandomItem(ctx, slot);
+  }
   startRound(ctx, t);
 }
 

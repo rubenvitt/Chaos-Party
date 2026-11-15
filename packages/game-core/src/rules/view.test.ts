@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES } from './defaults.ts';
 import { toPublicView } from './view.ts';
-import { newGame, start, tick } from './testUtils.ts';
+import { newGame, start, tick, TEST_RULES } from './testUtils.ts';
 
 describe('toPublicView', () => {
   it('liefert die öffentliche Sicht ohne internal, mit Restzeit statt Frist', () => {
-    const s = start(newGame({ ruleSet: DEFAULT_RULES }), 1000).state;
+    const s = start(newGame({ ruleSet: TEST_RULES }), 1000).state;
     const view = toPublicView(s, 1500);
     expect(view).toMatchObject({
       boardId: 'testwald',
@@ -32,7 +31,7 @@ describe('toPublicView', () => {
   });
 
   it('Prompt ohne Standardoption und absolute Frist, Restzeit nie negativ', () => {
-    const s0 = start(newGame({ ruleSet: DEFAULT_RULES }), 0).state;
+    const s0 = start(newGame({ ruleSet: TEST_RULES }), 0).state;
     const s = tick(s0, s0.resumeAt ?? 0).state;
     const view = toPublicView(s);
     expect(view.prompt).toEqual({

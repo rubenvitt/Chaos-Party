@@ -34,6 +34,20 @@ import { BOARD_EVENT_KINDS } from './spaces.ts';
 /** Bereich [min, max] in ms, gleichverteilt. */
 export type MsRange = readonly [number, number];
 
+/**
+ * Rechtsschiefe Zeitverteilung (log-normal) wie bei menschlichen Reaktionszeiten: meist
+ * um den Median, selten deutlich länger. `sigma` = Streuung des Logarithmus.
+ */
+export interface LogNormalMs {
+  readonly medianMs: number;
+  readonly sigma: number;
+  /** Untergrenze (schneller geht es nicht: Wahrnehmung + Tippen). */
+  readonly minMs: number;
+}
+
+/** Zeitmodell: gleichverteilter Bereich oder log-normal. */
+export type DelayModel = MsRange | LogNormalMs;
+
 export interface BotPolicy {
   /** Wahrscheinlichkeit, im Würfel-Prompt ein angebotenes Item einzusetzen. */
   readonly itemUseChance: number;
@@ -44,9 +58,14 @@ export interface BotPolicy {
   /** Wahrscheinlichkeit, im Reaktionsfenster überhaupt zu reagieren. */
   readonly reactionChance: number;
   /** Reaktionszeit; liegt sie hinter der Frist, ist die Reaktion zu spät (`stale-prompt`). */
-  readonly reactionDelayMs: MsRange;
+  readonly reactionDelayMs: DelayModel;
   /** Entscheidungszeit für alle anderen Prompts (Würfeln, Weg, Trophäe, Ziel). */
   readonly decisionMs: MsRange;
+  /**
+   * Wahrscheinlichkeit, an einer Verzweigung den Weg mit der kürzesten Strecke zur aktiven
+   * Trophäe zu nehmen (sonst zufällig). 0 = immer zufällig (bisheriges Verhalten).
+   */
+  readonly trophyPathChance: number;
 }
 
 export const DEFAULT_BOT_POLICY: BotPolicy = {
@@ -56,6 +75,7 @@ export const DEFAULT_BOT_POLICY: BotPolicy = {
   reactionChance: 0.7,
   reactionDelayMs: [600, 3600],
   decisionMs: [800, 2500],
+  trophyPathChance: 0,
 };
 
 export interface SimulationOptions {
@@ -72,6 +92,17 @@ export interface SimulationPlayerResult {
   readonly place: number;
   readonly coins: number;
   readonly trophies: number;
+}
+
+/** Ein Münzverlust durch Sabotage (Klau nach Reaktion oder ausgelöste Falle). */
+export interface SabotageLoss {
+  readonly kind: 'steal' | 'trap';
+  /** Geschädigter Spieler. */
+  readonly slot: Slot;
+  /** Tatsächlich verlorene Münzen (0 z. B. bei leerem Beutel). */
+  readonly amount: number;
+  /** Bestand unmittelbar vor dem Verlust. */
+  readonly before: number;
 }
 
 export interface SimulationResult {
@@ -100,6 +131,10 @@ export interface SimulationResult {
   readonly reactions: Readonly<Record<'shield' | 'brace' | 'timeout', number>>;
   /** Reaktionen, die nach der Frist kamen (`stale-prompt`). */
   readonly lateReactions: number;
+  /** Je Reaktionsfenster: Zeit von der Öffnung bis zur Auflösung (ms, ohne Ergebnisanzeige). */
+  readonly reactionWaitsMs: readonly number[];
+  /** Münzverluste durch Sabotage, in Reihenfolge (Schild-Abwehr erzeugt keinen Eintrag). */
+  readonly sabotageLosses: readonly SabotageLoss[];
   readonly itemsGained: Readonly<Record<ItemKind, number>>;
   readonly itemsUsed: Readonly<Record<ItemKind, number>>;
   readonly boardEvents: Readonly<Record<BoardEventKind, number>>;
@@ -116,13 +151,65 @@ function counter<K extends string>(keys: readonly K[]): Record<K, number> {
   return result;
 }
 
+/** Zeit ziehen: Bereich gleichverteilt, log-normal per Box-Muller (beides seeded). */
+export function sampleDelay(rng: Rng, model: DelayModel): number {
+  if (!('medianMs' in model)) return inRange(rng, model);
+  const u1 = 1 - rng.next(); // (0, 1], damit log(u1) endlich bleibt
+  const u2 = rng.next();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return Math.max(Math.round(model.minMs), Math.round(model.medianMs * Math.exp(model.sigma * z)));
+}
+
 function inRange(rng: Rng, [min, max]: MsRange): number {
   const lo = Math.max(0, Math.round(Math.min(min, max)));
   const hi = Math.max(0, Math.round(Math.max(min, max)));
   return rng.int(lo, hi);
 }
 
-function decide(prompt: Prompt, state: GameState, policy: BotPolicy, rng: Rng): string {
+/** Schritte von `from` bis zum nächsten der `targets` entlang der Laufrichtung (BFS). */
+function distanceTo(board: BoardDefinition, from: string, targets: readonly string[]): number {
+  const next = new Map(board.spaces.map((space) => [space.id, space.next]));
+  const seen = new Set([from]);
+  let frontier = [from];
+  for (let distance = 0; frontier.length > 0; distance++) {
+    if (frontier.some((id) => targets.includes(id))) return distance;
+    const following: string[] = [];
+    for (const id of frontier) {
+      for (const to of next.get(id) ?? []) {
+        if (!seen.has(to)) {
+          seen.add(to);
+          following.push(to);
+        }
+      }
+    }
+    frontier = following;
+  }
+  return Infinity;
+}
+
+function choosePath(
+  ids: readonly string[],
+  state: GameState,
+  board: BoardDefinition,
+  policy: BotPolicy,
+  rng: Rng,
+): string {
+  if (policy.trophyPathChance > 0 && rng.next() < policy.trophyPathChance) {
+    const distances = ids.map((id) => distanceTo(board, id, state.trophySpaces));
+    const best = Math.min(...distances);
+    const nearest = ids.filter((_, index) => distances[index] === best);
+    if (best !== Infinity && nearest.length > 0) return pickOne(rng, nearest);
+  }
+  return pickOne(rng, ids);
+}
+
+function decide(
+  prompt: Prompt,
+  state: GameState,
+  board: BoardDefinition,
+  policy: BotPolicy,
+  rng: Rng,
+): string {
   const ids = prompt.options.map((o) => o.id);
   switch (prompt.kind) {
     case 'roll': {
@@ -139,7 +226,7 @@ function decide(prompt: Prompt, state: GameState, policy: BotPolicy, rng: Rng): 
       return targets.reduce((best, o) => (coinsOf(o.slot) > coinsOf(best.slot) ? o : best)).id;
     }
     case 'path':
-      return pickOne(rng, ids);
+      return choosePath(ids, state, board, policy, rng);
     case 'trophy':
       return policy.buyTrophies ? BUY_OPTION : SKIP_OPTION;
     case 'reaction':
@@ -178,6 +265,10 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   let trapsTriggered = 0;
   let coinsLostToTraps = 0;
   let lateReactions = 0;
+  const reactionWaits: number[] = [];
+  let reactionOpenedAt = 0;
+  const sabotageLosses: SabotageLoss[] = [];
+  const coins = new Map<Slot, number>(slots.map((slot) => [slot, rules.economy.startCoins]));
   let autoChoices = 0;
   let eventCount = 0;
 
@@ -214,8 +305,18 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
         itemsUsed[event.item] += 1;
         if (event.item === 'coin-steal') coinSteals += 1;
         break;
+      case 'coins-changed':
+        coins.set(event.slot, event.balance);
+        break;
       case 'coins-stolen':
         coinsStolen += event.amount;
+        // Der Transfer ist schon verbucht: Bestand davor = jetzt + Verlust.
+        sabotageLosses.push({
+          kind: 'steal',
+          slot: event.from,
+          amount: event.amount,
+          before: (coins.get(event.from) ?? 0) + event.amount,
+        });
         break;
       case 'trap-placed':
         trapsPlaced += 1;
@@ -223,9 +324,20 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       case 'trap-triggered':
         trapsTriggered += 1;
         coinsLostToTraps += event.amount;
+        // Das Ereignis kommt vor dem Transfer: Bestand ist noch der alte.
+        sabotageLosses.push({
+          kind: 'trap',
+          slot: event.slot,
+          amount: event.amount,
+          before: coins.get(event.slot) ?? 0,
+        });
+        break;
+      case 'reaction-opened':
+        reactionOpenedAt = at;
         break;
       case 'reaction-resolved':
         reactions[event.result] += 1;
+        reactionWaits.push(at - reactionOpenedAt);
         break;
       case 'player-auto':
         autoChoices += 1;
@@ -262,10 +374,10 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     }
     const delay =
       prompt.kind === 'reaction'
-        ? inRange(bot, policy.reactionDelayMs)
+        ? sampleDelay(bot, policy.reactionDelayMs)
         : inRange(bot, policy.decisionMs);
     const at = state.now + delay;
-    const option = decide(prompt, state, policy, bot);
+    const option = decide(prompt, state, options.board, policy, bot);
     const result = step(state, {
       type: 'choose',
       slot: prompt.slot,
@@ -275,7 +387,9 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     });
     if (!result.ok && result.error.code === 'stale-prompt' && prompt.kind === 'reaction') {
       lateReactions += 1;
-      apply(step(state, { type: 'tick', at }), at);
+      // Das Fenster ist an der Frist zu Ende gegangen; ab dort läuft die Partie weiter.
+      const deadline = prompt.deadline ?? at;
+      apply(step(state, { type: 'tick', at: deadline }), deadline);
       continue;
     }
     apply(result, at);
@@ -313,6 +427,8 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     coinsLostToTraps,
     reactions,
     lateReactions,
+    reactionWaitsMs: reactionWaits,
+    sabotageLosses,
     itemsGained,
     itemsUsed,
     boardEvents,

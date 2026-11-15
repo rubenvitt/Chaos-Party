@@ -90,13 +90,16 @@ describe('Brett „Wackelwald“', () => {
     expect(WACKELWALD.spaces.length).toBeGreaterThanOrEqual(36);
     expect(WACKELWALD.spaces.length).toBeLessThanOrEqual(44);
     expect(counts.start).toBe(1);
-    expect(counts.trophy).toBeGreaterThanOrEqual(3);
-    expect(counts.trophy).toBeLessThanOrEqual(4);
-    expect(counts.item).toBeGreaterThanOrEqual(3);
+    // Sechs Trophäen-Kandidaten und sechs Item-Felder (EXP-002/EXP-003, CHAOS-24).
+    expect(counts.trophy).toBe(6);
+    expect(counts.item).toBe(6);
     expect(counts.event).toBeGreaterThanOrEqual(3);
     expect(counts['coins-minus']).toBeGreaterThan(0);
-    // Überwiegend Plus-Felder.
-    expect(counts['coins-plus']).toBeGreaterThan(WACKELWALD.spaces.length / 2);
+    // Plus-Felder deutlich häufiger als Minus-Felder; gute Felder (Plus, Item, Trophäe) überwiegen.
+    expect(counts['coins-plus']).toBeGreaterThanOrEqual(2.5 * counts['coins-minus']);
+    expect(counts['coins-plus'] + counts.item + counts.trophy).toBeGreaterThan(
+      WACKELWALD.spaces.length / 2,
+    );
   });
 
   it('hat mindestens zwei Verzweigungen mit unterschiedlich langen, beschrifteten Wegen', () => {
