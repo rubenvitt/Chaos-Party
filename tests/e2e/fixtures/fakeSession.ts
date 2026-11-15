@@ -15,7 +15,9 @@ import {
   parseControllerMessage,
   PLAYER_SLOTS,
   type Action,
+  type CharacterId,
   type ControllerBoardInfo,
+  type ControllerLobbyInfo,
   type ControllerMessage,
   type ErrorCode,
   type Layout,
@@ -30,7 +32,9 @@ export { PROTOCOL_VERSION } from '../../../packages/protocol/src/index.ts';
 export const VALID_CODE = 'ABCD';
 export const FAKE_TOKEN = 'fake_session_token_0001';
 
-export const LOBBY_ACTIONS: Action[] = ['ready'];
+/** Lobby (v4): „Bereit!“ und Figurenwahl; bereit = nur noch Umwählen (ADR-014). */
+export const LOBBY_ACTIONS: Action[] = ['ready', 'pick-character'];
+export const READY_ACTIONS: Action[] = ['pick-character'];
 export const PLAY_ACTIONS: Action[] = ['move', 'button-a', 'button-b'];
 
 type MessageOfType<T extends ControllerMessage['type']> = Extract<ControllerMessage, { type: T }>;
@@ -130,6 +134,20 @@ export class FakeSession {
   /** Plätze der Verbindung aus `join { seats }` (geteiltes iPad: 2–4, CHAOS-13). */
   private seats = 1;
   private readonly readySlots = new Set<SlotNumber>();
+  /** Figur je Slot dieser Verbindung (v4, CHAOS-36). */
+  readonly characters = new Map<SlotNumber, CharacterId>();
+  /** Figuren anderer Geräte (z. B. zweites iPhone), für `takenCharacters`. */
+  private externalTaken: CharacterId[] = [];
+  /** Eingestellte Rundenzahl (Lobby-Anzeige). */
+  rounds = 5;
+  /**
+   * Spiel startet, sobald alle Plätze bereit sind (wie bisher). `false`: Die Lobby bleibt,
+   * damit Tests Umwählen nach „bereit“ prüfen können.
+   */
+  autoStart = true;
+  /** Antwort auf `pick-character` zurückhalten (Wettlauf nachstellen); `flushPicks` sendet sie. */
+  holdPicks = false;
+  private heldPicks: MessageOfType<'pick-character'>[] = [];
   /** Letzter Brett-Kontext je Slot (wird nach einem Wiederverbinden erneut gesendet). */
   private readonly boardContexts = new Map<SlotNumber, ServerToControllerMessage>();
   /** Antwort des Tests auf eine Wahl (`choose`), z. B. nächster Kontext oder `invalid-choice`. */
@@ -186,13 +204,20 @@ export class FakeSession {
       case 'ready':
         // Erst wenn alle Plätze bereit sind, beginnt das Spiel (bei einem Platz sofort).
         this.readySlots.add(message.slot);
-        if (this.readySlots.size < this.seats) {
-          this.sendContext('lobby', 'wait', [], message.slot);
+        if (!this.autoStart || this.readySlots.size < this.seats) {
+          this.sendLobby(message.slot);
           return;
         }
         this.phase = 'play';
         for (const slot of this.slots())
           this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS, slot);
+        return;
+      case 'pick-character':
+        if (this.holdPicks) {
+          this.heldPicks.push(message);
+          return;
+        }
+        this.pick(message);
         return;
       case 'heartbeat':
         this.send(createMessage('heartbeat-ack', { t: message.t }));
@@ -203,6 +228,77 @@ export class FakeSession {
       default:
         return;
     }
+  }
+
+  /**
+   * Figurenwahl wie der Server (ADR-014): Figur eines anderen Platzes → `character-taken` und
+   * Kontext neu; sonst übernehmen, `ready` zurücksetzen, Lobby aller eigenen Plätze neu.
+   */
+  private pick(message: MessageOfType<'pick-character'>) {
+    if (this.phase !== 'lobby') {
+      this.sendError('out-of-phase', 'Nur in der Lobby', message.seq);
+      return;
+    }
+    if (this.characters.get(message.slot) === message.character) return;
+    if (this.takenFor(message.slot).includes(message.character)) {
+      this.sendError('character-taken', 'Figur ist schon vergeben', message.seq);
+      this.sendLobby(message.slot);
+      return;
+    }
+    this.characters.set(message.slot, message.character);
+    this.readySlots.delete(message.slot);
+    for (const slot of this.slots()) this.sendLobby(slot);
+  }
+
+  /** Zurückgehaltene Figurenwahlen jetzt beantworten (siehe {@link holdPicks}). */
+  flushPicks() {
+    this.holdPicks = false;
+    const held = this.heldPicks;
+    this.heldPicks = [];
+    for (const message of held) this.pick(message);
+  }
+
+  /** Andere Geräte haben diese Figuren (z. B. zweites iPhone wählt Kalle): Lobby neu senden. */
+  setExternalTaken(characters: CharacterId[]) {
+    this.externalTaken = characters;
+    if (this.phase === 'lobby') for (const slot of this.slots()) this.sendLobby(slot);
+  }
+
+  /** Von anderen Plätzen (andere Geräte und Nachbarzonen) gewählte Figuren. */
+  private takenFor(slot: SlotNumber): CharacterId[] {
+    const taken = new Set<CharacterId>(this.externalTaken);
+    for (const [other, character] of this.characters) if (other !== slot) taken.add(character);
+    return [...taken];
+  }
+
+  lobbyInfo(slot: SlotNumber): ControllerLobbyInfo {
+    return {
+      character: this.characters.get(slot) ?? null,
+      takenCharacters: this.takenFor(slot),
+      rounds: this.rounds,
+    };
+  }
+
+  /** Lobby-Kontext eines Slots (v4): bereit = Layout `wait`, nur noch Umwählen. */
+  sendLobby(slot: SlotNumber) {
+    const ready = this.readySlots.has(slot);
+    this.send(
+      createMessage('context', {
+        slot,
+        phase: 'lobby',
+        layout: ready ? 'wait' : 'lobby',
+        actions: ready ? READY_ACTIONS : LOBBY_ACTIONS,
+        lobby: this.lobbyInfo(slot),
+      }),
+    );
+  }
+
+  /** Revanche (v4): zurück in die Lobby, Figuren bleiben, `ready` zurückgesetzt. */
+  rematch() {
+    this.phase = 'lobby';
+    this.readySlots.clear();
+    this.boardContexts.clear();
+    for (const slot of this.slots()) this.sendLobby(slot);
   }
 
   /** Slots dieser Verbindung (1 … seats). */
@@ -221,12 +317,19 @@ export class FakeSession {
       if (this.phase === 'board' && board) this.send(board);
       else if (this.phase === 'play')
         this.sendContext('play', 'joystick-buttons', PLAY_ACTIONS, slot);
-      else if (this.readySlots.has(slot)) this.sendContext('lobby', 'wait', [], slot);
-      else this.sendContext('lobby', 'lobby', LOBBY_ACTIONS, slot);
+      else this.sendLobby(slot);
     }
   }
 
+  /**
+   * Nachricht an den Controller. Kontexte der Brettphase (auch Minispiel, Pause, Endstand)
+   * merkt sich der Fake und schickt sie nach einem Wiederverbinden erneut (ADR-009).
+   */
   send(message: ServerToControllerMessage) {
+    if (message.type === 'context' && message.phase === 'board') {
+      this.phase = 'board';
+      this.boardContexts.set(message.slot, message);
+    }
     this.socket?.send(encode(message));
   }
 
@@ -248,7 +351,6 @@ export class FakeSession {
       board,
       ...(prompt && { prompt }),
     });
-    this.boardContexts.set(slot, message);
     this.send(message);
   }
 
