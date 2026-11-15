@@ -1712,7 +1712,9 @@ button {
   gap: 8px;
   border: 1px solid var(--glass-line);
   border-radius: 18px;
-  background: color-mix(in srgb, #fff 72%, transparent);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   text-align: left;
 }
 
@@ -1721,7 +1723,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -1859,7 +1861,9 @@ button {
   padding: 16px 24px;
   border: 1px dashed var(--glass-line);
   border-radius: 24px;
-  background: color-mix(in srgb, #fff 75%, transparent);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }
 
 .result-aborted b {
