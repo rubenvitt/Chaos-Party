@@ -9,6 +9,11 @@ describe('parseHostConfig', () => {
     expect(DEFAULT_CONFIG.local).toBe(false);
   });
 
+  it('liest die Minispiel-Vorschau nur mit gültiger Kennung (M3)', () => {
+    expect(parseHostConfig('?local=1&minigame=pump-parade').minigame).toBe('pump-parade');
+    expect(parseHostConfig('?minigame=../x').minigame).toBeNull();
+  });
+
   it('liest local, players, seed, test, joinHint und debug', () => {
     expect(parseHostConfig('?local=1&players=4&seed=7&test=1&joinHint=5&debug=1')).toEqual({
       local: true,
@@ -21,6 +26,7 @@ describe('parseHostConfig', () => {
       rounds: null,
       board: false,
       demo: false,
+      minigame: null,
     });
     expect(DEFAULT_CONFIG.debug).toBe(false);
     expect(parseHostConfig('?debug=true').debug).toBe(true);

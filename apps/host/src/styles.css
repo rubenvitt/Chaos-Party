@@ -928,3 +928,27 @@ body,
     animation: none;
   }
 }
+
+/* Lokale Minispiel-Vorschau (?local=1&minigame=<id>) */
+.minigame-preview-hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 85%);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minigame-preview-hud ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 700;
+}
+
+.minigame-preview-error {
+  padding: 32px;
+  font-size: 24px;
+}

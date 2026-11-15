@@ -36,6 +36,11 @@ export interface HostConfig {
   readonly board: boolean;
   /** Im lokalen Brett-Modus eine kurze Ereignisfolge in Schleife abspielen (`?demo=1`). */
   readonly demo: boolean;
+  /**
+   * Lokale Minispiel-Vorschau (`?local=1&minigame=<id>`, M3): spielt ein Minispiel ohne
+   * Server mit `players` Tastatur-Spielern (Entwicklung, Screenshots). Ohne `local` wirkungslos.
+   */
+  readonly minigame: string | null;
 }
 
 export const DEFAULT_CONFIG: HostConfig = {
@@ -49,6 +54,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   rounds: null,
   board: false,
   demo: false,
+  minigame: null,
 };
 
 /** Höchstzahl Runden (gleich `MAX_ROUNDS` im Protokoll). */
@@ -78,6 +84,9 @@ export function parseHostConfig(search: string): HostConfig {
     rounds: Number.isInteger(rounds) ? Math.min(MAX_ROUNDS, Math.max(1, rounds)) : null,
     board: flag(params.get('board')),
     demo: flag(params.get('demo')),
+    minigame: /^[a-z0-9-]{3,32}$/.test(params.get('minigame') ?? '')
+      ? params.get('minigame')
+      : null,
   };
 }
 
