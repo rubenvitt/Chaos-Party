@@ -1,10 +1,17 @@
-import { createMessage, encode, parseServerToHostMessage } from '@chaos-party/protocol';
+import {
+  createMessage,
+  encode,
+  parseHostMessage,
+  parseServerToHostMessage,
+} from '@chaos-party/protocol';
 import { createDemoMessages } from '../board/demo.ts';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CLOSE_HOST_TAKEN,
   connectHost,
+  createHostCommandMessage,
   createStartMessage,
+  type HostCommand,
   type ConnectionStatus,
   type HostConnectionHandlers,
   type SocketLike,
@@ -235,6 +242,45 @@ describe('connectHost', () => {
       mode: 'board',
       rounds: 3,
     });
+  });
+
+  it('sendet Steuerbefehle (v4) nur, wenn verbunden, protokollgültig', () => {
+    const t = setup();
+    expect(t.connection.sendCommand({ type: 'pause' })).toBe(false);
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    const commands: HostCommand[] = [
+      { type: 'configure', rounds: 8 },
+      { type: 'pause' },
+      { type: 'resume' },
+      { type: 'end-game' },
+      { type: 'rematch' },
+    ];
+    for (const command of commands) {
+      expect(t.connection.sendCommand(command)).toBe(true);
+      const raw = t.last().sent.at(-1) ?? '';
+      expect(JSON.parse(raw)).toEqual({ v: 4, ...command });
+      expect(parseHostMessage(raw).ok).toBe(true);
+    }
+    expect(createHostCommandMessage({ type: 'configure', rounds: 3 })).toEqual(
+      createMessage('configure', { rounds: 3 }),
+    );
+    t.last().drop();
+    expect(t.connection.sendCommand({ type: 'resume' })).toBe(false);
+  });
+
+  it('reicht minigame-result-ack weiter (CHAOS-55)', () => {
+    const onResultAck = vi.fn();
+    const t = setup({ onResultAck });
+    t.last().open();
+    const ack = createMessage('minigame-result-ack', {
+      minigameId: 'pump-parade',
+      round: 2,
+      accepted: false,
+      code: 'invalid-result',
+    });
+    t.last().receive(encode(ack));
+    expect(onResultAck).toHaveBeenCalledWith(ack);
   });
 
   it('createStartMessage lässt fehlende Optionen weg und bleibt protokollgültig', () => {

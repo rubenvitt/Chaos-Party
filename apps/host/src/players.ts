@@ -1,4 +1,9 @@
-import { PLAYER_SLOTS as SLOT_STYLES, type LobbyPlayer } from '@chaos-party/protocol';
+import {
+  defaultCharacterFor,
+  PLAYER_SLOTS as SLOT_STYLES,
+  type CharacterId,
+  type LobbyPlayer,
+} from '@chaos-party/protocol';
 import { PLAYER_SLOTS, type PlayerSlot, type ScenePlayer } from './scene/types.ts';
 
 /** Spieler, wie HUD und Lobby ihn anzeigen: Szenendaten plus Symbol und Bereitschaft. */
@@ -6,6 +11,8 @@ export interface HostPlayer extends ScenePlayer {
   /** Farbunabhängige Kennung aus dem Protokoll (●, ▲, ■, ★). */
   readonly symbol: string;
   readonly ready: boolean;
+  /** Gewählte Figur (v4, CHAOS-36) oder `null` = wählt noch. */
+  readonly character: CharacterId | null;
 }
 
 /** Symbol eines Slots (Farben und Bezeichnungen kommen aus `@chaos-party/protocol`). */
@@ -22,6 +29,7 @@ export function createLocalPlayers(count: number): HostPlayer[] {
     symbol: SLOT_STYLES[slot].symbol,
     connected: true,
     ready: true,
+    character: defaultCharacterFor(slot),
   }));
 }
 
@@ -41,5 +49,6 @@ export function playersFromLobby(players: readonly LobbyPlayer[]): HostPlayer[] 
       symbol: slotSymbol(p.slot),
       connected: p.connected,
       ready: p.ready,
+      character: p.character,
     }));
 }

@@ -115,6 +115,27 @@ describe('playersFromView', () => {
       character: 'robot',
     });
     expect(players.map((p) => p.character)).toEqual(['robot', 'cactus', 'raccoon', 'sock']);
-    expect(characterName(2)).toBe('Kalle Kaktus');
+    expect(characterName(minigameView('minigame-intro'), 2)).toBe('Kalle Kaktus');
+  });
+
+  it('nimmt die gewählte Figur aus dem Stand (v4, nicht die Standardfigur)', () => {
+    const base = minigameView('minigame-intro');
+    const view = {
+      ...base,
+      players: base.players.map((p) =>
+        p.slot === 1
+          ? { ...p, character: 'sock' as const }
+          : p.slot === 4
+            ? { ...p, character: 'robot' as const }
+            : p,
+      ),
+    };
+    expect(playersFromView(view).map((p) => p.character)).toEqual([
+      'sock',
+      'cactus',
+      'raccoon',
+      'robot',
+    ]);
+    expect(characterName(view, 1)).toBe('Socke Sigi');
   });
 });

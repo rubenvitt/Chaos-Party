@@ -16,7 +16,13 @@
  * `getHud()` (ändert sich nur bei sichtbaren Änderungen, für `useSyncExternalStore`).
  */
 import { getBoard } from '@chaos-party/game-core';
-import type { BoardEvent, BoardMessage, BoardView, SlotNumber } from '@chaos-party/protocol';
+import type {
+  BoardEvent,
+  BoardMessage,
+  BoardView,
+  CharacterId,
+  SlotNumber,
+} from '@chaos-party/protocol';
 import { hopAt, planEvent, POPUP_MS, type PopupSpec } from './animation.ts';
 import { eventText, type EventText } from './texts.ts';
 
@@ -33,6 +39,8 @@ export interface FramePawn {
   readonly spaceId: string;
   readonly hop: FrameHop | null;
   readonly connected: boolean;
+  /** Gewählte Figur (v4, `BoardPlayer.character`). */
+  readonly character: CharacterId;
 }
 
 export interface FramePopup extends PopupSpec {
@@ -313,9 +321,15 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     }
   }
 
-  function secondsLeft(remainingMs: number | null | undefined, receivedAt: number): number | null {
+  function secondsLeft(
+    remainingMs: number | null | undefined,
+    receivedAt: number,
+    paused: boolean,
+  ): number | null {
     if (remainingMs === null || remainingMs === undefined) return null;
-    return Math.max(0, Math.ceil((remainingMs - (now - receivedAt)) / 1000));
+    // Pause (v4): Restzeiten stehen still, der Server schickt beim Fortsetzen neue.
+    const elapsed = paused ? 0 : now - receivedAt;
+    return Math.max(0, Math.ceil((remainingMs - elapsed) / 1000));
   }
 
   function isAnimating(): boolean {
@@ -324,10 +338,10 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
 
   function refreshHud() {
     const promptSeconds = committed
-      ? secondsLeft(committed.view.prompt?.remainingMs, committed.receivedAt)
+      ? secondsLeft(committed.view.prompt?.remainingMs, committed.receivedAt, committed.view.paused)
       : null;
     const phaseSeconds = committed
-      ? secondsLeft(committed.view.remainingMs, committed.receivedAt)
+      ? secondsLeft(committed.view.remainingMs, committed.receivedAt, committed.view.paused)
       : null;
     const animating = isAnimating();
     if (
@@ -375,7 +389,13 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
         );
         if (hop) spaceId = hop.from;
       }
-      return { slot: player.slot, spaceId, hop, connected: player.connected };
+      return {
+        slot: player.slot,
+        spaceId,
+        hop,
+        connected: player.connected,
+        character: player.character,
+      };
     });
     const frames: FramePopup[] = popups.map(({ startedAt, ...spec }) => ({
       ...spec,

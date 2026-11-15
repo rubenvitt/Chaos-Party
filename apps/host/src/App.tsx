@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { BoardStage } from './board/BoardStage.tsx';
 import { createDemoMessages, DEMO_DELAYS_MS } from './board/demo.ts';
 import type { BoardScene } from './board/types.ts';
-import { serverWebSocketUrl, type HostConfig } from './config.ts';
+import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import { createFrameMeter, type FrameMeter } from './debug/frameMeter.ts';
 import { soundEngine } from './fx/audio.ts';
@@ -15,6 +15,7 @@ import { PlayerToasts } from './lobby/PlayerToasts.tsx';
 import { MinigameScreen } from './minigame/MinigameScreen.tsx';
 import { stageKeyOf } from './minigame/plan.ts';
 import { useHostSession } from './net/useHostSession.ts';
+import { PauseControls } from './pause/PauseControls.tsx';
 import { createLocalPlayers, playersFromLobby, type HostPlayer } from './players.ts';
 import { createGameScene } from './scene/createGameScene.ts';
 import type { GameScene } from './scene/types.ts';
@@ -211,13 +212,42 @@ export function App({ config }: AppProps) {
   const onBoardScene = useCallback((scene: BoardScene | null) => {
     boardSceneRef.current = scene;
   }, []);
-  const { arena, rounds } = config;
-  const { start, results, submitMinigameResult } = session;
+  const { arena } = config;
+  const { start, results, submitMinigameResult, command } = session;
+  // Rundenzahl (CHAOS-36): Die Lobby zeigt die Server-Einstellung (`lobby.settings.rounds`).
+  // `?rounds=` stellt sie beim ersten Lobby-Stand per `configure` ein; eine Wahl in der Lobby
+  // gilt danach. `start` schickt die zuletzt gewählte Zahl mit (Wettlauf mit `configure`).
+  const [roundsChoice, setRoundsChoice] = useState<number | null>(config.rounds);
+  const configuredFromUrl = useRef(false);
+  const lobbyPhase = session.lobby?.phase;
+  useEffect(() => {
+    if (configuredFromUrl.current || config.rounds === null || lobbyPhase !== 'lobby') return;
+    if (command({ type: 'configure', rounds: config.rounds })) configuredFromUrl.current = true;
+  }, [command, config.rounds, lobbyPhase]);
+  const onRounds = useCallback(
+    (value: number) => {
+      setRoundsChoice(value);
+      command({ type: 'configure', rounds: value });
+    },
+    [command],
+  );
   const onStart = useCallback(() => {
     // Der Klick auf „Los geht’s!“ ist die Nutzer-Geste, die den Ton freischaltet (CHAOS-33).
     soundEngine().unlock();
-    return start({ mode: arena ? 'arena' : 'board', ...(rounds === null ? {} : { rounds }) });
-  }, [start, arena, rounds]);
+    return start({
+      mode: arena ? 'arena' : 'board',
+      ...(roundsChoice === null ? {} : { rounds: roundsChoice }),
+    });
+  }, [start, arena, roundsChoice]);
+  const onRematch = useCallback(() => {
+    if (local) {
+      // Lokaler Brett-Modus (ohne Server): Beispiel-Stand neu laden.
+      window.location.reload();
+      return;
+    }
+    soundEngine().unlock();
+    command({ type: 'rematch' });
+  }, [command, local]);
   const getResultState = useCallback(() => results.state, [results]);
 
   useEffect(() => {
@@ -235,6 +265,7 @@ export function App({ config }: AppProps) {
       data-mode={local ? 'local' : 'server'}
       data-phase={phase}
       data-minigame={minigameModule?.info.id}
+      data-paused={!local && boardMode ? (latest.view?.paused ?? false) : undefined}
     >
       {boardMode && minigameModule && latest.view ? (
         <MinigameScreen
@@ -253,6 +284,7 @@ export function App({ config }: AppProps) {
           onResult={submitMinigameResult}
           onReady={setMinigameReady}
           getResultState={getResultState}
+          resultAck={session.resultAck}
         />
       ) : boardMode ? (
         <BoardStage
@@ -263,6 +295,8 @@ export function App({ config }: AppProps) {
           meter={meter}
           onReady={setBoardReady}
           onScene={onBoardScene}
+          finaleSpeed={finaleSpeedOf(config)}
+          onRematch={onRematch}
         />
       ) : (
         <>
@@ -276,6 +310,7 @@ export function App({ config }: AppProps) {
           />
         </>
       )}
+      {!local && boardMode && <PauseControls view={latest.view} onCommand={command} />}
       <PlayerToasts players={players} enabled={!local} />
       {meter && <DebugOverlay meter={meter} getRenderer={getRenderer} testMode={test} />}
       {!local && phase === 'lobby' && session.status !== null && (
@@ -285,6 +320,7 @@ export function App({ config }: AppProps) {
           status={session.status}
           joinHintSeconds={config.joinHintSeconds}
           onStart={onStart}
+          onRounds={onRounds}
         />
       )}
     </main>

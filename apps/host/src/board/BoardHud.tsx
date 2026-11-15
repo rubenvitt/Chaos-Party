@@ -1,6 +1,7 @@
 /**
  * React-HUD der Brettphase (CHAOS-20): Spielerleiste, Runde, „Blau ist dran!“, Status zur
- * offenen Entscheidung mit Countdown, Ereignis-Ticker, Minispiel-Platzhalter, Endstand.
+ * offenen Entscheidung mit Countdown, Ereignis-Ticker, Minispiel-Platzhalter. Den Endstand
+ * zeigt seit M4 das Finale (`finale/Finale.tsx`, CHAOS-37).
  * Echte Minispiele (M3) zeigt nicht dieses Overlay, sondern die Minispiel-Bühne
  * (`minigame/MinigameScreen.tsx`); das Overlay bleibt für Platzhalter und unbekannte IDs.
  * Liest nur den `HudSnapshot` der Regie; steuert nichts. Große Schrift für den Sofa-Abstand.
@@ -24,7 +25,6 @@ import {
   promptDetail,
   promptStatus,
   roundText,
-  winnerText,
 } from './texts.ts';
 
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
@@ -170,6 +170,12 @@ function MinigameOverlay({
   }
   if (view.gamePhase !== 'minigame-results') return null;
   const ranking = minigame?.ranking ?? [];
+  // v4 (CHAOS-55): ausgezahlte Münzen aus dem Stand, sonst aus den Ereignissen der Regie.
+  const viewRewards = view.minigame?.rewards ?? null;
+  const coinsOf = (slot: SlotNumber): number | undefined =>
+    viewRewards !== null
+      ? (viewRewards.find((entry) => entry.slot === slot)?.coins ?? 0)
+      : minigame?.rewards[slot];
   return (
     <div className="board-overlay" data-testid="board-minigame" data-phase={view.gamePhase}>
       <div className="board-overlay-card">
@@ -181,40 +187,9 @@ function MinigameOverlay({
               <span className="board-ranking-place">{i + 1}.</span>
               <PlayerDot slot={slot} />
               <span className="board-ranking-name">{playerName(view, slot)}</span>
-              {minigame?.rewards[slot] !== undefined && (
-                <span className="board-ranking-value">+{minigame.rewards[slot]} Münzen</span>
+              {coinsOf(slot) !== undefined && (
+                <span className="board-ranking-value">+{coinsOf(slot)} Münzen</span>
               )}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
-}
-
-function ResultsOverlay({ view }: { readonly view: BoardView }) {
-  if (view.gamePhase !== 'game-results' || !view.ranking) return null;
-  return (
-    <div className="board-overlay board-overlay--final" data-testid="board-results">
-      <div className="board-overlay-card">
-        <p className="board-overlay-kicker">Spielende</p>
-        <h2 data-testid="board-winner">{winnerText(view) ?? 'Spielende'}</h2>
-        <ol className="board-ranking">
-          {view.ranking.map((r) => (
-            <li
-              key={r.slot}
-              className="board-ranking-row"
-              data-place={r.place}
-              data-testid={`board-rank-${r.slot}`}
-              style={colorStyle(r.slot)}
-            >
-              <span className="board-ranking-place">{r.place}.</span>
-              <PlayerDot slot={r.slot} />
-              <span className="board-ranking-name">{playerName(view, r.slot)}</span>
-              <span className="board-ranking-value">
-                <TrophyIcon size={24} /> {r.trophies}
-                <CoinIcon size={24} /> {r.coins}
-              </span>
             </li>
           ))}
         </ol>
@@ -272,7 +247,6 @@ export function BoardHud({ hud, boardName, connection }: BoardHudProps) {
       </ul>
 
       {view && <MinigameOverlay view={view} minigame={hud.minigame} seconds={hud.phaseSeconds} />}
-      {view && <ResultsOverlay view={view} />}
     </div>
   );
 }
