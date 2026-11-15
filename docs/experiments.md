@@ -21,7 +21,8 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-005 | Arcade-Minispiel: drei Konzepte | CHAOS-29, CHAOS-30 | keep A4 „Sockenregen“; B „Kuckucks-Klatsche“, C „Aufzieh-Takt“ discard |
 | EXP-006 | Physik-Minispiel (Havok): Konzepte | CHAOS-29, CHAOS-31 | keep A5 „Pudding-Gerangel“ (Kirschfleck + Wackelkrone); „Letzter oben“, Saldo, „Krümel-Kehraus“ discard |
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
-| EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | offen – Ruben wählt (Entscheidungsseite) |
+| EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
+| EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen |
 
 ---
 
@@ -823,7 +824,26 @@ Begründung: A verbindet Ausführung (sanft lenken unter Kippgefahr, greifen, au
 
 Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Verhältnis: A und C kosten durch SSAO/MSAA/Unschärfe ein Vielfaches von B. Zeichenaufrufe sind in allen Richtungen unoptimiert (keine Instanzen, keine zusammengeführten Meshes) und würden bei der Umsetzung deutlich sinken. Belege: `docs/screenshots/chaos56-lookdev-<richtung>-<ansicht>.jpg`; Entscheidungsseite mit Bewertung: https://claude.ai/artifact/P6iu4tF9iBFzfnSqgukHfR.
 
-**Entscheidung:** offen – wartet auf Rubens Wahl (Bewertung auf der Entscheidungsseite). Danach: Design-System der gewählten Richtung, `docs/art-direction.md` neu, ADR zur Render-Pipeline, Bildraten-Messung am Ziel-PC.
+**Entscheidung:** iterate – Ruben (2026-11-15): „Wenn überhaupt ein Mix aus 1 und 3. Vielleicht ganz bisschen realistischer? Mir gefällt aber einiges daran nicht.“ Es stören Figuren, zu simple Modelle, kindliche Farben, Licht/Stimmung. Weiter in EXP-009.
 
 **Offen für Playtest:** Wirkung am Fernseher aus 3 m; Bildrate am Ziel-PC (`?debug=1`-Messanzeige) für die gewählte Richtung.
+
+---
+
+## EXP-009: Look-Dev Runde 2 – „Stilisierte Natur“ (2026-11-15, CHAOS-57)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Mix aus A (weiches PBR) und C (Diorama), etwas realistischer, trifft Rubens „modern und schön“: eine lebendige kleine Welt mit echten Materialien statt Grundkörpern in Bonbonfarben, aber stilisierte Formen und Figuren, damit es verspielt bleibt.
+
+**Varianten:** gleiche Welt, drei Lichtstimmungen (HDRI + Sonne + Dunst + Gras-Tönung):
+- N1 „Sommermorgen“ (`qwantani_mid_morning_puresky`), N2 „Goldene Stunde“ (`qwantani_late_afternoon_puresky`), N3 „Leicht bewölkt“ (`kloofendal_48d_partly_cloudy_puresky`).
+
+**Aufbau:** `apps/host/src/lookdev/nature.ts`: unregelmäßige Insel mit Hügeln und Erdkante, CC0-Texturen von Poly Haven (Wiese, Erde, Rinde, Moosfels, Eichenholz, Bretter; Liste `polyhaven.json`, Abruf `node scripts/fetch-lookdev-assets.mjs`, nicht eingecheckt), ≈ 42 000 Grashalme als Thin Instances (drei Farbsorten), Bäume mit Rindenstamm und weichen Kronen, Steine mit Moos, Felder als Baumscheiben mit lackierter Farbeinlage + Symbol, Teich, Farne/Blumen (CC0-Modelle). Licht: HDRI als Umgebungslicht und Himmel, Sonne aus den Harmonischen des HDRI abgeleitet und so gedreht, dass sie schräg von vorn links kommt (kein Gegenlicht), Halbkugellicht als Bodenlicht (Puresky-HDRIs sind unten schwarz), PCSS-Schatten, SSAO, ACES, leichte Tiefenunschärfe, Korn.
+
+**Testumgebung:** Vitrine `lookdev.html?look=natur-<morgen|abend|wolken>&shot=<brett|figur|minispiel>`; begehbare 3D-Fassung als Artefakt https://claude.ai/artifact/P4BrCKbYSyfXGHAo726W71 (gepackt mit `node scripts/pack-lookdev-artifact.mjs <ziel>`), Entscheidungsseite https://claude.ai/artifact/P6iu4tF9iBFzfnSqgukHfR. SwiftShader-Bildzeit ≈ 20 s (nur relativ), ≈ 700 Zeichenaufrufe, ≈ 330 000 Eckpunkte im Brett.
+
+**Ergebnisse:** Fehler unterwegs behoben: Instanzfarbe ersetzt den Halm-Verlauf (→ drei Halm-Sorten), IcoSphere standardmäßig flach (→ `flat: false`, mehr Unterteilung), Gegenlicht (→ HDRI gedreht), Himmelsbox größer als Sichtweite (→ 500), schwarzer Unterhimmel (→ Dunst-Ebene), Decke falsch abgetastet (→ Höhe an gedrehter Position).
+
+**Entscheidung:** keep – Ruben nach der 3D-Fassung (2026-11-15): „ja passt so“. Offen: Lichtstimmung (N1/N2/N3 oder je Brett eine), neue Figuren (CHAOS-58), Controller-UI (CHAOS-59), Bildrate am Ziel-PC.
+
+**Offen für Playtest:** Bildrate am Ziel-PC mit 40 000 Halmen, SSAO und Unschärfe; Lesbarkeit der Felder und Slot-Farben aus 3 m am Fernseher.
 

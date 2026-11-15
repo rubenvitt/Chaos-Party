@@ -1,0 +1,25 @@
+{
+  "$comment": "CHAOS-56/57 Look-Dev: CC0-Assets von Poly Haven (https://polyhaven.com/license). Abruf mit `node scripts/fetch-lookdev-assets.mjs` nach apps/host/public/lookdev-assets/ (nicht eingecheckt). Ins Asset-Manifest kommt erst die gewählte Auswahl.",
+  "license": "CC0-1.0",
+  "hdris": [
+    { "id": "qwantani_mid_morning_puresky", "resolution": "1k" },
+    { "id": "qwantani_late_afternoon_puresky", "resolution": "1k" },
+    { "id": "kloofendal_48d_partly_cloudy_puresky", "resolution": "1k" }
+  ],
+  "textures": [
+    { "id": "leafy_grass", "resolution": "1k" },
+    { "id": "forrest_ground_01", "resolution": "1k" },
+    { "id": "brown_mud_rocks_01", "resolution": "1k" },
+    { "id": "bark_brown_02", "resolution": "1k" },
+    { "id": "mossy_rock", "resolution": "1k" },
+    { "id": "oak_veneer_01", "resolution": "1k" },
+    { "id": "brown_planks_05", "resolution": "1k" },
+    { "id": "fabric_pattern_07", "resolution": "1k" },
+    { "id": "fabric_pattern_05", "resolution": "1k" }
+  ],
+  "models": [
+    { "id": "fern_02", "resolution": "1k" },
+    { "id": "flower_empodium", "resolution": "1k" },
+    { "id": "flower_gazania", "resolution": "1k" }
+  ]
+}
