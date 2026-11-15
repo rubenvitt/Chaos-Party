@@ -67,7 +67,7 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
     await openHost(page, '/host/?test=1&seed=2026');
     await expect(page.locator('.lobby-empty')).toBeVisible();
 
-    // Rundenwahl: Vorschläge des Servers (10/16/20, EXP-010), Standard 10.
+    // Rundenwahl: Vorschläge des Servers (10/16/20, EXP-011), Standard 10.
     await expect(page.getByTestId('rounds-10')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('rounds-10')).toContainText('≈ 15 Min.');
     await expect(page.getByTestId('lobby-rounds').locator('button')).toHaveCount(3);
@@ -121,7 +121,7 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(page.getByTestId('rounds-20')).toHaveAttribute('aria-pressed', 'true');
       expect(session.snapshot().rounds).toBe(20);
 
-      // Umwählen setzt „bereit“ zurück (ADR-014) – der Host zeigt es sofort.
+      // Umwählen setzt „bereit“ zurück (ADR-015) – der Host zeigt es sofort.
       bots[0]?.pick('cactus');
       await expect(card(1)).toHaveAttribute('data-character', 'cactus');
       await expect(page.getByTestId('lobby-character-1')).toHaveText('Kalle Kaktus');

@@ -1,5 +1,5 @@
 /**
- * Reine Regeln für Pause und vorzeitiges Ende am PC (CHAOS-36, ADR-014). Ohne React/DOM.
+ * Reine Regeln für Pause und vorzeitiges Ende am PC (CHAOS-36, ADR-015). Ohne React/DOM.
  *
  * - Pausieren geht in der Brettphase zwischen Spielstart und Endstand (auch im Minispiel).
  * - Tasten: **P** oder **Esc** pausiert; in der Pause setzt **P** fort, **Esc** schließt erst

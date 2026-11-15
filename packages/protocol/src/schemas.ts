@@ -129,7 +129,7 @@ export const CoinReasonSchema = z.enum(COIN_REASONS);
 /** Figuren-ID (v4, Quelle `./characters.ts`). */
 export const CharacterIdSchema = z.enum(CHARACTER_IDS);
 /**
- * Welches Kriterium den Platz im Endstand entschieden hat (v4, ADR-014): Trophäen → Münzen →
+ * Welches Kriterium den Platz im Endstand entschieden hat (v4, ADR-015): Trophäen → Münzen →
  * Minispiel-Siege → geteilter Platz. Erlaubt dem Host, die Trophäenzählung zu inszenieren.
  */
 export const RANKING_CRITERIA = ['trophies', 'coins', 'minigame-wins', 'shared'] as const;
@@ -371,7 +371,7 @@ export const ChooseMessageSchema = z.strictObject({
 
 /**
  * Figur wählen bzw. umwählen (v4, CHAOS-36). Nur in der Lobby. Vergebene Figur → Fehler
- * `character-taken`; Umwählen ist erlaubt und setzt `ready` zurück (ADR-014).
+ * `character-taken`; Umwählen ist erlaubt und setzt `ready` zurück (ADR-015).
  */
 export const PickCharacterMessageSchema = z.strictObject({
   v: VersionSchema,

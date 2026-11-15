@@ -1,5 +1,5 @@
 /**
- * Balance-Experimente für M4 (CHAOS-40, `docs/experiments.md` EXP-010 … EXP-012): Partiedauer
+ * Balance-Experimente für M4 (CHAOS-40, `docs/experiments.md` EXP-011 … EXP-013): Partiedauer
  * mit echter Minispiel-Rotation, Wertung mit Gleichstandsregel, Aufholeffekt, Sabotage.
  *
  * ```sh
@@ -77,7 +77,7 @@ export function m4Variant(
 }
 
 // ---------------------------------------------------------------------------
-// EXP-010 Partiedauer und Runden-Presets
+// EXP-011 Partiedauer und Runden-Presets
 // ---------------------------------------------------------------------------
 
 export interface DurationMetrics {
@@ -131,7 +131,7 @@ export function durationExperiment(
     }
   }
   return {
-    title: `EXP-010 Partiedauer mit Minispiel-Rotation und Finale (${seedText(setup)})`,
+    title: `EXP-011 Partiedauer mit Minispiel-Rotation und Finale (${seedText(setup)})`,
     headers: [
       'Runden',
       'Sp.',
@@ -146,7 +146,7 @@ export function durationExperiment(
 }
 
 // ---------------------------------------------------------------------------
-// EXP-011 Wertung, Gleichstand, Aufholeffekt, Ökonomie
+// EXP-012 Wertung, Gleichstand, Aufholeffekt, Ökonomie
 // ---------------------------------------------------------------------------
 
 export interface ScoringMetrics {
@@ -254,7 +254,7 @@ export function scoringExperiment(
     }
   }
   return {
-    title: `EXP-011 Wertung, Gleichstand, Aufholeffekt (Standardregeln + Rotation, ${seedText(setup)})`,
+    title: `EXP-012 Wertung, Gleichstand, Aufholeffekt (Standardregeln + Rotation, ${seedText(setup)})`,
     headers: [
       'Runden',
       'Sp.',
@@ -321,7 +321,7 @@ export function m4EconomyExperiment(
     }
   }
   return {
-    title: `EXP-011 Ökonomie-Varianten mit Rotation (${seedText(setup)})`,
+    title: `EXP-012 Ökonomie-Varianten mit Rotation (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',
@@ -339,7 +339,7 @@ export function m4EconomyExperiment(
 }
 
 // ---------------------------------------------------------------------------
-// EXP-012 Sabotage und Item-Stärke
+// EXP-013 Sabotage und Item-Stärke
 // ---------------------------------------------------------------------------
 
 export interface SabotageMetrics {
@@ -435,7 +435,7 @@ export function sabotageExperiment(
     }
   }
   return {
-    title: `EXP-012 Sabotage mit Rotation (${seedText(setup)})`,
+    title: `EXP-013 Sabotage mit Rotation (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',

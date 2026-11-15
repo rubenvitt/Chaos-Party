@@ -15,7 +15,7 @@
  * regelmäßig aufruft: Handshake-Timeout, Herzschlag-Timeout für Controller und
  * Host sowie die Freigabe reservierter Slots nach der Lobby-Schonfrist.
  *
- * M4 (ADR-014): Figurenwahl und Rundenzahl in der Lobby, Pause/Fortsetzen/Beenden und
+ * M4 (ADR-015): Figurenwahl und Rundenzahl in der Lobby, Pause/Fortsetzen/Beenden und
  * Revanche (zurück in die Lobby) sowie die Bestätigung von Minispiel-Ergebnissen. Verliert der
  * Host im laufenden Brettspiel die Verbindung, pausiert die Session die Partie selbst
  * (Auto-Pause, CHAOS-38) und setzt sie fort, sobald wieder ein Host da ist.
@@ -773,7 +773,7 @@ export class Session {
     }
 
     if (this.game?.paused) {
-      // Pause (ADR-014): Minispiel-Eingaben gehen nicht an den Host.
+      // Pause (ADR-015): Minispiel-Eingaben gehen nicht an den Host.
       this.reject(conn, 'paused', 'Spiel ist pausiert', seq);
       return;
     }
@@ -795,7 +795,7 @@ export class Session {
   }
 
   /**
-   * Figur wählen/umwählen (v4, CHAOS-36, ADR-014). Eine von einem anderen Slot gewählte
+   * Figur wählen/umwählen (v4, CHAOS-36, ADR-015). Eine von einem anderen Slot gewählte
    * Figur → `character-taken` (normaler Wettlauf, kein Missbrauch). Umwählen setzt `ready`
    * zurück, damit niemand mit einer Figur startet, die er gerade nicht mehr will.
    */
@@ -991,7 +991,7 @@ export class Session {
           now - player.disconnectedAt >= this.timeouts.lobbyGraceMs,
       );
       if (!expired) continue;
-      // Mit dem Slot wird auch seine Figur frei (ADR-014).
+      // Mit dem Slot wird auch seine Figur frei (ADR-015).
       for (const slot of slots) {
         this.players.delete(slot);
         this.contextKeys.delete(slot);
@@ -1026,7 +1026,7 @@ export class Session {
   }
 
   /**
-   * Auto-Pause (CHAOS-38, ADR-014 Nachtrag): Ohne Host sieht niemand das Brett, Minispiele
+   * Auto-Pause (CHAOS-38, ADR-015 Nachtrag): Ohne Host sieht niemand das Brett, Minispiele
    * laufen nicht und Ergebnisse kämen nie an. Darum pausiert die Session eine laufende Partie,
    * sobald der Host weg ist (Neuladen, Absturz, Herzschlag-Timeout). game-core verschiebt beim
    * Fortsetzen alle Fristen; ein laufendes Minispiel wird so nicht abgebrochen. Sobald wieder
@@ -1046,7 +1046,7 @@ export class Session {
   }
 
   /**
-   * Neuer Host nach einer Auto-Pause: fortsetzen, bevor er den Stand bekommt (ADR-014 Nachtrag).
+   * Neuer Host nach einer Auto-Pause: fortsetzen, bevor er den Stand bekommt (ADR-015 Nachtrag).
    * Er sieht also `paused: false` mit den Restzeiten vom Moment des Abrisses; die Zeit ohne
    * Host zählt für niemanden. Wie nach einem Reload in M3 startet er ein laufendes Minispiel mit
    * der Restzeit neu.
@@ -1118,7 +1118,7 @@ export class Session {
     const board = game?.infoFor(slot);
     if (!game || !board) return WAIT_CONTEXT;
     const minigame = game.minigameFor(slot);
-    // Pause (ADR-014): nichts anbieten; Stand und Minispiel-Info bleiben sichtbar.
+    // Pause (ADR-015): nichts anbieten; Stand und Minispiel-Info bleiben sichtbar.
     if (game.paused) {
       return minigame
         ? { layout: 'board', actions: [], board, minigame }

@@ -1,5 +1,5 @@
 /**
- * M4 am Controller gegen den **echten** Server (CHAOS-36/37/38, ADR-014): Charakterwahl mit
+ * M4 am Controller gegen den **echten** Server (CHAOS-36/37/38, ADR-015): Charakterwahl mit
  * zwei iPhones inklusive Wettlauf um dieselbe Figur, gemischte Aufstellung (2 iPhones +
  * iPad mit 2 Zonen), Pause, vorzeitiges Ende, Revanche und Neuladen in Lobby, Pause und
  * Endstand. Den Host spielt ein synthetischer Host aus dem Testprozess

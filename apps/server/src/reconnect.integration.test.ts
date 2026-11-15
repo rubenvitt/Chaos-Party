@@ -1,6 +1,6 @@
 /**
  * CHAOS-38: Controller-Trennung und Wiederkehr in jeder Phase, ohne dass die Partie abbricht
- * (ADR-009, ADR-014). Deterministisch mit festen Seeds und künstlicher Uhr.
+ * (ADR-009, ADR-015). Deterministisch mit festen Seeds und künstlicher Uhr.
  *
  * Je Phase wird geprüft: richtiger Kontext direkt nach `reconnect`, die Standardoption greift
  * nach `disconnectGraceMs` (bzw. nach der Reaktionsfrist), die Partie läuft bis zum Endstand

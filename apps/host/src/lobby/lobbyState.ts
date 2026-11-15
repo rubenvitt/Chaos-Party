@@ -34,7 +34,7 @@ export interface StartState {
 }
 
 /**
- * Start-Bedingung (ADR-014/CHAOS-36): Empfohlen ist der Start ab **zwei verbundenen,
+ * Start-Bedingung (ADR-015/CHAOS-36): Empfohlen ist der Start ab **zwei verbundenen,
  * bereiten** Spielern – dann leuchtet der Knopf. Wie bisher (M1–M3, E2E-Tests, Demo) bleibt
  * der Start ab einem verbundenen Spieler möglich; der Hinweis sagt, was fehlt.
  */
@@ -101,7 +101,7 @@ export function roundOptions(settings: LobbySettings): RoundOption[] {
 
 /**
  * Minuten je Runde nach Spielerzahl (Brettzüge + Minispiel mit Anleitung und Ergebnis), aus der
- * Bot-Simulation mit gemütlichem Entscheidungstempo (EXP-010, CHAOS-40). Dazu kommt das Finale.
+ * Bot-Simulation mit gemütlichem Entscheidungstempo (EXP-011, CHAOS-40). Dazu kommt das Finale.
  */
 const MINUTES_PER_ROUND: Readonly<Record<2 | 3 | 4, number>> = { 2: 1.15, 3: 1.35, 4: 1.5 };
 const FINALE_MINUTES = 0.35;
@@ -128,7 +128,7 @@ export interface CardCharacter {
 /**
  * Figur einer Spielerkarte: die echte Wahl aus `lobby.players[].character`; bei `null` als
  * Vorschlag die Figur, die der Server beim Start zuweisen würde: in Slot-Reihenfolge die
- * Standardfigur des Slots, falls frei, sonst die erste freie (`pickFreeCharacter`, ADR-014).
+ * Standardfigur des Slots, falls frei, sonst die erste freie (`pickFreeCharacter`, ADR-015).
  */
 export function cardCharacter(
   player: Pick<HostPlayer, 'slot' | 'character'>,

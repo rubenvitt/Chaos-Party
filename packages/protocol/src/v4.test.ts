@@ -1,5 +1,5 @@
 /**
- * Protokoll v4 (M4, ADR-014): Charakterwahl, Lobby-Einstellungen, Pause/Ende, Revanche,
+ * Protokoll v4 (M4, ADR-015): Charakterwahl, Lobby-Einstellungen, Pause/Ende, Revanche,
  * erweiterte Wertung und Minispiel-Bestätigung. Gültige und kaputte Nachrichten je Feld.
  */
 import { describe, expect, it } from 'vitest';

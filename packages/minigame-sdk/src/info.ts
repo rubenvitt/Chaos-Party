@@ -86,7 +86,7 @@ export interface MinigameResult {
 
 /**
  * Die vier kosmetischen Figuren (CHAOS-27). Keine Spielvorteile, nur Optik. Einzige Quelle ist
- * seit Protokoll v4 `@chaos-party/protocol/characters` (Charakterwahl CHAOS-36, ADR-014);
+ * seit Protokoll v4 `@chaos-party/protocol/characters` (Charakterwahl CHAOS-36, ADR-015);
  * hier nur re-exportiert, damit Minispiele und Host weiter aus dem SDK importieren können.
  * `defaultCharacterFor` ist nur noch der Vorschlag je Slot – die echte Wahl steht in
  * `BoardPlayer.character` bzw. `LobbyPlayer.character`.

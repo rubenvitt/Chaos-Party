@@ -2309,3 +2309,109 @@ button {
     animation: none;
   }
 }
+
+/*
+ * Figuren-Porträts (CHAOS-61): Render mit weißem Akzent, darüber die Slot-Farbe per
+ * Akzent-Maske und `multiply`. Gleiche Dateien wie die Lobby am PC.
+ */
+.character-portrait {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(180deg, #bfe0f5 0%, #f4ead2 100%);
+}
+
+.character-portrait-image,
+.character-portrait-accent {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.character-portrait-accent {
+  /* Figurenkarten der Lobby setzen Besitzer-Farbe oder Grau (CHAOS-36), sonst Slot-Farbe. */
+  background: var(--portrait-color, var(--player));
+  mix-blend-mode: multiply;
+  -webkit-mask: var(--portrait-accent) center / 100% 100% no-repeat;
+  mask: var(--portrait-accent) center / 100% 100% no-repeat;
+}
+
+/* Plakette: Porträt im Kreis, Slot-Symbol als Marke unten rechts (Symbol bleibt Pflicht). */
+.badge-avatar {
+  --avatar: 40px;
+  position: relative;
+  flex: none;
+  width: var(--avatar);
+  height: var(--avatar);
+}
+
+.badge-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--on-player);
+  box-sizing: border-box;
+}
+
+.player-badge .badge-avatar .player-symbol {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: calc(var(--avatar) * 0.5);
+  height: calc(var(--avatar) * 0.5);
+  border: 2px solid var(--player);
+  background: var(--on-player);
+  font-size: calc(var(--avatar) * 0.3);
+  box-sizing: border-box;
+}
+
+.zone .zone-badge .badge-avatar {
+  --avatar: 34px;
+}
+
+/* Lobby: große Figur mit Namen über „Bereit!“. */
+.lobby-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lobby-portrait {
+  width: 148px;
+  height: 148px;
+  border-radius: 32px;
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-small);
+}
+
+.lobby-figure-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+@media (orientation: landscape) {
+  .badge-avatar {
+    --avatar: 32px;
+  }
+
+  .lobby-portrait {
+    width: 88px;
+    height: 88px;
+    border-radius: 22px;
+  }
+
+  .lobby-figure {
+    gap: 6px;
+  }
+
+  .lobby-figure-name {
+    font-size: 18px;
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * CHAOS-37: Determinismus und Wertung über die Session (ADR-014 §4).
+ * CHAOS-37: Determinismus und Wertung über die Session (ADR-015 §4).
  *
  * 1. Feste Seeds für 2, 3 und 4 Spieler (`INTEGRATION_SEEDS`, M2-Ablauf mit Platzhalter-
  *    Minispiel, 3 Runden): Endstand-Schnappschuss inkl. `decidedBy`, Figuren und Statistik.

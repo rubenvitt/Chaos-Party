@@ -9,7 +9,7 @@
  * `celebrate()` lässt die Figuren zum Ergebnis jubeln/schmollen. `dispose()` entsorgt alles:
  * Render-Schleife, Runner (räumt das Minispiel weg), Effekte, Figuren, Szene, Engine.
  *
- * Pause (v4, ADR-014): `pause()`/`resume()` halten den Runner an (`runner.pause()`): fester Takt
+ * Pause (v4, ADR-015): `pause()`/`resume()` halten den Runner an (`runner.pause()`): fester Takt
  * steht, Eingaben werden ignoriert, gehaltene Eingaben losgelassen, keine Nachholzeit. Das Bild
  * wird weiter gerendert (Figuren-Leerlauf), die Spielzeit steht. Kommt die Pause vor dem Laden,
  * wird der Runner direkt nach dem Vorbereiten angehalten.

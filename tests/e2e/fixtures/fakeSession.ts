@@ -32,7 +32,7 @@ export { PROTOCOL_VERSION } from '../../../packages/protocol/src/index.ts';
 export const VALID_CODE = 'ABCD';
 export const FAKE_TOKEN = 'fake_session_token_0001';
 
-/** Lobby (v4): „Bereit!“ und Figurenwahl; bereit = nur noch Umwählen (ADR-014). */
+/** Lobby (v4): „Bereit!“ und Figurenwahl; bereit = nur noch Umwählen (ADR-015). */
 export const LOBBY_ACTIONS: Action[] = ['ready', 'pick-character'];
 export const READY_ACTIONS: Action[] = ['pick-character'];
 export const PLAY_ACTIONS: Action[] = ['move', 'button-a', 'button-b'];
@@ -233,7 +233,7 @@ export class FakeSession {
   }
 
   /**
-   * Figurenwahl wie der Server (ADR-014): Figur eines anderen Platzes → `character-taken` und
+   * Figurenwahl wie der Server (ADR-015): Figur eines anderen Platzes → `character-taken` und
    * Kontext neu; sonst übernehmen, `ready` zurücksetzen, Lobby aller eigenen Plätze neu.
    */
   private pick(message: MessageOfType<'pick-character'>) {

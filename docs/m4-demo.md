@@ -64,6 +64,6 @@ Am PC `http://localhost:8787/host/` öffnen, am besten im Vollbild auf dem Ferns
 
 ## Bekannte Grenzen (heutiger Stand)
 
-- Alle Balance-Werte (Rundenzahl, Preise, Sabotage, Münzen) stammen aus Bot-Simulationen (EXP-001 … EXP-012); die echte Partiedauer und ob 10 Runden der richtige Standard sind, misst erst der Playtest (Checkliste V2).
+- Alle Balance-Werte (Rundenzahl, Preise, Sabotage, Münzen) stammen aus Bot-Simulationen (EXP-001 … EXP-004, EXP-011 … EXP-013); die echte Partiedauer und ob 10 Runden der richtige Standard sind, misst erst der Playtest (Checkliste V2).
 - Das geteilte iPad ist bisher nur in der Emulation geprüft (iPad-Nachtest CHAOS-47, Checkliste Abschnitt 4 und 12.3).
 - Performance-Schwellen auf echter Hardware sind offen, bis Ruben misst (Checkliste Abschnitt 11).

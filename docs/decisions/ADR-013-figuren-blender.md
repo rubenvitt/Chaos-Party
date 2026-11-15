@@ -40,7 +40,7 @@ Ruben hat die Werkzeugwahl freigegeben („Pakete als Basis oder Blender + MCP�
 **Negativ / Risiken**
 - Die Reproduzierbarkeit der GLBs wird in CI **nicht** geprüft (bpy ist ≈ 430 MB groß). Der frühere Test „Generator erzeugt die eingecheckten Dateien“ gilt nur noch für die Porträts. Gegenmaßnahme: Nach jeder Skriptänderung `build-all.sh` ausführen und die GLBs mit committen; `check:assets` prüft Vertrag und Budget.
 - Das Budget je Figur steigt von 300 auf 384 KiB, weil Skinning-Daten (Gelenke, Gewichte) und Vertexfarben dazukommen. Ist-Stand: 110–324 KiB, 2 800–10 300 Dreiecke.
-- Die Porträts zeigen noch die M3-Figuren (eigene Folgeaufgabe).
+- Die Porträts zeigen noch die M3-Figuren (eigene Folgeaufgabe). **Nachtrag 2026-11-15 (CHAOS-61):** erledigt. Die Porträts entstehen jetzt ebenfalls in Blender (`portrait.py`, Cycles-Render als WebP mit Akzent-Maske), der TS-Generator in `packages/assets/src/generator/` ist entfernt. Renders sind nicht byte-gleich reproduzierbar; `check:assets` prüft Format, Maße, Alpha und das Paar Bild/Maske.
 
 ## Überprüfung
 

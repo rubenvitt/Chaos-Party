@@ -108,7 +108,7 @@ function separatingLevel(a: Rankable, b: Rankable): number {
 }
 
 /**
- * Endstand (M4, ADR-014): Trophäen absteigend, dann Münzen, dann Minispiel-Siege (Anzahl
+ * Endstand (M4, ADR-015): Trophäen absteigend, dann Münzen, dann Minispiel-Siege (Anzahl
  * 1. Plätze). Gleichstand in allen drei = gleicher, geteilter Platz (Platz = 1 + Zahl der echt
  * Besseren); innerhalb eines Gleichstands nach Slot sortiert. `decidedBy` nennt das tiefste
  * Kriterium, das diesen Spieler von allen anderen trennt (für die Inszenierung am PC).

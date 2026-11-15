@@ -17,6 +17,8 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       'perf-results/**',
+      // Blender als Python-Modul (ADR-013), lokal und nicht im Repository.
+      '.venv-blender/**',
     ],
   },
   js.configs.recommended,

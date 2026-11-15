@@ -1,7 +1,8 @@
 /**
  * Look-Dev Runde 2 „Stilisierte Natur“ (CHAOS-57): eine lebendige kleine Welt mit echten
  * Materialien (CC0-Texturen und HDRI von Poly Haven, siehe `polyhaven.json`), eigenen,
- * stilisierten Formen und tausenden Grashalmen. Drei Lichtstimmungen als Varianten.
+ * stilisierten Formen und tausenden Grashalmen. Lichtstimmungen kommen als Daten aus
+ * `../lighting/moods.ts` (CHAOS-60), nachts mit Laternen, Glühwürmchen und leuchtenden Feldern.
  *
  * Assets liegen nach `node scripts/fetch-lookdev-assets.mjs` unter
  * `apps/host/public/lookdev-assets/` (nicht eingecheckt) und werden vom Dev-Server unter
@@ -10,6 +11,9 @@
 import type { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
+import { PointLight } from '@babylonjs/core/Lights/pointLight.js';
+import { GlowLayer } from '@babylonjs/core/Layers/glowLayer.js';
+import '@babylonjs/core/Layers/effectLayerSceneComponent.js';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator.js';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
@@ -45,75 +49,35 @@ import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js';
 import '@babylonjs/core/Rendering/prePassRendererSceneComponent.js';
 import type { Scene } from '@babylonjs/core/scene.js';
 import '@babylonjs/loaders/glTF/2.0/glTFLoader.js';
+import {
+  LIGHT_MOOD_IDS,
+  LIGHT_MOODS,
+  type LightMood,
+  type LightMoodId,
+} from '../lighting/moods.ts';
 
-export const NATURE_VARIANTS = ['natur-morgen', 'natur-abend', 'natur-wolken'] as const;
-export type NatureVariant = (typeof NATURE_VARIANTS)[number];
+export const NATURE_VARIANTS = LIGHT_MOOD_IDS.map((id) => `natur-${id}` as const);
+export type NatureVariant = `natur-${LightMoodId}`;
 
-interface VariantSpec {
-  readonly title: string;
-  readonly blurb: string;
-  readonly hdri: string;
-  readonly environmentIntensity: number;
-  readonly sunIntensity: number;
-  readonly sunTint: string;
-  /** Weichheit der Schatten (Lichtgröße für PCSS). */
-  readonly penumbra: number;
-  readonly fog: string;
-  readonly fogDensity: number;
-  readonly exposure: number;
-  readonly contrast: number;
-  /** Farbstich des Grases (Spitzen). */
-  readonly grassTip: string;
+export function natureMood(variant: NatureVariant): LightMood {
+  const mood = LIGHT_MOODS[variant.slice('natur-'.length) as LightMoodId];
+  // Feinabstimmung ohne Neubau: `tune={"key":{"intensity":2}}` überschreibt Felder (nur Vitrine).
+  const tune = new URLSearchParams(location.search).get('tune');
+  return tune ? (merge(mood, JSON.parse(tune)) as LightMood) : mood;
 }
 
-const VARIANTS: Readonly<Record<NatureVariant, VariantSpec>> = {
-  'natur-morgen': {
-    title: 'N1 · Sommermorgen',
-    blurb: 'klares Vormittagslicht, frisches Grün, kühle Schatten',
-    hdri: 'qwantani_mid_morning_puresky',
-    environmentIntensity: 1.0,
-    sunIntensity: 3.2,
-    sunTint: '#fff3e0',
-    penumbra: 0.03,
-    fog: '#cfe2f0',
-    fogDensity: 0.006,
-    exposure: 1.4,
-    contrast: 1.1,
-    grassTip: '#b5d86a',
-  },
-  'natur-abend': {
-    title: 'N2 · Goldene Stunde',
-    blurb: 'tiefe warme Sonne, lange Schatten, Dunst',
-    hdri: 'qwantani_late_afternoon_puresky',
-    environmentIntensity: 0.9,
-    sunIntensity: 4.0,
-    sunTint: '#ffcf96',
-    penumbra: 0.025,
-    fog: '#f2d2b0',
-    fogDensity: 0.01,
-    exposure: 1.35,
-    contrast: 1.15,
-    grassTip: '#d6d36a',
-  },
-  'natur-wolken': {
-    title: 'N3 · Leicht bewölkt',
-    blurb: 'weiches Wolkenlicht, satte Farben, sanfte Schatten',
-    hdri: 'kloofendal_48d_partly_cloudy_puresky',
-    environmentIntensity: 1.15,
-    sunIntensity: 2.2,
-    sunTint: '#fff8f0',
-    penumbra: 0.07,
-    fog: '#dfe7ec',
-    fogDensity: 0.007,
-    exposure: 1.45,
-    contrast: 1.12,
-    grassTip: '#a8d062',
-  },
-};
+function merge(base: unknown, patch: unknown): unknown {
+  if (typeof base !== 'object' || base === null || typeof patch !== 'object' || patch === null) {
+    return patch;
+  }
+  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(patch)) out[key] = merge(out[key], value);
+  return out;
+}
 
 export function natureTitle(variant: NatureVariant): string {
-  const v = VARIANTS[variant];
-  return `${v.title} – ${v.blurb}`;
+  const mood = natureMood(variant);
+  return `${mood.title} – ${mood.blurb}`;
 }
 
 const ASSETS = `${import.meta.env.BASE_URL}lookdev-assets/`;
@@ -246,6 +210,8 @@ class Materials {
       bumpFrom?: string;
       bumpScale?: number;
       alpha?: number;
+      /** Eigenleuchten als Anteil der eigenen Farbe (Nachtstimmungen, Lesbarkeit). */
+      glow?: number;
     } = {},
   ): Material {
     const key = `${hex}-${JSON.stringify(options)}`;
@@ -273,6 +239,7 @@ class Materials {
       mat.invertNormalMapX = true;
     }
     if (options.alpha !== undefined) mat.alpha = options.alpha;
+    if (options.glow) mat.emissiveColor = Color3.FromHexString(hex).scale(options.glow);
     this.cache.set(key, mat);
     return mat;
   }
@@ -678,6 +645,7 @@ function tile(
   kind: TileKind,
   rnd: () => number,
   out: Mesh[],
+  glow: number,
 ): void {
   const root = new TransformNode(`feld-${kind}`, scene);
   root.position = at.clone();
@@ -706,7 +674,7 @@ function tile(
   out.push(top);
   const inlay = CreateCylinder('farbe', { diameter: 0.98, height: 0.02, tessellation: 40 }, scene);
   inlay.position.y = 0.238;
-  inlay.material = mats.plain(PAINT[kind], { roughness: 0.45, clearCoat: 0.6 });
+  inlay.material = mats.plain(PAINT[kind], { roughness: 0.45, clearCoat: 0.6, glow });
   inlay.parent = root;
   out.push(inlay);
   const ring = CreateTorus(
@@ -715,10 +683,10 @@ function tile(
     scene,
   );
   ring.position.y = 0.24;
-  ring.material = mats.plain(CREAM, { roughness: 0.5 });
+  ring.material = mats.plain(CREAM, { roughness: 0.5, glow: glow * 0.5 });
   ring.parent = root;
   out.push(ring);
-  const ink = mats.plain(CREAM, { roughness: 0.4, clearCoat: 0.4 });
+  const ink = mats.plain(CREAM, { roughness: 0.4, clearCoat: 0.4, glow: glow * 0.7 });
   const symbol = new TransformNode('symbol', scene);
   symbol.parent = root;
   symbol.rotation.y = -root.rotation.y;
@@ -749,7 +717,7 @@ function tile(
     const box = CreateBox('geschenk', { size: 0.4 }, scene);
     box.position.y = 0.45;
     box.rotation.y = 0.4;
-    box.material = mats.plain(PAINT.gift, { roughness: 0.5, clearCoat: 0.4 });
+    box.material = mats.plain(PAINT.gift, { roughness: 0.5, clearCoat: 0.4, glow });
     box.parent = symbol;
     out.push(box);
     for (const [w, d] of [
@@ -808,23 +776,120 @@ function trophy(scene: Scene, mats: Materials, at: Vector3, out: Mesh[]): void {
 // Licht, Himmel, Nachbearbeitung
 // ---------------------------------------------------------------------------------------------
 
+/** Laterne aus Pfosten, Arm und Glaskörper; liefert die Position des Glases (Lichtquelle). */
+function lantern(scene: Scene, mats: Materials, at: Vector3, yaw: number, out: Mesh[]): Vector3 {
+  const root = new TransformNode('laterne', scene);
+  root.position = at.clone();
+  root.rotation.y = yaw;
+  const wood = mats.textured('bark_brown_02', { u: 0.5, v: 1, tint: '#9c8572' });
+  const iron = mats.plain('#2b2a28', { metallic: 0.8, roughness: 0.45 });
+  const post = CreateCylinder(
+    'laterne-pfahl',
+    { diameter: 0.1, height: 1.5, tessellation: 10 },
+    scene,
+  );
+  post.position.y = 0.75;
+  post.material = wood;
+  post.parent = root;
+  out.push(post);
+  const arm = CreateBox('laterne-arm', { width: 0.42, height: 0.05, depth: 0.05 }, scene);
+  arm.position.set(0.18, 1.45, 0);
+  arm.material = iron;
+  arm.parent = root;
+  out.push(arm);
+  const cap = CreateCylinder(
+    'laterne-dach',
+    { diameterTop: 0.04, diameterBottom: 0.26, height: 0.12, tessellation: 6 },
+    scene,
+  );
+  cap.position.set(0.36, 1.36, 0);
+  cap.material = iron;
+  cap.parent = root;
+  out.push(cap);
+  const glass = CreateCylinder(
+    'laterne-glas',
+    { diameterTop: 0.2, diameterBottom: 0.15, height: 0.24, tessellation: 6 },
+    scene,
+  );
+  glass.position.set(0.36, 1.18, 0);
+  glass.parent = root;
+  glass.material = mats.plain('#fff1d6', { roughness: 0.2, alpha: 0.9 });
+  root.computeWorldMatrix(true);
+  glass.computeWorldMatrix(true);
+  return glass.getAbsolutePosition().clone();
+}
+
+/** Glühwürmchen: kleine leuchtende Punkte, die langsam über dem Gras schweben. */
+function fireflies(scene: Scene, terrain: Terrain, count: number, rnd: () => number): Mesh {
+  const dot = CreateSphere('gluehwuermchen', { diameter: 0.06, segments: 4 }, scene);
+  const mat = new PBRMaterial('gluehwuermchen', scene);
+  mat.unlit = true;
+  mat.albedoColor = Color3.Black();
+  mat.emissiveColor = Color3.FromHexString('#d9ff7a');
+  mat.emissiveIntensity = 3;
+  dot.material = mat;
+  dot.isPickable = false;
+  const base: { x: number; y: number; z: number; phase: number; speed: number }[] = [];
+  while (base.length < count) {
+    const x = (rnd() * 2 - 1) * 9;
+    const z = (rnd() * 2 - 1) * 7;
+    if (!terrain.inside(x, z, 0.8)) continue;
+    base.push({
+      x,
+      z,
+      y: terrain.height(x, z) + 0.35 + rnd() * 1.3,
+      phase: rnd() * Math.PI * 2,
+      speed: 0.4 + rnd() * 0.6,
+    });
+  }
+  const matrices = new Float32Array(count * 16);
+  let time = 0;
+  const update = (): void => {
+    base.forEach((b, i) => {
+      const t = time * b.speed + b.phase;
+      const pulse = 0.55 + 0.45 * Math.sin(t * 2.3);
+      Matrix.ComposeToRef(
+        new Vector3(pulse, pulse, pulse),
+        Quaternion.Identity(),
+        new Vector3(
+          b.x + Math.sin(t) * 0.35,
+          b.y + Math.sin(t * 1.7) * 0.15,
+          b.z + Math.cos(t * 0.8) * 0.35,
+        ),
+        Matrix.Identity(),
+      ).copyToArray(matrices, i * 16);
+    });
+    dot.thinInstanceSetBuffer('matrix', matrices, 16, false);
+  };
+  update();
+  scene.onBeforeRenderObservable.add(() => {
+    time += scene.getEngine().getDeltaTime() / 1000;
+    update();
+  });
+  return dot;
+}
+
 async function lightScene(
   scene: Scene,
   camera: ArcRotateCamera,
-  spec: VariantSpec,
+  mood: LightMood,
   casters: readonly AbstractMesh[],
   focusDistance: number,
+  lanterns: readonly Vector3[],
+  terrain: Terrain,
 ): Promise<void> {
-  const url = `${ASSETS}${spec.hdri}/${spec.hdri}_1k.hdr${BINARY_SUFFIX}`;
+  const url = `${ASSETS}${mood.sky.hdri}/${mood.sky.hdri}_1k.hdr${BINARY_SUFFIX}`;
   const env = new HDRCubeTexture(url, scene, 256, false, true, false, true);
   scene.environmentTexture = env;
-  scene.environmentIntensity = spec.environmentIntensity;
+  scene.environmentIntensity = mood.sky.intensity;
   const background = new HDRCubeTexture(url, scene, 1024, false, false, false, false);
   const sky = CreateBox('himmel', { size: 500 }, scene);
   const skyMat = new PBRMaterial('himmel', scene);
   skyMat.backFaceCulling = false;
   skyMat.reflectionTexture = background;
   background.coordinatesMode = Texture.SKYBOX_MODE;
+  // Nachthimmel sind sehr dunkel: der sichtbare Himmel folgt der Umgebungsstärke.
+  background.level = Math.max(1, mood.sky.intensity * 0.6);
   skyMat.microSurface = 1;
   skyMat.disableLighting = true;
   skyMat.fogEnabled = false;
@@ -838,13 +903,14 @@ async function lightScene(
     });
     if (env.isReady()) resolve();
   });
-  // Sonnenrichtung aus dem linearen Anteil der Harmonischen (Texturraum, zeigt zur hellsten Seite).
+  // Licht-Richtung aus dem linearen Anteil der Harmonischen (Texturraum, zeigt zur hellsten
+  // Seite: Sonne, nachts der Mond).
   const sh = env.sphericalPolynomial;
   const lum = (v: Vector3): number => v.x * 0.2126 + v.y * 0.7152 + v.z * 0.0722;
   let sunInTexture = sh ? new Vector3(lum(sh.x), lum(sh.y), lum(sh.z)) : new Vector3(0, 1, 0);
   if (sunInTexture.lengthSquared() < 1e-6) sunInTexture = new Vector3(0, 1, 0);
   sunInTexture.normalize();
-  // Himmel so drehen, dass die Sonne schräg von vorn links kommt (Kamera blickt nach +Z):
+  // Himmel so drehen, dass das Licht schräg von vorn links kommt (Kamera blickt nach +Z):
   // keine Gegenlicht-Szene, Schatten fallen nach hinten rechts.
   const wanted = Math.atan2(-0.66, -0.75);
   const toWorld = (rotation: number): Vector3 => {
@@ -867,28 +933,60 @@ async function lightScene(
   const toSun = toWorld(best);
   background.rotationY = best;
   // Nicht zu steil und nicht unter den Horizont (Lesbarkeit der Schatten).
-  toSun.y = Math.min(0.8, Math.max(0.35, toSun.y));
+  toSun.y = Math.min(mood.key.maxElevation, Math.max(mood.key.minElevation, toSun.y));
   toSun.normalize();
   const direction = toSun.scale(-1);
   const sun = new DirectionalLight('sonne', direction, scene);
   sun.position = toSun.scale(40);
-  sun.intensity = spec.sunIntensity;
-  sun.diffuse = Color3.FromHexString(spec.sunTint);
+  sun.intensity = mood.key.intensity;
+  sun.diffuse = Color3.FromHexString(mood.key.tint);
   sun.autoCalcShadowZBounds = true;
   (window as unknown as { __sonne?: number[] }).__sonne = [toSun.x, toSun.y, toSun.z];
   // Puresky-HDRIs sind unten schwarz: ein schwaches Halbkugellicht ersetzt das Bodenlicht.
   const fill = new HemisphericLight('bodenlicht', new Vector3(0, 1, 0), scene);
-  fill.intensity = 0.35;
-  fill.diffuse = Color3.FromHexString(spec.fog);
-  fill.groundColor = Color3.FromHexString('#7d8a52');
+  fill.intensity = mood.fill.intensity;
+  fill.diffuse = Color3.FromHexString(mood.fill.sky);
+  fill.groundColor = Color3.FromHexString(mood.fill.ground);
   fill.specular = Color3.Black();
   const shadows = new ShadowGenerator(4096, sun);
   shadows.useContactHardeningShadow = true;
-  shadows.contactHardeningLightSizeUVRatio = spec.penumbra;
+  shadows.contactHardeningLightSizeUVRatio = mood.key.penumbra;
   shadows.bias = 0.0015;
   shadows.normalBias = 0.012;
   shadows.darkness = 0;
   for (const mesh of casters) shadows.addShadowCaster(mesh, false);
+
+  // Nachtlichter: Laternen als Punktlichter, leuchtendes Glas, Glühwürmchen mit Schein.
+  const night = mood.night;
+  if (night) {
+    const glow = new GlowLayer('schein', scene, { mainTextureSamples: 4, blurKernelSize: 48 });
+    glow.intensity = 0.9;
+    const lanternColor = Color3.FromHexString(night.lanternColor);
+    lanterns.slice(0, night.lanterns).forEach((at, i) => {
+      const light = new PointLight(`laternenlicht-${String(i)}`, at, scene);
+      light.diffuse = lanternColor;
+      light.specular = lanternColor.scale(0.5);
+      light.intensity = night.lanternIntensity;
+      light.range = night.lanternRange;
+    });
+    for (const mesh of scene.meshes) {
+      if (mesh.name !== 'laterne-glas') continue;
+      const lit = new PBRMaterial('laterne-glas-an', scene);
+      lit.unlit = true;
+      lit.albedoColor = Color3.Black();
+      lit.emissiveColor = lanternColor;
+      lit.emissiveIntensity = 1.4;
+      mesh.material = lit;
+      glow.addIncludedOnlyMesh(mesh as Mesh);
+    }
+    if (night.fireflies > 0) {
+      glow.addIncludedOnlyMesh(fireflies(scene, terrain, night.fireflies, seeded(60)));
+    }
+    // Sonne, Bodenlicht und bis zu sechs Laternen pro Material.
+    for (const mat of scene.materials) {
+      if (mat instanceof PBRMaterial) mat.maxSimultaneousLights = 2 + night.lanterns;
+    }
+  }
 
   // Dunst unter der Insel: Die Brettkamera blickt unter den Horizont, wo Puresky-HDRIs schwarz sind.
   const haze = CreateDisc('dunst', { radius: 260, tessellation: 64 }, scene);
@@ -896,19 +994,19 @@ async function lightScene(
   haze.position.y = -9;
   const hazeMat = new PBRMaterial('dunst', scene);
   hazeMat.unlit = true;
-  hazeMat.albedoColor = Color3.FromHexString(spec.fog).toLinearSpace();
+  hazeMat.albedoColor = Color3.FromHexString(mood.haze.color).toLinearSpace();
   haze.material = hazeMat;
   haze.isPickable = false;
   scene.fogMode = 2;
-  scene.fogColor = Color3.FromHexString(spec.fog);
-  scene.fogDensity = spec.fogDensity;
-  scene.clearColor = Color4.FromHexString(`${spec.fog}ff`);
+  scene.fogColor = Color3.FromHexString(mood.haze.color);
+  scene.fogDensity = mood.haze.density;
+  scene.clearColor = Color4.FromHexString(`${mood.haze.color}ff`);
 
   const ssao = new SSAO2RenderingPipeline('ssao', scene, { ssaoRatio: 0.75, blurRatio: 1 }, [
     camera,
   ]);
   ssao.radius = 1.0;
-  ssao.totalStrength = 1.2;
+  ssao.totalStrength = night ? 0.9 : 1.2;
   ssao.samples = 16;
   ssao.maxZ = 150;
 
@@ -917,14 +1015,14 @@ async function lightScene(
   pipeline.imageProcessingEnabled = true;
   pipeline.imageProcessing.toneMappingEnabled = true;
   pipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-  pipeline.imageProcessing.exposure = spec.exposure;
-  pipeline.imageProcessing.contrast = spec.contrast;
+  pipeline.imageProcessing.exposure = mood.grade.exposure;
+  pipeline.imageProcessing.contrast = mood.grade.contrast;
   pipeline.imageProcessing.vignetteEnabled = true;
   pipeline.imageProcessing.vignetteWeight = 1.4;
   pipeline.imageProcessing.vignetteColor = new Color4(0.05, 0.06, 0.08, 0);
   pipeline.bloomEnabled = true;
-  pipeline.bloomThreshold = 0.85;
-  pipeline.bloomWeight = 0.18;
+  pipeline.bloomThreshold = mood.grade.bloomThreshold;
+  pipeline.bloomWeight = mood.grade.bloomWeight;
   pipeline.bloomKernel = 64;
   pipeline.depthOfFieldEnabled = true;
   pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.Low;
@@ -956,7 +1054,8 @@ export interface NatureStage {
 }
 
 export async function buildNatureBoard(scene: Scene, variant: NatureVariant): Promise<NatureStage> {
-  const spec = VARIANTS[variant];
+  const mood = natureMood(variant);
+  const glow = mood.night?.tileGlow ?? 0;
   const mats = new Materials(scene);
   const rnd = seeded(57);
   const casters: Mesh[] = [];
@@ -973,7 +1072,7 @@ export async function buildNatureBoard(scene: Scene, variant: NatureVariant): Pr
 
   const tiles = flat.map((p) => new Vector3(p.x, terrain.height(p.x, p.z), p.z));
   tiles.forEach((at, i) => {
-    tile(scene, mats, at, kinds[i] ?? 'plus', rnd, casters);
+    tile(scene, mats, at, kinds[i] ?? 'plus', rnd, casters, glow);
     const next = tiles[i + 1];
     if (next) {
       for (let k = 1; k <= 2; k++) {
@@ -1080,7 +1179,18 @@ export async function buildNatureBoard(scene: Scene, variant: NatureVariant): Pr
     tiles.some((t) => Math.hypot(t.x - x, t.z - z) < 0.98) ||
     Math.hypot((x - pond.x) / 1.0, (z - pond.z) / 0.72) < 2.1 ||
     Math.hypot(x - base.x, z - base.z) < 0.55;
-  scatterGrass(scene, terrain, 42000, avoid, spec.grassTip, rnd);
+  // Laternen hinter dem Weg (von der Kamera aus), je zwischen zwei Feldern.
+  const lanternSpots: Vector3[] = [];
+  for (const i of [0, 2, 4, 6]) {
+    const a = tiles[i];
+    const b = tiles[i + 1];
+    if (!a || !b) continue;
+    const p = Vector3.Lerp(a, b, 0.5).add(new Vector3(0, 0, 1.15));
+    p.y = terrain.height(p.x, p.z) - 0.03;
+    lanternSpots.push(lantern(scene, mats, p, -Math.PI / 2 + (rnd() - 0.5) * 0.6, casters));
+  }
+
+  scatterGrass(scene, terrain, 42000, avoid, mood.grassTip, rnd);
 
   // Farne und Blumen (CC0-Modelle) in Gruppen.
   const fern = await loadPlant(scene, 'fern_02');
@@ -1116,9 +1226,9 @@ export async function buildNatureBoard(scene: Scene, variant: NatureVariant): Pr
     casters,
     tiles: tiles.map((t) => t.add(new Vector3(0, 0.25, 0))),
     spots: [],
-    material: (hex) => mats.plain(hex, { roughness: 0.5, clearCoat: 0.25 }),
+    material: (hex) => mats.plain(hex, { roughness: 0.5, clearCoat: 0.25, glow }),
     light: (camera, extra, focusDistance) =>
-      lightScene(scene, camera, spec, [...casters, ...extra], focusDistance),
+      lightScene(scene, camera, mood, [...casters, ...extra], focusDistance, lanternSpots, terrain),
   };
 }
 
@@ -1146,7 +1256,8 @@ function blanketTexture(scene: Scene): DynamicTexture {
 }
 
 export function buildNatureArena(scene: Scene, variant: NatureVariant): Promise<NatureStage> {
-  const spec = VARIANTS[variant];
+  const mood = natureMood(variant);
+  const glow = mood.night?.tileGlow ?? 0;
   const mats = new Materials(scene);
   const rnd = seeded(7);
   const casters: Mesh[] = [];
@@ -1322,7 +1433,24 @@ export function buildNatureArena(scene: Scene, variant: NatureVariant): Promise<
     const lz = x * s + z * c;
     return Math.abs(lx) < 6.6 && Math.abs(lz) < 6.6;
   };
-  scatterGrass(scene, terrain, 26000, blanketAvoid, spec.grassTip, rnd);
+  // Laternen an den hinteren Ecken der Decke und seitlich.
+  const lanternSpots = (
+    [
+      [-7.6, 3.6],
+      [7.4, 3.2],
+      [-8.2, -3.6],
+      [8.0, -3.0],
+    ] as const
+  ).map(([x, z]) =>
+    lantern(
+      scene,
+      mats,
+      new Vector3(x, terrain.height(x, z) - 0.03, z),
+      x < 0 ? 0 : Math.PI,
+      casters,
+    ),
+  );
+  scatterGrass(scene, terrain, 26000, blanketAvoid, mood.grassTip, rnd);
 
   const spots = [0, 1, 2, 3].map((i) => {
     const a = -Math.PI / 2 + (i - 1.5) * 0.62;
@@ -1332,8 +1460,8 @@ export function buildNatureArena(scene: Scene, variant: NatureVariant): Promise<
     casters,
     tiles: [],
     spots,
-    material: (hex) => mats.plain(hex, { roughness: 0.5, clearCoat: 0.25 }),
+    material: (hex) => mats.plain(hex, { roughness: 0.5, clearCoat: 0.25, glow }),
     light: (camera, extra, focusDistance) =>
-      lightScene(scene, camera, spec, [...casters, ...extra], focusDistance),
+      lightScene(scene, camera, mood, [...casters, ...extra], focusDistance, lanternSpots, terrain),
   });
 }

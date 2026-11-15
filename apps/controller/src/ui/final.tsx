@@ -11,8 +11,8 @@ import {
   PAUSE_TITLE,
   REMATCH_HINT,
 } from '../board/final.ts';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { Icon } from './icons.tsx';
-import { Portrait } from './portrait.tsx';
 
 /** Pause: klar erkennbar, keine Bedienelemente (der Server bietet nichts an). */
 export function PauseCard({ compact = false }: { compact?: boolean }) {
@@ -49,7 +49,7 @@ export function FinalCard({
       data-compact={compact}
     >
       <div className="final-hero">
-        <Portrait character={view.character} className="final-portrait" />
+        <CharacterPortrait character={view.character} className="final-portrait" decorative />
         <div className="final-headings">
           {view.placeLabel !== null && (
             <span

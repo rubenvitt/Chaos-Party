@@ -1,5 +1,5 @@
 /**
- * CHAOS-38: Host-Verbindungsverlust im laufenden Brettspiel (ADR-014, Nachtrag „Auto-Pause“).
+ * CHAOS-38: Host-Verbindungsverlust im laufenden Brettspiel (ADR-015, Nachtrag „Auto-Pause“).
  *
  * Verliert der Host (PC-Tab) die Verbindung – Neuladen, Absturz, eingefrorener Tab –, pausiert
  * die Session die Partie selbst: keine Frist läuft ab, kein Minispiel wird abgebrochen, keine

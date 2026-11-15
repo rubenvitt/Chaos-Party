@@ -1,5 +1,5 @@
 /**
- * Session-Tests für Protokoll v4 (M4, ADR-014): Figurenwahl, Rundenzahl, Pause/Fortsetzen/
+ * Session-Tests für Protokoll v4 (M4, ADR-015): Figurenwahl, Rundenzahl, Pause/Fortsetzen/
  * Beenden, Revanche, Minispiel-Bestätigung und Reconnect in allen neuen Zuständen.
  * Läuft über den synthetischen Host/Controller aus `testHarness.ts` (künstliche Uhr).
  */

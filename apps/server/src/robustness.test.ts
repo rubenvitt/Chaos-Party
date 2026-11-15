@@ -1,6 +1,6 @@
 /**
  * CHAOS-38: Robustheit der Session gegen kaputte, unpassende und gefälschte Nachrichten für
- * alle v4-Nachrichten (ADR-005 Prüfreihenfolge, ADR-014), Rate-Limits und ein Fuzz-Lauf:
+ * alle v4-Nachrichten (ADR-005 Prüfreihenfolge, ADR-015), Rate-Limits und ein Fuzz-Lauf:
  * zufällige (seeded) Folgen gültiger und ungültiger Nachrichten mehrerer Clients über eine
  * ganze Partie – keine Ausnahme, kein `internal`, die Partie endet in `game-results`.
  */

@@ -57,13 +57,13 @@ export interface BoardGameSettings {
 }
 
 /**
- * Standard-Rundenzahl (EXP-010/011, CHAOS-40): ≈ 14–16 Minuten mit 3–4 Spielern, alle drei
+ * Standard-Rundenzahl (EXP-011/012, CHAOS-40): ≈ 14–16 Minuten mit 3–4 Spielern, alle drei
  * Minispiele kommen drei- bis viermal dran, und in 63–81 % der Partien entscheiden die
  * Trophäen (bei 5 Runden nur 49–76 %, ein Drittel der Spieler ohne Trophäe).
  */
 export const DEFAULT_ROUNDS = 10;
 /**
- * Vorschläge kurz/mittel/lang (EXP-010, Bot-Simulation mit gemütlichem Entscheidungstempo,
+ * Vorschläge kurz/mittel/lang (EXP-011, Bot-Simulation mit gemütlichem Entscheidungstempo,
  * Minispiel-Rotation und Finale; 3–4 Spieler): 10 ≈ 14–16 min, 16 ≈ 22–25 min,
  * 20 ≈ 27–31 min. 40 Minuten bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20).
  */
@@ -92,7 +92,7 @@ export type MinigameAction = 'move' | 'button-a' | 'button-b';
 export interface BoardGamePlayer {
   readonly slot: Slot;
   readonly name: string;
-  /** Gewählte bzw. beim Start zugewiesene Figur (nur Darstellung, ADR-014). */
+  /** Gewählte bzw. beim Start zugewiesene Figur (nur Darstellung, ADR-015). */
   readonly character: CharacterId;
 }
 
@@ -303,7 +303,7 @@ export class BoardGame {
   /** Eingaben, die gerade (Minispiel läuft) angeboten werden; sonst leer. */
   minigameActions(): MinigameAction[] {
     const state = this.stateValue;
-    // Pause (ADR-014): keine Eingaben, der Server leitet nichts an den Host weiter.
+    // Pause (ADR-015): keine Eingaben, der Server leitet nichts an den Host weiter.
     if (state.phase !== 'minigame-play' || !state.minigame || state.paused) return [];
     const info = getMinigameInfo(state.minigame.id);
     if (!info) return [];

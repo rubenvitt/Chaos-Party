@@ -285,7 +285,7 @@ export interface TrapState {
 }
 
 /**
- * Kriterium, das den Platz entschieden hat (M4, ADR-014): Trophäen → Münzen → Minispiel-Siege;
+ * Kriterium, das den Platz entschieden hat (M4, ADR-015): Trophäen → Münzen → Minispiel-Siege;
  * `shared` = mit mindestens einem anderen in allen drei gleich (geteilter Platz).
  */
 export type RankingCriterion = 'trophies' | 'coins' | 'minigame-wins' | 'shared';

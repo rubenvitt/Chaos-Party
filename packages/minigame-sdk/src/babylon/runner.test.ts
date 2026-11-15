@@ -213,7 +213,7 @@ describe('Minispiel-Laufzeit', () => {
     headless.dispose();
   });
 
-  it('Pause hält Spielzeit an, ignoriert Eingaben und lässt Gehaltenes los (ADR-014)', async () => {
+  it('Pause hält Spielzeit an, ignoriert Eingaben und lässt Gehaltenes los (ADR-015)', async () => {
     const probeGame = probe({});
     const { runner, headless } = await setup(probeGame.module);
     await runner.prepare();

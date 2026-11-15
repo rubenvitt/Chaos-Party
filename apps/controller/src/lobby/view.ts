@@ -1,5 +1,5 @@
 /**
- * Lobby mit Charakterwahl am Controller (v4, CHAOS-36, ADR-014). Rein, ohne DOM: dieselbe
+ * Lobby mit Charakterwahl am Controller (v4, CHAOS-36, ADR-015). Rein, ohne DOM: dieselbe
  * Ableitung nutzen iPhone (`CharacterLobby`), iPad-Zone (`ZoneBoard`) und die Zonen-Geometrie.
  *
  * Der Server entscheidet, was geht (`actions`: `ready`, `pick-character`) und welche Figuren

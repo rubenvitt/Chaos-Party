@@ -1,5 +1,5 @@
 /**
- * Testhelfer für Session-Integrationstests (CHAOS-23/34, M4 ADR-014): Session mit künstlicher
+ * Testhelfer für Session-Integrationstests (CHAOS-23/34, M4 ADR-015): Session mit künstlicher
  * Uhr, synthetische Controller-Bots (antworten nur auf angebotene Prompts) und ein
  * synthetischer Host (zeichnet `board`/`lobby`/`input`/Bestätigungen auf, meldet Minispiel-
  * Ergebnisse). Nur für Tests; kein Teil des Server-Builds (`main.ts` importiert es nicht).

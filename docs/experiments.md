@@ -22,10 +22,11 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-006 | Physik-Minispiel (Havok): Konzepte | CHAOS-29, CHAOS-31 | keep A5 „Pudding-Gerangel“ (Kirschfleck + Wackelkrone); „Letzter oben“, Saldo, „Krümel-Kehraus“ discard |
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
 | EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
-| EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen |
-| EXP-010 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20 |
-| EXP-011 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
-| EXP-012 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
+| EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen → EXP-010 |
+| EXP-010 | Lichtstimmung: je Brett, Uhrzeit oder Spielverlauf, inkl. Nacht | CHAOS-60 | keep C „Spielverlauf“ (Ruben, 2026-11-15); A und B discard |
+| EXP-011 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20 |
+| EXP-012 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
+| EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 
 ---
 
@@ -75,7 +76,7 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 `--silent=false` ist nötig, weil Vitest die Konsolenausgabe bestandener Tests sonst ausblendet. Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test mit 2 Seeds (Teil von `pnpm test`, < 0,5 s).
 
 - **Code:** Varianten und Kennzahlen in `packages/game-core/src/rules/experiments.ts`, Bot-Partien in `packages/game-core/src/rules/simulate.ts`.
-- **Seeds:** 1–200 je Variante und Spielerzahl (2, 3, 4), also 600 Partien je Variante. **5 Runden** (damaliger Server-Standard `DEFAULT_ROUNDS`, seit EXP-010 10), Brett Wackelwald.
+- **Seeds:** 1–200 je Variante und Spielerzahl (2, 3, 4), also 600 Partien je Variante. **5 Runden** (damaliger Server-Standard `DEFAULT_ROUNDS`, seit EXP-011 10), Brett Wackelwald.
 - **Wiederholbarkeit:** Alle Varianten bauen auf `START_RULES`/`START_BOARD` auf (Werte vor CHAOS-24), nicht auf `DEFAULT_RULES`. Die Zeile **Z** zeigt jeweils die neuen Standardwerte. Ein Test prüft, dass die gewählten Werte (`CHOICE_RULES`, `CHOICE_BOARD`) genau `DEFAULT_RULES` und dem Wackelwald entsprechen.
 - **Bots (`EXPERIMENT_POLICY`):** Entscheidungszeit gleichverteilt 0,8–2,5 s. Items vor dem Wurf mit 50 % Wahrscheinlichkeit einsetzen. Münzklau auf die reichste Person. Trophäe immer kaufen, wenn das Geld reicht. An Gabeln zu 75 % den kürzeren Weg zur nächsten aktiven Trophäe, sonst zufällig (Menschen sehen die Trophäe am Fernseher). Reaktion zu 70 % mit 600–3600 ms (EXP-004: eigene Profile). Wie stark die Ergebnisse am Bot-Verhalten hängen, zeigt die Robustheitstabelle unter EXP-003.
 - **Dauer:** Pacing plus Bot-Entscheidungszeit. „Brett min“ ist die Partiedauer ohne die Minispielphasen. Der Platzhalter braucht 10 s je Runde (Intro, Spiel, Ergebnis, Rundenende). Echte Minispiele (M3) dauern länger.
@@ -852,7 +853,36 @@ Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Ver
 
 ---
 
-## Gemeinsamer Aufbau von EXP-010 … EXP-012 (2026-11-15, CHAOS-40)
+## EXP-010: Lichtstimmung je Brett, nach Uhrzeit oder nach Spielverlauf, inkl. Nacht (2026-11-15, CHAOS-60)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Wechsel der Lichtstimmung macht die Welt lebendiger als ein fest eingestelltes Licht. Am stärksten wirkt er als Bogen über die Partie: Die erste Runde spielt morgens, die letzte nachts mit Laternen. So spürt man das Finale, ohne dass Text es ansagt. Dabei bleiben Felder, Figuren und Slot-Farben in jeder Stimmung am Fernseher lesbar.
+
+**Varianten (Zuordnung):**
+- A „je Brett“: jedes Brett hat eine feste Stimmung (Wackelwald = goldene Stunde). Am ruhigsten und am besten planbar, aber ohne Abwechslung innerhalb einer Partie.
+- B „PC-Uhrzeit“: Stimmung nach der echten Uhrzeit (6–11 Morgen, 11–16 Mittag, 16–19 goldene Stunde, 19–21 Dämmerung, sonst Nacht). Überraschend und „echt“, aber Partyabende liegen fast immer bei Dämmerung oder Nacht: Dann sieht man meist dieselbe Stimmung, und Tagesbilder gibt es abends nie.
+- C „Spielverlauf“: Runde 1 → Morgen, … letzte Runde → Nacht (`ROUND_ARC`, bei 5 Runden jede Stimmung einmal, bei mehr Runden länger je Stimmung, nie rückwärts). Minispiele erben die Stimmung der Runde. Liefert Abwechslung und Dramaturgie, kostet einen Lichtwechsel pro Runde (zwischen den Runden, hinter einer Überblendung).
+
+**Stimmungen (Daten in `apps/host/src/lighting/moods.ts`):** Morgen, Mittag, Bewölkt, Goldene Stunde, Dämmerung, Nacht. Alle außer „Bewölkt“ stammen aus derselben Poly-Haven-Serie (Qwantani, CC0), der Himmel passt also zusammen. Dämmerung und Nacht bringen 4 Laternen (Punktlichter, leuchtendes Glas), Glühwürmchen (Thin Instances mit Schein) und leuchtende Feld-Einlagen und Slot-Ringe (`tileGlow` 0,25 bzw. 0,7) mit.
+
+**Objektive Messgrößen:** Lesbarkeit der Feld-Symbole und Slot-Ringe im Screenshot (1280×720, wie aus 3 m), mittlere Bildhelligkeit je Stimmung, Zeichenaufrufe (Nacht: +16 durch Laternen und Glühwürmchen) und Lichter pro Material (Nacht bis 6 statt 2).
+
+**Subjektive Playtest-Fragen (für Ruben):** Welche Zuordnung? Ist die Nacht dunkel genug, um Nacht zu sein, aber hell genug zum Spielen? Stören die Laternen am Tag? Soll „Bewölkt“ als Brett-Stimmung bleiben?
+
+**Testumgebung:** Vitrine `lookdev.html?look=natur-<morgen|mittag|wolken|abend|daemmerung|nacht>&shot=<brett|figur|minispiel>`, Feinabstimmung ohne Neubau mit `&tune={"key":{"intensity":2}}`. SwiftShader (Software-Rendering), Chromium, 1280×720, 1 Bild nach `whenReadyAsync`.
+
+**Ergebnisse:** Alle 18 Bilder (6 Stimmungen × Brett/Figuren/Minispiel) rendern ohne Seitenfehler. Mittlere Bildhelligkeit (0–255) Brett / Figuren / Minispiel: Morgen 159/114/163, Mittag 154/106/157, Bewölkt 170/125/173, Goldene Stunde 158/122/164, Dämmerung 83/100/127, Nacht 38/82/85. Die Nacht ist im Brett-Überblick deutlich dunkel, die Feld-Einlagen, Symbole und Slot-Ringe stechen aber durch ihr Eigenleuchten heraus. In der Figuren-Nahansicht bleiben alle Slot-Farben unterscheidbar. Zeichenaufrufe Brett 688 → 704 nachts (Laternen, Glühwürmchen), Minispiel 409 → 425.
+
+Fehler unterwegs behoben: Gras und Kronen wurden in Dämmerung und Nacht weißlich. Die Ursache war die starke Umgebungsbeleuchtung aus dem HDRI, die bei schwacher Sonne dominiert; Laternen und zusätzliche Lichter pro Material waren es nicht (gegengeprüft per Abschaltung). Lösung: Umgebungsstärke 0,35 bzw. 0,5 statt 1,3 bzw. 2,5, dafür mehr Belichtung und stärkere Laternen. HDRI-Vergleich Nacht: `qwantani_moonrise_puresky` und `qwantani_night_puresky` zeigen über dem Horizont einen hellen Streifen, `qwantani_moon_noon_puresky` bleibt sauber dunkelblau → gewählt. Dämmerung: `dusk_1` und `dusk_2` fast gleich, `dusk_2` behalten. Verworfene HDRIs sind wieder aus `polyhaven.json` entfernt.
+
+Bilder: Entscheidungsseite https://claude.ai/artifact/5WVskYB8BoiVT7wxsYuYCK, begehbare 3D-Fassung mit allen Stimmungen https://claude.ai/artifact/P4BrCKbYSyfXGHAo726W71 (Version 5).
+
+**Entscheidung:** keep C „Spielverlauf“, Ruben im Chat am 2026-11-15: „C“. Jede Partie ist ein Tag (`moodForRound`), Minispiele erben die Stimmung der Runde. A (fest je Brett) und B (Uhrzeit) sind verworfen; `moodForBoard` bleibt als Rückfall für Szenen ohne Runde (Lobby, Siegerehrung). Einbau ins Spiel: CHAOS-62 (Natur-Look im Spiel), CHAOS-63 (Lichtverlauf je Runde mit Überblendung).
+
+**Offen für Playtest:** Wirkung der Nacht am Fernseher (Schwarzwert, Abstand 3 m), Bildrate am Ziel-PC mit 6 Lichtern pro Material, ob der Wechsel zwischen den Runden als Überblendung reicht.
+
+---
+
+## Gemeinsamer Aufbau von EXP-011 … EXP-013 (2026-11-15, CHAOS-40)
 
 M4-Bot-Simulationen mit den **aktuellen** Regeln (`DEFAULT_RULES`, Brett Wackelwald, Stand nach EXP-001 … EXP-004) und – neu – der **echten Minispiel-Rotation** aus M3 statt des Platzhalters. Wie bei EXP-001 … 004 sind das **Näherungen**, kein Spaß-Beweis: Bots entscheiden nach festen Regeln, Minispiel-Ergebnisse sind Zufallspunkte.
 
@@ -871,7 +901,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 ---
 
-## EXP-010: Partiedauer und Runden-Vorschläge mit echten Minispielen (2026-11-15, CHAOS-40)
+## EXP-011: Partiedauer und Runden-Vorschläge mit echten Minispielen (2026-11-15, CHAOS-40)
 
 **Hypothese / gewünschtes Spielerlebnis:** Die Lobby bietet drei Vorschläge, die sich wie „kurz/mittel/lang“ anfühlen: ≈ 15, 25 und 40 Minuten. Die Platzhalter 3/5/8 Runden (CHAOS-36) sind viel zu kurz, seit jede Runde ein echtes Minispiel von 30–35 s plus Anleitung und Ergebnis hat. Die Lobby-Anzeige „≈ 3 Min./Runde“ ist geraten.
 
@@ -885,7 +915,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 **Ergebnisse:**
 
-**EXP-010 Partiedauer mit Minispiel-Rotation und Finale (Seeds 1–200 je Zeile)**
+**EXP-011 Partiedauer mit Minispiel-Rotation und Finale (Seeds 1–200 je Zeile)**
 
 | Runden | Sp. | min flott | min gemütlich | p90 gemütlich | min/Runde gemütlich | Anteil ohne Brettzüge |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -917,9 +947,9 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 - Eine Runde dauert (gemütlich) **1,16 min mit 2, 1,34 min mit 3 und 1,51 min mit 4 Spielern**, flott etwa 8–10 % weniger. Die Streuung ist klein (p90 nur ≈ 0,3–0,5 min über dem Mittel), denn die Minispiele haben feste Längen.
 - **54–69 % der Partie** sind Minispiel-Phasen und Rundenwechsel (bei 2 Spielern mehr, weil es weniger Züge je Runde gibt). Je Runde sind ≈ 45–50 s fest: 7 s Anleitung, 30–35 s Spiel, 6 s Ergebnis, 1,5 s Rundenende.
 - **≈ 15 min:** 10 Runden (14,0–15,5 min mit 4, 12,5–13,7 mit 3 Spielern). **≈ 25 min:** 16 Runden (22,2–24,5 mit 4, 19,9–21,8 mit 3). **≈ 40 min** bräuchte 26 (4 Spieler) bis 30 (3 Spieler) Runden, also mehr als `MAX_ROUNDS` = 20. Mit 20 Runden sind es 27,6–30,6 min (4) bzw. 24,8–27,1 min (3).
-- Die bisherigen Vorschläge 3/5/8 ergeben 4–12,5 min. 3 Runden sind außerdem wertungsschwach (EXP-011).
+- Die bisherigen Vorschläge 3/5/8 ergeben 4–12,5 min. 3 Runden sind außerdem wertungsschwach (EXP-012).
 
-**Entscheidung:** **keep** neue Vorschläge **10 / 16 / 20** (`DEFAULT_ROUND_PRESETS`) und Standard **10** (`DEFAULT_ROUNDS`, vorher 5) in `apps/server/src/game.ts`. Begründung für den Standard: ≈ 15 min passt zu einer Couch-Party und einer ersten Partie, jedes der drei Minispiele kommt 3–4-mal dran, und die Trophäen entscheiden in 63–81 % der Partien (EXP-011; mit 5 Runden nur 49–76 %, und ein Drittel der Spieler bleibt ohne Trophäe). „Lang“ ist 20, weil `MAX_ROUNDS` ein Protokollwert ist (v4) und 26–30 Runden mit nur drei Minispielen (je 9–10-mal) eher ermüden als Spaß machen. **Frage an Ruben:** Sind „40 min“ wirklich gewollt? Dann `MAX_ROUNDS` anheben, am besten zusammen mit mehr Minispielen. Die Lobby zeigt die Dauer jetzt nach Spielerzahl (`roundsDuration(rounds, players)` in `apps/host/src/lobby/lobbyState.ts`: 1,15/1,35/1,5 min je Runde + Finale, auf 5 min gerundet; ohne Spieler wird mit 4 gerechnet).
+**Entscheidung:** **keep** neue Vorschläge **10 / 16 / 20** (`DEFAULT_ROUND_PRESETS`) und Standard **10** (`DEFAULT_ROUNDS`, vorher 5) in `apps/server/src/game.ts`. Begründung für den Standard: ≈ 15 min passt zu einer Couch-Party und einer ersten Partie, jedes der drei Minispiele kommt 3–4-mal dran, und die Trophäen entscheiden in 63–81 % der Partien (EXP-012; mit 5 Runden nur 49–76 %, und ein Drittel der Spieler bleibt ohne Trophäe). „Lang“ ist 20, weil `MAX_ROUNDS` ein Protokollwert ist (v4) und 26–30 Runden mit nur drei Minispielen (je 9–10-mal) eher ermüden als Spaß machen. **Frage an Ruben:** Sind „40 min“ wirklich gewollt? Dann `MAX_ROUNDS` anheben, am besten zusammen mit mehr Minispielen. Die Lobby zeigt die Dauer jetzt nach Spielerzahl (`roundsDuration(rounds, players)` in `apps/host/src/lobby/lobbyState.ts`: 1,15/1,35/1,5 min je Runde + Finale, auf 5 min gerundet; ohne Spieler wird mit 4 gerechnet).
 
 **Offen für Playtest:** Echte Dauer mit Stoppuhr (Menschen sind vermutlich langsamer als „gemütlich“: Erklären, Lachen, Nachfragen). Verdrängt der hohe Minispiel-Anteil das Brettspiel (VISION, Produktsäule 3)?
 
@@ -927,9 +957,9 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 ---
 
-## EXP-011: Wertung, Gleichstandsregel, Aufholeffekt und Trophäen-Ökonomie (2026-11-15, CHAOS-40)
+## EXP-012: Wertung, Gleichstandsregel, Aufholeffekt und Trophäen-Ökonomie (2026-11-15, CHAOS-40)
 
-**Hypothese / gewünschtes Spielerlebnis:** Meistens entscheiden die Trophäen. Die Gleichstandsregel (Trophäen → Münzen → Minispiel-Siege, ADR-014) ist ein seltener, erklärbarer Sonderfall, und ein geteilter Sieg bleibt die Ausnahme. Wer zur Halbzeit führt, hat einen Vorteil, aber kein sicheres Ende („Comeback möglich“). Die Ökonomie aus EXP-002 (Preis 15, Minispiel 10/5/3/0) wurde nur mit dem Platzhalter-Minispiel und 5 Runden gemessen. Trägt sie auch längere Partien mit echter Rotation?
+**Hypothese / gewünschtes Spielerlebnis:** Meistens entscheiden die Trophäen. Die Gleichstandsregel (Trophäen → Münzen → Minispiel-Siege, ADR-015) ist ein seltener, erklärbarer Sonderfall, und ein geteilter Sieg bleibt die Ausnahme. Wer zur Halbzeit führt, hat einen Vorteil, aber kein sicheres Ende („Comeback möglich“). Die Ökonomie aus EXP-002 (Preis 15, Minispiel 10/5/3/0) wurde nur mit dem Platzhalter-Minispiel und 5 Runden gemessen. Trägt sie auch längere Partien mit echter Rotation?
 
 **Varianten:**
 - Rundenzahl 3, 5, 8, 10, 16, 20 mit den Standardwerten.
@@ -943,7 +973,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 **Ergebnisse:**
 
-**EXP-011 Wertung, Gleichstand, Aufholeffekt (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
+**EXP-012 Wertung, Gleichstand, Aufholeffekt (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
 
 | Runden | Sp. | Trophäen/Partie | Sieger-Trophäen | Sieger ohne Trophäe | Spieler ohne Trophäe | Sieg per Trophäen | per Münzen | per Minispiel-Siegen | Sieg geteilt | ein Platz geteilt | Minispiel P1 geteilt | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -966,7 +996,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 | 20 | 3 | 14,93 | 6,99 | 0 % | 1 % | 88 % | 12 % | 0 % | 0 % | 0 % | 3 % | 64 % | 11 % | 33 % |
 | 20 | 4 | 17,08 | 6,22 | 0 % | 1 % | 77 % | 23 % | 1 % | 0 % | 1 % | 5 % | 62 % | 4 % | 25 % |
 
-**EXP-011 Ökonomie-Varianten mit Rotation (Seeds 1–200 je Zeile)**
+**EXP-012 Ökonomie-Varianten mit Rotation (Seeds 1–200 je Zeile)**
 
 | Runden | Variante | Sp. | Trophäen/Partie | Sieger-Trophäen | ohne Trophäe | Sieg per Trophäen | Führender (Hälfte) gewinnt | Siege Slot 1 | Münzen Ende |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1012,7 +1042,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 - **Aufholeffekt:** Der alleinige Halbzeit-Führende gewinnt bei 10 Runden 59–73 % (fair 33–50 %), mit vier Spielern 56–62 % (fair 25 %). Der Halbzeit-Letzte gewinnt noch 10–27 % (vier Spieler: 4–11 %). Führung zählt deutlich, aber ab 8 Runden dreht sich unabhängig von der Rundenzahl noch jede dritte bis vierte Partie.
 - **Ökonomie:** Preis 20 (B, E) senkt die Trophäen und erhöht die Münz-Entscheidungen (4 Spieler, 10 Runden: Sieg per Trophäen 55–60 % statt 63 %). Weniger Minispiel-Münzen (C) wirken ebenso. Die Trostmünze (D) ändert praktisch nichts. Ein Minispiel-Profi (+10 von 40 Punkten) gewinnt mit vier Spielern 46–47 % statt fair 25 %: Können in Minispielen zahlt sich aus, ohne dass das Brett egal wird.
 
-**Entscheidung:** **keep** – Trophäenpreis 15 und Minispiel-Münzen 10/5/3/0 bleiben (`packages/game-core/src/rules/defaults.ts` unverändert). Keine Variante erhöht den Anteil der Trophäen-Siege, und die Münzen reichen auch in langen Partien (Ende Ø 40–92). Die Gleichstandsregel bleibt (ADR-014). Der wirksame Hebel ist die Rundenzahl (EXP-010: Standard 10 statt 5).
+**Entscheidung:** **keep** – Trophäenpreis 15 und Minispiel-Münzen 10/5/3/0 bleiben (`packages/game-core/src/rules/defaults.ts` unverändert). Keine Variante erhöht den Anteil der Trophäen-Siege, und die Münzen reichen auch in langen Partien (Ende Ø 40–92). Die Gleichstandsregel bleibt (ADR-015). Der wirksame Hebel ist die Rundenzahl (EXP-011: Standard 10 statt 5).
 
 **Offen für Playtest:** Verständlichkeit und Gefühl der Münz-Entscheidung, Halbzeit-Vorteil, Wert einer Trophäe in langen Partien.
 
@@ -1020,7 +1050,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 ---
 
-## EXP-012: Sabotage-Häufigkeit und Item-Stärke über lange Partien (2026-11-15, CHAOS-40)
+## EXP-013: Sabotage-Häufigkeit und Item-Stärke über lange Partien (2026-11-15, CHAOS-40)
 
 **Hypothese / gewünschtes Spielerlebnis:** Sabotage (Münzklau, Falle) sorgt für Schadenfreude und Überraschung, **ohne zu frustrieren** (VISION, Produktsäule 1). Ziel aus EXP-003: Verlust je Treffer im Mittel ≤ 25 % des Bestands. Neu für M4: Der gesamte Sabotage-Verlust bleibt ein kleiner Teil der Einnahmen, und die am stärksten getroffene Person verliert über die Partie höchstens etwa eine Trophäe (15 Münzen). Erwartung: Mit dem neuen Standard von 10 Runden und den Minispiel-Münzen werden Sabotagen relativ schwächer.
 
@@ -1034,7 +1064,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 **Ergebnisse:**
 
-**EXP-012 Sabotage mit Rotation (Seeds 1–200 je Zeile)**
+**EXP-013 Sabotage mit Rotation (Seeds 1–200 je Zeile)**
 
 | Runden | Variante | Sp. | Sabotagen/Partie | je Runde | Verlust/Einnahmen | Verlust/Bestand | p90 | Münzen/Treffer | Spitzenopfer Münzen | p90 | Spitzenopfer/Einnahmen | max. Treffer auf einen | Trophäen |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

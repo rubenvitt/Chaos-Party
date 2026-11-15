@@ -3,7 +3,9 @@
 **Stand:** M3 (CHAOS-27, CHAOS-28), Figuren neu in CHAOS-58 (Blender, ADR-013, Look
 „Stilisierte Natur“ aus EXP-009). Gilt für Figuren, Brett, Minispiele, Effekte und UI. Die
 Abschnitte zu Licht, Farbe und Brett beschreiben noch den M3-Stand, bis der Natur-Look
-umgesetzt ist (CHAOS-56).
+umgesetzt ist (CHAOS-56). Lichtstimmungen des Natur-Looks stehen als Daten in
+`apps/host/src/lighting/moods.ts` (CHAOS-60, EXP-010): Nachtstimmungen lassen Feld-Einlagen und
+Slot-Ringe von innen leuchten, damit Slot-Farbe und Symbol lesbar bleiben.
 Belege: `docs/screenshots/m3-figuren-*.png`. Quelle der Wahrheit für Produkt und Stil bleibt `VISION.md`.
 
 ## Leitbild
@@ -98,9 +100,19 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
 - **Generiert** (eingecheckte Dateien): Figuren als GLB aus **Blender-Skripten**
   (`packages/assets/blender/`, bpy 5.3 als Python-Modul, ADR-013): weiche Körper aus
   Skin-Modifier + Subdivision, Vertexfarben, Sheen/Klarlack, Skelett und sieben Clips.
-  Erzeugen: `packages/assets/blender/build-all.sh` (venv mit `requirements.txt`). Porträts als
-  SVG aus `packages/assets/src/generator/` (`pnpm generate:assets`); ein Test prüft, dass dieser
-  Generator genau die eingecheckten Porträts erzeugt.
+  Erzeugen: `packages/assets/blender/build-all.sh` (venv mit `requirements.txt`).
+- **Porträts** (CHAOS-61): Cycles-Render derselben Blender-Figuren (`portrait.py`,
+  `portraits-all.sh`): Kopf und Schultern im Dreiviertelprofil, erste Idle-Pose, warme Sonne,
+  Himmelslicht und kühles Gegenlicht, transparenter Hintergrund, 384 × 384 WebP. Das Material
+  `akzent` ist im Bild **weiß**; eine zweite Datei `<id>-akzent.webp` ist die Maske des
+  sichtbaren Akzents. Lobby und Controller legen die Slot-Farbe per CSS-Maske mit
+  `mix-blend-mode: multiply` darüber (Licht und Schatten bleiben). Das Slot-Symbol steht immer
+  daneben (Lobby: Marke am Porträt, Controller: Marke am Avatar in der Plakette).
+  In den Figurenkarten der Controller-Lobby (M4, CHAOS-36) nimmt der Akzent die Farbe des
+  Besitzers an (`--portrait-color`), vergebene Figuren ohne bekannten Besitzer grau; Plakette
+  und Endstand zeigen die gewählte Figur.
+  Renders sind nicht byte-gleich reproduzierbar (Entrauschen), darum prüft `check:assets` Format,
+  Maße, Alpha und das Paar Bild/Maske statt eines Byte-Vergleichs.
 - **Importiert:** nur mit Lizenz auf der Positivliste (Eigenwerk, CC0-1.0, CC-BY-4.0, OFL-1.1,
   MIT, ISC, BSD, Apache-2.0, 0BSD) und Attribution, wo verlangt.
 - **Manifest** `packages/assets/manifest.json` (zod-Schema in `packages/assets/src/manifest.ts`):
@@ -109,7 +121,8 @@ Physik zu berühren. Für Schatten liefert der Host je Figur einen groben Schatt
 - **Prüfung** `pnpm check:assets` (auch in `pnpm check` und CI): Dateien vorhanden und
   verzeichnet, Lizenz/Attribution, Größe, GLB-Animationen, Höhe/Füße/Grundfläche aus den
   echten Eckpunkten, Meshes/Primitives/Materialien/Dreiecke, Material `akzent`, Knoten
-  `abzeichen`, SVG ohne Skripte.
+  `abzeichen`, SVG ohne Skripte, WebP lesbar; je Figur Porträt und Akzent-Maske (quadratisch,
+  gleich groß, ≥ 256 px, mit Alpha).
 - **Budgets je Figur:** ≤ 384 KiB (seit CHAOS-58: Skinning-Daten und Vertexfarben), ≤ 12 Meshes,
   ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien, ≤ 15 000 Dreiecke, keine Texturen.
   Ist (CHAOS-58): 110–324 KiB, 2 800–10 300 Dreiecke.

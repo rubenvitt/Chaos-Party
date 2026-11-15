@@ -1,6 +1,6 @@
 /**
  * Balance-Experimente M4 (CHAOS-40). Der Smoke-Test läuft immer (wenige Seeds); die vollen
- * Tabellen für `docs/experiments.md` (EXP-010 … EXP-012) nur mit Umgebungsvariable:
+ * Tabellen für `docs/experiments.md` (EXP-011 … EXP-013) nur mit Umgebungsvariable:
  *
  * ```sh
  * EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false

@@ -1,6 +1,6 @@
 /**
  * Bonus-Titel für den Siegerbildschirm (CHAOS-37) aus `BoardPlayer.stats` und `minigameWins`.
- * Nur Anzeige, ohne Einfluss auf die Wertung (ADR-014). Rein, unit-getestet.
+ * Nur Anzeige, ohne Einfluss auf die Wertung (ADR-015). Rein, unit-getestet.
  *
  * Je Titel gewinnt der höchste Wert; bei Gleichstand teilen sich alle den Titel. Titel mit
  * Wert 0 entfallen (niemand hat etwas geklaut → kein „Pechvogel“).

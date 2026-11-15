@@ -23,6 +23,7 @@ import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
 import { describeLobby, HINT_READY, type SiblingCharacter } from '../lobby/view.ts';
 import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
+import { ownCharacter } from '../state/character.ts';
 import type { FeedbackPulse, Notice, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { describeSlotScreen } from '../state/screen.ts';
 import {
@@ -43,6 +44,7 @@ import { routeTouchEvent, TOUCH_EVENT_TYPES } from '../zones/touchRouter.ts';
 import { contextKey, zoneControlsInput } from '../zones/zoneInput.ts';
 import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/zoneTracker.ts';
 import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor, slotColorVars } from './color.ts';
 import { FinalCard, PauseCard } from './final.tsx';
 import { CharacterFace, LobbyHead, ReadyBadge } from './lobby.tsx';
@@ -403,8 +405,15 @@ const Zone = memo(function Zone({
       : null;
   const badge = (
     <header className="player-badge zone-badge" data-testid="player-badge">
-      <span className="player-symbol" aria-hidden="true">
-        {PLAYER_SLOTS[player.slot].symbol}
+      <span className="badge-avatar">
+        <CharacterPortrait
+          character={ownCharacter(player.slot, context)}
+          className="badge-portrait"
+          decorative
+        />
+        <span className="player-symbol" aria-hidden="true">
+          {PLAYER_SLOTS[player.slot].symbol}
+        </span>
       </span>
       <span className="player-label ui-text">{player.label}</span>
     </header>

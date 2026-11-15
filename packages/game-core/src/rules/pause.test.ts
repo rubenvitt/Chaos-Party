@@ -1,5 +1,5 @@
 /**
- * M4 (CHAOS-36/37, ADR-014): Pause, Fortsetzen, vorzeitiges Ende, Minispiel-Siege,
+ * M4 (CHAOS-36/37, ADR-015): Pause, Fortsetzen, vorzeitiges Ende, Minispiel-Siege,
  * Belohnungen je Slot und Statistik.
  */
 import { describe, expect, it } from 'vitest';

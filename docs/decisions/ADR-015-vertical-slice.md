@@ -1,4 +1,4 @@
-# ADR-014: Vertical Slice in M4 – Charakterwahl, Rundenzahl, Pause/Ende, Gleichstandsregel, Revanche, Protokoll v4
+# ADR-015: Vertical Slice in M4 – Charakterwahl, Rundenzahl, Pause/Ende, Gleichstandsregel, Revanche, Protokoll v4
 
 **Status:** Angenommen
 **Datum:** 2026-11-15
@@ -128,7 +128,7 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 - **Server** (`apps/server/src/session.ts`, `lobbyContextFor`) sendet `takenBy` immer. Ändert sich ein Besitzer, ändert sich der Kontext und geht neu raus (Kontextvergleich wie bisher).
 - **Controller** (`apps/controller/src/lobby/view.ts`): `ownerSlot` kommt aus `takenBy`, sonst aus den Nachbarzonen. Die Karte zeigt Farbe, Symbol und „<Farbe> hat sie“ – geräteübergreifend.
 - **Hinweis je Zone:** `Notice.slot` (Controller-Zustand) ordnet `character-taken` über die `seq` der gesendeten Figurenwahl einer Zone zu (`pickSeqs`, die letzten 8 je Verbindung; Rückfall: die einzige vorgemerkte Wahl). Das geteilte iPad zeigt den Hinweis dann in dieser Zone, mit ihr gedreht, oben unter der Plakette und mit Rand in Zonenfarbe; ohne eindeutige Zone bleibt er mittig. Das iPhone ist unverändert.
-- **Runden-Vorschläge** `10 / 16 / 20`, Standard `10` (`apps/server/src/game.ts`), begründet in EXP-010/011 (`docs/experiments.md`): ≈ 15 / 25 / 30 min mit 3–4 Spielern. 40 min bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20); das bleibt eine Frage an Ruben. Die Lobby zeigt die geschätzte Dauer nach Spielerzahl.
+- **Runden-Vorschläge** `10 / 16 / 20`, Standard `10` (`apps/server/src/game.ts`), begründet in EXP-011/012 (`docs/experiments.md`): ≈ 15 / 25 / 30 min mit 3–4 Spielern. 40 min bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20); das bleibt eine Frage an Ruben. Die Lobby zeigt die geschätzte Dauer nach Spielerzahl.
 
 **Betrachtete Alternative:** `takenCharacters` durch `takenBy` ersetzen (Protokoll v5). Verworfen: Bruch für alle Nutzer und Fixtures ohne Gewinn, das Feld ist klein.
 

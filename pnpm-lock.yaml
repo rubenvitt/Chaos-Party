@@ -53,6 +53,9 @@ importers:
       '@chaos-party/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
+      '@chaos-party/minigame-sdk':
+        specifier: workspace:*
+        version: link:../../packages/minigame-sdk
       '@chaos-party/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

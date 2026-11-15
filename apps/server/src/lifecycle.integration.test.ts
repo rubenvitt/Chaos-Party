@@ -1,5 +1,5 @@
 /**
- * M4 (CHAOS-36/37/55, ADR-014): kompletter Lebenszyklus einer Partie über die Session,
+ * M4 (CHAOS-36/37/55, ADR-015): kompletter Lebenszyklus einer Partie über die Session,
  * deterministisch mit festem Seed und künstlicher Uhr.
  *
  * Lobby → Figurenwahl (inkl. Konflikt) → Rundenzahl → Start → zwei Runden mit echten

@@ -1,5 +1,5 @@
 /**
- * Pause und vorzeitiges Ende am PC (CHAOS-36, ADR-014).
+ * Pause und vorzeitiges Ende am PC (CHAOS-36, ADR-015).
  *
  * - **Pause-Knopf** oben rechts (Brett und Minispiel) und Tasten **P** und **Esc** → `pause`.
  * - **Pause-Overlay**, sobald der Server-Stand `paused` meldet – sofort aus dem neuesten Stand

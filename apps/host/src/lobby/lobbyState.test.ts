@@ -63,7 +63,7 @@ describe('roundOptions', () => {
     });
   });
 
-  it('Spieldauer als grober Richtwert (EXP-010), je nach Spielerzahl', () => {
+  it('Spieldauer als grober Richtwert (EXP-011), je nach Spielerzahl', () => {
     // Vorschläge 10/16/20 mit vier Spielern (Standard, auch für 0–1 Spieler).
     expect(roundsDuration(10)).toBe('≈ 15 Min.');
     expect(roundsDuration(16)).toBe('≈ 25 Min.');

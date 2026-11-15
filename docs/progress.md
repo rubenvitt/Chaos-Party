@@ -68,16 +68,16 @@ Umgesetzt in **einem** PR ([#6](https://github.com/rubenvitt/chaos-party/pull/6)
 
 ## M4 – Aufgaben
 
-Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/16), Branch `claude/affectionate-noether-ye4h0b`), orchestriert mit Subagenten in drei Phasen: (A) Verträge zuerst – Protokoll v4, game-core, Server, ADR-014; (B) parallel in eigenen Worktrees Host-UI, Controller-UI und Server-Robustheit; (C) parallel Performance- und Balance-Pass, danach Gesamt-E2E und Start-Ablauf. Integration, Gesamtprüfung und Doku durch den Koordinator.
+Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/16), Branch `claude/affectionate-noether-ye4h0b`), orchestriert mit Subagenten in drei Phasen: (A) Verträge zuerst – Protokoll v4, game-core, Server, ADR-015; (B) parallel in eigenen Worktrees Host-UI, Controller-UI und Server-Robustheit; (C) parallel Performance- und Balance-Pass, danach Gesamt-E2E und Start-Ablauf. Integration, Gesamtprüfung und Doku durch den Koordinator.
 
 | Aufgabe | Inhalt | Stand |
 |---|---|---|
-| CHAOS-36 | Lobby mit Figuren, Charakterwahl, Rundenwahl, Start/Pause/Ende (ADR-014) | im PR |
+| CHAOS-36 | Lobby mit Figuren, Charakterwahl, Rundenwahl, Start/Pause/Ende (ADR-015) | im PR |
 | CHAOS-37 | Gleichstandsregel, Trophäenzählung, Siegerbildschirm mit Podest, Revanche | im PR |
 | CHAOS-38 | iPad-Zonen 2/3/4 in allen Phasen, gemischte Aufstellung, Reconnect je Phase, Auto-Pause bei Host-Verlust | im PR |
 | CHAOS-55 | Minispiel-Münzen im Stand, „geteilt“/„abgebrochen“ am Controller, Ergebnis-Bestätigung | im PR |
 | CHAOS-39 | Messung je Szene, `pnpm perf`, Optimierungen ([`performance.md`](performance.md)) | im PR |
-| CHAOS-40 | EXP-010 … EXP-012, Runden-Vorschläge 10/16/20, Feinschliff | im PR |
+| CHAOS-40 | EXP-011 … EXP-013, Runden-Vorschläge 10/16/20, Feinschliff | im PR |
 | CHAOS-41 | Gesamtablauf-E2E, Gerätecheckliste Abschnitt 12, [`m4-demo.md`](m4-demo.md) | im PR |
 | CHAOS-42 | `pnpm play`, `pnpm smoke`, [`known-issues.md`](known-issues.md), [`security-license-review.md`](security-license-review.md), Abnahmebericht | im PR |
 | CHAOS-47 | **Ruben:** iPad-Nachtest aus M1 (I1–I9) | offen, Voraussetzung für CHAOS-43 |
@@ -101,7 +101,7 @@ Revanche ×3: Heap nach GC 20,0 → 21,3 MB, kein Leck. Server `board` ≈ 0,5/s
 |---|---|
 | E2E-Gesamtablauf (`m4-gesamtablauf.spec.ts`) | 2026, schnelles Test-Pacing, Minispiele 6 s |
 | Server-Integration (Reconnect, Host-Verlust, gemischt, Determinismus, Fuzz) | siehe [`testing.md`](testing.md) (u. a. `INTEGRATION_SEEDS`, 424242, 99, Fuzz 1/2/3/2026) |
-| Experimente EXP-010 … EXP-012 | Seeds 1–200 je Spielerzahl (`EXPERIMENTS=m4 …`) |
+| Experimente EXP-011 … EXP-013 | Seeds 1–200 je Spielerzahl (`EXPERIMENTS=m4 …`) |
 | `pnpm perf` | 2026 |
 
 ### Seeds (M3)
@@ -130,15 +130,17 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 |---|---|
 | `pnpm play` | ein Befehl: installiert/baut bei Bedarf, startet Port 8787, öffnet den Host (`OPEN=0` ohne Browser, `--rebuild`); frischer Klon bis `/health` ≈ 8 s (Linux) |
 | `pnpm smoke` | ok – Rauchtest des Start-Ablaufs nach `pnpm build` (≈ 1–6 s), läuft in CI |
-| `pnpm check` (M4) | ok – 1383 Tests in 114 Dateien, 13 Laufzeit-Pakete, 23 Asset-Einträge |
+| `pnpm check` (M4, nach Merge von `main`) | ok – 1396 Tests in 116 Dateien, 13 Laufzeit-Pakete, 27 Asset-Einträge (Porträts als WebP + Masken) |
 | `pnpm test:e2e --trace off` (M4) | ok – 154 bestanden, 3 bewusst übersprungen, ≈ 4,5 min |
 | `pnpm perf` | ok – Messläufe Partie + Revanche ×3 gegen Baseline, ≈ 7 min (nicht in CI) |
-| `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-010 … EXP-012 |
+| `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-011 … EXP-013 |
 | `pnpm install --frozen-lockfile` | ok |
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
 | `pnpm test:e2e --trace off` | ok – 108 Tests in 15 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~3,5 min |
-| `pnpm check:assets` / `pnpm generate:assets` | Asset-Manifest prüfen / Figuren neu erzeugen |
+| `pnpm check:assets` / `pnpm generate:assets` | Asset-Manifest prüfen / Figuren und Porträts neu erzeugen (Blender-venv, ADR-013) |
+| `packages/assets/blender/portraits-all.sh` | ok (2026-11-15, CHAOS-61) – vier Porträts + Masken in ≈ 40 s (Cycles CPU), 7–12 KiB je Bild |
 | `/host/?local=1&minigame=<id>&players=4` | Minispiel ohne Server mit Tastatur (`&flow=1` mit Anleitung und Ergebnis) |
+| `lookdev.html?look=natur-<morgen\|mittag\|wolken\|abend\|daemmerung\|nacht>&shot=<brett\|figur\|minispiel>` | Look-Dev-Vitrine (Dev-Server, vorher `node scripts/fetch-lookdev-assets.mjs`); `&tune={…}` überschreibt Felder einer Lichtstimmung |
 | `EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test.ts --silent=false` | ok – Tabellen für EXP-001 … EXP-004, ~7 s |
 | `ROUNDS=3 SEED=2026 pnpm start` | Brettspiel mit 3 Runden und festem Seed; Terminal meldet den Seed beim Start |
 | `pnpm build && pnpm start` | Host `http://localhost:8787/host/`, Controller `/`, WebSocket `/ws`; Terminal zeigt LAN-Link, Join-Code, QR |
@@ -152,7 +154,7 @@ Details: [`testing.md`](testing.md).
 | Datei | Zweck |
 |---|---|
 | [`assumptions.md`](assumptions.md) | Annahmen mit Validierungsweg und Stand |
-| [`decisions/`](decisions/README.md) | ADR-001 … ADR-014 |
+| [`decisions/`](decisions/README.md) | ADR-001 … ADR-015 |
 | [`experiments.md`](experiments.md) | Experiment-Log (EXP-001 … EXP-004 aus M2, EXP-005 … EXP-007 aus M3) |
 | [`testing.md`](testing.md) | Test-Suiten, Ausführen, Baselines, Abdeckung je M1-Lieferumfang |
 | [`m1-demo.md`](m1-demo.md) | M1 auf echten Geräten ausprobieren |
@@ -174,9 +176,9 @@ Details: [`testing.md`](testing.md).
 
 ## Nächste Schritte
 
-1. M4-PR [#16](https://github.com/rubenvitt/chaos-party/pull/16) mergen (nach CI).
+1. M4-PR [#16](https://github.com/rubenvitt/chaos-party/pull/16) mergen (nach CI). Stand von `main` (CHAOS-60, CHAOS-61, CHAOS-64) ist eingemischt: Die Figurenwahl im Controller, die Plakette und der Endstand zeigen die neuen Blender-Porträts (Plakette mit der gewählten Figur), die M4-E2E-Tests öffnen Controller-Geräte im Chromium ohne GPU (`deviceBrowser`).
 2. **Ruben:** iPad-Nachtest CHAOS-47 (Checkliste Abschnitt 4), Performance PF0–PF10 (Abschnitt 11) und eine komplette Partie mit kleiner Gruppe (Abschnitt 12, [`m4-demo.md`](m4-demo.md)); dann Entscheidung an CHAOS-43.
-3. Grafik-Neuausrichtung CHAOS-56 läuft getrennt weiter (Porträts CHAOS-61, Lichtstimmung CHAOS-60, Natur-Look im Spiel).
+3. Grafik-Neuausrichtung CHAOS-56 läuft getrennt weiter: Look-Dev abgeschlossen (EXP-008, EXP-009), Figuren aus Blender-Skripten (CHAOS-58, ADR-013), Controller-UI „Glas & Licht“ (CHAOS-59), Porträts als Blender-Render in Lobby und Controller (CHAOS-61, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht; Ruben wählte den Lichtwechsel im Lauf der Partie (Runde 1 morgens, letzte Runde nachts). Als Nächstes: Natur-Look ins Spiel (CHAOS-62), danach Lichtverlauf je Runde (CHAOS-63). Wackelnder E2E-Test „geteiltes iPad: zwei Finger steuern zwei Figuren“ behoben (CHAOS-64, siehe `docs/testing.md`).
 4. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage).
 
 ## Offene Risiken (Kurzfassung)
@@ -187,4 +189,4 @@ Neu in M2: Ob das Brettspiel **Spaß macht** und verständlich ist, zeigen nur T
 
 Neu in M3: Ob die drei Minispiele Spaß machen, fair sind und schnell verstanden werden, zeigt nur der Test mit Menschen; alle Minispiel-Werte stammen aus Bot-Simulationen (EXP-005 … EXP-007). Leistung am echten PC während der Minispiele (Figuren, Partikel, Havok) ist ungemessen; unter ~4 Bilder/s läuft ein Minispiel langsamer als Echtzeit.
 
-Neu in M4: Die Werte für Partiedauer, Gleichstandsregel und Sabotage stammen aus Bot-Simulationen (EXP-010 … EXP-012); der Halbzeit-Führende gewinnt dort 59–73 %. Ob eine ganze Partie trägt und Lust auf eine weitere macht, zeigt nur Rubens Gruppentest. Performance-Schwellen sind nur relativ (SwiftShader); echte Werte fehlen. Vollständige Liste: [`known-issues.md`](known-issues.md).
+Neu in M4: Die Werte für Partiedauer, Gleichstandsregel und Sabotage stammen aus Bot-Simulationen (EXP-011 … EXP-013); der Halbzeit-Führende gewinnt dort 59–73 %. Ob eine ganze Partie trägt und Lust auf eine weitere macht, zeigt nur Rubens Gruppentest. Performance-Schwellen sind nur relativ (SwiftShader); echte Werte fehlen. Vollständige Liste: [`known-issues.md`](known-issues.md).

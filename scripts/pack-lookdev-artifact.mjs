@@ -109,7 +109,7 @@ const page = `<title>Chaos Party Naturwelt 3D</title>
 ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
 ${style}
 <style>html,body{height:100%}:root{color-scheme:light}body{background:#dfe7ec}</style>
-<script>if (!/^#natur-(morgen|abend|wolken)-(brett|figur|minispiel)(-neu)?$/.test(location.hash)) location.hash = 'natur-abend-figur-neu';</script>
+<script>if (!/^#natur-(morgen|mittag|wolken|abend|daemmerung|nacht)-(brett|figur|minispiel)(-neu)?$/.test(location.hash)) location.hash = 'natur-nacht-figur';</script>
 ${body}
 <script type="module" src="./${script}"></script>
 `;

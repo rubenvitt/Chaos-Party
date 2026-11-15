@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { PLAYER_SLOTS, type CharacterId, type SlotNumber } from '@chaos-party/protocol';
 import { LOBBY_TITLE, type CharacterCard, type LobbyView } from '../lobby/view.ts';
 import type { SlotIntent } from '../net/client.ts';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { cardData, cardTag, ownerStyle } from './lobbyCard.ts';
-import { Portrait } from './portrait.tsx';
 
 /** Inhalt einer Figurenkarte: Porträt im Lichtfenster, Name, ggf. Hinweis. */
 export function CharacterFace({ card }: { card: CharacterCard }) {
@@ -16,7 +16,7 @@ export function CharacterFace({ card }: { card: CharacterCard }) {
   return (
     <>
       <span className="character-window">
-        <Portrait character={card.id} className="character-portrait" />
+        <CharacterPortrait character={card.id} className="window-portrait" decorative />
         {card.ownerSlot !== null && (
           <span className="character-owner player-symbol" aria-hidden="true">
             {PLAYER_SLOTS[card.ownerSlot].symbol}

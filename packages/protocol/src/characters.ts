@@ -1,5 +1,5 @@
 /**
- * Die vier kosmetischen Figuren (CHAOS-27, Charakterwahl CHAOS-36, ADR-014).
+ * Die vier kosmetischen Figuren (CHAOS-27, Charakterwahl CHAOS-36, ADR-015).
  *
  * Einzige Quelle der Figuren-IDs: Das Protokoll braucht sie für `pick-character` und die
  * Lobby, der Controller für die Auswahl, das minigame-sdk (und darüber Host und Minispiele)
@@ -35,7 +35,7 @@ export function isCharacterId(value: unknown): value is CharacterId {
 }
 
 /**
- * Freie Figur für einen Slot ohne Wahl (Auto-Zuweisung beim Spielstart, ADR-014):
+ * Freie Figur für einen Slot ohne Wahl (Auto-Zuweisung beim Spielstart, ADR-015):
  * die Standardfigur des Slots, falls frei, sonst die erste freie in `CHARACTER_IDS`-Reihenfolge.
  * `null`, wenn alle vergeben sind (kann bei höchstens vier Spielern nicht passieren).
  */

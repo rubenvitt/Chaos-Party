@@ -182,6 +182,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
 | P1 | Lobby mit 4 Spielern | Figur-Porträts mit Namen, klar unterscheidbar; jeder findet „seine“ Figur | | |
+| P1a | Porträts am iPhone/iPad (Safari, CHAOS-61) | Figurenkarten der Lobby (CHAOS-36) mit den Render-Porträts, vergebene Figuren mit Akzent in der Besitzerfarbe; gewählte Figur in der Plakette als Avatar mit Symbol-Marke und groß im Endstand; Akzent (Halsring/Halstuch/Bündchen) in Slot-Farbe, nicht als Fläche über dem Bild (CSS-Maske + `multiply` auf iOS) | | |
 | P2 | Brett mit Figuren (Fernseher, Sofa-Abstand) | Figuren erkennbar, laufen/jubeln/zucken passend; Sockel/Symbol zeigt den Slot | | |
 | P3 | Anleitung jedes Minispiels (7 s) | Alle haben vor dem Start verstanden, was zu tun ist (ohne Erklärung von außen) | | |
 | P4 | Sockenregen spielen | Socke, Goldsocke und Bügeleisen sofort unterscheidbar; Schleudergang spürbar; fühlt sich fair an | | |
@@ -250,7 +251,7 @@ Ergebnis je Punkt wie oben: `ok` · `fehlerhaft` (mit Beschreibung) · `nicht un
 | ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
 |---|---|---|---|---|---|
 | V1 | Vier Personen, die das Spiel nicht kennen, spielen eine komplette Partie (Standard 10 Runden). Ruben startet nur den Server und öffnet den Host; danach **keine** Erklärung und kein Eingriff | Beitritt per QR, Figurenwahl, Bereit, Start, alle Runden, Finale und Siegerbildschirm ohne Rückfrage; notieren, wo jemand fragen musste | | | |
-| V2 | Partiedauer mit Stoppuhr messen (von „Los geht’s!“ bis Siegerbildschirm), Zahl der Spieler notieren | Dauer: ___ min bei ___ Spielern und 10 Runden (Vorhersage EXP-010: ≈ 14–16 min mit 3–4 Spielern) | | | |
+| V2 | Partiedauer mit Stoppuhr messen (von „Los geht’s!“ bis Siegerbildschirm), Zahl der Spieler notieren | Dauer: ___ min bei ___ Spielern und 10 Runden (Vorhersage EXP-011: ≈ 14–16 min mit 3–4 Spielern) | | | |
 | V3 | Rundenwahl in der Lobby: 10 / 16 / 20 antippen bzw. anklicken, Zeitangabe lesen | Auswahl sofort sichtbar, auch auf allen Controllern („10 Runden“); geschätzte Dauer verständlich | | | |
 | V4 | Lesbarkeit am Fernseher aus Sofa-Abstand: Lobby mit Figuren, Brett-HUD, Minispiel-Anleitung, Ergebnis, Trophäenzählung, Siegerbildschirm | Namen, Figuren, Zahlen und Ansagen lesbar; jeder findet sich selbst über Farbe + Symbol + Figur | | | |
 | V5 | Ton über Fernseher/Lautsprecher während der ganzen Partie (Brett, Minispiele, Trophäenzählung, Siegerbildschirm) | Klänge passen, nichts nervt nach 10 Runden, Lautstärke angemessen; `?volume=`/`?mute=1` wirken | | | |

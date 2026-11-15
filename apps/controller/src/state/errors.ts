@@ -68,7 +68,7 @@ const PRESENTATION: Readonly<Record<UiErrorCode, ErrorPresentation>> = {
   'invalid-choice': { severity: 'toast', text: 'Zu spät – die Entscheidung ist schon gefallen.' },
   // Nur für den Host; ein Controller bekommt den Code nie, Text der Vollständigkeit halber.
   'invalid-result': { severity: 'toast', text: 'Das Minispiel-Ergebnis wurde nicht angenommen.' },
-  // v4 (ADR-014): Figur gleichzeitig von jemand anderem gewählt – Kontext kommt neu.
+  // v4 (ADR-015): Figur gleichzeitig von jemand anderem gewählt – Kontext kommt neu.
   'character-taken': {
     severity: 'toast',
     text: 'Die Figur hat sich gerade jemand anderes geschnappt.',

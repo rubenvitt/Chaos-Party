@@ -32,7 +32,7 @@ import {
 export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
- * Steuerbefehle des Hosts (Protokoll v4, ADR-014): Rundenzahl in der Lobby (`configure`),
+ * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl in der Lobby (`configure`),
  * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
  */
 export type HostCommand =

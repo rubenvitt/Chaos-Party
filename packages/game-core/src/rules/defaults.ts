@@ -3,7 +3,7 @@ import type { Pacing, RuleSet } from '../types.ts';
 /**
  * Standardregeln. Festgelegt per Bot-Simulation in CHAOS-24 (`docs/experiments.md`,
  * EXP-001 … EXP-004; Startwerte davor: `START_RULES` in `experiments.ts`). In M4 (CHAOS-40,
- * EXP-011/012) mit echter Minispiel-Rotation und 10–20 Runden geprüft und unverändert
+ * EXP-012/013) mit echter Minispiel-Rotation und 10–20 Runden geprüft und unverändert
  * behalten; der Hebel war die Rundenzahl (`apps/server/src/game.ts`). Ob sich das gut anfühlt,
  * entscheidet der Playtest.
  */

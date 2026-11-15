@@ -1,14 +1,17 @@
 import { useMemo, useState, type CSSProperties } from 'react';
+import { CHARACTER_NAMES } from '@chaos-party/minigame-sdk';
 import { PLAYER_SLOTS, type CharacterId, type PlayerInfo } from '@chaos-party/protocol';
 import { createMoveSender } from '../input/moveSender.ts';
 import { describeLobby } from '../lobby/view.ts';
 import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
+import { ownCharacter } from '../state/character.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { describeSlotScreen } from '../state/screen.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
 import { StatusBar } from './board.tsx';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor } from './color.ts';
 import { FinalCard, PauseCard } from './final.tsx';
 import { Joystick } from './Joystick.tsx';
@@ -65,8 +68,15 @@ export function SlotController({
       data-minigame-stage={minigame?.stage ?? 'none'}
     >
       <header className="player-badge" data-testid="player-badge">
-        <span className="player-symbol" aria-hidden="true">
-          {style.symbol}
+        <span className="badge-avatar">
+          <CharacterPortrait
+            character={ownCharacter(player.slot, context)}
+            className="badge-portrait"
+            decorative
+          />
+          <span className="player-symbol" aria-hidden="true">
+            {style.symbol}
+          </span>
         </span>
         <span className="player-label ui-text">{player.label}</span>
       </header>
@@ -136,9 +146,16 @@ interface PanelProps {
 function LobbyPanel({ context, slot, send }: PanelProps) {
   const [sent, setSent] = useState(false);
   const canReady = context.actions.includes('ready') && !sent;
+  const character = ownCharacter(slot, context);
 
   return (
     <div className="panel lobby-panel">
+      <figure className="lobby-figure" data-testid="lobby-figure">
+        <CharacterPortrait character={character} className="lobby-portrait" decorative />
+        <figcaption className="lobby-figure-name ui-text">
+          {CHARACTER_NAMES[character].name}
+        </figcaption>
+      </figure>
       {canReady ? (
         <>
           <p className="panel-lead ui-text">Bist du startklar?</p>
