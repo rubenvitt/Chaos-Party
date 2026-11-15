@@ -86,13 +86,15 @@ Umgesetzt in **einem** PR ([#6](https://github.com/rubenvitt/chaos-party/pull/6)
 
 ## Validierte Befehle
 
-Stand 2026-11-15 (M2), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubuntu-latest`.
+Stand 2026-11-15 (M3), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubuntu-latest`.
 
 | Befehl | Ergebnis |
 |---|---|
 | `pnpm install --frozen-lockfile` | ok |
-| `pnpm check` (typecheck, lint, format, test, build, Lizenzen) | ok – 791 Unit-/Integrationstests, 10 Laufzeit-Pakete auf der Positivliste |
-| `pnpm test:e2e --trace off` | ok – 89 Tests in 11 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~2,6 min |
+| `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
+| `pnpm test:e2e --trace off` | ok – 108 Tests in 15 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~3,5 min |
+| `pnpm check:assets` / `pnpm generate:assets` | Asset-Manifest prüfen / Figuren neu erzeugen |
+| `/host/?local=1&minigame=<id>&players=4` | Minispiel ohne Server mit Tastatur (`&flow=1` mit Anleitung und Ergebnis) |
 | `EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test.ts --silent=false` | ok – Tabellen für EXP-001 … EXP-004, ~7 s |
 | `ROUNDS=3 SEED=2026 pnpm start` | Brettspiel mit 3 Runden und festem Seed; Terminal meldet den Seed beim Start |
 | `pnpm build && pnpm start` | Host `http://localhost:8787/host/`, Controller `/`, WebSocket `/ws`; Terminal zeigt LAN-Link, Join-Code, QR |
