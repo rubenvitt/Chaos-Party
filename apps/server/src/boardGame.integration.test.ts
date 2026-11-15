@@ -15,10 +15,13 @@ import {
   type BoardMessage,
   type ClientMessage,
   type ContextMessage,
+  type InputMessage,
   type ServerMessage,
   type SlotNumber,
 } from '@chaos-party/protocol';
 import { createRng } from '@chaos-party/game-core';
+import { rankByScore } from '@chaos-party/minigame-sdk';
+import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
 import { describe, expect, it } from 'vitest';
 import { Session, type ConnectionId, type Outgoing, type SessionOptions } from './session.ts';
 
@@ -58,6 +61,8 @@ class Harness {
   readonly boards: BoardMessage[] = [];
   /** Fehler je Verbindung. */
   readonly errors: { to: ConnectionId; code: string }[] = [];
+  /** Vom Server an den Host weitergeleitete Controller-Eingaben (Minispiele, M3). */
+  readonly hostInputs: InputMessage[] = [];
   /** Prompts, auf die ein Bot schon geantwortet hat (Slot:PromptId). */
   private readonly answered = new Set<string>();
   /** Reaktionen, die absichtlich erst nach der Frist gesendet werden (Politik `late`). */
@@ -99,6 +104,9 @@ class Harness {
     switch (message.type) {
       case 'board':
         if (to === HOST) this.boards.push(message);
+        return;
+      case 'input':
+        if (to === HOST) this.hostInputs.push(message);
         return;
       case 'context':
         this.contexts.set(message.slot, { context: message, at: this.clock });
@@ -291,7 +299,7 @@ function setupGame(
   options: { rounds?: number; policy?: Partial<BotPolicy>; seats?: number[] } = {},
 ): Harness {
   const h = new Harness(
-    // M2-Ablauf mit Minispiel-Platzhalter; echte Minispiele: minigame.integration.test.ts (M3).
+    // M2-Ablauf mit Minispiel-Platzhalter; echte Minispiele: unten „Minispiele über die Session“.
     { game: { seed, rounds: options.rounds ?? 3, minigames: [] } },
     { useItems: true, reaction: 'brace', ...options.policy },
     seed,
@@ -494,5 +502,253 @@ describe('Brettspiel über die Session (CHAOS-23)', () => {
     expect(h.session.phase).toBe('play');
     expect(h.contexts.get(1)?.context.layout).toBe('joystick-buttons');
     expect(h.boards).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M3 (CHAOS-34): Brett ↔ Minispiel über die Session für jedes Minispiel der Rotation
+// ---------------------------------------------------------------------------
+
+/**
+ * Synthetischer Host für Minispiele: zählt die weitergeleiteten Eingaben je Slot während
+ * `minigame-play` und meldet nach der Spielzeit ein Ergebnis (mehr Eingaben = mehr Punkte),
+ * wie es der echte Host über die Minispiel-Laufzeit tut.
+ */
+function playMinigameAsHost(
+  h: Harness,
+  host: { readonly sent: Set<number>; readonly startedAt: Map<number, number> },
+): void {
+  const view = h.boards.at(-1)?.view;
+  const minigame = view?.minigame;
+  if (view?.gamePhase !== 'minigame-play' || !minigame || host.sent.has(minigame.round)) return;
+  const startedAt = host.startedAt.get(minigame.round) ?? h.clock;
+  host.startedAt.set(minigame.round, startedAt);
+  if (h.clock - startedAt < minigame.playMs) return;
+  const info = getMinigameInfo(minigame.id);
+  if (!info) throw new Error(`Unbekanntes Minispiel ${minigame.id}`);
+  const counts = new Map<SlotNumber, number>();
+  for (const input of h.hostInputs) {
+    counts.set(input.intent.slot, (counts.get(input.intent.slot) ?? 0) + 1);
+  }
+  const scores = view.players.map((player) => ({
+    slot: player.slot,
+    score:
+      info.scoring === 'higher' ? (counts.get(player.slot) ?? 0) : -(counts.get(player.slot) ?? 0),
+  }));
+  host.sent.add(minigame.round);
+  h.send(
+    HOST,
+    createMessage('minigame-result', {
+      minigameId: minigame.id,
+      round: minigame.round,
+      placements: rankByScore(scores, info.scoring),
+      highlights: ['Testlauf'],
+    }),
+  );
+}
+
+/** Controller-Bots im Minispiel: jeder Slot drückt so oft, wie seine Slot-Nummer vorgibt. */
+function pressInMinigame(h: Harness, pressed: Map<SlotNumber, number>): void {
+  for (const [slot, { context }] of h.contexts) {
+    if (context.layout !== 'joystick-buttons' || context.minigame?.stage !== 'play') continue;
+    const controller = h.controllerOf(slot);
+    if (!controller.connected) continue;
+    const done = pressed.get(slot) ?? 0;
+    if (done >= slot * 2) continue;
+    pressed.set(slot, done + 1);
+    if (context.actions.includes('button-a')) {
+      h.send(controller.id, createMessage('press', { slot, seq: ++controller.seq, button: 'a' }));
+      h.send(controller.id, createMessage('release', { slot, seq: ++controller.seq, button: 'a' }));
+    } else if (context.actions.includes('move')) {
+      h.send(controller.id, createMessage('move', { slot, seq: ++controller.seq, x: 1, y: 0 }));
+      h.send(controller.id, createMessage('move', { slot, seq: ++controller.seq, x: 0, y: 0 }));
+    }
+  }
+}
+
+function setupMinigameGame(minigameId: string, players: number, seed: number, rounds = 2): Harness {
+  const info = getMinigameInfo(minigameId);
+  if (!info) throw new Error(`Unbekanntes Minispiel ${minigameId}`);
+  const h = new Harness(
+    {
+      game: {
+        seed,
+        rounds,
+        minigames: [{ id: info.id, playMs: info.durationMs, scoring: info.scoring }],
+      },
+    },
+    { useItems: false, reaction: 'brace' },
+    seed,
+  );
+  h.host();
+  for (let id = 1; id <= players; id++) h.join(id);
+  for (const id of h.controllers.keys()) h.ready(id);
+  h.start();
+  return h;
+}
+
+describe('Minispiele über die Session (M3, CHAOS-34)', () => {
+  const rotation = rotationInfos().map((info) => info.id);
+
+  it.each(rotation.flatMap((id) => [2, 3, 4].map((players) => [id, players] as const)))(
+    '%s mit %i Spielern: Brett → Intro → Spiel → Ergebnis → Rundenende, Münzen je Platz',
+    (minigameId, players) => {
+      const h = setupMinigameGame(minigameId, players, INTEGRATION_SEEDS.four + players);
+      const host = { sent: new Set<number>(), startedAt: new Map<number, number>() };
+      const pressed = new Map<SlotNumber, number>();
+      const stages = new Map<SlotNumber, string[]>();
+      h.runToEnd(400_000, (harness) => {
+        pressInMinigame(harness, pressed);
+        playMinigameAsHost(harness, host);
+        if (harness.gamePhase === 'round-end') pressed.clear();
+        for (const [slot, { context }] of harness.contexts) {
+          const stage = context.minigame?.stage ?? '-';
+          const list = stages.get(slot) ?? [];
+          if (list.at(-1) !== stage) list.push(stage);
+          stages.set(slot, list);
+        }
+      });
+      expect(h.gamePhase).toBe('game-results');
+      expect(h.errors.filter((e) => e.to === HOST)).toEqual([]);
+      // Ablauf je Runde: minigame-started → minigame-results (nicht abgebrochen) → round-ended.
+      const flow = h.events
+        .filter((e) => ['minigame-started', 'minigame-results', 'round-ended'].includes(e.type))
+        .map((e) => e.type);
+      expect(flow).toEqual(
+        Array.from({ length: 2 }, () => [
+          'minigame-started',
+          'minigame-results',
+          'round-ended',
+        ]).flat(),
+      );
+      for (const event of h.events) {
+        if (event.type === 'minigame-started') expect(event.minigame).toBe(minigameId);
+        if (event.type === 'minigame-results') {
+          expect(event.aborted).toBe(false);
+          expect(event.placements).toHaveLength(players);
+        }
+      }
+      // Eingaben kamen beim Host an, Wertung: höhere Slot-Nummer drückte öfter.
+      expect(h.hostInputs.length).toBeGreaterThan(0);
+      const results = h.events.filter((e) => e.type === 'minigame-results');
+      const first = results[0];
+      if (first?.type !== 'minigame-results') throw new Error('kein Ergebnis');
+      const info = getMinigameInfo(minigameId);
+      const expectedWinner = info?.scoring === 'higher' ? players : 1;
+      expect(first.ranking[0]).toBe(expectedWinner);
+      // Münzen: Platz 1 bekommt die erste Belohnung (Grund `minigame`).
+      const winnerCoins = h.events.find(
+        (e) => e.type === 'coins-changed' && e.reason === 'minigame' && e.slot === expectedWinner,
+      );
+      expect(winnerCoins?.type === 'coins-changed' ? winnerCoins.delta : 0).toBeGreaterThan(0);
+      // Controller sahen Anleitung, Spiel und Ergebnis (je Runde).
+      for (let slot = 1 as SlotNumber; slot <= players; slot++) {
+        expect(stages.get(slot)).toEqual(expect.arrayContaining(['intro', 'play', 'results']));
+      }
+      expectContiguousEvents(h);
+    },
+  );
+
+  it('weist ein falsches Ergebnis ab (invalid-result) und nimmt danach das richtige an', () => {
+    const id = rotation[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);
+    for (let i = 0; i < 100_000 && h.gamePhase !== 'minigame-play'; i++) {
+      h.answerPrompts();
+      h.tick();
+    }
+    const minigame = h.boards.at(-1)?.view.minigame;
+    if (!minigame) throw new Error('kein Minispiel');
+    h.send(
+      HOST,
+      createMessage('minigame-result', {
+        minigameId: minigame.id,
+        round: minigame.round + 1,
+        placements: [
+          { slot: 1, place: 1, score: 1 },
+          { slot: 2, place: 2, score: 0 },
+        ],
+      }),
+    );
+    expect(h.errors.at(-1)).toEqual({ to: HOST, code: 'invalid-result' });
+    expect(h.gamePhase).toBe('minigame-play');
+    const info = getMinigameInfo(minigame.id);
+    h.send(
+      HOST,
+      createMessage('minigame-result', {
+        minigameId: minigame.id,
+        round: minigame.round,
+        placements: rankByScore(
+          [
+            { slot: 1, score: 3 },
+            { slot: 2, score: 3 },
+          ],
+          info?.scoring,
+        ),
+      }),
+    );
+    expect(h.gamePhase).toBe('minigame-results');
+    expect(h.boards.at(-1)?.view.minigame?.placements?.map((p) => p.place)).toEqual([1, 1]);
+  });
+
+  it('ohne Host-Ergebnis bricht das Minispiel nach Spielzeit + Schonfrist ab, die Partie läuft weiter', () => {
+    const id = rotation[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    const result = h.events.find((e) => e.type === 'minigame-results');
+    expect(result).toEqual({
+      type: 'minigame-results',
+      ranking: [],
+      placements: [],
+      aborted: true,
+    });
+    expect(h.events.some((e) => e.type === 'coins-changed' && e.reason === 'minigame')).toBe(false);
+  });
+
+  it('Host lädt mitten im Minispiel neu: Schnappschuss mit Minispiel und Restzeit, Ergebnis danach gültig', () => {
+    const id = rotation[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.three, 1);
+    for (let i = 0; i < 100_000 && h.gamePhase !== 'minigame-play'; i++) {
+      h.answerPrompts();
+      h.tick();
+    }
+    for (let i = 0; i < 20; i++) h.tick();
+    h.reloadHost();
+    const snapshot = h.boards.at(-1);
+    expect(snapshot?.events).toEqual([]);
+    expect(snapshot?.view.gamePhase).toBe('minigame-play');
+    expect(snapshot?.view.minigame?.elapsedMs).toBeGreaterThanOrEqual(2_000);
+    const minigame = snapshot?.view.minigame;
+    if (!minigame) throw new Error('kein Minispiel');
+    const info = getMinigameInfo(minigame.id);
+    h.send(
+      HOST,
+      createMessage('minigame-result', {
+        minigameId: minigame.id,
+        round: minigame.round,
+        placements: rankByScore(
+          [
+            { slot: 1, score: 1 },
+            { slot: 2, score: 2 },
+          ],
+          info?.scoring,
+        ),
+      }),
+    );
+    expect(h.gamePhase).toBe('minigame-results');
+  });
+
+  it('Controller-Eingaben außerhalb von minigame-play bleiben out-of-phase', () => {
+    const id = rotation[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);
+    for (let i = 0; i < 100_000 && h.gamePhase !== 'minigame-intro'; i++) {
+      h.answerPrompts();
+      h.tick();
+    }
+    const c = h.controllerOf(1);
+    h.send(c.id, createMessage('press', { slot: 1, seq: ++c.seq, button: 'a' }));
+    expect(h.errors.at(-1)?.code).toBe('out-of-phase');
+    expect(h.hostInputs).toEqual([]);
+    expect(h.contexts.get(1)?.context.minigame?.stage).toBe('intro');
   });
 });
