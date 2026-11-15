@@ -196,7 +196,8 @@ export function BoardStage({
           ranking={hud.view.ranking}
           speed={finaleSpeed}
           test={test}
-          onRematch={onRematch}
+          // Ohne Verbindung ginge der Klick ins Leere: Knopf sperren, bis sie wieder steht.
+          onRematch={connection === null || connection === 'connected' ? onRematch : null}
         />
       )}
     </>

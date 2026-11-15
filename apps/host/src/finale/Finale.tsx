@@ -316,9 +316,11 @@ function WinnerScreen({
     };
   }, [entries, test, podiumRef, onPodiumReady]);
 
+  // Fokus auf „Nochmal spielen“, sobald der Knopf benutzbar ist (auch nach einer Trennung).
+  const canRematch = onRematch !== null;
   useEffect(() => {
-    buttonRef.current?.focus();
-  }, []);
+    if (canRematch) buttonRef.current?.focus();
+  }, [canRematch]);
 
   return (
     <div

@@ -345,7 +345,7 @@ describe('connectHost', () => {
     expect(t.timers.map((timer) => timer.ms)).toEqual([2000]);
   });
 
-  it('gilt nach 15 s ohne Server-Nachricht als getrennt und verbindet neu (CHAOS-12)', () => {
+  it('gilt nach 15 s ohne Server-Nachricht und unbeantworteter Probe als getrennt und verbindet neu (CHAOS-12, CHAOS-41)', () => {
     const t = setup();
     t.last().open();
     t.last().receive(encode(LOBBY));
@@ -354,6 +354,10 @@ describe('connectHost', () => {
     expect(t.timers.filter((timer) => timer.ms === 15_000)).toHaveLength(1);
     const dead = t.last();
     t.fire(15_000);
+    // Erst eine Probe (2 s), noch verbunden.
+    expect(dead.closedWith).toBeUndefined();
+    expect(t.connection.status).toBe('connected');
+    t.fire(2000);
     expect(dead.closedWith).toBe(1000);
     expect(t.connection.status).toBe('disconnected');
     expect(t.warnings.at(-1)).toContain('antwortet nicht');
@@ -365,6 +369,26 @@ describe('connectHost', () => {
     t.last().open();
     t.last().receive(encode(LOBBY));
     expect(t.statuses).toEqual(['connected', 'disconnected', 'connected']);
+  });
+
+  it('eigener Stillstand: nach 15 s Stille erst Probe; wartende Antwort hält die Verbindung', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    const live = t.last();
+    // Hauptthread stand still: Der Wachhund feuert, die Antworten des Servers liegen noch
+    // ungelesen in der Warteschlange.
+    t.fire(15_000);
+    expect(live.closedWith).toBeUndefined();
+    expect(t.connection.status).toBe('connected');
+    expect(live.sent.at(-1)).toBe(encode(createMessage('heartbeat', { t: 42 })));
+    expect(t.timers.filter((timer) => timer.ms === 2000)).toHaveLength(1);
+    // Die wartende Nachricht kommt an: Verbindung lebt, normaler Wachhund wieder scharf.
+    live.receive(encode(createMessage('heartbeat-ack', { t: 42 })));
+    expect(t.timers.filter((timer) => timer.ms === 2000)).toHaveLength(0);
+    expect(t.timers.filter((timer) => timer.ms === 15_000)).toHaveLength(1);
+    expect(t.sockets).toHaveLength(1);
+    expect(t.warnings).toEqual([]);
   });
 
   it('Seite wieder sichtbar: Probe-Herzschlag; ohne Antwort nach 2 s neu verbinden', () => {
