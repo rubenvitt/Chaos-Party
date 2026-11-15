@@ -90,7 +90,11 @@ export interface ControllerSession {
    * ab und nimmt nach einem Aufgeben das automatische Wiederverbinden wieder auf.
    */
   readonly retry: () => void;
-  /** Slot-Eingabe senden; `false`, solange keine beigetretene Verbindung besteht. */
+  /**
+   * Slot-Eingabe senden; `false`, solange keine beigetretene Verbindung besteht. Eine
+   * gesendete `choose`-Wahl sperrt die Knöpfe ihres Prompts (`state.choices`); eine zweite
+   * Wahl für denselben Prompt wird nicht gesendet.
+   */
   readonly sendIntent: (intent: SlotIntent) => boolean;
   /** Toast schließen. */
   readonly dismissNotice: (id: number) => void;
@@ -323,8 +327,20 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
     },
     sendIntent(intent) {
       if (!state.welcomed) return false;
+      // Höchstens eine Wahl pro Prompt (zwei Finger, Doppeltipp); Sperre im Zustand (CHAOS-22).
+      if (intent.type === 'choose' && state.choices[intent.slot]?.promptId === intent.promptId) {
+        return false;
+      }
       const sent = client?.sendIntent(intent) ?? false;
       if (sent) latency?.inputSent(now());
+      if (sent && intent.type === 'choose') {
+        dispatch({
+          type: 'choice-sent',
+          slot: intent.slot,
+          promptId: intent.promptId,
+          option: intent.option,
+        });
+      }
       return sent;
     },
     dismissNotice(id) {
