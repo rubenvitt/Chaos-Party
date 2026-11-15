@@ -11,10 +11,16 @@
  */
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { createChaosServer, type ChaosServer } from '../../../apps/server/src/server.ts';
+import {
+  createChaosServer,
+  type ChaosServer,
+  type ChaosServerOptions,
+} from '../../../apps/server/src/server.ts';
 
 /** Fester Join-Code der E2E-Sessions (jede Session hat ihren eigenen Server). */
 export const E2E_JOIN_CODE = 'E2ETEST';
+/** Fester Seed des Brettspiels in E2E-Tests (M2): gleiche Würfe, gleiche Wege. */
+export const E2E_GAME_SEED = 2026;
 
 const CONTROLLER_DIST = fileURLToPath(new URL('../../../apps/controller/dist', import.meta.url));
 const HOST_DIST = fileURLToPath(new URL('../../../apps/host/dist', import.meta.url));
@@ -59,7 +65,7 @@ function isAddressInUse(error: unknown): boolean {
  * Prozess den Port in der Zwischenzeit, wird mit einem neuen Port wiederholt.
  */
 export async function startChaosServer(
-  options: { joinCode?: string; withJoinUrl?: boolean } = {},
+  options: { joinCode?: string; withJoinUrl?: boolean; game?: ChaosServerOptions['game'] } = {},
 ): Promise<RunningServer> {
   const joinCode = options.joinCode ?? E2E_JOIN_CODE;
   for (let attempt = 1; ; attempt++) {
@@ -71,6 +77,7 @@ export async function startChaosServer(
       hostDir: HOST_DIST,
       joinCode,
       joinUrl: options.withJoinUrl === false ? undefined : joinUrl,
+      game: { seed: E2E_GAME_SEED, ...options.game },
     });
     try {
       await server.listen(port, '127.0.0.1');
