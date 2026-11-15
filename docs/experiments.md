@@ -867,7 +867,11 @@ Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Ver
 
 **Testumgebung:** Vitrine `lookdev.html?look=natur-<morgen|mittag|wolken|abend|daemmerung|nacht>&shot=<brett|figur|minispiel>`, Feinabstimmung ohne Neubau mit `&tune={"key":{"intensity":2}}`. SwiftShader (Software-Rendering), Chromium, 1280×720, 1 Bild nach `whenReadyAsync`.
 
-**Ergebnisse:** ERGEBNISSE
+**Ergebnisse:** Alle 18 Bilder (6 Stimmungen × Brett/Figuren/Minispiel) rendern ohne Seitenfehler. Mittlere Bildhelligkeit (0–255) Brett / Figuren / Minispiel: Morgen 159/114/163, Mittag 154/106/157, Bewölkt 170/125/173, Goldene Stunde 158/122/164, Dämmerung 83/100/127, Nacht 38/82/85. Die Nacht ist im Brett-Überblick deutlich dunkel, die Feld-Einlagen, Symbole und Slot-Ringe stechen aber durch ihr Eigenleuchten heraus. In der Figuren-Nahansicht bleiben alle Slot-Farben unterscheidbar. Zeichenaufrufe Brett 688 → 704 nachts (Laternen, Glühwürmchen), Minispiel 409 → 425.
+
+Fehler unterwegs behoben: Gras und Kronen wurden in Dämmerung und Nacht weißlich. Die Ursache war die starke Umgebungsbeleuchtung aus dem HDRI, die bei schwacher Sonne dominiert; Laternen und zusätzliche Lichter pro Material waren es nicht (gegengeprüft per Abschaltung). Lösung: Umgebungsstärke 0,35 bzw. 0,5 statt 1,3 bzw. 2,5, dafür mehr Belichtung und stärkere Laternen. HDRI-Vergleich Nacht: `qwantani_moonrise_puresky` und `qwantani_night_puresky` zeigen über dem Horizont einen hellen Streifen, `qwantani_moon_noon_puresky` bleibt sauber dunkelblau → gewählt. Dämmerung: `dusk_1` und `dusk_2` fast gleich, `dusk_2` behalten. Verworfene HDRIs sind wieder aus `polyhaven.json` entfernt.
+
+Bilder: Entscheidungsseite https://claude.ai/artifact/5WVskYB8BoiVT7wxsYuYCK, begehbare 3D-Fassung mit allen Stimmungen https://claude.ai/artifact/P4BrCKbYSyfXGHAo726W71 (Version 5).
 
 **Entscheidung:** offen, Ruben wählt die Zuordnung (Empfehlung C „Spielverlauf“, Brett-Standard A als Rückfall für einzelne Szenen wie Lobby und Siegerehrung).
 

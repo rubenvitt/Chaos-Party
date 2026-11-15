@@ -7,9 +7,6 @@
     { "id": "kloofendal_48d_partly_cloudy_puresky", "resolution": "1k" },
     { "id": "qwantani_noon_puresky", "resolution": "1k" },
     { "id": "qwantani_dusk_2_puresky", "resolution": "1k" },
-    { "id": "qwantani_dusk_1_puresky", "resolution": "1k" },
-    { "id": "qwantani_moonrise_puresky", "resolution": "1k" },
-    { "id": "qwantani_night_puresky", "resolution": "1k" },
     { "id": "qwantani_moon_noon_puresky", "resolution": "1k" }
   ],
   "textures": [
