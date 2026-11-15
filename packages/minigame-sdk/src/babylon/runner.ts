@@ -27,8 +27,11 @@ import {
 
 export type HavokInstance = Awaited<ReturnType<typeof HavokPhysics>>;
 
-/** Höchstens so viele feste Schritte je `advance` (Schutz vor Spiralen nach Hängern). */
-export const MAX_STEPS_PER_ADVANCE = 6;
+/**
+ * Höchstens so viele feste Schritte je `advance` (250 ms Aufholen): Bis etwa 4 Bilder/s bleibt
+ * das Minispiel in Echtzeit (die Server-Frist hängt daran), längere Hänger werden verworfen.
+ */
+export const MAX_STEPS_PER_ADVANCE = 15;
 /** So lange über das Zeitlimit hinaus wartet die Laufzeit, dann wertet sie selbst (HUD). */
 export const OVERTIME_GRACE_MS = 1_000;
 /** Schwerkraft für Physik-Minispiele. */

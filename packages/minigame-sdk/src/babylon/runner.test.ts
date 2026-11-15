@@ -19,7 +19,7 @@ import {
   testPlayers,
 } from '../testing/headless.ts';
 import type { Minigame, MinigameContext, MinigameModule } from './contract.ts';
-import { createMinigameRunner } from './runner.ts';
+import { createMinigameRunner, MAX_STEPS_PER_ADVANCE } from './runner.ts';
 
 const BASE_INFO: MinigameInfo = {
   id: 'test-spiel',
@@ -204,7 +204,7 @@ describe('Minispiel-Laufzeit', () => {
     await runner.prepare();
     runner.start();
     expect(runner.advance(0.05)).toBe(3);
-    expect(runner.advance(5)).toBe(6); // Hänger: kein Nachholen
+    expect(runner.advance(5)).toBe(MAX_STEPS_PER_ADVANCE); // Hänger: kein Nachholen
     runner.pause();
     expect(runner.advance(1)).toBe(0);
     runner.resume();

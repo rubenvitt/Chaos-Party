@@ -48,6 +48,8 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
     const engine = new Engine(canvas, true, { preserveDrawingBuffer: test, stencil: true });
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.98, 0.93, 0.82, 1);
+    // Testmodus: Figuren-Animationen laufen je Bild um feste 16 ms (stabile Screenshots).
+    scene.useConstantAnimationDeltaTime = test;
     // Klänge/Partikel/Wackeln (CHAOS-33); im Testmodus nur gezählt.
     const fx = createMinigameFx(scene, { sound: soundEngine(), testMode: test });
     const life = { active: true };
@@ -125,6 +127,9 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
       if (!isActive()) return;
       runner.start();
       setStatus('running');
+      // Erst melden, wenn alle Shader fertig sind (sonst sind frühe Screenshots leer).
+      await scene.whenReadyAsync();
+      if (!isActive()) return;
       scene.render();
       hook.ready = true;
       if (test) return;

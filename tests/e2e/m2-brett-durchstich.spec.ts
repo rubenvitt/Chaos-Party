@@ -14,8 +14,36 @@
  * Lesbarkeit am Fernseher – siehe `docs/device-test-checklist.md`.
  */
 import type { Page } from '@playwright/test';
+import { getMinigameInfo } from '../../packages/minigames/src/catalog.ts';
 import { collectProblems, expectNoProblems } from './fixtures/pages.ts';
-import { expect, test } from './fixtures/test.ts';
+import { startChaosServer, type RunningServer } from './fixtures/server.ts';
+import { expect, test as base } from './fixtures/test.ts';
+
+/**
+ * Minispiel der Runde: das leichte Referenz-Minispiel. Dieser Test prüft den Brett-Ablauf in
+ * Echtzeit; die echten Minispiele unter Software-Rendering in Echtzeit zu spielen, würde ihn
+ * nur langsam und lastabhängig machen. Bild und Lebenszyklus der echten Minispiele prüfen
+ * `m3-minispiele-bild.spec.ts` und die Headless-Tests in `packages/minigames`.
+ */
+const PUMP = (() => {
+  const info = getMinigameInfo('pump-parade');
+  if (!info) throw new Error('Referenz-Minispiel fehlt im Katalog');
+  return info;
+})();
+
+const test = base.extend<{ chaosServer: RunningServer }>({
+  chaosServer: async ({ chaosJoinCode }, use) => {
+    const running = await startChaosServer({
+      joinCode: chaosJoinCode,
+      game: { minigames: [{ id: PUMP.id, playMs: PUMP.durationMs, scoring: PUMP.scoring }] },
+    });
+    try {
+      await use(running);
+    } finally {
+      await running.close();
+    }
+  },
+});
 
 const HOST_URL = '/host/?rounds=1';
 

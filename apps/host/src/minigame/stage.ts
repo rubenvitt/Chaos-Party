@@ -97,6 +97,8 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   );
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0, 0, 0, 0);
+  // Testmodus: Figuren-Animationen laufen je Bild um feste 16 ms (stabile Screenshots).
+  scene.useConstantAnimationDeltaTime = testMode;
   const fx: HostMinigameFx = createMinigameFx(scene, { sound: options.sound, testMode });
 
   let status: StageStatus = 'loading';
