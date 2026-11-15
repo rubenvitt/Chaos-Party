@@ -15,11 +15,15 @@ export const WS_PATH = '/ws';
 export const MAX_PAYLOAD_BYTES = 16 * 1024;
 /** Obergrenze gleichzeitiger WebSocket-Verbindungen (4 Controller + Host + Reserve für Reconnects). */
 export const MAX_CONNECTIONS = 64;
-/** Takt, in dem `Session.tick()` Timeouts prüft (CHAOS-12, ADR-009). */
-export const DEFAULT_TICK_MS = 1000;
+/**
+ * Takt, in dem `Session.tick()` Timeouts prüft (CHAOS-12, ADR-009) und das Brettspiel
+ * weiterlaufen lässt (Pacing, Reaktionsfenster; M2, ADR-011). 100 ms: Fristen und
+ * Animationstakt bleiben spürbar genau, die Last ist vernachlässigbar.
+ */
+export const DEFAULT_TICK_MS = 100;
 
 export interface SocketAdapterOptions {
-  /** Takt für `Session.tick()` in ms (Standard 1000). */
+  /** Takt für `Session.tick()` in ms (Standard 100). */
   tickMs?: number | undefined;
 }
 
