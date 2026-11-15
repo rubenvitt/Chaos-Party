@@ -1,0 +1,397 @@
+/**
+ * Zustandsautomat der Brettphase (CHAOS-17): `createGame` und der reine Reducer `step`.
+ *
+ * Jeder Befehl lässt zuerst die Zeit bis `at` laufen (Fristen und `resumeAt` in
+ * zeitlicher Reihenfolge, beliebig viele automatische Übergänge), dann wird er angewandt,
+ * danach läuft alles sofort Fällige (`resumeAt <= at`) weiter. Automatische Übergänge
+ * rechnen mit ihrem geplanten Zeitpunkt, nicht mit dem Tick-Zeitpunkt; der Ablauf hängt
+ * deshalb nicht davon ab, wie oft der Server tickt.
+ */
+import { createRng, pickOne, shuffled } from '../rng.ts';
+import type {
+  GameCommand,
+  GameConfig,
+  GameErrorCode,
+  GameState,
+  ItemKind,
+  Slot,
+  StepResult,
+} from '../types.ts';
+import { rankPlayers, resolvePlaceholderMinigame } from './economy.ts';
+import {
+  closeDraft,
+  openDraft,
+  playerOf,
+  schedule,
+  spaceMap,
+  type Ctx,
+  type Internal,
+} from './internal.ts';
+import { useCoinSteal, useItemFromRoll } from './items.ts';
+import { choosePath, decideTrophy, resumeMovement, rollDice } from './movement.ts';
+import {
+  ACTIVE_ITEMS,
+  BUY_OPTION,
+  CANCEL_OPTION,
+  graceDeadline,
+  openRollPrompt,
+  ROLL_OPTION,
+  slotOption,
+} from './prompts.ts';
+import { resolveReaction } from './reaction.ts';
+import { enterSpaceEvent } from './spaces.ts';
+
+/** Schutz gegen Endlosschleifen bei fehlerhafter Konfiguration (z. B. Brett ohne Ziel). */
+const MAX_TRANSITIONS_PER_STEP = 100_000;
+
+const VALID_SLOTS: readonly Slot[] = [1, 2, 3, 4];
+
+// ---------------------------------------------------------------------------
+// Partie anlegen
+// ---------------------------------------------------------------------------
+
+function assertConfig(config: GameConfig): void {
+  const { board, rules, players, rounds } = config;
+  if (!Number.isInteger(rounds) || rounds < 1) {
+    throw new RangeError(`Rundenzahl muss eine ganze Zahl ≥ 1 sein, war ${String(rounds)}`);
+  }
+  if (players.length < 1 || players.length > 4) {
+    throw new RangeError(`1–4 Spieler erwartet, waren ${String(players.length)}`);
+  }
+  const slots = new Set<number>();
+  for (const player of players) {
+    if (!VALID_SLOTS.includes(player.slot)) {
+      throw new RangeError(`Ungültiger Slot ${String(player.slot)}`);
+    }
+    if (slots.has(player.slot)) throw new RangeError(`Slot ${String(player.slot)} doppelt`);
+    slots.add(player.slot);
+  }
+  const spaces = spaceMap(board);
+  if (spaces.size !== board.spaces.length) throw new RangeError('Feld-IDs doppelt');
+  if (!spaces.has(board.start)) throw new RangeError(`Startfeld ${board.start} fehlt`);
+  for (const space of board.spaces) {
+    for (const next of space.next) {
+      if (!spaces.has(next)) throw new RangeError(`Feld ${space.id}: Nachfolger ${next} fehlt`);
+    }
+  }
+  if (rules.diceFaces.length === 0) throw new RangeError('diceFaces ist leer');
+  if (rules.diceFaces.some((face) => !Number.isInteger(face) || face < 0)) {
+    throw new RangeError('diceFaces: nur ganze Zahlen ≥ 0');
+  }
+}
+
+/** Neue Partie in Phase `setup`. Wirft bei ungültiger Konfiguration (Programmierfehler). */
+export function createGame(config: GameConfig): GameState {
+  assertConfig(config);
+  const { board, rules, seed } = config;
+  const rng = createRng(seed);
+  const trophies = board.spaces.filter((s) => s.kind === 'trophy').map((s) => s.id);
+  const trophySpaces =
+    rules.trophy.mode === 'fixed' || trophies.length === 0 ? trophies : [pickOne(rng, trophies)];
+  const internal: Internal = {
+    board,
+    rng: rng.state(),
+    promptSeq: 0,
+    turnIndex: 0,
+    itemUsed: false,
+    diceCount: 1,
+    move: null,
+    reaction: null,
+    promptBaseDeadline: null,
+  };
+  return {
+    boardId: board.id,
+    phase: 'setup',
+    round: 0,
+    rounds: config.rounds,
+    turnOrder: [],
+    activeSlot: null,
+    players: config.players.map((p) => ({
+      slot: p.slot,
+      name: p.name,
+      spaceId: board.start,
+      coins: rules.economy.startCoins,
+      trophies: 0,
+      items: [],
+      connected: true,
+    })),
+    trophySpaces,
+    traps: [],
+    prompt: null,
+    resumeAt: null,
+    now: 0,
+    ranking: null,
+    config: { rules, seed },
+    internal: internal as unknown as Readonly<Record<string, unknown>>,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Zugablauf
+// ---------------------------------------------------------------------------
+
+function startTurn(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  const slot = d.turnOrder[d.internal.turnIndex];
+  if (slot === undefined) throw new Error('Kein Spieler für diesen Zug');
+  d.activeSlot = slot;
+  d.internal.itemUsed = false;
+  d.internal.diceCount = 1;
+  d.internal.move = null;
+  d.internal.reaction = null;
+  ctx.events.push({ type: 'turn-started', slot, round: d.round });
+  schedule(ctx, 'turn-start', t, ctx.rules.pacing.turnStartMs);
+}
+
+function startRound(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  d.round += 1;
+  d.internal.turnIndex = 0;
+  ctx.events.push({ type: 'round-started', round: d.round });
+  startTurn(ctx, t);
+}
+
+function startGame(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  d.turnOrder = shuffled(
+    ctx.rng,
+    d.players.map((p) => p.slot),
+  );
+  ctx.events.push({ type: 'game-started', order: [...d.turnOrder] });
+  startRound(ctx, t);
+}
+
+function endTurn(ctx: Ctx, t: number): void {
+  const slot = ctx.d.activeSlot;
+  if (slot === null) throw new Error('Zugende ohne Spieler am Zug');
+  ctx.events.push({ type: 'turn-ended', slot });
+  schedule(ctx, 'turn-end', t, ctx.rules.pacing.turnEndMs);
+}
+
+function afterTurn(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  d.internal.turnIndex += 1;
+  if (d.internal.turnIndex < d.turnOrder.length) {
+    startTurn(ctx, t);
+    return;
+  }
+  d.activeSlot = null;
+  ctx.events.push({ type: 'minigame-started', minigame: 'placeholder' });
+  schedule(ctx, 'minigame-intro', t, ctx.rules.pacing.minigameIntroMs);
+}
+
+function finishGame(ctx: Ctx): void {
+  const { d } = ctx;
+  const ranking = rankPlayers(d.players);
+  d.ranking = ranking;
+  d.activeSlot = null;
+  d.phase = 'game-results';
+  d.prompt = null;
+  d.resumeAt = null;
+  d.internal.promptBaseDeadline = null;
+  ctx.events.push({ type: 'game-ended', ranking });
+}
+
+/** Geplanter Zeitpunkt `t` einer automatischen Phase ist erreicht. */
+function resume(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  const { pacing } = ctx.rules;
+  switch (d.phase) {
+    case 'turn-start':
+      openRollPrompt(ctx, t);
+      return;
+    case 'move':
+      if (resumeMovement(ctx, t)) enterSpaceEvent(ctx, t);
+      return;
+    case 'space-event':
+      endTurn(ctx, t);
+      return;
+    case 'reaction-window':
+      // Anzeige des Reaktionsergebnisses vorbei: Angreifer würfelt weiter.
+      d.internal.reaction = null;
+      openRollPrompt(ctx, t);
+      return;
+    case 'turn-end':
+      afterTurn(ctx, t);
+      return;
+    case 'minigame-intro':
+      schedule(ctx, 'minigame-play', t, pacing.minigamePlayMs);
+      return;
+    case 'minigame-play':
+      resolvePlaceholderMinigame(ctx);
+      schedule(ctx, 'minigame-results', t, pacing.minigameResultsMs);
+      return;
+    case 'minigame-results':
+      ctx.events.push({ type: 'round-ended', round: d.round });
+      schedule(ctx, 'round-end', t, pacing.roundEndMs);
+      return;
+    case 'round-end':
+      if (d.round < d.rounds) startRound(ctx, t);
+      else finishGame(ctx);
+      return;
+    case 'setup':
+    case 'roll':
+    case 'choose-target':
+    case 'choose-path':
+    case 'trophy-offer':
+    case 'game-results':
+      throw new Error(`Phase ${d.phase} hat keinen automatischen Übergang`);
+  }
+}
+
+/** Gültige Wahl für den offenen Prompt anwenden (Prüfung ist schon erfolgt). */
+function applyOption(ctx: Ctx, option: string, t: number): void {
+  const prompt = ctx.d.prompt;
+  if (!prompt) throw new Error('Kein Prompt offen');
+  switch (prompt.kind) {
+    case 'roll':
+      if (option === ROLL_OPTION) rollDice(ctx, t);
+      else useItemFromRoll(ctx, option.slice('item:'.length) as ItemKind, t);
+      return;
+    case 'target':
+      if (option === CANCEL_OPTION) openRollPrompt(ctx, t);
+      else useCoinSteal(ctx, Number(option.slice('slot:'.length)) as Slot, t);
+      return;
+    case 'path':
+      choosePath(ctx, option, t);
+      return;
+    case 'trophy':
+      decideTrophy(ctx, option === BUY_OPTION, t);
+      return;
+    case 'reaction':
+      resolveReaction(ctx, option, t);
+      return;
+  }
+}
+
+/** Frist abgelaufen: Standardoption anwenden. */
+function expirePrompt(ctx: Ctx, t: number): void {
+  const prompt = ctx.d.prompt;
+  if (!prompt) return;
+  const connected = playerOf(ctx, prompt.slot).connected;
+  ctx.events.push({
+    type: 'player-auto',
+    slot: prompt.slot,
+    option: prompt.defaultOption,
+    reason: connected ? 'timeout' : 'disconnected',
+  });
+  applyOption(ctx, prompt.defaultOption, t);
+}
+
+/** Zeit bis `at` laufen lassen: Fristen und automatische Phasen in zeitlicher Folge. */
+function advance(ctx: Ctx, at: number): void {
+  const { d } = ctx;
+  for (let i = 0; ; i++) {
+    if (i > MAX_TRANSITIONS_PER_STEP) {
+      throw new Error('Zu viele automatische Übergänge in einem Schritt');
+    }
+    const deadline = d.prompt?.deadline ?? null;
+    if (deadline !== null && deadline <= at) {
+      d.now = Math.max(d.now, deadline);
+      expirePrompt(ctx, d.now);
+      continue;
+    }
+    if (d.resumeAt !== null && d.resumeAt <= at) {
+      const t = d.resumeAt;
+      d.resumeAt = null;
+      d.now = Math.max(d.now, t);
+      resume(ctx, t);
+      continue;
+    }
+    break;
+  }
+  d.now = Math.max(d.now, at);
+}
+
+// ---------------------------------------------------------------------------
+// Befehle
+// ---------------------------------------------------------------------------
+
+function fail(state: GameState, code: GameErrorCode, message: string): StepResult {
+  return { ok: false, state, error: { code, message } };
+}
+
+/** Option im offenen Prompt zulässig? `item:*` zusätzlich gegen den Bestand geprüft. */
+function isOfferedOption(ctx: Ctx, option: string): boolean {
+  const prompt = ctx.d.prompt;
+  if (!prompt?.options.some((o) => o.id === option)) return false;
+  if (prompt.kind === 'roll' && option !== ROLL_OPTION) {
+    const item = option.slice('item:'.length) as ItemKind;
+    return ACTIVE_ITEMS.includes(item) && playerOf(ctx, prompt.slot).items.includes(item);
+  }
+  if (prompt.kind === 'target' && option !== CANCEL_OPTION) {
+    return ctx.d.players.some((p) => slotOption(p.slot) === option && p.slot !== prompt.slot);
+  }
+  return true;
+}
+
+function setConnection(ctx: Ctx, slot: Slot, connected: boolean, at: number): void {
+  const { d } = ctx;
+  playerOf(ctx, slot).connected = connected;
+  const prompt = d.prompt;
+  if (prompt?.slot !== slot) return;
+  const deadline = connected
+    ? d.internal.promptBaseDeadline
+    : Math.min(prompt.deadline ?? Infinity, graceDeadline(ctx, null, at));
+  d.prompt = { ...prompt, deadline };
+}
+
+/**
+ * Reiner Reducer: wendet `command` auf `state` an und liefert neuen Zustand und Ereignisse.
+ * Bei einem Fehler (`ok: false`) ist der zurückgegebene Zustand der unveränderte Eingang.
+ */
+export function step(state: GameState, command: GameCommand): StepResult {
+  const at = command.at;
+  if (!Number.isFinite(at) || at < state.now) {
+    return fail(
+      state,
+      'time-went-back',
+      `Zeitpunkt ${String(at)} liegt vor dem letzten (${String(state.now)})`,
+    );
+  }
+  const ctx = openDraft(state);
+  const { d } = ctx;
+  advance(ctx, at);
+
+  switch (command.type) {
+    case 'tick':
+      break;
+    case 'start':
+      if (d.phase !== 'setup') {
+        return fail(state, 'wrong-phase', `Start nur in setup möglich (Phase ${d.phase})`);
+      }
+      startGame(ctx, at);
+      break;
+    case 'connection':
+      if (!d.players.some((p) => p.slot === command.slot)) {
+        return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
+      }
+      setConnection(ctx, command.slot, command.connected, at);
+      break;
+    case 'choose': {
+      if (!d.players.some((p) => p.slot === command.slot)) {
+        return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
+      }
+      const prompt = d.prompt;
+      if (prompt?.id !== command.promptId) {
+        // Schon vergebene (inzwischen aufgelöste) Prompt-ID = verspätete Wahl.
+        if (command.promptId >= 1 && command.promptId <= d.internal.promptSeq) {
+          return fail(state, 'stale-prompt', `Prompt ${String(command.promptId)} ist vorbei`);
+        }
+        if (!prompt) return fail(state, 'wrong-phase', `Keine offene Wahl (Phase ${d.phase})`);
+        return fail(state, 'stale-prompt', `Prompt ${String(command.promptId)} ist unbekannt`);
+      }
+      if (prompt.slot !== command.slot) {
+        return fail(state, 'not-your-turn', `Spieler ${String(prompt.slot)} wählt gerade`);
+      }
+      if (!isOfferedOption(ctx, command.option)) {
+        return fail(state, 'invalid-option', `Option ${command.option} steht nicht zur Wahl`);
+      }
+      applyOption(ctx, command.option, at);
+      break;
+    }
+  }
+
+  advance(ctx, at);
+  return { ok: true, state: closeDraft(ctx), events: ctx.events };
+}

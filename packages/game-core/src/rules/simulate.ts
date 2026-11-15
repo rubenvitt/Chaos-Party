@@ -1,0 +1,369 @@
+/**
+ * Bot-Simulation ganzer Partien für Balance-Experimente (CHAOS-24): Brett-Tempo,
+ * Münzbelohnungen, Item-Häufigkeit, Reaktionsdauer. Deterministisch je Seed.
+ *
+ * Die Simulation ersetzt keinen menschlichen Spaßtest; sie liefert objektive Kennzahlen
+ * (Dauer, Abstände, Sabotage-Häufigkeit) für den Vergleich von Regelvarianten.
+ */
+import { createRng, pickOne, type Rng } from '../rng.ts';
+import type {
+  BoardDefinition,
+  BoardEventKind,
+  GameEvent,
+  GameState,
+  ItemKind,
+  Prompt,
+  RankingEntry,
+  RuleSet,
+  Slot,
+  StepResult,
+} from '../types.ts';
+import { DEFAULT_RULES } from './defaults.ts';
+import { ITEM_KINDS } from './items.ts';
+import { createGame, step } from './machine.ts';
+import {
+  BRACE_OPTION,
+  BUY_OPTION,
+  CANCEL_OPTION,
+  ROLL_OPTION,
+  SHIELD_OPTION,
+  SKIP_OPTION,
+} from './prompts.ts';
+import { BOARD_EVENT_KINDS } from './spaces.ts';
+
+/** Bereich [min, max] in ms, gleichverteilt. */
+export type MsRange = readonly [number, number];
+
+export interface BotPolicy {
+  /** Wahrscheinlichkeit, im Würfel-Prompt ein angebotenes Item einzusetzen. */
+  readonly itemUseChance: number;
+  /** Trophäe kaufen, wenn möglich. */
+  readonly buyTrophies: boolean;
+  /** Ziel des Münzklaus: reichster Mitspieler oder zufällig. */
+  readonly target: 'richest' | 'random';
+  /** Wahrscheinlichkeit, im Reaktionsfenster überhaupt zu reagieren. */
+  readonly reactionChance: number;
+  /** Reaktionszeit; liegt sie hinter der Frist, ist die Reaktion zu spät (`stale-prompt`). */
+  readonly reactionDelayMs: MsRange;
+  /** Entscheidungszeit für alle anderen Prompts (Würfeln, Weg, Trophäe, Ziel). */
+  readonly decisionMs: MsRange;
+}
+
+export const DEFAULT_BOT_POLICY: BotPolicy = {
+  itemUseChance: 0.5,
+  buyTrophies: true,
+  target: 'richest',
+  reactionChance: 0.7,
+  reactionDelayMs: [600, 3600],
+  decisionMs: [800, 2500],
+};
+
+export interface SimulationOptions {
+  readonly board: BoardDefinition;
+  readonly rules?: RuleSet;
+  readonly rounds: number;
+  readonly seed: number;
+  readonly players: 2 | 3 | 4;
+  readonly policy?: Partial<BotPolicy>;
+}
+
+export interface SimulationPlayerResult {
+  readonly slot: Slot;
+  readonly place: number;
+  readonly coins: number;
+  readonly trophies: number;
+}
+
+export interface SimulationResult {
+  readonly seed: number;
+  readonly players: number;
+  readonly rounds: number;
+  /** Geschätzte Partiedauer: Pacing-Zeiten + Bot-Entscheidungszeiten (ms). */
+  readonly durationMs: number;
+  readonly turns: number;
+  /** Dauer je Zug von `turn-started` bis `turn-ended` (ms). */
+  readonly turnDurationsMs: readonly number[];
+  readonly avgTurnMs: number;
+  /** Gewürfelte Bewegung je Zug (ohne Windstoß/Tausch). */
+  readonly spacesPerTurn: readonly number[];
+  readonly avgSpacesPerTurn: number;
+  readonly standings: readonly SimulationPlayerResult[];
+  readonly ranking: readonly RankingEntry[];
+  /** Trophäen Platz 1 minus Platz 2 (`null` bei einem Spieler). */
+  readonly trophyGap: number | null;
+  readonly trophiesBought: number;
+  readonly coinSteals: number;
+  readonly coinsStolen: number;
+  readonly trapsPlaced: number;
+  readonly trapsTriggered: number;
+  readonly coinsLostToTraps: number;
+  readonly reactions: Readonly<Record<'shield' | 'brace' | 'timeout', number>>;
+  /** Reaktionen, die nach der Frist kamen (`stale-prompt`). */
+  readonly lateReactions: number;
+  readonly itemsGained: Readonly<Record<ItemKind, number>>;
+  readonly itemsUsed: Readonly<Record<ItemKind, number>>;
+  readonly boardEvents: Readonly<Record<BoardEventKind, number>>;
+  readonly autoChoices: number;
+  readonly events: number;
+}
+
+const MAX_COMMANDS = 1_000_000;
+const SIM_NAMES = ['Rot', 'Blau', 'Grün', 'Gelb'] as const;
+
+function counter<K extends string>(keys: readonly K[]): Record<K, number> {
+  const result = {} as Record<K, number>;
+  for (const key of keys) result[key] = 0;
+  return result;
+}
+
+function inRange(rng: Rng, [min, max]: MsRange): number {
+  const lo = Math.max(0, Math.round(Math.min(min, max)));
+  const hi = Math.max(0, Math.round(Math.max(min, max)));
+  return rng.int(lo, hi);
+}
+
+function decide(prompt: Prompt, state: GameState, policy: BotPolicy, rng: Rng): string {
+  const ids = prompt.options.map((o) => o.id);
+  switch (prompt.kind) {
+    case 'roll': {
+      const items = ids.filter((id) => id !== ROLL_OPTION);
+      if (items.length > 0 && rng.next() < policy.itemUseChance) return pickOne(rng, items);
+      return ROLL_OPTION;
+    }
+    case 'target': {
+      const targets = prompt.options.filter((o) => o.slot !== undefined);
+      if (targets.length === 0) return CANCEL_OPTION;
+      if (policy.target === 'random') return pickOne(rng, targets).id;
+      const coinsOf = (slot: Slot | undefined): number =>
+        state.players.find((p) => p.slot === slot)?.coins ?? 0;
+      return targets.reduce((best, o) => (coinsOf(o.slot) > coinsOf(best.slot) ? o : best)).id;
+    }
+    case 'path':
+      return pickOne(rng, ids);
+    case 'trophy':
+      return policy.buyTrophies ? BUY_OPTION : SKIP_OPTION;
+    case 'reaction':
+      return ids.includes(SHIELD_OPTION) ? SHIELD_OPTION : BRACE_OPTION;
+  }
+}
+
+/** Eine Partie mit Bots zu Ende spielen und Kennzahlen sammeln. */
+export function simulateGame(options: SimulationOptions): SimulationResult {
+  const policy: BotPolicy = { ...DEFAULT_BOT_POLICY, ...options.policy };
+  const rules = options.rules ?? DEFAULT_RULES;
+  const slots = ([1, 2, 3, 4] as const).slice(0, options.players);
+  let state = createGame({
+    board: options.board,
+    rules,
+    rounds: options.rounds,
+    seed: options.seed,
+    players: slots.map((slot) => ({ slot, name: SIM_NAMES[slot - 1] ?? `Bot ${String(slot)}` })),
+  });
+  // Eigener Zufall für Bot-Entscheidungen, damit der Spiel-RNG nur Regeln bedient.
+  const bot = createRng((options.seed ^ 0x5bd1e995) >>> 0);
+
+  const turnDurations: number[] = [];
+  const spacesPerTurn: number[] = [];
+  const reactions = { shield: 0, brace: 0, timeout: 0 };
+  const itemsGained = counter(ITEM_KINDS);
+  const itemsUsed = counter(ITEM_KINDS);
+  const boardEvents = counter(BOARD_EVENT_KINDS);
+  let turnStart = 0;
+  let turnSpaces = 0;
+  let countingMoves = false;
+  let trophiesBought = 0;
+  let coinSteals = 0;
+  let coinsStolen = 0;
+  let trapsPlaced = 0;
+  let trapsTriggered = 0;
+  let coinsLostToTraps = 0;
+  let lateReactions = 0;
+  let autoChoices = 0;
+  let eventCount = 0;
+
+  const record = (event: GameEvent, at: number): void => {
+    eventCount += 1;
+    switch (event.type) {
+      case 'turn-started':
+        turnStart = at;
+        turnSpaces = 0;
+        countingMoves = false;
+        break;
+      case 'dice-rolled':
+        countingMoves = true;
+        break;
+      case 'moved':
+        if (countingMoves) turnSpaces += event.path.length;
+        break;
+      case 'board-event':
+        countingMoves = false;
+        boardEvents[event.event] += 1;
+        break;
+      case 'turn-ended':
+        turnDurations.push(at - turnStart);
+        spacesPerTurn.push(turnSpaces);
+        countingMoves = false;
+        break;
+      case 'trophy-bought':
+        trophiesBought += 1;
+        break;
+      case 'item-gained':
+        itemsGained[event.item] += 1;
+        break;
+      case 'item-used':
+        itemsUsed[event.item] += 1;
+        if (event.item === 'coin-steal') coinSteals += 1;
+        break;
+      case 'coins-stolen':
+        coinsStolen += event.amount;
+        break;
+      case 'trap-placed':
+        trapsPlaced += 1;
+        break;
+      case 'trap-triggered':
+        trapsTriggered += 1;
+        coinsLostToTraps += event.amount;
+        break;
+      case 'reaction-resolved':
+        reactions[event.result] += 1;
+        break;
+      case 'player-auto':
+        autoChoices += 1;
+        break;
+      default:
+        break;
+    }
+  };
+
+  const apply = (result: StepResult, at: number): void => {
+    if (!result.ok) {
+      throw new Error(
+        `Simulation: unerwarteter Fehler ${result.error.code}: ${result.error.message}`,
+      );
+    }
+    state = result.state;
+    for (const event of result.events) record(event, at);
+  };
+
+  apply(step(state, { type: 'start', at: 0 }), 0);
+  for (let i = 0; state.phase !== 'game-results'; i++) {
+    if (i > MAX_COMMANDS) throw new Error('Simulation endet nicht');
+    const prompt = state.prompt;
+    if (prompt === null) {
+      if (state.resumeAt === null) throw new Error(`Simulation hängt in Phase ${state.phase}`);
+      apply(step(state, { type: 'tick', at: state.resumeAt }), state.resumeAt);
+      continue;
+    }
+    if (prompt.kind === 'reaction' && !(bot.next() < policy.reactionChance)) {
+      // Keine Reaktion: Fenster läuft ab.
+      const at = prompt.deadline ?? state.now;
+      apply(step(state, { type: 'tick', at }), at);
+      continue;
+    }
+    const delay =
+      prompt.kind === 'reaction'
+        ? inRange(bot, policy.reactionDelayMs)
+        : inRange(bot, policy.decisionMs);
+    const at = state.now + delay;
+    const option = decide(prompt, state, policy, bot);
+    const result = step(state, {
+      type: 'choose',
+      slot: prompt.slot,
+      promptId: prompt.id,
+      option,
+      at,
+    });
+    if (!result.ok && result.error.code === 'stale-prompt' && prompt.kind === 'reaction') {
+      lateReactions += 1;
+      apply(step(state, { type: 'tick', at }), at);
+      continue;
+    }
+    apply(result, at);
+  }
+
+  const ranking = state.ranking ?? [];
+  const first = ranking[0];
+  const second = ranking[1];
+  const mean = (values: readonly number[]): number =>
+    values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length;
+
+  return {
+    seed: options.seed,
+    players: options.players,
+    rounds: options.rounds,
+    durationMs: state.now,
+    turns: turnDurations.length,
+    turnDurationsMs: turnDurations,
+    avgTurnMs: mean(turnDurations),
+    spacesPerTurn,
+    avgSpacesPerTurn: mean(spacesPerTurn),
+    standings: ranking.map((r) => ({
+      slot: r.slot,
+      place: r.place,
+      coins: r.coins,
+      trophies: r.trophies,
+    })),
+    ranking,
+    trophyGap: first && second ? first.trophies - second.trophies : null,
+    trophiesBought,
+    coinSteals,
+    coinsStolen,
+    trapsPlaced,
+    trapsTriggered,
+    coinsLostToTraps,
+    reactions,
+    lateReactions,
+    itemsGained,
+    itemsUsed,
+    boardEvents,
+    autoChoices,
+    events: eventCount,
+  };
+}
+
+export interface SimulationSummary {
+  readonly games: number;
+  readonly avgDurationMs: number;
+  readonly avgTurnMs: number;
+  readonly avgSpacesPerTurn: number;
+  readonly avgTrophyGap: number;
+  /** Anteil Partien, in denen Platz 1 geteilt ist. */
+  readonly sharedWinRate: number;
+  readonly avgTrophiesBought: number;
+  readonly avgCoinSteals: number;
+  readonly avgCoinsStolen: number;
+  readonly avgTrapsTriggered: number;
+  readonly reactionShares: Readonly<Record<'shield' | 'brace' | 'timeout', number>>;
+  readonly avgFinalCoins: number;
+}
+
+/** Mittelwerte über mehrere Simulationen (z. B. Seeds 1–200 je Variante). */
+export function summarizeSimulations(results: readonly SimulationResult[]): SimulationSummary {
+  const n = results.length;
+  const avg = (pick: (r: SimulationResult) => number): number =>
+    n === 0 ? 0 : results.reduce((sum, r) => sum + pick(r), 0) / n;
+  const totalReactions = results.reduce(
+    (sum, r) => sum + r.reactions.shield + r.reactions.brace + r.reactions.timeout,
+    0,
+  );
+  const share = (key: 'shield' | 'brace' | 'timeout'): number =>
+    totalReactions === 0 ? 0 : results.reduce((s, r) => s + r.reactions[key], 0) / totalReactions;
+  return {
+    games: n,
+    avgDurationMs: avg((r) => r.durationMs),
+    avgTurnMs: avg((r) => r.avgTurnMs),
+    avgSpacesPerTurn: avg((r) => r.avgSpacesPerTurn),
+    avgTrophyGap: avg((r) => r.trophyGap ?? 0),
+    sharedWinRate: avg((r) => (r.ranking.filter((e) => e.place === 1).length > 1 ? 1 : 0)),
+    avgTrophiesBought: avg((r) => r.trophiesBought),
+    avgCoinSteals: avg((r) => r.coinSteals),
+    avgCoinsStolen: avg((r) => r.coinsStolen),
+    avgTrapsTriggered: avg((r) => r.trapsTriggered),
+    reactionShares: { shield: share('shield'), brace: share('brace'), timeout: share('timeout') },
+    avgFinalCoins: avg((r) =>
+      r.standings.length === 0
+        ? 0
+        : r.standings.reduce((s, p) => s + p.coins, 0) / r.standings.length,
+    ),
+  };
+}
