@@ -22,7 +22,8 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-006 | Physik-Minispiel (Havok): Konzepte | CHAOS-29, CHAOS-31 | keep A5 „Pudding-Gerangel“ (Kirschfleck + Wackelkrone); „Letzter oben“, Saldo, „Krümel-Kehraus“ discard |
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
 | EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
-| EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen |
+| EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen → EXP-010 |
+| EXP-010 | Lichtstimmung: je Brett, Uhrzeit oder Spielverlauf, inkl. Nacht | CHAOS-60 | offen: Ruben wählt (Empfehlung: Spielverlauf) |
 
 ---
 
@@ -846,4 +847,33 @@ Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Ver
 **Entscheidung:** keep – Ruben nach der 3D-Fassung (2026-11-15): „ja passt so“. Offen: Lichtstimmung (N1/N2/N3 oder je Brett eine), neue Figuren (CHAOS-58), Controller-UI (CHAOS-59), Bildrate am Ziel-PC.
 
 **Offen für Playtest:** Bildrate am Ziel-PC mit 40 000 Halmen, SSAO und Unschärfe; Lesbarkeit der Felder und Slot-Farben aus 3 m am Fernseher.
+
+---
+
+## EXP-010: Lichtstimmung je Brett, nach Uhrzeit oder nach Spielverlauf, inkl. Nacht (2026-11-15, CHAOS-60)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Wechsel der Lichtstimmung macht die Welt lebendiger als ein fest eingestelltes Licht. Am stärksten wirkt er als Bogen über die Partie: Die erste Runde spielt morgens, die letzte nachts mit Laternen. So spürt man das Finale, ohne dass Text es ansagt. Dabei bleiben Felder, Figuren und Slot-Farben in jeder Stimmung am Fernseher lesbar.
+
+**Varianten (Zuordnung):**
+- A „je Brett“: jedes Brett hat eine feste Stimmung (Wackelwald = goldene Stunde). Am ruhigsten und am besten planbar, aber ohne Abwechslung innerhalb einer Partie.
+- B „PC-Uhrzeit“: Stimmung nach der echten Uhrzeit (6–11 Morgen, 11–16 Mittag, 16–19 goldene Stunde, 19–21 Dämmerung, sonst Nacht). Überraschend und „echt“, aber Partyabende liegen fast immer bei Dämmerung oder Nacht: Dann sieht man meist dieselbe Stimmung, und Tagesbilder gibt es abends nie.
+- C „Spielverlauf“: Runde 1 → Morgen, … letzte Runde → Nacht (`ROUND_ARC`, bei 5 Runden jede Stimmung einmal, bei mehr Runden länger je Stimmung, nie rückwärts). Minispiele erben die Stimmung der Runde. Liefert Abwechslung und Dramaturgie, kostet einen Lichtwechsel pro Runde (zwischen den Runden, hinter einer Überblendung).
+
+**Stimmungen (Daten in `apps/host/src/lighting/moods.ts`):** Morgen, Mittag, Bewölkt, Goldene Stunde, Dämmerung, Nacht. Alle außer „Bewölkt“ stammen aus derselben Poly-Haven-Serie (Qwantani, CC0), der Himmel passt also zusammen. Dämmerung und Nacht bringen 4 Laternen (Punktlichter, leuchtendes Glas), Glühwürmchen (Thin Instances mit Schein) und leuchtende Feld-Einlagen und Slot-Ringe (`tileGlow` 0,25 bzw. 0,7) mit.
+
+**Objektive Messgrößen:** Lesbarkeit der Feld-Symbole und Slot-Ringe im Screenshot (1280×720, wie aus 3 m), mittlere Bildhelligkeit je Stimmung, Zeichenaufrufe (Nacht: +16 durch Laternen und Glühwürmchen) und Lichter pro Material (Nacht bis 6 statt 2).
+
+**Subjektive Playtest-Fragen (für Ruben):** Welche Zuordnung? Ist die Nacht dunkel genug, um Nacht zu sein, aber hell genug zum Spielen? Stören die Laternen am Tag? Soll „Bewölkt“ als Brett-Stimmung bleiben?
+
+**Testumgebung:** Vitrine `lookdev.html?look=natur-<morgen|mittag|wolken|abend|daemmerung|nacht>&shot=<brett|figur|minispiel>`, Feinabstimmung ohne Neubau mit `&tune={"key":{"intensity":2}}`. SwiftShader (Software-Rendering), Chromium, 1280×720, 1 Bild nach `whenReadyAsync`.
+
+**Ergebnisse:** Alle 18 Bilder (6 Stimmungen × Brett/Figuren/Minispiel) rendern ohne Seitenfehler. Mittlere Bildhelligkeit (0–255) Brett / Figuren / Minispiel: Morgen 159/114/163, Mittag 154/106/157, Bewölkt 170/125/173, Goldene Stunde 158/122/164, Dämmerung 83/100/127, Nacht 38/82/85. Die Nacht ist im Brett-Überblick deutlich dunkel, die Feld-Einlagen, Symbole und Slot-Ringe stechen aber durch ihr Eigenleuchten heraus. In der Figuren-Nahansicht bleiben alle Slot-Farben unterscheidbar. Zeichenaufrufe Brett 688 → 704 nachts (Laternen, Glühwürmchen), Minispiel 409 → 425.
+
+Fehler unterwegs behoben: Gras und Kronen wurden in Dämmerung und Nacht weißlich. Die Ursache war die starke Umgebungsbeleuchtung aus dem HDRI, die bei schwacher Sonne dominiert; Laternen und zusätzliche Lichter pro Material waren es nicht (gegengeprüft per Abschaltung). Lösung: Umgebungsstärke 0,35 bzw. 0,5 statt 1,3 bzw. 2,5, dafür mehr Belichtung und stärkere Laternen. HDRI-Vergleich Nacht: `qwantani_moonrise_puresky` und `qwantani_night_puresky` zeigen über dem Horizont einen hellen Streifen, `qwantani_moon_noon_puresky` bleibt sauber dunkelblau → gewählt. Dämmerung: `dusk_1` und `dusk_2` fast gleich, `dusk_2` behalten. Verworfene HDRIs sind wieder aus `polyhaven.json` entfernt.
+
+Bilder: Entscheidungsseite https://claude.ai/artifact/5WVskYB8BoiVT7wxsYuYCK, begehbare 3D-Fassung mit allen Stimmungen https://claude.ai/artifact/P4BrCKbYSyfXGHAo726W71 (Version 5).
+
+**Entscheidung:** offen, Ruben wählt die Zuordnung (Empfehlung C „Spielverlauf“, Brett-Standard A als Rückfall für einzelne Szenen wie Lobby und Siegerehrung).
+
+**Offen für Playtest:** Wirkung der Nacht am Fernseher (Schwarzwert, Abstand 3 m), Bildrate am Ziel-PC mit 6 Lichtern pro Material, ob der Wechsel zwischen den Runden als Überblendung reicht.
 

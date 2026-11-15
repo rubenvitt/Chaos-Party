@@ -96,6 +96,7 @@ Stand 2026-11-15 (M3), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `pnpm check:assets` / `pnpm generate:assets` | Asset-Manifest prüfen / Figuren und Porträts neu erzeugen (Blender-venv, ADR-013) |
 | `packages/assets/blender/portraits-all.sh` | ok (2026-11-15, CHAOS-61) – vier Porträts + Masken in ≈ 40 s (Cycles CPU), 7–12 KiB je Bild |
 | `/host/?local=1&minigame=<id>&players=4` | Minispiel ohne Server mit Tastatur (`&flow=1` mit Anleitung und Ergebnis) |
+| `lookdev.html?look=natur-<morgen\|mittag\|wolken\|abend\|daemmerung\|nacht>&shot=<brett\|figur\|minispiel>` | Look-Dev-Vitrine (Dev-Server, vorher `node scripts/fetch-lookdev-assets.mjs`); `&tune={…}` überschreibt Felder einer Lichtstimmung |
 | `EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test.ts --silent=false` | ok – Tabellen für EXP-001 … EXP-004, ~7 s |
 | `ROUNDS=3 SEED=2026 pnpm start` | Brettspiel mit 3 Runden und festem Seed; Terminal meldet den Seed beim Start |
 | `pnpm build && pnpm start` | Host `http://localhost:8787/host/`, Controller `/`, WebSocket `/ws`; Terminal zeigt LAN-Link, Join-Code, QR |
@@ -127,7 +128,7 @@ Details: [`testing.md`](testing.md).
 ## Nächste Schritte
 
 1. PR #5 (M2) und #6 (M3) mergen.
-2. Grafik-Neuausrichtung CHAOS-56: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Als Nächstes: Lichtstimmung je Brett/Tageszeit (CHAOS-60), Umsetzung des Natur-Looks im Spiel.
+2. Grafik-Neuausrichtung CHAOS-56: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht (Laternen, Glühwürmchen, leuchtende Felder), Zuordnung je Brett / Uhrzeit / Spielverlauf; Ruben wählt die Zuordnung. Als Nächstes: Umsetzung des Natur-Looks samt gewählter Lichtzuordnung im Spiel.
 3. M4 (CHAOS-4): frei sind CHAOS-36 (Lobby/Charakterwahl/Rundenzahl/Start-Pause-Ende), CHAOS-37 (Rundenende, Siegerbildschirm), CHAOS-38 (Controller komplett), CHAOS-47 (iPad-Nachtest, Ruben), CHAOS-55 (Minispiel-Feinschliff).
 
 ## Offene Risiken (Kurzfassung)
