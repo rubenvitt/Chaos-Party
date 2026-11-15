@@ -195,6 +195,9 @@ async function advanceBoard(host: Page, ms: number) {
 
 /** Spielt alles Ausstehende der Brett-Regie ab (z. B. vor dem Endstand). */
 async function settleBoard(host: Page) {
+  // Der Server kann schon im Endstand sein, während der Host noch die Minispiel-Bühne zeigt
+  // und das Brett erst neu aufbaut (Natur-Brett, Software-Rendering): erst auf das Brett warten.
+  await host.waitForFunction(() => window.__chaos?.board?.ready === true);
   const idle = await host.evaluate(() => {
     const board = window.__chaos?.board;
     if (!board) return false;
@@ -208,12 +211,73 @@ async function settleBoard(host: Page) {
  * Podest: feste Zahl Bilder rendern und auf die GPU warten (`toDataURL` liest das Bild
  * zurück). Sonst rechnet SwiftShader beim Screenshot noch an den Bildern – bei zwei parallelen
  * Tests mit je mehreren Seiten dauert das sonst länger als das Screenshot-Zeitlimit.
+ *
+ * In Häppchen zu 10 Bildern, je ein eigener Aufruf: Ein Podest-Bild kostet unter Last
+ * 0,25–0,5 s, 60 am Stück hielten den Hauptthread des Hosts 15–30 s fest. So lange hört der
+ * Host keine Server-Nachricht; nach 30 s trennt ihn der Server (`hostSilenceMs`), und der
+ * Klick auf „Nochmal spielen“ ging mitten in den Neuaufbau verloren (CI, CHAOS-41). Eine echte
+ * Render-Schleife gibt den Thread nach jedem Bild frei; das Bild am Ende ist dasselbe
+ * (fester Animationsschritt im Testmodus).
  */
 async function renderPodium(host: Page) {
-  await host.evaluate(() => {
-    window.__chaosFinale?.stepPodium(60);
-    return document.querySelector<HTMLCanvasElement>('.finale-podium canvas')?.toDataURL().length;
+  for (let chunk = 0; chunk < 6; chunk++) {
+    await host.evaluate(() => window.__chaosFinale?.stepPodium(10));
+  }
+  await host.evaluate(
+    () => document.querySelector<HTMLCanvasElement>('.finale-podium canvas')?.toDataURL().length,
+  );
+}
+
+/**
+ * Zeitlimit, bis das 3D-Podest steht (`data-podium="ready"`). Der Aufbau übersetzt beim ersten
+ * Bild alle Shader (Figuren, Schatten) – mit SwiftShader synchron und am Stück: gemessen
+ * 0,5–8,7 s auf zwei Kernen mit zwei parallelen Tests, auf den langsameren CI-Kernen über
+ * 15 s. Kein Hänger: Das Podest wird fertig, nur später (CHAOS-41).
+ */
+const PODIUM_TIMEOUT = 45_000;
+
+declare global {
+  interface Window {
+    /** Vom Test eingehängt: wie oft je Platz (`slot-<n>`/`zone-<n>`) ein Minispiel-Ergebnis erschien. */
+    __resultScreens?: Record<string, number>;
+  }
+}
+
+/**
+ * Zählt im Controller mit, wie oft je Platz die Ergebnisanzeige (Platz und Münzen) erscheint.
+ * Die Ergebnisphase dauert im Test-Pacing 2 s; ein Handy unter Last ist danach womöglich schon
+ * im Endstand, bevor eine Abfrage von außen ankommt. Gezählt wird beim Erscheinen im DOM
+ * (sichtbar), geprüft wird danach (CHAOS-41).
+ */
+function recordResultScreens() {
+  const counts: Record<string, number> = {};
+  const shown = new Set<string>();
+  window.__resultScreens = counts;
+  const scan = () => {
+    const now = new Set<string>();
+    for (const root of document.querySelectorAll<HTMLElement>(
+      '[data-testid^="slot-"], [data-testid^="zone-"]',
+    )) {
+      const id = root.dataset.testid ?? '';
+      const place = root.querySelector<HTMLElement>('[data-testid="result-place"]');
+      const reward = root.querySelector<HTMLElement>('[data-testid="result-reward"]');
+      if (place?.checkVisibility() && reward?.checkVisibility()) now.add(id);
+    }
+    for (const id of now) if (!shown.has(id)) counts[id] = (counts[id] ?? 0) + 1;
+    shown.clear();
+    for (const id of now) shown.add(id);
+  };
+  new MutationObserver(scan).observe(document, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    characterData: true,
   });
+}
+
+async function resultScreens(seat: Seat): Promise<number> {
+  const id = await seat.root.getAttribute('data-testid');
+  return seat.page.evaluate((key) => window.__resultScreens?.[key ?? ''] ?? 0, id);
 }
 
 /** Großzügiges Zeitlimit für Host-Screenshots (Software-Rendering unter Last). */
@@ -294,6 +358,10 @@ async function minigameInputs(host: Page, slot: SlotNumber): Promise<number> {
   return host.evaluate((s) => window.__chaosMinigame?.networkInputs?.[s] ?? 0, slot);
 }
 
+async function lastNetworkInput(host: Page, slot: SlotNumber) {
+  return host.evaluate((s) => window.__chaosMinigame?.lastNetworkInputs?.[s] ?? null, slot);
+}
+
 /**
  * Minispiel über die Controller-UI spielen: Alle ziehen gleichzeitig den Joystick (je Gerät
  * ein Finger pro Platz), der Host rechnet ein Stück, alle lassen los und tippen A. Danach
@@ -337,17 +405,40 @@ async function playMinigame(
     await touch.down(seat.slot, from);
     await touch.move(seat.slot, { x: from.x + dir.x * reach, y: from.y + dir.y * reach }, 6);
   }
+  // Erst rechnen, wenn bei jedem Platz der volle Ausschlag angekommen ist – nicht schon bei der
+  // ersten Zwischenstellung des Wischs. Sonst hängt das Minispiel-Ergebnis (und damit Endstand
+  // und Siegerbild) davon ab, wie viele Nachrichten unter Last rechtzeitig da waren (CHAOS-41).
   for (const seat of seats) {
     await expect
       .poll(() => minigameInputs(host, seat.slot), { message: `${seat.label}: Joystick am Host` })
       .toBeGreaterThan(before.get(seat.slot) ?? 0);
+    await expect
+      .poll(
+        async () => {
+          const move = (await lastNetworkInput(host, seat.slot))?.move;
+          return move ? Math.hypot(move.x, move.y) : 0;
+        },
+        { message: `${seat.label}: voller Ausschlag am Host` },
+      )
+      .toBeGreaterThan(0.95);
   }
   await host.evaluate(() => window.__chaosMinigame?.step(45));
 
-  // Loslassen und Knopf A tippen.
+  // Loslassen (Stick am Host wieder in der Mitte) und Knopf A tippen (Drücken und Loslassen am
+  // Host), bevor zu Ende gerechnet wird.
   for (const touch of new Set(touches.values())) await touch.upAll();
-  const afterStick = new Map<SlotNumber, number>();
-  for (const seat of seats) afterStick.set(seat.slot, await minigameInputs(host, seat.slot));
+  for (const seat of seats) {
+    await expect
+      .poll(async () => (await lastNetworkInput(host, seat.slot))?.move, {
+        message: `${seat.label}: Stick losgelassen am Host`,
+      })
+      .toEqual({ x: 0, y: 0 });
+  }
+  const buttonsBefore = new Map<SlotNumber, { presses: number; releases: number }>();
+  for (const seat of seats) {
+    const last = await lastNetworkInput(host, seat.slot);
+    buttonsBefore.set(seat.slot, { presses: last?.presses ?? 0, releases: last?.releases ?? 0 });
+  }
   for (const seat of seats) {
     const touch = touches.get(seat.page);
     const button = seat.root.getByTestId('button-a');
@@ -355,12 +446,21 @@ async function playMinigame(
     await touch?.tap(await centerOf(button), seat.slot);
   }
   for (const seat of seats) {
+    const was = buttonsBefore.get(seat.slot) ?? { presses: 0, releases: 0 };
     await expect
-      .poll(() => minigameInputs(host, seat.slot), { message: `${seat.label}: Knopf A am Host` })
-      .toBeGreaterThan(afterStick.get(seat.slot) ?? 0);
+      .poll(
+        async () => {
+          const last = await lastNetworkInput(host, seat.slot);
+          return { presses: last?.presses ?? 0, releases: last?.releases ?? 0 };
+        },
+        { message: `${seat.label}: Knopf A am Host` },
+      )
+      .toEqual({ presses: was.presses + 1, releases: was.releases + 1 });
   }
 
   // Fertig rechnen: Host meldet das Ergebnis, Server nimmt es an.
+  const resultsBefore = new Map<SlotNumber, number>();
+  for (const seat of seats) resultsBefore.set(seat.slot, await resultScreens(seat));
   const finished = await host.evaluate(() => {
     const minigame = window.__chaosMinigame;
     for (let i = 0; i < 60 && minigame?.state === 'running'; i++) minigame.step(30);
@@ -371,10 +471,11 @@ async function playMinigame(
     .poll(() => host.evaluate(() => window.__chaosMinigame?.resultState ?? null))
     .toBe('accepted');
   await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'results');
-  // Controller zeigen das eigene Ergebnis (Platz, Münzen).
+  // Controller zeigen das eigene Ergebnis (Platz, Münzen) – mitgezählt im Controller selbst.
   for (const seat of seats) {
-    await expect(seat.root.getByTestId('result-place'), `${seat.label}: Platz`).toBeVisible();
-    await expect(seat.root.getByTestId('result-reward'), `${seat.label}: Münzen`).toBeVisible();
+    await expect
+      .poll(() => resultScreens(seat), { message: `${seat.label}: Platz und Münzen` })
+      .toBeGreaterThan(resultsBefore.get(seat.slot) ?? 0);
   }
   return id;
 }
@@ -558,7 +659,7 @@ async function finaleAndResults(party: Party) {
   expect(firstReveal, `Ansagen: ${leads.join(' | ')}`).toMatch(
     lastPlace === 1 ? /^Und auf Platz 1/ : new RegExp(`^Platz ${String(lastPlace)}: `),
   );
-  await expect(results).toHaveAttribute('data-podium', 'ready');
+  await expect(results).toHaveAttribute('data-podium', 'ready', { timeout: PODIUM_TIMEOUT });
   await expect(host.getByTestId('board-winner')).toContainText('gewinn');
   for (const entry of ranking) {
     await expect(host.getByTestId(`board-rank-${String(entry.slot)}`)).toHaveAttribute(
@@ -633,6 +734,7 @@ test.describe('M4-Gesamtablauf: komplette Partie mit echten Seiten', () => {
 
     const phone1 = await openDevice('iPhone 13');
     const phone2 = await openDevice('iPhone 13');
+    for (const phone of [phone1, phone2]) await phone.addInitScript(recordResultScreens);
     const problems = [collectProblems(phone1), collectProblems(phone2)];
     await phone1.goto(link);
     await expect(phone1.getByTestId('slot-1')).toHaveAttribute('data-screen', 'lobby');
@@ -719,6 +821,7 @@ test.describe('M4-Gesamtablauf: komplette Partie mit echten Seiten', () => {
 
     const phone1 = await openDevice('iPhone 13');
     const phone2 = await openDevice('iPhone 13');
+    for (const phone of [phone1, phone2]) await phone.addInitScript(recordResultScreens);
     await phone1.goto(phoneLink);
     await expect(phone1.getByTestId('slot-1')).toHaveAttribute('data-screen', 'lobby');
     await phone2.goto(phoneLink);
@@ -727,6 +830,7 @@ test.describe('M4-Gesamtablauf: komplette Partie mit echten Seiten', () => {
     const ipadLink = await joinLinkFromLobby(host, 'ipad');
     expect(ipadLink).toContain('seats=2');
     const ipad = await openDevice('iPad Pro 11 landscape');
+    await ipad.addInitScript(recordResultScreens);
     await ipad.goto(ipadLink);
     const problems = [collectProblems(phone1), collectProblems(phone2), collectProblems(ipad)];
 

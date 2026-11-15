@@ -47,6 +47,44 @@ const test = base.extend<{ chaosServer: RunningServer }>({
 
 const HOST_URL = '/host/?rounds=1';
 
+declare global {
+  interface Window {
+    /** Vom Test eingehängt: jede Minispiel-Stufe und jedes Abbruch-Flag, das im DOM stand. */
+    __m2Seen?: { stages: string[]; aborted: string[] };
+  }
+}
+
+/**
+ * Schreibt im Host mit, welche Minispiel-Abschnitte (`data-stage`) und Ergebnis-Flags
+ * (`data-aborted`) tatsächlich im DOM standen. Abtasten von außen reicht nicht: Unter
+ * Software-Rendering blockiert der Aufbau der Minispiel-Bühne den Hauptthread der Seite
+ * während der Anleitung sekundenlang (Shader, Figuren), und jede Abfrage mit kurzem Zeitlimit
+ * in diesem Fenster läuft ins Leere – die Anleitung stand trotzdem da (CI, CHAOS-41).
+ */
+function recordMinigameStages() {
+  const seen = { stages: [] as string[], aborted: [] as string[] };
+  window.__m2Seen = seen;
+  const note = (list: string[], value: string | null | undefined) => {
+    if (value && !list.includes(value)) list.push(value);
+  };
+  const scan = () => {
+    note(
+      seen.stages,
+      document.querySelector('[data-testid="minigame-screen"]')?.getAttribute('data-stage'),
+    );
+    note(
+      seen.aborted,
+      document.querySelector('[data-testid="minigame-results"]')?.getAttribute('data-aborted'),
+    );
+  };
+  new MutationObserver(scan).observe(document, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['data-stage', 'data-aborted'],
+  });
+}
+
 /** Tippt auf dem Handy die bevorzugte Option des offenen Prompts (falls einer offen ist). */
 async function answerPrompt(phone: Page): Promise<string | null> {
   const prompt = phone.getByTestId('prompt');
@@ -77,6 +115,7 @@ test.describe('M2-Durchstich: Brettspiel mit echten Seiten', () => {
     chaosServer,
   }) => {
     const hostProblems = collectProblems(host);
+    await host.addInitScript(recordMinigameStages);
     await host.goto(HOST_URL);
     await expect(host.getByTestId('connection')).toHaveAttribute('data-status', 'connected');
 
@@ -124,10 +163,9 @@ test.describe('M2-Durchstich: Brettspiel mit echten Seiten', () => {
 
     // Weiterspielen, bis der Endstand da ist: jede angebotene Entscheidung beantworten.
     // Seit M3 spielt der Host das Minispiel der Runde in Echtzeit (Minispiel-Bühne) und
-    // schickt das Ergebnis; mitschreiben, welche Abschnitte zu sehen waren.
+    // schickt das Ergebnis; welche Abschnitte zu sehen waren, schreibt der Host mit
+    // (`recordMinigameStages`).
     const answered: string[] = [];
-    const minigameStages = new Set<string>();
-    const minigameAborted = new Set<string>();
     const results = host.getByTestId('board-results');
     const deadline = Date.now() + 150_000;
     while (!(await results.isVisible())) {
@@ -137,20 +175,12 @@ test.describe('M2-Durchstich: Brettspiel mit echten Seiten', () => {
         const id = await answerPrompt(phone);
         if (id) answered.push(id);
       }
-      const stage = await host
-        .getByTestId('minigame-screen')
-        .getAttribute('data-stage', { timeout: 100 })
-        .catch(() => null);
-      if (stage) minigameStages.add(stage);
-      const aborted = await host
-        .getByTestId('minigame-results')
-        .getAttribute('data-aborted', { timeout: 100 })
-        .catch(() => null);
-      if (aborted) minigameAborted.add(aborted);
       await host.waitForTimeout(250);
     }
-    expect([...minigameStages].sort()).toEqual(['intro', 'play', 'results']);
-    expect([...minigameAborted]).toEqual(['false']);
+    const seen = await host.evaluate(() => window.__m2Seen);
+    // Reihenfolge wie am Bildschirm: Anleitung, Spiel, Ergebnis – keine übersprungen.
+    expect(seen?.stages).toEqual(['intro', 'play', 'results']);
+    expect(seen?.aborted).toEqual(['false']);
 
     // Beide Spieler waren dran (das zweite Handy hat mindestens einmal gewürfelt).
     expect(answered).toContain('choice-roll');

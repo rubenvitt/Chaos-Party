@@ -8,7 +8,7 @@
 |---|---|---|
 | kritisch | **0** | Partie bricht ab, Daten gehen verloren, Spiel startet nicht |
 | mittel | 6 | Spürbar für Spielende oder ungeprüftes Risiko; Workaround vorhanden |
-| gering | 18 | Randfall, Kosmetik oder Entwicklerwerkzeug |
+| gering | 19 | Randfall, Kosmetik oder Entwicklerwerkzeug |
 
 Ein Workaround „–“ heißt: Für Spielende gibt es nichts zu tun.
 
@@ -49,6 +49,7 @@ Keine.
 | KI-22 | Beim Beenden von `pnpm play` mit Strg+C meldet pnpm zusätzlich „ELIFECYCLE Command failed“. Der Server ist trotzdem sauber beendet (getestet). | Verwirrende Meldung im Terminal. | Ignorieren; alternativ `node scripts/play.mjs` statt `pnpm play`. | CHAOS-42 |
 | KI-23 | Entwicklungswerkzeug: `minimatch` 10.2.6 unter ESLint hat eine mittlere Schwachstelle (Denial of Service über Glob-Muster). Laufzeit-Abhängigkeiten sind frei von bekannten Schwachstellen. | Keine (nicht im Spiel enthalten). | Update abwarten, dann `pnpm update`. | [security-license-review.md](security-license-review.md) O1 |
 | KI-24 | Screenshot-Baselines der E2E-Tests gibt es nur für Linux. | Keine; betrifft Entwickler unter Windows/macOS. | E2E in CI (Linux) laufen lassen. | M2-Bericht, [testing.md](testing.md) |
+| KI-25 | PC ohne Grafikkarte (Software-Rendering): Beim Erscheinen von Siegerpodest und Minispiel-Bühne übersetzt der Host alle Shader am Stück; das Bild steht dann einige Sekunden (gemessen bis 8,7 s unter Last). Die Verbindung zum Server hält das aus (der Host prüft nach 15 s Stille erst per Probe-Herzschlag, bevor er neu verbindet). | Kurzer Standbild-Moment, nur ohne Grafikkarte. | PC mit Grafikkarte verwenden. | CHAOS-41, [testing.md](testing.md#m4-gesamtablauf-chaos-41) |
 
 ## Nicht mehr aktuell (in M4 behoben)
 

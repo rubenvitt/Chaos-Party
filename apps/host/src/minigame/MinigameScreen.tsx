@@ -112,6 +112,14 @@ export function MinigameScreen(props: MinigameScreenProps) {
     latest.current = { props, stageName };
   });
   const networkInputs = useRef<Partial<Record<SlotNumber, number>>>({});
+  const lastNetworkInputs = useRef<
+    Partial<
+      Record<
+        SlotNumber,
+        { move: { x: number; y: number } | null; presses: number; releases: number }
+      >
+    >
+  >({});
 
   // --- Bühne aufbauen und entsorgen -----------------------------------------------------------
   useEffect(() => {
@@ -169,6 +177,9 @@ export function MinigameScreen(props: MinigameScreenProps) {
           },
           get networkInputs() {
             return { ...networkInputs.current };
+          },
+          get lastNetworkInputs() {
+            return structuredClone(lastNetworkInputs.current);
           },
           get resultState() {
             return latest.current.props.getResultState?.() ?? null;
@@ -243,9 +254,20 @@ export function MinigameScreen(props: MinigameScreenProps) {
       const mapped = intentToMinigameInput(intent);
       if (!mapped) return;
       networkInputs.current[mapped.slot] = (networkInputs.current[mapped.slot] ?? 0) + 1;
+      if (test) {
+        const last = (lastNetworkInputs.current[mapped.slot] ??= {
+          move: null,
+          presses: 0,
+          releases: 0,
+        });
+        const { input } = mapped;
+        if (input.type === 'move') last.move = { x: input.x, y: input.y };
+        else if (input.type === 'press') last.presses += 1;
+        else last.releases += 1;
+      }
       stageRef.current?.input(mapped.slot, mapped.input);
     });
-  }, [hub]);
+  }, [hub, test]);
 
   useEffect(() => {
     const keyboard = new MinigameKeyboard();

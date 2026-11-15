@@ -21,6 +21,23 @@ export interface ChaosMinigameTestHook {
   readonly stage?: 'intro' | 'play' | 'results';
   /** Nur Bühne: vom Server empfangene und an den Runner gegebene Eingaben je Slot. */
   readonly networkInputs?: Readonly<Partial<Record<Slot, number>>>;
+  /**
+   * Nur Bühne: letzte Netz-Eingabe je Slot – Stick (`move`) und Zahl der Knopf-Ereignisse.
+   * Damit wartet ein Test, bis die *letzte* Eingabe eines Wischs angekommen ist, statt nur
+   * irgendeine (Ergebnis hängt sonst von der Ankunftszeit ab).
+   */
+  readonly lastNetworkInputs?: Readonly<
+    Partial<
+      Record<
+        Slot,
+        {
+          readonly move: { readonly x: number; readonly y: number } | null;
+          readonly presses: number;
+          readonly releases: number;
+        }
+      >
+    >
+  >;
   /** Nur Bühne: Zustand des Ergebnis-Versands (`idle`, `sent`, `accepted` …). */
   readonly resultState?: string | null;
   /** Nur Bühne: gezählte Effekte (im Testmodus stumm und unsichtbar). */
