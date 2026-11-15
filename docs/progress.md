@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-14 (M1 abnahmebereit) · **Aktueller Meilenstein:** M1 – Technischer Durchstich (`CHAOS-1`)
+**Stand:** 2026-11-15 (M1 freigegeben) · **Aktueller Meilenstein:** M2 – Spielbares Brett (`CHAOS-2`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -8,8 +8,8 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 
 | Meilenstein | Epic | Gate | Status |
 |---|---|---|---|
-| M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | umgesetzt, wartet auf Abnahme |
-| M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | gesperrt bis M1-Freigabe |
+| M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad offen) |
+| M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | aktuell |
 | M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | gesperrt bis M2-Freigabe |
 | M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | gesperrt bis M3-Freigabe |
 
@@ -19,17 +19,17 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 |---|---|---|
 | CHAOS-5 | Annahmenliste + Arbeitsartefakte | erledigt (PR #2) |
 | CHAOS-6 | pnpm-Monorepo + Pipelines | erledigt (PR #3) |
-| CHAOS-7 | Typisiertes WebSocket-Protokoll (ADR-003) | Review (PR #4) |
-| CHAOS-8 | Babylon.js-Szene + Havok (ADR-004) | Review (PR #4) |
-| CHAOS-9 | Session-Server (ADR-005) | Review (PR #4) |
-| CHAOS-10 | iPhone-Controller-UI (ADR-006) | Review (PR #4) |
-| CHAOS-11 | QR-Join über LAN (ADR-007) | Review (PR #4) |
-| CHAOS-12 | Reconnect/Disconnect (ADR-009) | Review (PR #4) |
-| CHAOS-13 | Shared-iPad-Zonen (ADR-008) | Review (PR #4) |
-| CHAOS-14 | Playwright + Integrationstests (`testing.md`) | Review (PR #4) |
-| CHAOS-45 | Messanzeige Latenz/Bildrate (ADR-010) | Review (PR #4) |
-| CHAOS-15 | Gerätecheckliste, Demo-Anleitung, Abnahmebericht | Review (PR #4) |
-| CHAOS-16 | **M1-Abnahme (Ruben)** | wartet auf Gerätetest und Entscheidung |
+| CHAOS-7 | Typisiertes WebSocket-Protokoll (ADR-003) | erledigt (PR #4) |
+| CHAOS-8 | Babylon.js-Szene + Havok (ADR-004) | erledigt (PR #4) |
+| CHAOS-9 | Session-Server (ADR-005) | erledigt (PR #4) |
+| CHAOS-10 | iPhone-Controller-UI (ADR-006) | erledigt (PR #4) |
+| CHAOS-11 | QR-Join über LAN (ADR-007) | erledigt (PR #4) |
+| CHAOS-12 | Reconnect/Disconnect (ADR-009) | erledigt (PR #4) |
+| CHAOS-13 | Shared-iPad-Zonen (ADR-008) | erledigt (PR #4) |
+| CHAOS-14 | Playwright + Integrationstests (`testing.md`) | erledigt (PR #4) |
+| CHAOS-45 | Messanzeige Latenz/Bildrate (ADR-010) | erledigt (PR #4) |
+| CHAOS-15 | Gerätecheckliste, Demo-Anleitung, Abnahmebericht | erledigt (PR #4) |
+| CHAOS-16 | **M1-Abnahme (Ruben)** | APPROVED 2026-11-15, siehe [`acceptance/M1.md`](acceptance/M1.md) |
 
 ## Validierte Befehle
 
@@ -63,9 +63,9 @@ Details: [`testing.md`](testing.md).
 
 ## Nächste Schritte
 
-1. **Ruben:** M1 nach [`m1-demo.md`](m1-demo.md) auf echten Geräten testen, [`device-test-checklist.md`](device-test-checklist.md) ausfüllen, Fragen aus [`acceptance/M1.md`](acceptance/M1.md) beantworten, Entscheidung an CHAOS-16.
-2. Danach PR #4 mergen und Gerätewerte in `assumptions.md` nachtragen.
-3. M2 (CHAOS-2) erst nach APPROVED.
+1. M2 (CHAOS-2) beginnt mit den freigegebenen Aufgaben, als Erstes CHAOS-17 (Zustandsautomat) und CHAOS-18 (3D-Brett).
+2. **Ruben:** geteiltes iPad auf echtem Gerät nachtesten (CHAOS-47, Checkliste I1–I9), spätestens vor dem M2-Gate CHAOS-25.
+3. Gerätewerte vom iPhone (P3, P9) nachtragen, sobald Ruben sie meldet.
 
 ## Offene Risiken (Kurzfassung)
 
