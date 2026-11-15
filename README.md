@@ -2,7 +2,7 @@
 
 Chaotisches 3D-Party-Brettspiel für 2–4 Personen im selben Raum. Das Spiel läuft auf dem PC; iPhones bzw. ein geteiltes iPad dienen per Browser als Controller.
 
-**M1 ausprobieren:** [docs/m1-demo.md](docs/m1-demo.md) – Start auf dem PC, QR-Join mit iPhones und iPad, was zu testen ist. Ergebnisse in die [Gerätecheckliste](docs/device-test-checklist.md).
+**Brettspiel (M2) ausprobieren:** [docs/m2-demo.md](docs/m2-demo.md). Start, Beitritt und Netzwerk wie in [docs/m1-demo.md](docs/m1-demo.md). Ergebnisse in die [Gerätecheckliste](docs/device-test-checklist.md).
 
 ## Entwicklung
 
@@ -75,6 +75,7 @@ Interne Pakete werden als TypeScript-Quelle importiert (`@chaos-party/protocol`,
 - [`docs/decisions/`](docs/decisions/README.md) – Architekturentscheidungen (ADRs)
 - [`docs/experiments.md`](docs/experiments.md) – Experiment-Log
 - [`docs/m1-demo.md`](docs/m1-demo.md) – M1 auf echten Geräten ausprobieren
+- [`docs/m2-demo.md`](docs/m2-demo.md) – M2-Brettspiel ausprobieren
 - [`docs/device-test-checklist.md`](docs/device-test-checklist.md) – Gerätecheckliste für die Abnahme
 - [`docs/network-setup.md`](docs/network-setup.md) – Firewall, WLAN, Adresswahl
 - [`docs/ipad-zonen.md`](docs/ipad-zonen.md) – geteiltes iPad: Layouts und Grenzen

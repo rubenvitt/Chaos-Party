@@ -1,22 +1,23 @@
 # Tests in Chaos Party
 
-Stand: CHAOS-45 (M1). Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
+Stand: M2 (CHAOS-2, 2026-11-15); M1-Teile aus CHAOS-45. Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
 
 ## Überblick
 
-| Suite | Werkzeug | Umfang (Stand CHAOS-45) | Start |
+| Suite | Werkzeug | Umfang (Stand M2) | Start |
 |---|---|---|---|
-| Unit- und Integrationstests | Vitest | 505 Tests in 39 Dateien | `pnpm test` |
-| E2E (Browser) | Playwright 1.63, nur Chromium | 54 Tests in 7 Specs, 5 Projekte | `pnpm test:e2e` |
+| Unit- und Integrationstests | Vitest | 791 Tests in 62 Dateien (+1 nur mit `EXPERIMENTS=1`) | `pnpm test` |
+| E2E (Browser) | Playwright 1.63, nur Chromium | 89 Tests in 11 Specs, 5 Projekte | `pnpm test:e2e` |
+| Experimente (Simulation) | Vitest + `simulateGame` | 600 Partien je Variante, Seeds 1–200 | `EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test.ts --silent=false` |
 | Statische Prüfungen | `tsc` strict, ESLint, Prettier, Lizenzprüfung | – | `pnpm check` (inkl. `pnpm test` und `pnpm build`) |
 
 Vitest-Tests nach Paket:
 
-- `packages/protocol` (161): Schemas, Parser für jede Nachricht, ungültige/übergroße Eingaben, Phasen-/Aktionsregeln, Slot-Farben, `seq`-Wächter.
-- `apps/server` (126): Session als reine Zustandsmaschine (Beitritt, Slots, Start, Bereit, Reconnect-Politik, Herzschlag/Timeouts mit künstlicher Uhr, Rate-Limit), LAN-Adresswahl, Startausgabe, **Integration mit echten `ws`-Clients** gegen den HTTP/WebSocket-Server (`server.test.ts`, `socket.test.ts`): Auslieferung, Handshake, mehrere gleichzeitige Controller, kaputte Nachrichten, Abbruch und Wiederverbinden.
-- `apps/controller` (112): Joystick-Mathematik, Drosselung der `move`-Nachrichten, Touch-Zonen (Geometrie, Finger-Zuordnung, Zonen-Tracker), Client/Session mit Fake-Socket und Fake-Timern (Backoff, Wachhund, Token), Reducer, Fehlertexte.
-- `apps/host` (53): Bewegung/Dash-Mathematik, Spawn-Punkte aus dem Seed, Tastatur- und Netzwerk-Eingabequelle, Host-Verbindung, Verbindungsmeldungen, Join-Link je Gerät (`joinLink.test.ts`).
-- `packages/game-core` (6): deterministischer Zufall (Seed).
+- `packages/protocol` (176): Schemas, Parser für jede Nachricht (v2: `choose`, `board`, `prompt` im Kontext), ungültige/übergroße Eingaben, Phasen-/Aktionsregeln, Slot-Farben, `seq`-Wächter.
+- `packages/game-core` (162, M2): jeder Übergang des Zustandsautomaten, ungültige Übergänge mit allen Fehlercodes, Würfel, Pfadwahl, Trophäe (passieren/landen/kaufen/wandern, mehrere aktiv), Münzen nie negativ, jedes Item, jedes Brett-Ereignis, Fallen (landen/darüberlaufen, eigen/fremd), Reaktionsfenster (Schild, Festhalten, Timeout, verspätete Wahl), Disconnect mitten im Zug, komplette Partien mit 2–4 Spielern, Determinismus je Seed, JSON-Festigkeit, Brett-Validierung (Wackelwald + je Regel ein kaputtes Brett), Simulation.
+- `apps/server` (143): **Brettspiel über die Session** (`boardGame.integration.test.ts`, CHAOS-23: komplette Partien mit 2/3/4 Spielern und gemischt iPhone + iPad, gleicher Seed → gleicher Ablauf, Disconnect mitten im Zug mit Auto-Wahl und Rückkehr, Reaktionsfenster mit Festhalten/Timeout/verspäteter Wahl, Eingaben außer der Reihe, Host-Reload, Arena-Modus), Selbstprüfung von `localhost` (CHAOS-48), dazu wie in M1: Session als reine Zustandsmaschine (Beitritt, Slots, Start, Bereit, Reconnect-Politik, Herzschlag/Timeouts mit künstlicher Uhr, Rate-Limit), LAN-Adresswahl, Startausgabe, **Integration mit echten `ws`-Clients** gegen den HTTP/WebSocket-Server (`server.test.ts`, `socket.test.ts`): Auslieferung, Handshake, mehrere gleichzeitige Controller, kaputte Nachrichten, Abbruch und Wiederverbinden.
+- `apps/controller` (184): Brettphase (Prompt → Knöpfe, Sperre nach dem Senden, Countdown, `choose` mit `seq`, Wahlknöpfe in iPad-Zonen), Joystick-Mathematik, Drosselung der `move`-Nachrichten, Touch-Zonen (Geometrie, Finger-Zuordnung, Zonen-Tracker), Client/Session mit Fake-Socket und Fake-Timern (Backoff, Wachhund, Token), Reducer, Fehlertexte.
+- `apps/host` (100): Brett-Regie (Ereignisse abspielen, Lücken in `eventSeq`, Aufholen), Meldungstexte, Figur-Versatz, Demo-Stand, Start-Modus, Bewegung/Dash-Mathematik, Spawn-Punkte aus dem Seed, Tastatur- und Netzwerk-Eingabequelle, Host-Verbindung, Verbindungsmeldungen, Join-Link je Gerät (`joinLink.test.ts`).
 - `packages/metrics` (CHAOS-45): Ringpuffer, Median/p95 (Nearest-Rank), Formatierung, User-Agent-Kurzform; dazu Messer in Controller (RTT) und Host (Bildabstand, Eingabe→Frame).
 
 ## E2E-Aufbau
@@ -33,9 +34,11 @@ Vitest-Tests nach Paket:
 
 | Projekt | Specs | Emulation |
 |---|---|---|
-| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich`, `debug-anzeige` | Desktop 1280×720, WebGL über SwiftShader (Software) |
-| `iphone-hoch`, `iphone-quer` | `controller-ui` | iPhone 13 hoch/quer |
-| `ipad-quer`, `ipad-hoch` | `ipad-zonen` | iPad Pro 11 quer/hoch |
+| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich`, `debug-anzeige`, `host-brett`, `m2-brett-durchstich` | Desktop 1280×720, WebGL über SwiftShader (Software) |
+| `iphone-hoch`, `iphone-quer` | `controller-ui`, `controller-brett` | iPhone 13 hoch/quer |
+| `ipad-quer`, `ipad-hoch` | `ipad-zonen`, `ipad-brett` | iPad Pro 11 quer/hoch |
+
+Seit M2 öffnen die M1-Specs den Host mit `&arena=1` (Start der M1-Arena statt des Brettspiels). Alle E2E-Server nutzen den festen Brettspiel-Seed `E2E_GAME_SEED = 2026` (`fixtures/server.ts`).
 
 ### Specs und was sie beweisen
 
@@ -46,6 +49,10 @@ Vitest-Tests nach Paket:
 | `m1-durchstich.spec.ts` (3) | echter Server, **echte Host- und Controller-Seiten** | (1) Zwei iPhones öffnen den Link aus der Lobby, bekommen verschiedene Plätze/Farben (Handy und Host), tippen „Bereit!“, Host startet; beide ziehen **gleichzeitig** ihren Joystick (rechts/oben) → jede Figur läuft in ihre Richtung und nicht in die der anderen; Knopf A → Schubser nur bei Figur 2; Handy 1 verliert das Netz → Host „getrennt“, Handy-Overlay; wieder online → automatisch **derselbe Platz**, Joystick steuert wieder die eigene Figur. (2) Geteiltes iPad über den iPad-Link: zwei Zonen, zwei neue Spieler am Host, zwei Finger gleichzeitig (eine `touchMove`-Folge für beide) steuern zwei Figuren unabhängig; Joystick in Zone 1 + Knopf A in Zone 2 zugleich. (3) Gemischt: 1 iPhone + iPad(2) = drei Spieler (Slots 1–3) bewegen sich gleichzeitig unabhängig; Screenshot der Szene mit drei Figuren. |
 | `reconnect-slot.spec.ts` (4) | echter Server, iPhone-/iPad-Seiten, Verbindung über `routeWebSocket` steuerbar | Abbruch → Overlay mit Versuchszähler → automatischer Reconnect auf denselben Platz, Host-Meldungen „verloren“/„wieder da“; Neuladen behält den Platz; zweiter Tab übernimmt ohne Hin und Her; iPad: alle Plätze kommen zurück, gehaltener Joystick wird beim Abriss losgelassen. |
 | `debug-anzeige.spec.ts` (3, CHAOS-45) | echter Server, echte Host-/Controller-Seiten, Host **ohne** Testmodus | `?debug=1`: Host zeigt Bildrate, Bildabstand-p95, Grafikkarte und nach Joystick-Eingaben Eingabe→Frame als Zahlen; iPhone und geteiltes iPad zeigen RTT-Median/p95 (Herzschlag 1 s); ohne `debug` keine Anzeige. Prüft nur „Zahlen erscheinen“, keine Schwellen. |
+| `host-brett.spec.ts` (6, M2) | lokaler Brett-Modus `?local=1&board=1&test=1`, Ereignisse per Testhaken eingespeist | Brett lädt ohne Konsolenfehler, Figur hüpft Feld für Feld, Zugwechsel/Würfel/Münzen/Klau mit Countdown, Lücke in `eventSeq` → Sprung, Minispiel-Platzhalter und Endstand; Screenshot (HUD-Text maskiert). Belegbild ungemaskiert: `HOST_BRETT_BELEG=1`. |
+| `m2-brett-durchstich.spec.ts` (1, M2) | echter Server, **echte Host- und zwei iPhone-Seiten**, Host ohne Testmodus | Beitritt, Bereit, Start des Brettspiels mit `?rounds=1`; genau ein Handy bekommt den Würfel, das andere wartet; Würfeln sperrt; alle angebotenen Entscheidungen werden getippt, bis Host und Handys den Endstand zeigen; Server-Stand `game-results`. |
+| `controller-brett.spec.ts` (9 × 2 Lagen, M2) | nachgebauter Session-Server | Warte-Karte mit Stand, jeder Prompt-Typ (Würfeln mit Items, Weg, Trophäe, Ziel, Reaktion) sendet das richtige `choose`, Sperre nach dem Senden, Countdown, `invalid-choice`-Hinweis, Endplatz, Wiederverbinden mitten in der Wahl; Screenshots (Text maskiert). Belegbilder: `BRETT_BELEG=<ordner>`. |
+| `ipad-brett.spec.ts` (5 × 2 Lagen, M2) | nachgebauter Session-Server | Zwei Zonen mit unterschiedlichen Prompts und eigenem Stand, **gleichzeitige** Finger in beiden Zonen wählen je für den richtigen Slot, ein Finger aus Zone 1 löst keine Knöpfe in Zone 2 aus, Reaktion wählt schon beim Aufsetzen, Warten/Endstand je Zone und Lösen der Sperre durch einen neuen Prompt; Screenshot. |
 | `controller-ui.spec.ts` (9 × 2 Lagen) | nachgebauter Session-Server | Beitritt per `?code=`, Code-Eingabe und Fehlertexte, Lobby → Spiel-Layout, Joystick-Vektoren und Drosselung, Knöpfe auch gleichzeitig mit dem Joystick, `seq` steigt, Layout folgt dem Kontext, Release beim Verschwinden, freundliche Fehler, Reconnect per Token, kein Scrollen/Zoomen bei Gesten; Screenshots Lobby/Spiel. |
 | `ipad-zonen.spec.ts` (8 × 2 Lagen) | nachgebauter Session-Server | Zwei Zonen über eine Verbindung, gedrehte Zone im Hochformat, gleichzeitige Finger in verschiedenen Zonen mit richtigem Slot, `touchcancel`, Finger über die Zonengrenze, Drehen mitten im Spiel, vier Zonen mit vier Fingern, iPad-Modus in der Code-Eingabe; Screenshot mit zwei Zonen. |
 
@@ -116,6 +123,17 @@ Baseline bewusst aktualisieren (nur wenn sich die Oberfläche absichtlich geänd
 | Geteiltes iPad, ≥ 2 unabhängige Touch-Zonen, Weg zu 4 | `m1-durchstich.spec.ts` Test 2/3 (zwei Finger, echte Server-Session), `ipad-zonen.spec.ts` (inkl. 4 Zonen), Zonen-Unit-Tests | echtes iPadOS-Multitouch, Handballen, Systemgesten |
 | Reconnect und Trennungs-Feedback; kontextabhängiges Layout | `reconnect-slot.spec.ts`, `m1-durchstich.spec.ts` (offline/online → gleicher Platz), `controller-ui.spec.ts` (Layout folgt Kontext), Session-/Client-Unit-Tests | Bildschirmsperre, Safari im Hintergrund, WLAN-Wechsel |
 | Playwright-Smoke-Tests, Protokolltests, Gerätecheckliste | diese Suiten; `packages/protocol` (161 Tests) | Checkliste selbst: `docs/device-test-checklist.md` |
+
+## Automatische Abdeckung je M2-Lieferumfang (ROADMAP)
+
+| Lieferumfang | Automatisch belegt durch | Nur am Gerät / im Playtest |
+|---|---|---|
+| 3D-Brett mit Verzweigungen und unterschiedlichen Ereignisfeldern | `validateBoard` + `board.test.ts` (Wackelwald gültig, je Regel ein kaputtes Brett), `host-brett.spec.ts` (Screenshot, `docs/screenshots/m2-host-brett.png`) | Lesbarkeit am Fernseher (Checkliste B10) |
+| Würfeln, Zugreihenfolge, Pfadwahl, Bewegung | `machine`/`movement`-Tests mit Seeds, `boardGame.integration.test.ts`, `host-brett.spec.ts` (Figur hüpft Feld für Feld), `m2-brett-durchstich.spec.ts` | Verständlichkeit (B1, B2) |
+| Münzen, Trophäen-Erwerb, Basis-Ökonomie | `economy`-Tests (Untergrenze 0, Kauf, zu wenig Geld, Wandern, Rangfolge mit Gleichstand), EXP-002 | Gefühl für Preise und Tempo (B11) |
+| ≥ 3 Items inkl. Sabotage, begrenztes Reaktionsfenster | `items`/`reaction`-Tests (je Item, Schild/Festhalten/Timeout/verspätet), Integration mit Timeout und später Wahl, `controller-brett`/`ipad-brett` (Countdown, Reaktion beim Aufsetzen), EXP-003/004 | Reaktion in der Zeit schaffbar, Sabotage lustig statt gemein (B3, B12) |
+| Brettzustand und Wertung autoritativ auf dem PC; Integrationstests Zugzyklus | Server-Integration mit synthetischen Controllern (2/3/4 Spieler, gemischt, Disconnect, Host-Reload), feste Seeds (`docs/progress.md`) | Host-Reload und Sperrbildschirm auf echten Geräten (B8, B9) |
+| Erste Experimente | `docs/experiments.md` EXP-001 … EXP-004, Befehl oben | Spaß: nur Playtest |
 
 ## Was die Automatik **nicht** beweist (Gerätecheckliste)
 
