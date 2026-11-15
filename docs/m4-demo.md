@@ -2,17 +2,17 @@
 
 **Stand:** 2026-11-15 · **Aufgabe:** CHAOS-41 · **Abnahme:** CHAOS-43 · **Checkliste:** [device-test-checklist.md → Abschnitt 12](device-test-checklist.md#12-m4--vollständiger-slice-für-chaos-43) (dazu Abschnitt 4 für den iPad-Nachtest CHAOS-47 und Abschnitt 11 für die Performance)
 
-Netzwerk, Firewall und QR-Probleme wie bisher: [network-setup.md](network-setup.md), Grundlagen in [m1-demo.md](m1-demo.md). Diese Seite beschreibt den heutigen Stand einer ganzen Partie mit Figurenwahl, Rundenwahl, Pause, Finale und Revanche. Den endgültigen Start-Ablauf (ein Befehl, bekannte Probleme) legt CHAOS-42 fest.
+Netzwerk, Firewall und QR-Probleme wie bisher: [network-setup.md](network-setup.md), Grundlagen in [m1-demo.md](m1-demo.md). Diese Seite beschreibt den heutigen Stand einer ganzen Partie mit Figurenwahl, Rundenwahl, Pause, Finale und Revanche. Bekannte Probleme: [known-issues.md](known-issues.md).
 
 ## Starten
 
 ```bash
-pnpm install
-pnpm build
-pnpm start                       # Port 8787, Join-Code zufällig, Standard 10 Runden
+pnpm play                        # installiert und baut bei Bedarf, startet Port 8787, öffnet den Host
 ```
 
-Optional: `ROUNDS=3 pnpm start` (andere Standard-Rundenzahl in der Lobby, 1–20), `SEED=2026 pnpm start` (reproduzierbare Würfe; das Terminal nennt beim Spielstart den Seed), `JOIN_CODE=ABCD pnpm start` (fester Code). Das Terminal zeigt den LAN-Link mit QR-Code.
+Ein Befehl für einen frischen PC (CHAOS-42, Details in der [README](../README.md)); `OPEN=0 pnpm play` öffnet keinen Browser, `pnpm play --rebuild` erzwingt den Neubau. Gleichwertig von Hand: `pnpm install && pnpm build && pnpm start`. Join-Code zufällig, Standard 10 Runden.
+
+Optional (auch mit `pnpm play`): `ROUNDS=3 pnpm start` (andere Standard-Rundenzahl in der Lobby, 1–20), `SEED=2026 pnpm start` (reproduzierbare Würfe; das Terminal nennt beim Spielstart den Seed), `JOIN_CODE=ABCD pnpm start` (fester Code). Das Terminal zeigt den LAN-Link mit QR-Code.
 
 Am PC `http://localhost:8787/host/` öffnen, am besten im Vollbild auf dem Fernseher, und **einmal in die Seite klicken** (Ton braucht eine Geste; der Klick auf „Los geht’s!“ zählt auch).
 

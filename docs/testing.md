@@ -145,7 +145,7 @@ Baseline bewusst aktualisieren (nur wenn sich die Oberfläche absichtlich geänd
 
 ## CI
 
-`.github/workflows/ci.yml`: Install (`--frozen-lockfile`), Typecheck, Lint, Format, Vitest, Build, Lizenzen, Playwright-Chromium (Cache je Playwright-Version, bei Treffer nur Systempakete), dann `pnpm test:e2e --trace off`. Bei Fehlern werden `test-results/` (Diff-Bilder, Fehler-Screenshots) und `playwright-report/` (HTML-Bericht) als Artefakt `playwright-ergebnisse` hochgeladen (7 Tage). Zeitlimit des Jobs: 20 Minuten.
+`.github/workflows/ci.yml`: Install (`--frozen-lockfile`), Typecheck, Lint, Format, Vitest, Build, Lizenzen, Rauchtest des Start-Ablaufs (`pnpm smoke`: Server aus dem Build starten, `/health`, Host, Controller samt Skripten, WebSocket-Join, sauberes Beenden; CHAOS-42), Playwright-Chromium (Cache je Playwright-Version, bei Treffer nur Systempakete), dann `pnpm test:e2e --trace off`. Bei Fehlern werden `test-results/` (Diff-Bilder, Fehler-Screenshots) und `playwright-report/` (HTML-Bericht) als Artefakt `playwright-ergebnisse` hochgeladen (7 Tage). Zeitlimit des Jobs: 20 Minuten.
 
 ## Automatische Abdeckung je M1-Lieferumfang (ROADMAP)
 
