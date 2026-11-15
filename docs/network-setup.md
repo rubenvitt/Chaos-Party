@@ -24,6 +24,7 @@ Gehe die Punkte der Reihe nach durch. Die Lobby zeigt nach 30 s ohne Controller 
 | Funktioniert am PC selbst (`http://<IP>:8787`), nicht vom Handy | Firewall oder Client-Isolation | [Firewall](#firewall), [Gäste-WLAN](#gäste-wlan-und-client-isolation) |
 | Adresse im QR beginnt mit `172.`, `100.` oder gehört zu einem VPN | falsche Netzwerkschnittstelle gewählt | [Andere Adresse wählen](#andere-adresse-wählen) |
 | QR zeigt `localhost` | PC hat keine LAN-Adresse (nicht im WLAN?) | [Andere Adresse wählen](#andere-adresse-wählen) |
+| `http://localhost:8787/host/` zeigt 404 oder eine fremde Seite, Terminal warnt „antwortet ein anderes Programm“ | Ein anderes Programm lauscht auf `127.0.0.1:8787` (macOS erlaubt das neben Chaos Party) | Link aus dem Terminal nehmen (LAN-Adresse), anderes Programm beenden oder `PORT=<anderer Port> pnpm start` (CHAOS-48) |
 | Handy im Gäste-WLAN / Hotel / Uni-Netz | Geräte dürfen sich nicht sehen | [Gäste-WLAN](#gäste-wlan-und-client-isolation) |
 | Klappt, aber nur manchmal / bricht ab | Mesh-Wechsel, VPN, Energiesparen | [Mesh](#mesh-wlan-und-repeater), [VPN](#vpn-auf-dem-pc) |
 

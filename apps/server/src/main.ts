@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateJoinCode } from './ids.ts';
 import { resolveJoinTarget } from './network.ts';
+import { checkLocalhost } from './selfCheck.ts';
 import { createChaosServer } from './server.ts';
 import { formatStartupLines, renderTerminalQr } from './startup.ts';
 
@@ -43,8 +44,10 @@ const server = createChaosServer({
   joinUrlAlternatives: target.alternatives,
 });
 const address = await server.listen(port, host);
+// CHAOS-48: Prüfen, ob unter localhost wirklich dieser Server antwortet.
+const localhost = await checkLocalhost({ port: address.port, instanceId: server.instanceId });
 
-for (const line of formatStartupLines({ listenPort: address.port, joinCode, target })) {
+for (const line of formatStartupLines({ listenPort: address.port, joinCode, target, localhost })) {
   console.log(line);
 }
 for (const [name, dir] of [

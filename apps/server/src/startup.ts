@@ -5,6 +5,7 @@
  */
 import { renderUnicodeCompact } from 'uqr';
 import type { JoinTarget } from './network.ts';
+import type { LocalhostCheck } from './selfCheck.ts';
 
 const SOURCE_TEXT: Record<JoinTarget['source'], string> = {
   env: 'aus PUBLIC_HOST',
@@ -17,16 +18,33 @@ export interface StartupInfo {
   readonly listenPort: number;
   readonly joinCode: string;
   readonly target: JoinTarget;
+  /** Ergebnis der Selbstprüfung (CHAOS-48); fehlt sie, gilt `localhost` als in Ordnung. */
+  readonly localhost?: LocalhostCheck;
 }
 
-export function formatStartupLines({ listenPort, joinCode, target }: StartupInfo): string[] {
+/**
+ * Link zum PC-Spiel: normalerweise `localhost`. Antwortet dort ein fremdes Programm
+ * (CHAOS-48), stattdessen die LAN-Adresse aus dem Join-Link – die erreicht sicher diesen Server.
+ */
+export function hostLink(listenPort: number, target: JoinTarget, localhostOk: boolean): string {
+  if (localhostOk) return `http://localhost:${String(listenPort)}/host/`;
+  return new URL('/host/', target.joinUrl).href;
+}
+
+export function formatStartupLines({
+  listenPort,
+  joinCode,
+  target,
+  localhost,
+}: StartupInfo): string[] {
   const lines: string[] = [];
+  const localhostOk = localhost?.ok ?? true;
   const best = target.candidates.find((c) => c.address === target.host);
   const why = best ? ` · ${best.interfaceName}: ${best.reasons.join(', ')}` : '';
 
   lines.push('Chaos Party läuft.');
   lines.push('');
-  lines.push(`  Spiel am PC öffnen:   http://localhost:${String(listenPort)}/host/`);
+  lines.push(`  Spiel am PC öffnen:   ${hostLink(listenPort, target, localhostOk)}`);
   lines.push(`  Join-Code:            ${joinCode}`);
   lines.push(`  Link für Handys (QR): ${target.joinUrl}`);
   lines.push(`                        (${SOURCE_TEXT[target.source]}${why})`);
@@ -53,6 +71,22 @@ export function formatStartupLines({ listenPort, joinCode, target }: StartupInfo
     for (const entry of notable) {
       lines.push(`    ${entry.interfaceName} ${entry.address} – ${entry.reason}`);
     }
+  }
+
+  if (!localhostOk) {
+    const foreign = (localhost?.results ?? [])
+      .filter((result) => result.status === 'foreign')
+      .map((result) => new URL(result.url).host);
+    lines.push('');
+    lines.push(
+      `  ⚠ Unter ${foreign.join(' und ')} antwortet ein anderes Programm, nicht Chaos Party.`,
+    );
+    lines.push(
+      `    http://localhost:${String(listenPort)}/host/ führt deshalb ins Leere. Nutze den Link oben`,
+    );
+    lines.push(
+      '    oder beende das andere Programm bzw. starte mit PORT=<anderer Port> pnpm start.',
+    );
   }
 
   for (const warning of target.warnings) {
