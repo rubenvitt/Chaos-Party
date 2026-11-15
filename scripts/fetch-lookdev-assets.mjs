@@ -20,12 +20,28 @@ const listPath = join(root, 'apps/host/src/lookdev/polyhaven.json');
 const outDir = join(root, 'apps/host/public/lookdev-assets');
 const API = 'https://api.polyhaven.com';
 
+/**
+ * @typedef {{ url: string; md5?: string; size?: number }} PhFile
+ * @typedef {{ name?: string; authors?: Record<string, string> }} PhInfo
+ * @typedef {Record<string, any>} PhFiles Antwort von /files/<id> (verschachtelt je Typ und Auflösung)
+ */
+
+/**
+ * @param {string} url
+ * @returns {Promise<any>}
+ */
 async function json(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${String(res.status)}`);
   return res.json();
 }
 
+/**
+ * @param {string} url
+ * @param {string} target
+ * @param {string | undefined} md5
+ * @returns {Promise<boolean>} true, wenn neu geladen
+ */
 async function download(url, target, md5) {
   if (existsSync(target) && md5) {
     const have = createHash('md5')
@@ -41,7 +57,12 @@ async function download(url, target, md5) {
   return true;
 }
 
+/**
+ * @param {string} id
+ * @param {string} dir
+ */
 async function license(id, dir) {
+  /** @type {PhInfo} */
   const info = await json(`${API}/info/${id}`);
   await writeFile(
     join(dir, 'LICENSE.json'),
@@ -63,6 +84,7 @@ const list = JSON.parse(await readFile(listPath, 'utf8'));
 let fetched = 0;
 
 for (const { id, resolution } of list.hdris) {
+  /** @type {PhFiles} */
   const files = await json(`${API}/files/${id}`);
   const file = files.hdri[resolution].hdr;
   const dir = join(outDir, id);
@@ -71,6 +93,7 @@ for (const { id, resolution } of list.hdris) {
 }
 
 for (const { id, resolution } of list.textures) {
+  /** @type {PhFiles} */
   const files = await json(`${API}/files/${id}`);
   const dir = join(outDir, id);
   const maps = { diff: files.Diffuse, nor: files.nor_gl, arm: files.arm };
@@ -83,6 +106,7 @@ for (const { id, resolution } of list.textures) {
 }
 
 for (const { id, resolution } of list.models) {
+  /** @type {PhFiles} */
   const files = await json(`${API}/files/${id}`);
   const gltf = files.gltf[resolution].gltf;
   const dir = join(outDir, id);

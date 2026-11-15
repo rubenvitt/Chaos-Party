@@ -32,8 +32,13 @@ execFileSync(
   { cwd: hostDir, stdio: 'inherit', env: { ...process.env, VITE_LOOKDEV_PACKED: '1' } },
 );
 
+/**
+ * @param {string} dir
+ * @returns {Promise<string[]>}
+ */
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
+  /** @type {string[]} */
   const files = [];
   for (const entry of entries) {
     const path = join(dir, entry.name);
