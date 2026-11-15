@@ -711,6 +711,20 @@
   color: var(--text-dim);
 }
 
+/*
+ * Hochformat: Hinweis und Revanche-Satz immer zweizeilig und ausgewogen. Ohne Grenze passte der
+ * Hinweis mit 4–5 px Luft gerade noch in eine Zeile, der Revanche-Satz brach mit 4 px zu viel um
+ * („wählen.“ allein in Zeile 2). Schon 1 % andere Schriftrasterung (anderes Gerät, CI-Rechner)
+ * kippte das, und die ganze Karte sprang um eine Zeile (CHAOS-41).
+ */
+@media (orientation: portrait) {
+  .slot .final-note,
+  .slot .final-rematch {
+    max-width: 300px;
+    text-wrap: balance;
+  }
+}
+
 @media (orientation: landscape) {
   .slot.screen-final .panel {
     padding-top: 40px;
