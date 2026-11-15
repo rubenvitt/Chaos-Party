@@ -50,16 +50,18 @@ describe('rankPlayers', () => {
 });
 
 describe('DEFAULT_RULES und withRules', () => {
-  it('enthält die vereinbarten Startwerte', () => {
-    expect(DEFAULT_RULES).toMatchObject({
+  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004)', () => {
+    expect(DEFAULT_RULES).toEqual({
       diceFaces: [1, 2, 3, 4, 5, 6],
       economy: { startCoins: 10, coinsPlus: 3, coinsMinus: 3, minigameRewards: [10, 5, 3, 0] },
-      trophy: { price: 20, mode: 'wandering' },
+      trophy: { price: 15, mode: 'wandering', activeCount: 3 },
       items: {
         capacity: 3,
+        startItems: 1,
         weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
-        stealAmount: 6,
-        trapAmount: 5,
+        stealAmount: 5,
+        trapAmount: 4,
+        trapTrigger: 'pass',
       },
       pacing: {
         turnStartMs: 1200,

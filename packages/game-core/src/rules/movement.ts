@@ -1,7 +1,8 @@
 /**
  * Würfeln und Laufen (CHAOS-19). Eine Bewegung besteht aus Abschnitten; ein Abschnitt endet
  * (a) wenn die Schritte aufgebraucht sind, (b) an einer Verzweigung mit Restschritten
- * (Wegwahl) oder (c) beim Betreten der aktiven Trophäe mit genug Münzen (Kaufangebot).
+ * (Wegwahl), (c) beim Betreten der aktiven Trophäe mit genug Münzen (Kaufangebot) oder
+ * (d) bei `trapTrigger: 'pass'` auf einer fremden Falle mit Restschritten (Falle löst aus).
  * Je Abschnitt ein `moved`-Ereignis; der Host animiert es mit `stepMs` je Feld.
  */
 import { pickOne } from '../rng.ts';
@@ -15,6 +16,7 @@ import {
   type Ctx,
   type MovePending,
 } from './internal.ts';
+import { hasForeignTrap, triggerTrap } from './items.ts';
 import { openPathPrompt, openTrophyPrompt } from './prompts.ts';
 
 /** Würfeln: je Würfel eine Seite aus `diceFaces` (gleichverteilt), dann Phase `move`. */
@@ -60,6 +62,15 @@ function walkSegment(ctx: Ctx, t: number): void {
     current = to;
     path.push(to);
     move.stepsLeft -= 1;
+    // Beim Landen löst die Falle ohnehin in der Feldwirkung aus.
+    if (
+      ctx.rules.items.trapTrigger === 'pass' &&
+      move.stepsLeft > 0 &&
+      hasForeignTrap(ctx, to, player.slot)
+    ) {
+      pending = 'trap';
+      break;
+    }
     if (d.trophySpaces.includes(to) && canAffordTrophy(ctx, player.slot)) {
       pending = 'trophy';
       break;
@@ -89,6 +100,16 @@ export function resumeMovement(ctx: Ctx, t: number): boolean {
     case 'trophy':
       openTrophyPrompt(ctx, t);
       return false;
+    case 'trap': {
+      // Falle beim Darüberlaufen: auslösen, kurz anzeigen, dann weiter (ggf. Trophäe hier).
+      triggerTrap(ctx);
+      const player = activePlayer(ctx);
+      const atTrophy =
+        ctx.d.trophySpaces.includes(player.spaceId) && canAffordTrophy(ctx, player.slot);
+      move.pending = atTrophy ? 'trophy' : null;
+      schedule(ctx, 'move', t, ctx.rules.pacing.spaceEventMs);
+      return false;
+    }
     case 'land':
       ctx.d.internal.move = null;
       return true;

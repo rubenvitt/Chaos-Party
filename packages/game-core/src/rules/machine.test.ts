@@ -16,6 +16,7 @@ import {
   settle,
   start,
   startToRoll,
+  TEST_RULES,
   tick,
 } from './testUtils.ts';
 
@@ -45,7 +46,7 @@ describe('createGame', () => {
     expect(state.players.map((p) => p.slot)).toEqual([1, 2, 3]);
     for (const player of state.players) {
       expect(player.spaceId).toBe(TEST_BOARD.start);
-      expect(player.coins).toBe(DEFAULT_RULES.economy.startCoins);
+      expect(player.coins).toBe(TEST_RULES.economy.startCoins);
       expect(player.trophies).toBe(0);
       expect(player.items).toEqual([]);
       expect(player.connected).toBe(true);
@@ -107,7 +108,7 @@ describe('createGame', () => {
 });
 
 describe('Phasenübergänge mit Standard-Pacing', () => {
-  const rules = withRules({ diceFaces: [2] });
+  const rules = withRules({ diceFaces: [2] }, TEST_RULES);
   const board = loopBoard(['coins-plus', 'coins-plus', 'coins-plus', 'coins-plus']);
 
   it('start → turn-start → roll → move → space-event → turn-end → nächster Zug', () => {
