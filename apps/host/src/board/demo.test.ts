@@ -18,7 +18,7 @@ describe('Demo-Spielstand', () => {
     expect(DEMO_DELAYS_MS).toHaveLength(messages.length);
   });
 
-  it('zeigt vier Spieler auf verschiedenen Feldern des Wackelwalds, Falle und aktive Trophäe', () => {
+  it('zeigt vier Spieler auf verschiedenen Feldern des Wackelwalds, Falle und aktive Trophäen', () => {
     const board = getBoard(DEMO_VIEW.boardId);
     expect(board).toBeDefined();
     const ids = new Set(board?.spaces.map((s) => s.id));
@@ -31,7 +31,8 @@ describe('Demo-Spielstand', () => {
         expect(board?.spaces.find((s) => s.id === t)?.kind).toBe('trophy');
     }
     expect(DEMO_VIEW.traps).toHaveLength(1);
-    expect(DEMO_VIEW.trophySpaces).toHaveLength(1);
+    // Wie DEFAULT_RULES (EXP-002): drei Trophäen gleichzeitig aktiv.
+    expect(DEMO_VIEW.trophySpaces).toHaveLength(3);
   });
 
   it('läuft durch die Regie bis zum letzten Stand', () => {
