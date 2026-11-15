@@ -8,14 +8,15 @@
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
 import { PUMP_PARADE_INFO } from './pump-parade/info.ts';
+import { SOCKENREGEN_INFO } from './sockenregen/info.ts';
 
-export const MINIGAME_INFOS: readonly MinigameInfo[] = [PUMP_PARADE_INFO];
+export const MINIGAME_INFOS: readonly MinigameInfo[] = [PUMP_PARADE_INFO, SOCKENREGEN_INFO];
 
 /**
  * Minispiele, die in echten Partien vorkommen (Reihenfolge egal; game-core mischt per Seed).
  * Solange keines eingetragen ist, läuft die Pump-Parade als Rückfall.
  */
-export const ROTATION: readonly string[] = [];
+export const ROTATION: readonly string[] = [SOCKENREGEN_INFO.id];
 
 export function getMinigameInfo(id: string): MinigameInfo | undefined {
   return MINIGAME_INFOS.find((info) => info.id === id);
