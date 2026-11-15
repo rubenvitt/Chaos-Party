@@ -61,7 +61,7 @@ Diese Liste sammelt alles, was die Projektdokumente voraussetzen, aber noch nich
 | D1 | pnpm-Workspace mit TypeScript strict, Lint, Format, Vitest und Production-Build läuft lokal und in GitHub Actions mit `pnpm install --frozen-lockfile`. | niedrig | Auto: CI-Workflow grün. | CHAOS-6 | bestätigt: CI grün in PR #3 (Node 24, 2026-11-14) |
 | D2 | Playwright kann **mehrere Controller-Clients** und einen Host parallel steuern; Multitouch lässt sich in Chromium über CDP (`Input.dispatchTouchEvent`) synthetisch erzeugen. Das ersetzt **nicht** den Gerätetest. | mittel | Auto: E2E mit 2 Controllern + iPad-Zonen. | CHAOS-14 | offen |
 | D3 | Die WebKit-Engine von Playwright (Linux) bildet iOS-Safari nur grob ab; Ergebnisse sind Hinweise, keine Bestätigung. | mittel | Design-Regel; Abweichungen in der Gerätecheckliste notieren. | CHAOS-14, CHAOS-15 | offen |
-| D4 | Spielregeln lassen sich als reine TypeScript-Zustandsmaschine mit **Seeded RNG** formulieren und vollständig ohne Rendering testen. | niedrig | Auto: Unit-/Integrationstests ab M2; in M1 mindestens das Paketgerüst. | CHAOS-6 (Gerüst), CHAOS-17 | offen |
+| D4 | Spielregeln lassen sich als reine TypeScript-Zustandsmaschine mit **Seeded RNG** formulieren und vollständig ohne Rendering testen. | niedrig | Auto: Unit-/Integrationstests ab M2; in M1 mindestens das Paketgerüst. | CHAOS-6 (Gerüst), CHAOS-17 | bestätigt (automatisch): `step`-Reducer mit Seeded RNG, komplette Partien ohne Rendering in Unit-, Integrations- und Simulationstests, gleicher Seed → gleicher Ablauf (CHAOS-17, CHAOS-23, ADR-011) |
 
 ## E. Produktannahmen (für Playtests, nicht in M1 zu entscheiden)
 
@@ -90,3 +90,4 @@ Diese Angaben machen Gerätetests und Leistungsziele konkret. Sie blockieren die
 | 2026-11-14 | D1 bestätigt (CI grün in PR #3); C1, C3–C5 auf „teilweise“ (Host-Szene) | CHAOS-6, CHAOS-8 |
 | 2026-11-14 | B6, C2: Messanzeige ergänzt, Werte weiter offen (Gerät) | CHAOS-45 |
 | 2026-11-14 | Stand nach CHAOS-7 … CHAOS-13: B8, B9, B10, C3 bestätigt; A1, A2, A4–A6, A9, B3, B5, B7 teilweise; Gerätepunkte mit Verweis auf `device-test-checklist.md` | CHAOS-15 |
+| 2026-11-15 | D4 bestätigt (Regeln als Reducer, Partien ohne Rendering testbar) | CHAOS-17, CHAOS-23 |
