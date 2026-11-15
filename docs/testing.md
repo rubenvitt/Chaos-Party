@@ -1,6 +1,6 @@
 # Tests in Chaos Party
 
-Stand: M2 (CHAOS-2, 2026-11-15); M1-Teile aus CHAOS-45. Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
+Stand: M2 (CHAOS-2, 2026-11-15); M1-Teile aus CHAOS-45; M4-Gesamtablauf aus CHAOS-41 (Abschnitt [M4-Gesamtablauf](#m4-gesamtablauf-chaos-41)). Dieses Dokument beschreibt, welche automatischen Tests es gibt, was sie beweisen, wie man sie startet und Screenshot-Baselines pflegt – und was **nicht** automatisch geprüft werden kann und deshalb in die Gerätecheckliste (`docs/device-test-checklist.md`) gehört.
 
 ## Überblick
 
@@ -48,7 +48,7 @@ Alle Dateien unter `apps/server/src/`, über den Testhelfer `testHarness.ts` (k�
 
 | Projekt | Specs | Emulation |
 |---|---|---|
-| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich`, `debug-anzeige`, `host-brett`, `m2-brett-durchstich` | Desktop 1280×720, WebGL über SwiftShader (Software) |
+| `chromium` | `host-szene`, `host-lobby`, `reconnect-slot`, `m1-durchstich`, `debug-anzeige`, `host-brett`, `m2-brett-durchstich`, M3-/M4-Host-Specs, `m4-gesamtablauf` | Desktop 1280×720, WebGL über SwiftShader (Software) |
 | `iphone-hoch`, `iphone-quer` | `controller-ui`, `controller-brett` | iPhone 13 hoch/quer |
 | `ipad-quer`, `ipad-hoch` | `ipad-zonen`, `ipad-brett` | iPad Pro 11 quer/hoch |
 
@@ -72,7 +72,23 @@ Seit M2 öffnen die M1-Specs den Host mit `&arena=1` (Start der M1-Arena statt d
 | `controller-brett.spec.ts` (9 × 2 Lagen, M2) | nachgebauter Session-Server | Warte-Karte mit Stand, jeder Prompt-Typ (Würfeln mit Items, Weg, Trophäe, Ziel, Reaktion) sendet das richtige `choose`, Sperre nach dem Senden, Countdown, `invalid-choice`-Hinweis, Endplatz, Wiederverbinden mitten in der Wahl; Screenshots (Text maskiert). Belegbilder: `BRETT_BELEG=<ordner>`. |
 | `ipad-brett.spec.ts` (5 × 2 Lagen, M2) | nachgebauter Session-Server | Zwei Zonen mit unterschiedlichen Prompts und eigenem Stand, **gleichzeitige** Finger in beiden Zonen wählen je für den richtigen Slot, ein Finger aus Zone 1 löst keine Knöpfe in Zone 2 aus, Reaktion wählt schon beim Aufsetzen, Warten/Endstand je Zone und Lösen der Sperre durch einen neuen Prompt; Screenshot. |
 | `controller-ui.spec.ts` (9 × 2 Lagen) | nachgebauter Session-Server | Beitritt per `?code=`, Code-Eingabe und Fehlertexte, Lobby → Spiel-Layout, Joystick-Vektoren und Drosselung, Knöpfe auch gleichzeitig mit dem Joystick, `seq` steigt, Layout folgt dem Kontext, Release beim Verschwinden, freundliche Fehler, Reconnect per Token, kein Scrollen/Zoomen bei Gesten; Screenshots Lobby/Spiel. |
+| `m4-gesamtablauf.spec.ts` (2, M4) | echter Server mit Test-Pacing, **echte Host-, iPhone- und iPad-Seiten**, alle Spieler-Eingaben über die Controller-UI | Komplette Partie Lobby → Figurenwahl → Rundenwahl/Start → Brett + Minispiele → Pause/Weiter → Neuladen eines Controllers → Trophäenzählung → Siegerbildschirm → Endstand je Controller (gleicher Platz wie am PC) → „Nochmal spielen“ → Lobby mit Figuren; zwei iPhones (2 Runden) und gemischt 2 iPhones + iPad mit 2 Zonen (1 Runde). Details unten. |
 | `ipad-zonen.spec.ts` (8 × 2 Lagen) | nachgebauter Session-Server | Zwei Zonen über eine Verbindung, gedrehte Zone im Hochformat, gleichzeitige Finger in verschiedenen Zonen mit richtigem Slot, `touchcancel`, Finger über die Zonengrenze, Drehen mitten im Spiel, vier Zonen mit vier Fingern, iPad-Modus in der Code-Eingabe; Screenshot mit zwei Zonen. |
+
+### M4-Gesamtablauf (CHAOS-41)
+
+`tests/e2e/m4-gesamtablauf.spec.ts` (Projekt `chromium`, je Test ein eigener Server) beweist den ganzen Lebenszyklus einer Partie mit echten Seiten. **Alle Spieler-Eingaben laufen über die echte Controller-UI**: Figur antippen, „Bereit!“, Prompt-Knöpfe, im Minispiel Joystick ziehen und Knopf A (CDP-Touch, in iPad-Zonen mehrere Finger gleichzeitig). Keine synthetischen Protokollnachrichten für Spieler. Der Host wird über seine UI bedient (Gerätewahl iPhone/iPad, Rundenwahl, Start, Pause-Knopf, „Weiter“, „Nochmal spielen“).
+
+| Test | Aufstellung | Ablauf und Prüfungen |
+|---|---|---|
+| zwei iPhones | 2 × iPhone 13, Beitritt über den Link aus dem QR-Code | Figuren Socke/Waschbär (nicht die Standardfiguren), fremde Figur als vergeben; Host-Lobby zeigt Figuren und „bereit ✓“; **2 Runden** per Klick; Brett zeigt die gewählten Figuren; Pause mit offenem Würfel-Prompt (alle Controller `pause`, keine Knöpfe), „Weiter“ → derselbe Prompt; **iPhone 2 lädt in Runde 2 neu** (gleicher Platz, kein neuer Spieler, Server: verbunden); zwei **verschiedene** Minispiele mit Joystick- und A-Eingaben je Slot am Host; Trophäenzählung (Intro → Aufdecken vom letzten Platz → Sieger); Host-Ranking = Server-Ranking = Endstand je iPhone (`data-place`, `data-tied`, Figur); Revanche → Lobby, Figur `mine`, „Bereit!“ wieder da. |
+| gemischt | 2 × iPhone 13 + iPad Pro 11 quer mit 2 Zonen (Link aus der Lobby, `seats=2`) | Zonen wählen Figur und „Bereit“ **gleichzeitig mit zwei Fingern**; **1 Runde**; Pause wie oben in allen vier Plätzen; **iPad lädt mitten im Minispiel neu** → beide Zonen zurück im Spiel, Phase bleibt `minigame-play`, danach Joystick/A beider Zonen am Host; Finale mit geteilten Plätzen; Endstand je Platz; Revanche. |
+
+**Testmodus (nur im Test, nicht im Normalbetrieb):** Die Spec startet ihren Server über die Fixture-Optionen (`startChaosServer({ game })`, kein Env-Schalter nötig) mit schnellem Pacing (`TEST_PACING`: Züge 0,1–0,4 s, Anleitung 3 s, Ergebnis 2 s, Reaktionsfenster 5 s, Ergebnisfrist der Minispiele 120 s), den drei Rotations-Minispielen mit **6 s** Spielzeit und Rundenvorschlägen **1/2/3** statt 10/16/20. Der Host läuft mit `/host/?test=1&finale=manual`: Brett-Regie (`board.advance`), Minispiel-Bühne (`__chaosMinigame.step`) und Trophäenzählung (`__chaosFinale.advance`) rechnen nur auf Zuruf – unabhängig von der Rechnerlast. Seed fest (`E2E_GAME_SEED` = 2026); Prompt-Politik wie die Bots (würfeln, kaufen, festhalten, abbrechen, sonst erste Option), deshalb ist der Endstand reproduzierbar.
+
+**Laufzeit und Stabilität:** je Test 45–55 s bei zwei parallelen Workern (Zeitlimit 180 s); vor dem Einchecken 12 Läufe in Folge grün (`--repeat-each=6`). Zwei Stolpersteine sind im Test erklärt: In iPad-Zonen ist der Prompt-Rahmen ein Layout-Container ohne eigene Box und die Wahlflächen sind keine `<button>` (die Zonen bekommen echte CDP-Touches statt `locator.tap()`); nach dem Neuladen des iPads wartet der Test zwei Frames, bevor ein Finger aufsetzt (Chromium kennt den Touch-Listener der Spielfläche erst nach dem nächsten Frame). Das Podest wird vor dem Screenshot mit festen 60 Bildern gerendert und per `toDataURL` abgewartet.
+
+**Screenshots** (Texte, Glyphen und der QR-Code mit zufälligem Port maskiert): `gesamtablauf-iphone-figurenwahl` (Charakterwahl am iPhone), `gesamtablauf-host-lobby` (PC-Lobby mit zwei Figuren, alle bereit), `gesamtablauf-host-sieger-2` und `-4` (Siegerbildschirm mit Podest), `gesamtablauf-iphone-endstand` (Endstand am iPhone).
 
 ## Ausführen
 
@@ -117,6 +133,7 @@ Eingecheckt unter `tests/e2e/__screenshots__/<spec>/<name>-<projekt>-linux.png`,
 | `host-spiel-3-spieler-chromium` | Spiel mit 3 Spielern (iPhone + iPad), 60 Frames nach dem Start, vor jeder Eingabe, Seed 2026 |
 | `controller-lobby/-play-iphone-hoch/-quer` | Controller-Lobby und Spiel-Layout |
 | `ipad-2-zonen-spiel-ipad-quer/-hoch` | iPad mit zwei Zonen im Spiel |
+| `gesamtablauf-*-chromium` (M4) | Gesamtablauf: Figurenwahl am iPhone, PC-Lobby mit Figuren, Siegerbildschirm mit 2 und 4 Spielern, Endstand am iPhone (Seed 2026, Test-Pacing) |
 
 Stabilität: fester Seed, Kamera fest, Physik nur über `stepFrames`, `animations: 'disabled'`. Texte und Glyphen sind maskiert, weil Schriften zwischen Rechnern/Runnern abweichen; geprüft werden Layout, Farben, Formen und die 3D-Szene. Texte prüfen die DOM-Assertions. Toleranz: `maxDiffPixelRatio 0.02`, `threshold 0.2` (SwiftShader kann um einzelne Pixel abweichen).
 
@@ -163,6 +180,16 @@ Baseline bewusst aktualisieren (nur wenn sich die Oberfläche absichtlich geänd
 | Animation, Sound, VFX, Anleitungen, Ergebnisse | Fx-Unit-Tests (Klang-Rezepte, nachgebautes WebAudio, Partikel mit NullEngine), `m3-minispiel-anzeige` (Karten), `controller-minispiel` | Klang und Lesbarkeit (P8, P9, G1–G8) |
 | Experimente zu Minispiel-Konzepten | EXP-005 … EXP-007 mit Prototyp-Simulationen (`packages/minigames/src/prototypes/`, `EXPERIMENTS=1`) | Spaß: nur Playtest |
 | Tests für Lebenszyklus, Wertung, Scene-Cleanup | `minigame-sdk` (Laufzeit, Wertung, Ergebnisprüfung), game-core `minigame.test.ts`, Server-Integration Brett ↔ Minispiel je Minispiel mit 2/3/4 Spielern, `sceneResidue` = leer nach `dispose` | – |
+
+## Automatische Abdeckung je M4-Lieferumfang (ROADMAP)
+
+| Lieferumfang | Automatisch belegt durch | Nur am Gerät / im Playtest (Checkliste Abschnitt 12) |
+|---|---|---|
+| Lobby, Beitritt, Charakterwahl, Rundenwahl, Start/Pause/Ende | `m4-gesamtablauf` (echte UI aller Geräte), `host-lobby-figuren`, `host-pause`, `controller-m4`, `controller-m4-durchstich`, `ipad-m4`, Server `session.v4.test.ts`/`robustness.test.ts` | V1, V3, V10–V11, V13–V15, V27–V29 |
+| Brettzüge, Minispiele, Belohnungen, Trophäenzählung, Siegerbildschirm | `m4-gesamtablauf` (2 bzw. 1 Runden, zwei verschiedene Minispiele), `host-finale` (Gleichstand, geteilter Sieg, vorzeitiges Ende), `determinism.integration.test.ts` | V2, V4–V7 |
+| 2–4 Spieler, geteiltes iPad, Reconnect | `m4-gesamtablauf` (2 iPhones; 2 iPhones + iPad mit 2 Zonen; Neuladen im Brett und im Minispiel), `reconnect.integration.test.ts` (jede Phase), `hostLoss.integration.test.ts`, `mixedSetup.integration.test.ts`, `reconnect-slot` | V12, V16–V26, iPad-Nachtest Abschnitt 4 (CHAOS-47) |
+| Performance | `pnpm perf` (nur relativ, nicht in CI), [performance.md](performance.md) | Abschnitt 11 (PF0–PF10) |
+| Automatischer E2E-Test des ganzen Lebenszyklus, Gerätevalidierung dokumentiert | `m4-gesamtablauf` in CI; Checkliste Abschnitt 12 | Rubens Durchgang |
 
 ## Was die Automatik **nicht** beweist (Gerätecheckliste)
 
