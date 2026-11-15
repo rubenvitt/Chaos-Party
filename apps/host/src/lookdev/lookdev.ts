@@ -48,7 +48,7 @@ declare global {
   }
 }
 
-type Shot = 'brett' | 'figur' | 'minispiel';
+type Shot = 'brett' | 'figur' | 'minispiel' | 'portraet';
 
 export interface LookdevStats {
   readonly msPerFrame: number;
@@ -80,7 +80,11 @@ const lookId: LookId = (LOOK_IDS as readonly string[]).includes(lookParam)
   : 'weich';
 const shotParam = params.get('shot') ?? 'brett';
 const shot: Shot =
-  shotParam === 'figur' || shotParam === 'minispiel' ? shotParam : ('brett' as const);
+  shotParam === 'figur' || shotParam === 'minispiel' || shotParam === 'portraet'
+    ? shotParam
+    : ('brett' as const);
+/** Porträt-Ansicht (CHAOS-59/61): eine Figur nah, `slot=1…4` wählt sie. */
+const portraitSlot = Math.min(4, Math.max(1, Number(params.get('slot') ?? '1'))) as Slot;
 const testMode = params.get('test') === '1';
 const look: Look = LOOKS[lookId];
 
@@ -240,6 +244,15 @@ async function stageNature(variant: NatureVariant): Promise<Staging & { nature: 
   }
   const a = nature.tiles[2] ?? Vector3.Zero();
   const b = nature.tiles[4] ?? Vector3.Zero();
+  if (shot === 'portraet') {
+    placeFigure(portraitSlot, a, Math.PI - 0.25);
+    return {
+      nature,
+      casters: nature.casters,
+      focus: a.add(new Vector3(0, 1.05, 0)),
+      view: { alpha: -Math.PI / 2 - 0.15, beta: 1.4, radius: 3.1 },
+    };
+  }
   placeFigure(3, a, Math.PI - 0.5);
   placeFigure(1, b, Math.PI + 0.3);
   return shot === 'figur'
