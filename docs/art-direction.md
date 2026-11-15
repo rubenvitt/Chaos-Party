@@ -124,6 +124,11 @@ Eine Klangdatei läge unter `packages/assets/sounds/` mit `source: "generated"` 
 
 ## Werkzeuge
 
+- **Look-Dev-Vitrine** (CHAOS-56, nur Dev-Server): `http://localhost:5173/host/src/lookdev/lookdev.html?look=weich&shot=brett`
+  (`look` = `weich` | `toon` | `diorama`, `shot` = `brett` | `figur` | `minispiel`, `hud=0`, `test=1`).
+  Drei Kandidaten für den neuen Look, siehe EXP-008 in `docs/experiments.md`. Diese Datei wird nach
+  Rubens Wahl neu geschrieben; bis dahin gilt der M3-Stand unten weiter.
+
 - **Figuren-Vitrine** (nur Dev-Server): `pnpm --filter @chaos-party/host dev`, dann
   `http://localhost:5173/host/src/characters/preview.html?anim=cheer` (Parameter `anim`,
   `yaw`, `names=0`, `view=top`, `test=1` mit `window.__vitrine.step(n)`).

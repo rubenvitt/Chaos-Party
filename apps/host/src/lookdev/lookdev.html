@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chaos Party – Look-Dev</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #9cc8ff;
+        font-family: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        outline: none;
+      }
+      .hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        font-size: clamp(12px, 1.25vw, 26px);
+      }
+      body[data-hud='aus'] .hud {
+        display: none;
+      }
+      .look-title {
+        position: fixed;
+        right: 1.2em;
+        bottom: 1em;
+        font-size: 0.7em;
+        font-weight: 700;
+        opacity: 0.75;
+        color: #1b1530;
+      }
+      .banner {
+        position: absolute;
+        top: 1.2em;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+        padding: 0.55em 1.4em 0.55em 0.7em;
+        font-weight: 800;
+        font-size: 1.5em;
+        white-space: nowrap;
+      }
+      .banner .dot {
+        width: 1.3em;
+        height: 1.3em;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 0.8em;
+      }
+      .cards {
+        position: absolute;
+        left: 1.4em;
+        bottom: 1.4em;
+        display: flex;
+        gap: 0.9em;
+      }
+      .card {
+        min-width: 10.5em;
+        padding: 0.7em 1em;
+        display: grid;
+        gap: 0.25em;
+      }
+      .card .name {
+        font-weight: 800;
+        font-size: 1.15em;
+        display: flex;
+        align-items: center;
+        gap: 0.4em;
+      }
+      .card .stats {
+        display: flex;
+        gap: 1em;
+        font-weight: 800;
+        font-size: 1.3em;
+        font-variant-numeric: tabular-nums;
+      }
+      .card .sym {
+        width: 1.2em;
+        height: 1.2em;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 0.75em;
+      }
+      .timer {
+        position: absolute;
+        top: 1.2em;
+        left: 1.4em;
+        padding: 0.6em 1em;
+        font-weight: 800;
+        display: grid;
+        gap: 0.2em;
+      }
+      .timer b {
+        font-size: 1.8em;
+        font-variant-numeric: tabular-nums;
+      }
+      body[data-shot='minispiel'] .board-only,
+      body:not([data-shot='minispiel']) .game-only,
+      body[data-shot='figur'] .cards {
+        display: none;
+      }
+
+      /* A · weich: Glas-Karten, große Rundungen, weiche Schatten */
+      body[data-look='weich'] .banner,
+      body[data-look='weich'] .card,
+      body[data-look='weich'] .timer {
+        background: rgba(255, 255, 255, 0.62);
+        backdrop-filter: blur(14px) saturate(1.4);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 1.2em;
+        box-shadow:
+          0 0.6em 1.8em rgba(30, 40, 90, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        color: #1d2340;
+      }
+      body[data-look='weich'] .banner {
+        border-radius: 999px;
+      }
+
+      /* B · toon: kräftige Flächen, dicke farbige Kontur, schräge Etiketten */
+      body[data-look='toon'] .banner,
+      body[data-look='toon'] .card,
+      body[data-look='toon'] .timer {
+        background: #fff;
+        border: 0.2em solid #2a2160;
+        border-radius: 0.7em;
+        box-shadow: 0.25em 0.3em 0 #2a2160;
+        color: #2a2160;
+      }
+      body[data-look='toon'] .banner {
+        transform: translateX(-50%) rotate(-1.5deg);
+        background: #ffd23f;
+      }
+      body[data-look='toon'] .card:nth-child(1) {
+        transform: rotate(-1deg);
+      }
+      body[data-look='toon'] .card:nth-child(2) {
+        transform: rotate(1deg);
+      }
+
+      /* C · diorama: ruhig, viel Luft, feine Linien, Papier-Töne */
+      body[data-look='diorama'] .banner,
+      body[data-look='diorama'] .card,
+      body[data-look='diorama'] .timer {
+        background: rgba(252, 246, 238, 0.9);
+        border: 1px solid rgba(120, 80, 70, 0.25);
+        border-radius: 0.5em;
+        box-shadow: 0 0.3em 1em rgba(90, 50, 40, 0.12);
+        color: #4a3436;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+      body[data-look='diorama'] .banner {
+        font-weight: 700;
+        font-size: 1.3em;
+      }
+      body[data-look='diorama'] .card .stats,
+      body[data-look='diorama'] .card .name,
+      body[data-look='diorama'] .timer b {
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="lookdev"></canvas>
+    <div class="hud">
+      <div class="banner board-only">
+        <span class="dot" style="background: #0072b2">●</span> Blau ist am Zug
+      </div>
+      <div class="timer game-only">
+        <span>Pudding-Gerangel</span>
+        <b>0:23</b>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <span class="name"><span class="sym" style="background: #0072b2">●</span> Blau</span>
+          <span class="stats"><span>🏆 1</span><span>🪙 12</span></span>
+        </div>
+        <div class="card">
+          <span class="name"><span class="sym" style="background: #009e73">■</span> Grün</span>
+          <span class="stats"><span>🏆 0</span><span>🪙 7</span></span>
+        </div>
+      </div>
+      <div class="look-title" id="look-title"></div>
+    </div>
+    <script type="module" src="./lookdev.ts"></script>
+  </body>
+</html>
