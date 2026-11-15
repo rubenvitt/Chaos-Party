@@ -27,6 +27,7 @@ const HOST = 100;
 const TICK_MS = 100;
 /** Bedenkzeit der Bots, bevor sie antworten (virtuelle ms). */
 const THINK_MS = 300;
+const HEARTBEAT_MS = 5_000;
 
 /** Seeds der Integrationstests (dokumentiert in docs/progress.md). */
 export const INTEGRATION_SEEDS = { two: 20261115, three: 7, four: 424242 } as const;
@@ -198,7 +199,20 @@ class Harness {
 
   tick(): void {
     this.clock += TICK_MS;
+    // Herzschlag alle 5 s wie die echten Clients (sonst trennt der Server nach 15 s/30 s).
+    if (this.clock % HEARTBEAT_MS === 0) {
+      for (const controller of this.controllers.values()) {
+        if (controller.connected) {
+          this.send(controller.id, createMessage('heartbeat', { t: this.clock }));
+        }
+      }
+      if (this.hostConnected) this.send(HOST, createMessage('heartbeat', { t: this.clock }));
+    }
     this.handle(this.session.tick());
+  }
+
+  get hostConnected(): boolean {
+    return this.session.snapshot().hostConnected;
   }
 
   get events(): BoardEvent[] {
@@ -388,7 +402,7 @@ describe('Brettspiel über die Session (CHAOS-23)', () => {
       }
     });
 
-    expect(disconnected && reconnected).toBe(true);
+    expect([disconnected, reconnected]).toEqual([true, true]);
     const auto = h.events.find((e) => e.type === 'player-auto');
     expect(auto).toMatchObject({ slot: 2, reason: 'disconnected', option: 'roll' });
     // Während der Trennung zeigt der Host den Spieler als getrennt.
@@ -409,7 +423,7 @@ describe('Brettspiel über die Session (CHAOS-23)', () => {
     const results = new Map<ReactionPolicy, BoardEvent[]>();
     const errors = new Map<ReactionPolicy, string[]>();
     for (const reaction of ['brace', 'timeout', 'late'] as const) {
-      const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 4, policy: { reaction } });
+      const h = setupGame(3, INTEGRATION_SEEDS.three, { rounds: 10, policy: { reaction } });
       h.runToEnd();
       expect(h.gamePhase).toBe('game-results');
       results.set(reaction, h.events);
@@ -419,18 +433,14 @@ describe('Brettspiel über die Session (CHAOS-23)', () => {
       );
     }
     const resolved = (policy: ReactionPolicy) =>
-      (results.get(policy) ?? []).filter((e) => e.type === 'reaction-resolved');
+      (results.get(policy) ?? []).flatMap((e) =>
+        e.type === 'reaction-resolved' ? [e.result] : [],
+      );
     expect(resolved('brace').length).toBeGreaterThan(0);
-    expect(
-      resolved('brace').every((e) => e.type === 'reaction-resolved' && e.result === 'brace'),
-    ).toBe(true);
-    expect(
-      resolved('timeout').every((e) => e.type === 'reaction-resolved' && e.result === 'timeout'),
-    ).toBe(true);
+    expect(resolved('brace').every((result) => result === 'brace')).toBe(true);
+    expect(resolved('timeout').every((result) => result === 'timeout')).toBe(true);
     // Verspätete Reaktion: Fenster schließt per Timeout, die Wahl bekommt `invalid-choice`.
-    expect(
-      resolved('late').every((e) => e.type === 'reaction-resolved' && e.result === 'timeout'),
-    ).toBe(true);
+    expect(resolved('late').every((result) => result === 'timeout')).toBe(true);
     expect(errors.get('late')).toContain('invalid-choice');
     expect(errors.get('brace')).toEqual([]);
   });
