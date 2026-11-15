@@ -13,6 +13,7 @@
   "scripts": {
     "generate": "blender/build-all.sh && blender/portraits-all.sh",
     "generate:portraits": "blender/portraits-all.sh",
+    "import:polyhaven": "node src/import/polyhaven.ts",
     "check": "node src/check/cli.ts",
     "typecheck": "tsc -p tsconfig.json"
   },

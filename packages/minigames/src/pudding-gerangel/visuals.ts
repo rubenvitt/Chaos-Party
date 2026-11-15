@@ -2,7 +2,12 @@
  * Optik von „Pudding-Gerangel“: klobige, bunte Spielzeugteile aus Babylon-Grundkörpern.
  * Reine Darstellung – Hitboxen baut `index.ts` getrennt davon. Alles, was hier entsteht, wird
  * in `disposables` gesammelt und vom Minispiel in `dispose()` entfernt.
+ *
+ * Natur-Look (CHAOS-62): Trägt die Sammlung den Look des Hosts (`ToyParts.look`), kommen die
+ * Materialien von dort (PBR im Licht der Stimmung) und statt Sahnesee steht der Pudding auf
+ * einem Baumstumpf über einer Picknickdecke.
  */
+import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
@@ -12,10 +17,31 @@ import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
+import type { LookFinish, MinigameLook } from '@chaos-party/minigame-sdk/babylon';
 import { TUNING } from './logic.ts';
 
 export interface Disposable {
   dispose(): void;
+}
+
+/** Sammlung alles Angelegten (für `dispose()`), optional mit dem Look des Hosts. */
+export interface ToyParts extends Array<Disposable> {
+  look?: MinigameLook;
+}
+
+export function toyParts(look: MinigameLook | undefined): ToyParts {
+  const parts: ToyParts = [];
+  if (look) parts.look = look;
+  return parts;
+}
+
+interface ToyOptions {
+  /** Glanzlicht (ohne Look: Farbe und Schärfe des Glanzpunkts). */
+  readonly shine?: { readonly color: Color3; readonly power: number };
+  readonly alpha?: number;
+  /** Mit Look: Licht scheint durch (Wackelpudding). */
+  readonly translucency?: number;
+  readonly finish?: LookFinish;
 }
 
 export const COLORS = {
@@ -38,25 +64,38 @@ export function toyMaterial(
   name: string,
   hex: string,
   scene: Scene,
-  disposables: Disposable[],
+  disposables: ToyParts,
   glow = 0.15,
-): StandardMaterial {
+  options: ToyOptions = {},
+): Material {
+  if (disposables.look) {
+    const material = disposables.look.material(hex, {
+      emissive: glow,
+      finish: options.finish ?? (options.shine ? 'glanz' : 'lack'),
+      ...(options.alpha !== undefined ? { alpha: options.alpha } : {}),
+      ...(options.translucency !== undefined ? { translucency: options.translucency } : {}),
+    });
+    disposables.push(material);
+    return material;
+  }
   const material = new StandardMaterial(name, scene);
   const color = Color3.FromHexString(hex);
   material.diffuseColor = color;
   material.emissiveColor = color.scale(glow);
-  material.specularColor = new Color3(0.15, 0.15, 0.15);
+  material.specularColor = options.shine?.color ?? new Color3(0.15, 0.15, 0.15);
+  if (options.shine) material.specularPower = options.shine.power;
+  if (options.alpha !== undefined) material.alpha = options.alpha;
   disposables.push(material);
   return material;
 }
 
-function track<T extends Disposable>(item: T, disposables: Disposable[]): T {
+function track<T extends Disposable>(item: T, disposables: ToyParts): T {
   disposables.push(item);
   return item;
 }
 
 /** Sahnesee unter dem Pudding mit ein paar Erdbeeren als Deko (ohne Physik). */
-export function buildCreamLake(scene: Scene, disposables: Disposable[]): void {
+export function buildCreamLake(scene: Scene, disposables: ToyParts): void {
   const lake = track(
     CreateGround('pudding-sahnesee', { width: 80, height: 50 }, scene),
     disposables,
@@ -96,10 +135,31 @@ export function buildCreamLake(scene: Scene, disposables: Disposable[]): void {
 }
 
 /**
+ * Natur-Look: Baumstumpf als Tisch unter dem Teller (statt Sahnesee); die Wiese mit Decke
+ * liegt auf Höhe des Sees, wer herunterfällt, landet im Gras.
+ */
+export function buildStump(scene: Scene, disposables: ToyParts): void {
+  const groundY = TUNING.killY - 0.3;
+  const top = -TUNING.thickness - 0.3;
+  const stump = track(
+    CreateCylinder(
+      'pudding-stumpf',
+      { diameterTop: 3.6, diameterBottom: 5, height: top - groundY, tessellation: 24 },
+      scene,
+    ),
+    disposables,
+  );
+  stump.position.y = (top + groundY) / 2;
+  stump.material = toyMaterial('pudding-stumpf-mat', '#7a5a3e', scene, disposables, 0, {
+    finish: 'matt',
+  });
+}
+
+/**
  * Teller und Pudding als Kinder der (unsichtbaren) Pudding-Hitbox. Gibt den Knoten zurück,
  * der fürs Schwabbeln skaliert wird.
  */
-export function buildPudding(scene: Scene, hitbox: Mesh, disposables: Disposable[]): Mesh {
+export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts): Mesh {
   const half = TUNING.thickness / 2;
   const pudding = track(
     CreateCylinder(
@@ -115,10 +175,11 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: Disposable
     disposables,
   );
   pudding.parent = hitbox;
-  const jelly = toyMaterial('pudding-koerper-mat', COLORS.pudding, scene, disposables, 0.18);
   // Glänzend wie Götterspeise.
-  jelly.specularColor = new Color3(0.7, 0.9, 0.7);
-  jelly.specularPower = 24;
+  const jelly = toyMaterial('pudding-koerper-mat', COLORS.pudding, scene, disposables, 0.18, {
+    shine: { color: new Color3(0.7, 0.9, 0.7), power: 24 },
+    translucency: 0.5,
+  });
   pudding.material = jelly;
   const top = track(
     CreateCylinder(
@@ -130,16 +191,10 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: Disposable
   );
   top.parent = pudding;
   top.position.y = half - 0.02;
-  const topMaterial = toyMaterial(
-    'pudding-deckel-mat',
-    COLORS.puddingTop,
-    scene,
-    disposables,
-    0.12,
-  );
-  topMaterial.specularColor = new Color3(0.5, 0.7, 0.5);
-  topMaterial.specularPower = 32;
-  top.material = topMaterial;
+  top.material = toyMaterial('pudding-deckel-mat', COLORS.puddingTop, scene, disposables, 0.12, {
+    shine: { color: new Color3(0.5, 0.7, 0.5), power: 32 },
+    translucency: 0.4,
+  });
 
   const plate = track(
     CreateCylinder(
@@ -192,7 +247,7 @@ export interface ZoneVisual {
 }
 
 /** Kirschfleck (Sahnefleck mit rotem Rand und schwebender Kirsche) und Vorwarn-Ring. */
-export function buildZone(scene: Scene, hitbox: Mesh, disposables: Disposable[]): ZoneVisual {
+export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): ZoneVisual {
   const root = track(new TransformNode('pudding-kirschfleck', scene), disposables);
   root.parent = hitbox;
   const spot = track(
@@ -257,21 +312,15 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: Disposable[])
     disposables,
   );
   ghost.parent = hitbox;
-  const ghostMaterial = toyMaterial(
-    'pudding-vorwarnung-mat',
-    COLORS.cherry,
-    scene,
-    disposables,
-    0.6,
-  );
-  ghostMaterial.alpha = 0.55;
-  ghost.material = ghostMaterial;
+  ghost.material = toyMaterial('pudding-vorwarnung-mat', COLORS.cherry, scene, disposables, 0.6, {
+    alpha: 0.55,
+  });
   ghost.setEnabled(false);
   return { root, cherry, ghost };
 }
 
 /** Rührlöffel als Kind seiner (unsichtbaren) Hitbox: Stiel innen, Kelle außen. */
-export function buildSpoon(scene: Scene, hitbox: Mesh, disposables: Disposable[]): void {
+export function buildSpoon(scene: Scene, hitbox: Mesh, disposables: ToyParts): void {
   const length = TUNING.spoonOuter - TUNING.spoonInner;
   const wood = toyMaterial('pudding-loeffel-mat', COLORS.spoon, scene, disposables, 0.2);
   const dark = toyMaterial('pudding-loeffel-dunkel-mat', COLORS.spoonDark, scene, disposables, 0.2);
@@ -314,7 +363,7 @@ export function buildPawnDecor(
   scene: Scene,
   slot: number,
   color: string,
-  disposables: Disposable[],
+  disposables: ToyParts,
 ): PawnDecor {
   const material = toyMaterial(`pudding-slot-${slot}-mat`, color, scene, disposables, 0.45);
   const ring = track(
@@ -339,7 +388,7 @@ export function buildPawnDecor(
 }
 
 /** Goldene Wackelkrone (folgt der führenden Person). */
-export function buildCrown(scene: Scene, disposables: Disposable[]): TransformNode {
+export function buildCrown(scene: Scene, disposables: ToyParts): TransformNode {
   const root = track(new TransformNode('pudding-krone', scene), disposables);
   const gold = toyMaterial('pudding-krone-mat', COLORS.gold, scene, disposables, 0.45);
   const band = track(

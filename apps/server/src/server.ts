@@ -64,6 +64,8 @@ const MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  // Himmel als Radiance-HDR (CHAOS-62); Babylon liest die Bytes selbst.
+  '.hdr': 'image/vnd.radiance',
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
   '.wasm': 'application/wasm',

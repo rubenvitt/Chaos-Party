@@ -26,7 +26,7 @@ export interface BoardSceneOptions {
 export interface BoardScene {
   /** Erfüllt, sobald Brett, Schrift und erstes Bild stehen. */
   readonly ready: Promise<void>;
-  /** Nur im Testmodus: `n` Frames à 1/60 s (Regie + Rendern). */
+  /** Nur im Testmodus: `n` Frames à 1/60 s (Regie + Animation), danach ein Bild. */
   stepFrames(n: number): void;
   /** Weltpositionen der Spielfiguren (y = oben), nach Slot sortiert. */
   getPawnPositions(): PlayerPosition[];

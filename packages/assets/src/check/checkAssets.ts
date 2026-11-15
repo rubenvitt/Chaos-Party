@@ -15,6 +15,11 @@
  *   Budget, Material `akzent` vorhanden und benutzt, Knoten `abzeichen` vorhanden;
  * - SVG: keine Skripte, Ereignis-Attribute oder externen Verweise;
  * - WebP: gültiger Container mit lesbaren Maßen;
+ * - HDR (CHAOS-62): vollständig dekodierbar, Seitenverhältnis 2:1 (Panorama), Spitzenwert > 1
+ *   (sonst fehlt die Sonne im Umgebungslicht);
+ * - importierte Dateien (ohne npm-Paket) nennen ihre Herkunft (`origin`, Lizenznachweis);
+ * - Natur-Texturen (`textures/nature/`, CHAOS-62): quadratisch, Kantenlänge Zweierpotenz
+ *   (Kacheln und Mipmaps auf der GPU);
  * - Porträts (CHAOS-61): je Figur `<id>.webp` und Akzent-Maske `<id>-akzent.webp` im Manifest,
  *   beide quadratisch, gleich groß, mindestens `PORTRAIT.minSize` und mit Alphakanal.
  */
@@ -38,6 +43,7 @@ import {
   type AssetManifest,
 } from '../manifest.ts';
 import { GlbError, glbStats } from './glb.ts';
+import { HdrError, hdrInfo } from './hdr.ts';
 import { WebpError, webpInfo, type WebpInfo } from './webp.ts';
 
 export interface CheckOptions {
@@ -322,6 +328,10 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
       }
     }
 
+    if (entry.source === 'imported' && !entry.package && !entry.origin) {
+      errors.push(`${label}: importierte Datei ohne Herkunft (Feld „origin“, Lizenznachweis)`);
+    }
+
     if (entry.source === 'generated') {
       if (!entry.generator) errors.push(`${label}: generiert, aber Feld „generator“ fehlt`);
       else if (!(await exists(join(root, entry.generator)))) {
@@ -351,7 +361,9 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
           ? manifest.budgets.texture.maxBytes
           : entry.kind === 'sound'
             ? manifest.budgets.sound.maxBytes
-            : undefined;
+            : entry.kind === 'hdri'
+              ? manifest.budgets.hdri.maxBytes
+              : undefined;
     if (entry.budgetBytes === undefined) {
       errors.push(`${label}: Feld „budgetBytes“ fehlt (Datei ${kib(bytes.byteLength)})`);
     } else {
@@ -379,10 +391,37 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
       const problems = checkSvg(new TextDecoder().decode(bytes));
       for (const problem of problems) errors.push(`${label}: SVG ${problem}`);
       notes.push(`${label}: ${kib(bytes.byteLength)}`);
+    } else if (entry.path.endsWith('.hdr')) {
+      if (entry.kind !== 'hdri') errors.push(`${label}: .hdr-Dateien haben die Art „hdri“`);
+      try {
+        const info = hdrInfo(bytes);
+        if (info.width !== info.height * 2) {
+          errors.push(
+            `${label}: HDR ${String(info.width)}×${String(info.height)} ist kein 2:1-Panorama`,
+          );
+        }
+        if (info.peak <= 1) {
+          errors.push(`${label}: HDR ohne Werte über 1 (Sonne fehlt oder Datei abgeschnitten)`);
+        }
+        notes.push(
+          `${label}: ${kib(bytes.byteLength)}, ${String(info.width)}×${String(info.height)} HDR, Spitze ${info.peak.toFixed(0)}`,
+        );
+      } catch (error) {
+        const reason = error instanceof HdrError ? error.message : String(error);
+        errors.push(`${label}: HDR nicht lesbar – ${reason}`);
+      }
     } else if (entry.path.endsWith('.webp')) {
       try {
         const info = webpInfo(bytes);
         webps.set(entry.path, info);
+        if (entry.path.startsWith(`${toPosix(assetsDir)}/textures/nature/`)) {
+          const pow2 = (n: number): boolean => n > 0 && (n & (n - 1)) === 0;
+          if (info.width !== info.height || !pow2(info.width)) {
+            errors.push(
+              `${label}: Natur-Textur ${String(info.width)}×${String(info.height)} muss quadratisch mit Zweierpotenz sein`,
+            );
+          }
+        }
         notes.push(
           `${label}: ${kib(bytes.byteLength)}, ${String(info.width)}×${String(info.height)} ${info.format}${info.alpha ? ' mit Alpha' : ''}`,
         );

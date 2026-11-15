@@ -19,7 +19,7 @@ import {
   testPlayers,
 } from '../testing/headless.ts';
 import type { Minigame, MinigameContext, MinigameModule } from './contract.ts';
-import { createMinigameRunner, MAX_STEPS_PER_ADVANCE } from './runner.ts';
+import { createMinigameRunner, MAX_STEPS_PER_ADVANCE, type RunnerOptions } from './runner.ts';
 
 const BASE_INFO: MinigameInfo = {
   id: 'test-spiel',
@@ -112,7 +112,11 @@ function probe(options: {
   return { module, calls, inputs, ball: () => ball };
 }
 
-async function setup(module: MinigameModule, players = 2) {
+async function setup(
+  module: MinigameModule,
+  players = 2,
+  extra: Partial<Pick<RunnerOptions, 'maxStepsPerAdvance' | 'look'>> = {},
+) {
   const headless = createHeadlessScene();
   const runner = createMinigameRunner(module, {
     scene: headless.scene,
@@ -122,6 +126,7 @@ async function setup(module: MinigameModule, players = 2) {
     characters: createTestCharacters(),
     havok: module.info.physics ? await loadHavokForNode() : null,
     testMode: true,
+    ...extra,
   });
   return { headless, runner };
 }
@@ -209,6 +214,18 @@ describe('Minispiel-Laufzeit', () => {
     expect(runner.advance(1)).toBe(0);
     runner.resume();
     expect(runner.advance(1 / 60 + 1e-6)).toBe(1);
+    runner.dispose();
+    headless.dispose();
+  });
+
+  it('holt bei Software-Rendering mehr Schritte je advance nach (maxStepsPerAdvance)', async () => {
+    const { module } = probe({});
+    const { runner, headless } = await setup(module, 2, { maxStepsPerAdvance: 60 });
+    await runner.prepare();
+    runner.start();
+    // Ein Bild nach 0,5 s: 30 Schritte, die Spielzeit bleibt bei der echten Zeit.
+    expect(runner.advance(0.5)).toBe(30);
+    expect(runner.advance(5)).toBe(60);
     runner.dispose();
     headless.dispose();
   });

@@ -19,3 +19,4 @@ apps/host/public/lookdev-assets/
 apps/host/public/lookdev-figures/
 __pycache__/
 .venv-blender/
+packages/assets/.cache/

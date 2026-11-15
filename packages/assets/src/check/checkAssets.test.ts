@@ -38,7 +38,9 @@ async function fileManifest(): Promise<AssetManifest> {
   const manifest = await realManifest();
   return {
     ...manifest,
-    assets: manifest.assets.filter((a) => a.source === 'generated'),
+    assets: manifest.assets.filter(
+      (a) => a.source === 'generated' || (a.source === 'imported' && !a.package),
+    ),
   };
 }
 
@@ -209,6 +211,36 @@ describe('Asset-Prüfung', () => {
     const assets = manifest.assets.map((a) => (a.id === 'figur-sock' ? { ...a, height: 1.75 } : a));
     const result = await run({ ...manifest, assets });
     expect(result.errors.join('\n')).toMatch(/„figur-sock“: Höhe im Manifest 1\.75, gemessen 1\.5/);
+  });
+
+  it('importierte Natur-Assets: Herkunft, HDR und Kachelmaß (CHAOS-62)', async () => {
+    const manifest = await fileManifest();
+    const assets = manifest.assets.map((a) =>
+      a.id === 'natur-mossy-rock-diff' ? { ...a, origin: undefined } : a,
+    );
+    const result = await run({ ...manifest, assets }, async (dir) => {
+      const sky = join(dir, 'packages/assets/textures/sky/qwantani_noon_puresky.hdr');
+      const bytes = await readFile(sky);
+      await writeFile(sky, bytes.subarray(0, bytes.length - 100));
+      await writeFile(
+        join(dir, 'packages/assets/textures/nature/oak_veneer_01_nor.webp'),
+        vp8l(300, 300),
+      );
+    });
+    const text = result.errors.join('\n');
+    expect(text).toMatch(/„natur-mossy-rock-diff“: importierte Datei ohne Herkunft/);
+    expect(text).toMatch(/„himmel-qwantani-noon-puresky“: HDR nicht lesbar – Datei endet/);
+    expect(text).toMatch(/„natur-oak-veneer-01-nor“: Natur-Textur 300×300 muss quadratisch/);
+  });
+
+  it('Lizenzprüfung: alle importierten Natur-Assets sind CC0', async () => {
+    const manifest = await realManifest();
+    const imported = manifest.assets.filter((a) => /^(natur|himmel)-/.test(a.id));
+    expect(imported.length).toBe(24);
+    for (const asset of imported) {
+      expect(asset.license).toBe('CC0-1.0');
+      expect(asset.origin).toMatch(/^https:\/\/polyhaven\.com\/a\//);
+    }
   });
 
   it('SVG mit Skript', async () => {
