@@ -39,8 +39,18 @@ describe('Figurenwahl (CHAOS-36)', () => {
       [1, 'sock'],
       [2, null],
     ]);
-    expect(context(h, 1).lobby).toEqual({ character: 'sock', takenCharacters: [], rounds: 2 });
-    expect(context(h, 2).lobby).toEqual({ character: null, takenCharacters: ['sock'], rounds: 2 });
+    expect(context(h, 1).lobby).toEqual({
+      character: 'sock',
+      takenCharacters: [],
+      takenBy: [],
+      rounds: 2,
+    });
+    expect(context(h, 2).lobby).toEqual({
+      character: null,
+      takenCharacters: ['sock'],
+      takenBy: [{ character: 'sock', slot: 1 }],
+      rounds: 2,
+    });
     expect(h.errors).toEqual([]);
   });
 
@@ -157,7 +167,7 @@ describe('Figurenwahl (CHAOS-36)', () => {
 describe('Rundenzahl (CHAOS-36)', () => {
   it('lobby trägt Einstellungen; configure ändert sie für PC und Controller; Start nutzt sie', () => {
     const h = lobbyHarness(2);
-    expect(h.lobby?.settings).toEqual({ rounds: 2, roundPresets: [3, 5, 8] });
+    expect(h.lobby?.settings).toEqual({ rounds: 2, roundPresets: [10, 16, 20] });
     h.configure(8);
     expect(h.lobby?.settings.rounds).toBe(8);
     expect(context(h, 1).lobby?.rounds).toBe(8);

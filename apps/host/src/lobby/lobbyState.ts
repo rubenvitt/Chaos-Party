@@ -99,9 +99,21 @@ export function roundOptions(settings: LobbySettings): RoundOption[] {
     }));
 }
 
-/** Grobe Spieldauer für die Rundenauswahl („≈ 15 Min.“). Nur Anzeige, Richtwert ≈ 3 Min./Runde. */
-export function roundsDuration(rounds: number): string {
-  return `≈ ${String(Math.max(5, Math.round((rounds * 3) / 5) * 5))} Min.`;
+/**
+ * Minuten je Runde nach Spielerzahl (Brettzüge + Minispiel mit Anleitung und Ergebnis), aus der
+ * Bot-Simulation mit gemütlichem Entscheidungstempo (EXP-010, CHAOS-40). Dazu kommt das Finale.
+ */
+const MINUTES_PER_ROUND: Readonly<Record<2 | 3 | 4, number>> = { 2: 1.15, 3: 1.35, 4: 1.5 };
+const FINALE_MINUTES = 0.35;
+
+/**
+ * Grobe Spieldauer für die Rundenauswahl („≈ 15 Min.“), auf 5 Minuten gerundet. Mit weniger als
+ * zwei Spielern rechnet sie mit vier (die Runde füllt sich meist noch).
+ */
+export function roundsDuration(rounds: number, players = 4): string {
+  const count = players >= 2 && players <= 4 ? (players as 2 | 3 | 4) : 4;
+  const minutes = rounds * MINUTES_PER_ROUND[count] + FINALE_MINUTES;
+  return `≈ ${String(Math.max(5, Math.round(minutes / 5) * 5))} Min.`;
 }
 
 export interface CardCharacter {

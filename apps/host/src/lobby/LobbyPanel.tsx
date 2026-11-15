@@ -201,7 +201,9 @@ export function LobbyPanel({
                   }}
                 >
                   <span className="lobby-rounds-value">{option.rounds}</span>
-                  <span className="lobby-rounds-time">{roundsDuration(option.rounds)}</span>
+                  <span className="lobby-rounds-time">
+                    {roundsDuration(option.rounds, players.length)}
+                  </span>
                 </button>
               ))}
             </div>

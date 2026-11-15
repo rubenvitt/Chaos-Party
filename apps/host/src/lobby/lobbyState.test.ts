@@ -45,28 +45,33 @@ describe('startState', () => {
 
 describe('roundOptions', () => {
   it('zeigt die Vorschläge und markiert die Einstellung', () => {
-    expect(roundOptions({ rounds: 5, roundPresets: [3, 5, 8] })).toEqual([
-      { rounds: 3, selected: false, custom: false },
-      { rounds: 5, selected: true, custom: false },
-      { rounds: 8, selected: false, custom: false },
+    expect(roundOptions({ rounds: 16, roundPresets: [10, 16, 20] })).toEqual([
+      { rounds: 10, selected: false, custom: false },
+      { rounds: 16, selected: true, custom: false },
+      { rounds: 20, selected: false, custom: false },
     ]);
   });
 
   it('nimmt eine abweichende Einstellung (z. B. ?rounds=2) sortiert dazu', () => {
-    expect(roundOptions({ rounds: 2, roundPresets: [3, 5, 8] }).map((o) => o.rounds)).toEqual([
-      2, 3, 5, 8,
+    expect(roundOptions({ rounds: 2, roundPresets: [10, 16, 20] }).map((o) => o.rounds)).toEqual([
+      2, 10, 16, 20,
     ]);
-    expect(roundOptions({ rounds: 2, roundPresets: [3, 5, 8] })[0]).toEqual({
+    expect(roundOptions({ rounds: 2, roundPresets: [10, 16, 20] })[0]).toEqual({
       rounds: 2,
       selected: true,
       custom: true,
     });
   });
 
-  it('Spieldauer als grober Richtwert', () => {
-    expect(roundsDuration(3)).toBe('≈ 10 Min.');
-    expect(roundsDuration(5)).toBe('≈ 15 Min.');
-    expect(roundsDuration(8)).toBe('≈ 25 Min.');
+  it('Spieldauer als grober Richtwert (EXP-010), je nach Spielerzahl', () => {
+    // Vorschläge 10/16/20 mit vier Spielern (Standard, auch für 0–1 Spieler).
+    expect(roundsDuration(10)).toBe('≈ 15 Min.');
+    expect(roundsDuration(16)).toBe('≈ 25 Min.');
+    expect(roundsDuration(20)).toBe('≈ 30 Min.');
+    expect(roundsDuration(10, 1)).toBe('≈ 15 Min.');
+    // Weniger Spieler, kürzere Runden.
+    expect(roundsDuration(16, 3)).toBe('≈ 20 Min.');
+    expect(roundsDuration(20, 2)).toBe('≈ 25 Min.');
     expect(roundsDuration(1)).toBe('≈ 5 Min.');
   });
 });

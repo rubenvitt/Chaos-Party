@@ -1,10 +1,12 @@
 /**
- * Bot-Simulation ganzer Partien für Balance-Experimente (CHAOS-24): Brett-Tempo,
- * Münzbelohnungen, Item-Häufigkeit, Reaktionsdauer. Deterministisch je Seed.
+ * Bot-Simulation ganzer Partien für Balance-Experimente (CHAOS-24, M4: CHAOS-40): Brett-Tempo,
+ * Münzbelohnungen, Item-Häufigkeit, Reaktionsdauer, Partiedauer mit echten Minispielen.
+ * Deterministisch je Seed.
  *
  * Die Simulation ersetzt keinen menschlichen Spaßtest; sie liefert objektive Kennzahlen
  * (Dauer, Abstände, Sabotage-Häufigkeit) für den Vergleich von Regelvarianten.
  */
+import { rankByScore } from '@chaos-party/minigame-sdk';
 import { createRng, pickOne, type Rng } from '../rng.ts';
 import type {
   BoardDefinition,
@@ -12,6 +14,7 @@ import type {
   GameEvent,
   GameState,
   ItemKind,
+  MinigameSpec,
   Prompt,
   RankingEntry,
   RuleSet,
@@ -19,8 +22,10 @@ import type {
   StepResult,
 } from '../types.ts';
 import { DEFAULT_RULES } from './defaults.ts';
+import { rankPlayers } from './economy.ts';
 import { ITEM_KINDS } from './items.ts';
 import { createGame, step } from './machine.ts';
+import { PLACEHOLDER_MINIGAME } from './minigame.ts';
 import {
   BRACE_OPTION,
   BUY_OPTION,
@@ -66,6 +71,18 @@ export interface BotPolicy {
    * Trophäe zu nehmen (sonst zufällig). 0 = immer zufällig (bisheriges Verhalten).
    */
   readonly trophyPathChance: number;
+  /**
+   * Echte Minispiele (M3/M4): So lange nach Ende der Spielzeit meldet der „Host“ das Ergebnis
+   * (Abschlussbild, Netz). Nur mit `SimulationOptions.minigames`.
+   */
+  readonly minigameResultDelayMs: number;
+  /**
+   * Punkte je Spieler und Minispiel: gleichverteilt 0 … `minigameScoreSpread` plus Können
+   * (`minigameSkill`). Kleine Spannweite = mehr Gleichstände.
+   */
+  readonly minigameScoreSpread: number;
+  /** Zusatzpunkte je Slot im Minispiel (Können; fehlt = 0). */
+  readonly minigameSkill: Readonly<Partial<Record<Slot, number>>>;
 }
 
 export const DEFAULT_BOT_POLICY: BotPolicy = {
@@ -76,6 +93,10 @@ export const DEFAULT_BOT_POLICY: BotPolicy = {
   reactionDelayMs: [600, 3600],
   decisionMs: [800, 2500],
   trophyPathChance: 0,
+  minigameResultDelayMs: 500,
+  // Gleichstand auf Platz 1 bei 4 Spielern ≈ 4 %, wie die echten Minispiele (EXP-005 … 007).
+  minigameScoreSpread: 40,
+  minigameSkill: {},
 };
 
 export interface SimulationOptions {
@@ -85,6 +106,11 @@ export interface SimulationOptions {
   readonly seed: number;
   readonly players: 2 | 3 | 4;
   readonly policy?: Partial<BotPolicy>;
+  /**
+   * Echte Minispiele (Katalog-Rotation): game-core zieht je Runde eines, die Bots liefern ein
+   * Ergebnis nach Spielzeit + `minigameResultDelayMs`. Fehlt/leer = M2-Platzhalter.
+   */
+  readonly minigames?: readonly MinigameSpec[];
 }
 
 export interface SimulationPlayerResult {
@@ -92,6 +118,8 @@ export interface SimulationPlayerResult {
   readonly place: number;
   readonly coins: number;
   readonly trophies: number;
+  /** Summe aller Münzgewinne der Partie (`PlayerStats.coinsEarned`). */
+  readonly coinsEarned: number;
 }
 
 /** Ein Münzverlust durch Sabotage (Klau nach Reaktion oder ausgelöste Falle). */
@@ -120,6 +148,15 @@ export interface SimulationResult {
   readonly avgSpacesPerTurn: number;
   readonly standings: readonly SimulationPlayerResult[];
   readonly ranking: readonly RankingEntry[];
+  /**
+   * Zwischenstand nach Runde `floor(rounds / 2)` (gleiche Wertung wie der Endstand), `null`
+   * bei weniger als 2 Runden. Für den Aufholeffekt: Wie oft gewinnt, wer zur Hälfte führt?
+   */
+  readonly midRanking: readonly RankingEntry[] | null;
+  /** Gespielte Minispiele (ohne Platzhalter: echte mit Ergebnis). */
+  readonly minigamesPlayed: number;
+  /** Minispiele mit geteiltem 1. Platz. */
+  readonly minigameSharedWins: number;
   /** Trophäen Platz 1 minus Platz 2 (`null` bei einem Spieler). */
   readonly trophyGap: number | null;
   readonly trophiesBought: number;
@@ -245,6 +282,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     rounds: options.rounds,
     seed: options.seed,
     players: slots.map((slot) => ({ slot, name: SIM_NAMES[slot - 1] ?? `Bot ${String(slot)}` })),
+    ...(options.minigames ? { minigames: options.minigames } : {}),
   });
   // Eigener Zufall für Bot-Entscheidungen, damit der Spiel-RNG nur Regeln bedient.
   const bot = createRng((options.seed ^ 0x5bd1e995) >>> 0);
@@ -347,6 +385,11 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     }
   };
 
+  const midRound = Math.floor(options.rounds / 2);
+  let midRanking = null as RankingEntry[] | null;
+  let minigamesPlayed = 0;
+  let minigameSharedWins = 0;
+
   const apply = (result: StepResult, at: number): void => {
     if (!result.ok) {
       throw new Error(
@@ -354,13 +397,58 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       );
     }
     state = result.state;
-    for (const event of result.events) record(event, at);
+    for (const event of result.events) {
+      record(event, at);
+      if (event.type === 'round-ended' && event.round === midRound && midRound >= 1) {
+        midRanking = rankPlayers(state.players);
+      }
+      if (event.type === 'minigame-results' && !event.aborted) {
+        minigamesPlayed += 1;
+        if (event.placements.filter((p) => p.place === 1).length > 1) minigameSharedWins += 1;
+      }
+    }
+  };
+
+  /** Ergebnis eines echten Minispiels: Punkte je Slot, Plätze wie im SDK („1224“). */
+  const minigameResult = (minigame: NonNullable<GameState['minigame']>, at: number): void => {
+    const spec = options.minigames?.find((m) => m.id === minigame.id);
+    const scores = state.players.map((p) => {
+      const base = bot.int(0, Math.max(0, Math.round(policy.minigameScoreSpread)));
+      const skill = policy.minigameSkill[p.slot] ?? 0;
+      return { slot: p.slot, score: spec?.scoring === 'lower' ? base - skill : base + skill };
+    });
+    apply(
+      step(state, {
+        type: 'minigame-result',
+        minigameId: minigame.id,
+        round: minigame.round,
+        placements: rankByScore(scores, spec?.scoring ?? 'higher'),
+        at,
+      }),
+      at,
+    );
   };
 
   apply(step(state, { type: 'start', at: 0 }), 0);
   for (let i = 0; state.phase !== 'game-results'; i++) {
     if (i > MAX_COMMANDS) throw new Error('Simulation endet nicht');
     const prompt = state.prompt;
+    const minigame = state.minigame;
+    if (
+      prompt === null &&
+      state.phase === 'minigame-play' &&
+      minigame !== null &&
+      minigame.id !== PLACEHOLDER_MINIGAME &&
+      minigame.placements === null &&
+      minigame.playStartedAt !== null
+    ) {
+      const at = Math.max(
+        state.now,
+        minigame.playStartedAt + minigame.playMs + policy.minigameResultDelayMs,
+      );
+      minigameResult(minigame, at);
+      continue;
+    }
     if (prompt === null) {
       if (state.resumeAt === null) throw new Error(`Simulation hängt in Phase ${state.phase}`);
       apply(step(state, { type: 'tick', at: state.resumeAt }), state.resumeAt);
@@ -416,8 +504,12 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       place: r.place,
       coins: r.coins,
       trophies: r.trophies,
+      coinsEarned: state.players.find((p) => p.slot === r.slot)?.stats.coinsEarned ?? 0,
     })),
     ranking,
+    midRanking,
+    minigamesPlayed,
+    minigameSharedWins,
     trophyGap: first && second ? first.trophies - second.trophies : null,
     trophiesBought,
     coinSteals,
