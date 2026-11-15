@@ -1,4 +1,4 @@
-# Gerätecheckliste M1 (echte iPhones, iPad und PC)
+# Gerätecheckliste (echte iPhones, iPad und PC): M1, ab Abschnitt 8 M2
 
 **Stand:** 2026-11-14 · **Aufgabe:** CHAOS-15 · **Gate:** CHAOS-16 (M1-Abnahme, nur Ruben)
 
@@ -104,4 +104,36 @@ Hier jede Gerät-/Browser-Kombination eintragen, die nicht funktioniert hat (z. 
 | Controls lesbar und ohne Erklärung verständlich? | |
 | Verbindung stabil, Wiederverbindung brauchbar? | |
 | Reaktionszeit tolerierbar? | |
+| Entscheidung | APPROVED / CHANGES REQUESTED / BLOCKED |
+
+## 8. M2 – Brettspiel (für CHAOS-25)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-2 · **Gate:** CHAOS-25 (M2-Abnahme, nur Ruben) · Ablauf: [m2-demo.md](m2-demo.md)
+
+Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entscheidungen, die Sperre nach dem Senden, der Countdown, gleichzeitige Wahlen in zwei iPad-Zonen und eine komplette Runde mit Host und zwei iPhones gegen den echten Server. Diese Liste prüft, was nur echte Geräte und echte Menschen zeigen.
+
+**Voraussetzung:** Das geteilte iPad aus Abschnitt 4 (I1–I9) ist noch offen (CHAOS-47). Bitte vorher oder zusammen mit B6/B7 prüfen.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| B1 | 2–4 Personen spielen eine Partie mit 3 Runden (`ROUNDS=3 pnpm start`) | Alle verstehen ohne Erklärung, wer dran ist und was zu tippen ist | | |
+| B2 | Würfeln, Weg wählen, Trophäe kaufen auf dem iPhone | Knöpfe groß, sofort verständlich, keine versehentlichen Doppeltipps | | |
+| B3 | Münzklau gegen eine Person: Reaktionsfenster | Countdown und pulsierender Knopf fallen auf; Reaktion per Daumen in der Zeit schaffbar; fühlt sich fair an | | |
+| B4 | Vibration bei Reaktion | iOS-Safari unterstützt `navigator.vibrate` nicht: **keine** Vibration erwartet; prüfen, ob das stört | | |
+| B5 | Lange Optionstexte (Wegweiser, Namen) auf kleinem iPhone hoch/quer | Lesbar, Silbentrennung sinnvoll, nichts abgeschnitten | | |
+| B6 | Geteiltes iPad, 2 Zonen: zwei Personen wählen **gleichzeitig** (z. B. eine reagiert, eine wählt einen Weg) | Jede Wahl landet beim richtigen Spieler; Finger in Zone 1 löst nichts in Zone 2 aus | | |
+| B7 | Geteiltes iPad, 4 Zonen: Brett-Knöpfe | Groß genug, lesbar aus jeder Sitzposition | | |
+| B8 | iPhone mitten im eigenen Zug sperren, 20 s warten, entsperren | Spiel wählt nach ~15 s automatisch weiter; nach dem Entsperren gleicher Platz, aktueller Stand | | |
+| B9 | Host-Tab neu laden mitten in der Partie | Brett, Stand und „am Zug“ erscheinen sofort wieder; Partie läuft weiter | | |
+| B10 | Brett am Fernseher/Monitor aus Sofa-Abstand | Feldtypen, Figuren, Wegweiser, HUD und Meldungen lesbar | | |
+| B11 | Tempo | Wartezeit bei fremden Zügen ok; Animationen nicht zu langsam/schnell; Reaktionsfenster bremst nicht | | |
+| B12 | Sabotage | Klau/Falle überraschen und sind lustig statt frustrierend | | |
+
+### Gesamturteil M2 (für CHAOS-25)
+
+| Frage | Antwort |
+|---|---|
+| 2–4 Personen spielen wiederholt Züge ohne Verwirrung? | |
+| Sabotage macht Spaß statt zu frustrieren? | |
+| Reaktionsfenster bremsen die Runde nicht? | |
 | Entscheidung | APPROVED / CHANGES REQUESTED / BLOCKED |

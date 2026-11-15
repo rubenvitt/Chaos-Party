@@ -84,6 +84,14 @@ Bei 4 Zonen auf kleinen iPads liegen die Knöpfe an der Untergrenze; die Joystic
 - Abbruch (Systemgeste, App-Wechsel, Fokusverlust): Joystick `{0, 0}`, Knöpfe `release`.
 - Drehen: Zonen werden neu angeordnet; gehaltene Eingaben werden losgelassen, die Finger sind bis zum Abheben wirkungslos.
 
+### Brettphase (M2, CHAOS-22)
+
+- In der Brettphase zeigt jede Zone kompakt den eigenen Stand (Statuszeile), den Titel der offenen Entscheidung, bei Reaktionen einen Countdown-Balken und die Wahlknöpfe (Hauptknöpfe höchstens 180 px hoch, Zusatzzeile für Items 64 px).
+- Wahlknöpfe sind Bedienelemente im Zonen-Tracker mit der Kennung `choice:<promptId>:<option>`. Darstellung und Trefferprüfung nutzen dieselben Rechtecke.
+- **Gewählt wird beim Abheben** auf dem eigenen Knopf (wie „Bereit!“). Wer vom Knopf rutscht oder abbricht, wählt nichts. Ein Finger aus Zone 1 kann nie Knöpfe in Zone 2 auslösen.
+- **Reaktionsknöpfe wählen schon beim Aufsetzen** (jede Zehntelsekunde zählt).
+- Nach dem Senden sind die Knöpfe gesperrt („Gesendet …“). Liegt ein Finger auf einem Knopf, während ein neuer Prompt kommt, bleibt er bis zum Abheben wirkungslos; durch die Prompt-ID in der Kennung löst er keine gleichnamige Option des nächsten Prompts aus.
+
 ## Technische Grenzen und Empfehlungen
 
 - **Gleichzeitige Finger:** iPadOS meldet Berichten zufolge bis etwa 11 gleichzeitige Touches. Bei 4 Personen mit je 2 Fingern sind es 8 – theoretisch im Rahmen, aber **ungeprüft** (A2). Der Tracker selbst hat keine Grenze (Unit-Test mit 8 Fingern).
@@ -94,6 +102,8 @@ Bei 4 Zonen auf kleinen iPads liegen die Knöpfe an der Untergrenze; die Joystic
 - **Kein Maus-Fallback:** Der iPad-Modus liest nur Touch Events.
 
 ## Was nur ein echtes iPad zeigt (für die Gerätecheckliste)
+
+Für die Brettphase siehe zusätzlich [device-test-checklist.md → Abschnitt 8](device-test-checklist.md#8-m2--brettspiel-für-chaos-25) (B6, B7).
 
 1. Zwei Personen bedienen gleichzeitig Joystick und Knöpfe in beiden Zonen, ohne Übersprechen (A1).
 2. Ein Finger rutscht über die Zonengrenze: Seine Figur läuft weiter, die andere Zone reagiert nicht.

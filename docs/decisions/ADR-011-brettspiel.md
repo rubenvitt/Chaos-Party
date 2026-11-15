@@ -28,6 +28,10 @@ M2 verlangt einen vollständig spielbaren Brett-Zugzyklus: Brett mit Verzweigung
 
 **5. Minispiel-Phase** ist in M2 ein **Platzhalter**: Intro, kurze Wartezeit, Rangfolge per Seed, Münzbelohnung. Echte Minispiele und ihr Vertrag folgen in M3 (CHAOS-26).
 
+**6. Brett als Daten, Darstellung im Host.** Das Brett „Wackelwald“ ist ein Graph in `packages/game-core/src/board/` (43 Felder, zwei Verzweigungen: Klippenweg/Sumpfabkürzung und Pilzpfad/Wackelbrücke, Rundenlänge 32–36 Felder, 4 Trophäen-Kandidaten). `validateBoard` prüft eindeutige IDs, genau ein Start, bekannte Nachfolger, keine Selbstschleifen und Sackgassen, Erreichbarkeit in beide Richtungen (stark zusammenhängend), verschiedene Nachfolger an Verzweigungen, Wegweiser-Länge, Mindestabstand, ≥ 1 Trophäenfeld und ≥ 1 Verzweigung. Der Host baut daraus eine **eigene Babylon-Szene ohne Havok** (`apps/host/src/board/`), die je nach Phase die M1-Arena ersetzt. Feldtypen unterscheiden sich durch Farbe **und** Form/Symbol.
+
+**7. Regie im Host (`director.ts`).** Der Host spielt die Ereignisse einer `board`-Nachricht nacheinander ab (Figuren hüpfen im Takt `view.stepMs`, Effekte 700–1300 ms) und übernimmt den `view` erst danach. Doppelte Ereignisse werden verworfen, bei einer Lücke in `eventSeq` springt er direkt auf den neuen Stand. Liegt er mehr als 2,5 s zurück, läuft er dreifach schnell, ab 8 s springt er. Countdowns rechnet er aus `remainingMs` plus eigener Empfangszeit. Daraus folgt: Server-Pausen wie `spaceEventMs` sollten nicht kürzer sein als die Host-Effekte, sonst holt der Host per Zeitraffer auf.
+
 ## Betrachtete Alternativen
 
 | Alternative | Warum nicht |
