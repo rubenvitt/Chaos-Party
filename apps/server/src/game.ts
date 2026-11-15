@@ -77,6 +77,8 @@ export class BoardGame {
   private pendingSeq = 0;
   /** Gesamtzahl erzeugter Ereignisse (nächste freie Nummer). */
   private eventCount = 0;
+  /** Sichtbarer Stand der letzten `board`-Nachricht (ohne Restzeiten). */
+  private lastViewKey = '';
 
   readonly seed: number;
 
@@ -114,12 +116,16 @@ export class BoardGame {
   }
 
   /**
-   * Nächste `board`-Nachrichten für den Host mit allen noch nicht gesendeten Ereignissen
-   * (bei sehr vielen Ereignissen mehrere Nachrichten, jede mit vollständigem `view`).
+   * Nächste `board`-Nachrichten für den Host: bei neuen Ereignissen (bei sehr vielen mehrere
+   * Nachrichten, jede mit vollständigem `view`) oder wenn sich der sichtbare Stand ohne
+   * Ereignis geändert hat (z. B. Prompt geöffnet). Bloß ablaufende Restzeit zählt nicht.
    */
   drainBoardMessages(now: number): Omit<BoardMessage, 'v' | 'type'>[] {
     const view = this.view(now);
-    if (this.pending.length === 0) return [];
+    const key = viewKey(view);
+    if (this.pending.length === 0 && key === this.lastViewKey) return [];
+    this.lastViewKey = key;
+    if (this.pending.length === 0) return [{ view, events: [], eventSeq: this.pendingSeq }];
     const messages: Omit<BoardMessage, 'v' | 'type'>[] = [];
     for (let index = 0; index < this.pending.length; index += MAX_BOARD_EVENTS) {
       messages.push({
@@ -136,11 +142,6 @@ export class BoardGame {
   /** Schnappschuss ohne neue Ereignisse (z. B. für einen neu verbundenen Host). */
   snapshotMessage(now: number): Omit<BoardMessage, 'v' | 'type'> {
     return { view: this.view(now), events: [], eventSeq: this.pendingSeq };
-  }
-
-  /** `true`, wenn seit der letzten `board`-Nachricht etwas passiert ist. */
-  get dirty(): boolean {
-    return this.pending.length > 0;
   }
 
   view(now: number): BoardView {
@@ -174,7 +175,7 @@ export class BoardGame {
   /** Prompt dieses Slots (oder `undefined`) für den Controller-Kontext. */
   promptFor(slot: Slot, now: number): PromptInfo | undefined {
     const prompt = this.stateValue.prompt;
-    if (!prompt || prompt.slot !== slot) return undefined;
+    if (prompt?.slot !== slot) return undefined;
     return wirePrompt(prompt, now);
   }
 
@@ -195,6 +196,15 @@ export class BoardGame {
       ...(place === undefined ? {} : { place }),
     };
   }
+}
+
+/** Vergleichsschlüssel eines `view` ohne Restzeiten. */
+function viewKey(view: BoardView): string {
+  return JSON.stringify({
+    ...view,
+    remainingMs: null,
+    prompt: view.prompt ? { ...view.prompt, remainingMs: null } : null,
+  });
 }
 
 function remaining(deadline: number, now: number): number {
