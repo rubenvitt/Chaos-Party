@@ -94,6 +94,11 @@ export interface BoardDirector {
   getFrame(): BoardFrame;
   getHud(): HudSnapshot;
   subscribe(listener: () => void): () => void;
+  /**
+   * Meldet jedes Ereignis in dem Moment, in dem die Regie es abspielt (Klänge, CHAOS-33).
+   * Übersprungene Ereignisse (Sprung, `settle`) werden nicht gemeldet. Liefert die Abmeldung.
+   */
+  onEvent(listener: (event: BoardEvent) => void): () => void;
   /** Feld je Slot, wie gerade gezeigt (Testhaken). */
   getPawnSpaces(): Partial<Record<SlotNumber, string>>;
   readonly animating: boolean;
@@ -177,6 +182,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   };
   let hudVersion = -1;
   const listeners = new Set<() => void>();
+  const eventListeners = new Set<(event: BoardEvent) => void>();
 
   const stepMsOf = () => latest?.stepMs ?? committed?.view.stepMs ?? 0;
 
@@ -200,6 +206,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       if (messages.length > MAX_MESSAGES) messages = messages.slice(-MAX_MESSAGES);
       version++;
     }
+    for (const listener of [...eventListeners]) listener(event);
     const plan = planEvent(event, stepMsOf());
     if (plan.popup) popups.push({ ...plan.popup, id: nextId++, startedAt: now });
 
@@ -426,6 +433,12 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    onEvent(listener) {
+      eventListeners.add(listener);
+      return () => {
+        eventListeners.delete(listener);
       };
     },
     getPawnSpaces() {

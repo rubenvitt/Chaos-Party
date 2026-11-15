@@ -276,6 +276,31 @@ describe('createBoardDirector', () => {
     expect(director.getHud().minigame).toBeNull();
   });
 
+  it('onEvent meldet gespielte Ereignisse im Takt der Animation, übersprungene nicht (CHAOS-33)', () => {
+    const director = createBoardDirector();
+    const seen: string[] = [];
+    const stop = director.onEvent((event) => seen.push(event.type));
+    // Erste Nachricht = Sprung: nichts melden.
+    director.receive(msg(DEMO_VIEW, [{ type: 'dice-rolled', slot: 1, faces: [3], total: 3 }], 0));
+    expect(seen).toEqual([]);
+    director.receive(
+      msg(
+        DEMO_VIEW,
+        [
+          { type: 'dice-rolled', slot: 1, faces: [2], total: 2 },
+          { type: 'coins-changed', slot: 1, delta: 3, balance: 15, reason: 'space' },
+        ],
+        1,
+      ),
+    );
+    expect(seen).toEqual(['dice-rolled']);
+    director.advance(5000);
+    expect(seen).toEqual(['dice-rolled', 'coins-changed']);
+    stop();
+    director.receive(msg(DEMO_VIEW, [{ type: 'turn-ended', slot: 1 }], 3));
+    expect(seen).toHaveLength(2);
+  });
+
   it('meldet den Wegweiser beim Abbiegen', () => {
     const director = started();
     director.receive(msg(DEMO_VIEW, [{ type: 'path-chosen', slot: 1, spaceId: 's14' }], 0));
