@@ -109,7 +109,7 @@ const decision = options.rebuild
     ? { build: true, reason: 'Abhängigkeiten wurden gerade installiert' }
     : buildDecision({ outputs, newestSource });
 if (decision.build) {
-  log(`Baue das Spiel (${decision.reason}) – das dauert beim ersten Mal etwa eine Minute …`);
+  log(`Baue das Spiel (${decision.reason}) – das kann bis zu einer Minute dauern …`);
   await run(pnpm, ['build'], 'pnpm build');
 } else {
   log(`${decision.reason} – überspringe pnpm build (Neubau erzwingen: pnpm play --rebuild).`);
@@ -122,15 +122,16 @@ if (openBrowser && target === null) {
   log('PORT ist 0 oder ungültig – öffne keinen Browser, Adresse steht unten.');
   openBrowser = false;
 }
-if (target !== null && (await portTaken(target.probeHost, target.port))) {
-  // Der Server meldet den Fehler bzw. ein fremdes Programm auf localhost selbst (CHAOS-48).
+// Belegter Port: Entweder scheitert der Start (Meldung unten) oder ein fremdes Programm
+// antwortet unter localhost (CHAOS-48, meldet der Server). In beiden Fällen keinen Browser öffnen.
+const portBusy = target !== null && (await portTaken(target.probeHost, target.port));
+if (portBusy) {
   log(`Port ${String(target.port)} ist schon belegt – öffne keinen Browser.`);
-  log(`  Anderer Port: PORT=8790 pnpm play (Windows PowerShell: $env:PORT=8790; pnpm play)`);
   openBrowser = false;
 }
 
-// Direkt `node dist/main.js` statt `pnpm start`: gleicher Start, aber ohne Zwischenprozess,
-// damit Strg+C ohne Rückfrage („Batchvorgang abbrechen?“ unter Windows) sauber ankommt.
+// Direkt `node dist/main.js` statt `pnpm start`: gleicher Start, aber ohne weitere pnpm- und
+// Shell-Zwischenprozesse, damit Strg+C und SIGTERM sicher beim Server ankommen.
 log('Starte den Server …');
 log('');
 const server = spawn(process.execPath, ['dist/main.js'], {
@@ -151,13 +152,26 @@ if (openBrowser && target !== null) {
   });
 }
 
+/** @type {number} */
 const code = await new Promise((resolve) => {
   server.on('exit', (exitCode, signal) => {
     resolve(exitCode ?? (signal === 'SIGINT' || signal === 'SIGTERM' ? 0 : 1));
   });
 });
-if (stopping) log('Chaos Party beendet.');
-process.exit(/** @type {number} */ (code));
+if (stopping) {
+  log('Chaos Party beendet.');
+} else if (code !== 0) {
+  fail(
+    portBusy && target !== null
+      ? [
+          `Port ${String(target.port)} ist belegt – läuft Chaos Party schon in einem anderen Fenster?`,
+          'Dort mit Strg+C beenden oder einen anderen Port wählen:',
+          '  PORT=8790 pnpm play   (Windows PowerShell: $env:PORT="8790"; pnpm play)',
+        ].join('\n')
+      : `Der Server hat sich mit Exit-Code ${String(code)} beendet. Ausgabe oben prüfen.`,
+  );
+}
+process.exit(code);
 
 // --- Hilfsfunktionen -------------------------------------------------------------------------
 
@@ -299,11 +313,12 @@ async function waitForHealth(where) {
  * @param {string} url
  */
 function openUrl(url) {
+  // Windows: `rundll32` statt `cmd /c start`, damit nichts an Anführungszeichen hängt.
   const [command, args] =
     process.platform === 'darwin'
       ? ['open', [url]]
       : isWindows
-        ? ['cmd', ['/c', 'start', '""', url]]
+        ? ['rundll32', ['url.dll,FileProtocolHandler', url]]
         : ['xdg-open', [url]];
   try {
     const child = spawn(command, args, { stdio: 'ignore', detached: true, windowsHide: true });

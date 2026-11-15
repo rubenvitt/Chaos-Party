@@ -173,9 +173,19 @@
       "source": "imported",
       "path": "apps/host/src/main.tsx",
       "package": "@fontsource-variable/nunito",
-      "description": "Schrift Nunito (variabel) für HUD, Lobby, Brett-Texte und Controller.",
+      "description": "Schrift Nunito (variabel) für HUD, Lobby und Brett-Texte am PC.",
       "license": "OFL-1.1",
       "attribution": "Nunito – Copyright 2014 The Nunito Project Authors (github.com/googlefonts/nunito), SIL Open Font License 1.1; verpackt von Fontsource."
+    },
+    {
+      "id": "schrift-inter",
+      "kind": "font",
+      "source": "imported",
+      "path": "apps/controller/src/main.tsx",
+      "package": "@fontsource-variable/inter",
+      "description": "Schrift Inter (variabel) für die Controller-App auf iPhone und iPad (CHAOS-59).",
+      "license": "OFL-1.1",
+      "attribution": "Inter – Copyright 2016 The Inter Project Authors (github.com/rsms/inter), SIL Open Font License 1.1; verpackt von Fontsource."
     },
     {
       "id": "klaenge-minispiele",
