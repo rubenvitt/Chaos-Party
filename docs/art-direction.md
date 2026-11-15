@@ -67,7 +67,13 @@ nie aus Ekel oder Gewalt.
 
 - Prüfen bei 1280×720 und aus der Brett-Kamera: Figur, Slot-Farbe **und** Symbol erkennbar.
 - Kontrast: helle Figur auf Gras/Feld braucht dunkle Details (Tinte) und einen Sockel.
-- Text nur in Nunito (900er Schnitt für Spieltexte), dunkle Tinte auf hellem Grund.
+- Host-Texte in Nunito (900er Schnitt für Spieltexte), dunkle Tinte auf hellem Grund (M3-Stand).
+- **Controller „Glas & Licht“** (CHAOS-59, Rubens Wahl aus drei Entwürfen,
+  https://claude.ai/artifact/PChNX2Hy7g4XBxE4aCWQjU): Mattglas (`--glass`, `--blur`) über einer
+  unscharfen Naturwelt mit dunklem Schleier, feine helle Kanten statt Tinte, weiche Schatten,
+  Hauptknöpfe als Verlauf in der Spielerfarbe mit Leuchten (`--primary-bg`, `--glow`), Druck =
+  sanftes Verkleinern. Schrift Inter (lokal, `@fontsource-variable/inter`, OFL). Spielerfarbe
+  und Symbol bleiben Pflicht; iPad-Zonen gleich, mit dünnem Rahmen in Spielerfarbe.
 
 ## Verboten
 

@@ -32,7 +32,7 @@ import { routeTouchEvent, TOUCH_EVENT_TYPES } from '../zones/touchRouter.ts';
 import { contextKey, zoneControlsInput } from '../zones/zoneInput.ts';
 import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/zoneTracker.ts';
 import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
-import { INK, readableTextColor, slotColorVars } from './color.ts';
+import { readableTextColor, slotColorVars } from './color.ts';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
 import { useInterruption } from './useInterruption.ts';
 
@@ -284,7 +284,6 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
     ...rectStyle(zone.rect),
     '--player': player.color,
     '--on-player': readableTextColor(player.color),
-    '--ink': INK,
   } as CSSProperties;
   const contentStyle: CSSProperties = {
     width: zone.local.width,
