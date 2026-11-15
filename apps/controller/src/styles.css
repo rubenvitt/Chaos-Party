@@ -880,3 +880,668 @@ button {
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* ---------------------------------------------------------------------------
+ * Brettphase (CHAOS-22): eigener Stand, Entscheidungen, Warten, Endplatz.
+ * iPhone hoch: Plakette, Stand, darunter Entscheidung. Quer: links Plakette und
+ * Stand, rechts die Entscheidung. iPad: kompakt in jeder Zone (Rechtecke aus
+ * `zones/geometry.ts`, dieselben prüft der Zonen-Tracker).
+ * ------------------------------------------------------------------------- */
+
+.board-panel {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  justify-items: stretch;
+  align-content: stretch;
+  justify-content: stretch;
+}
+
+.board-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 2px 12px 2px 4px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 var(--ink);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.stat-round {
+  padding: 2px 12px;
+  font-size: 16px;
+}
+
+.stat-items {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px 2px 4px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.item-none {
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+.board-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prompt-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+/* Countdown (nur Anzeige): Balken in Spielerfarbe, zum Schluss rot. */
+.countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.countdown-track {
+  flex: 1;
+  height: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.countdown-fill {
+  width: 100%;
+  height: 100%;
+  background: var(--player);
+  transform-origin: left center;
+}
+
+.countdown[data-urgent='true'] .countdown-fill {
+  background: #ff3b30;
+}
+
+.countdown-seconds {
+  min-width: 2ch;
+  font-size: 20px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.countdown-big .countdown-track {
+  height: 26px;
+}
+
+.countdown-big .countdown-seconds {
+  font-size: 32px;
+}
+
+/* Wahlknöpfe: groß (≥ 56 px), dicke Kontur, Farbe je Art. */
+.choice-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-auto-rows: minmax(64px, 180px);
+  align-content: center;
+  gap: 12px;
+}
+
+.choice-extra {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.choice-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 8px 14px;
+  border: 5px solid var(--ink);
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 7px 0 var(--ink);
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out;
+}
+
+.choice-button:active:not(:disabled),
+.choice-button[data-pressed='true'] {
+  transform: translateY(5px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.choice-extra .choice-button {
+  flex: 1 1 0;
+  max-width: 230px;
+  min-height: 58px;
+  padding: 4px 10px;
+  border-width: 4px;
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+.choice-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.choice-label {
+  font-size: 26px;
+  line-height: 1.1;
+  /* Nur zu lange Wörter umbrechen (deutsche Silbentrennung, wo der Browser sie kann). */
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.choice-detail {
+  font-size: 16px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.choice-extra .choice-label {
+  font-size: 18px;
+}
+
+.choice-extra .choice-detail {
+  font-size: 13px;
+}
+
+.choice-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.choice-extra .choice-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.choice-symbol {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  color: var(--choice);
+  font-size: 28px;
+}
+
+.tone-roll {
+  background: var(--sun);
+}
+
+.tone-roll .choice-label {
+  font-size: 38px;
+}
+
+.tone-roll .choice-icon {
+  width: 60px;
+  height: 60px;
+}
+
+.tone-item,
+.tone-cancel,
+.tone-skip {
+  background: #fff;
+}
+
+.tone-path {
+  background: var(--mint);
+}
+
+.tone-buy {
+  background: var(--sun);
+}
+
+.tone-target {
+  background: var(--choice);
+  color: var(--on-choice);
+}
+
+/* Reaktion: knallig, pulsierend, füllt die Fläche. */
+.tone-reaction {
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  background: #ff5a5f;
+  color: #fff;
+  text-align: center;
+  animation: reaction-pulse 0.6s ease-in-out infinite alternate;
+}
+
+.tone-reaction .choice-text {
+  align-items: center;
+}
+
+.tone-reaction .choice-label {
+  font-size: 40px;
+  -webkit-text-stroke: 1.5px var(--ink);
+  paint-order: stroke fill;
+}
+
+.tone-reaction .choice-icon {
+  width: 64px;
+  height: 64px;
+}
+
+.prompt-panel[data-kind='reaction'] .choice-main {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-auto-rows: minmax(96px, 1fr);
+  align-content: stretch;
+}
+
+@keyframes reaction-pulse {
+  from {
+    transform: scale(1);
+    box-shadow:
+      0 7px 0 var(--ink),
+      0 0 0 0 #ffd23f;
+  }
+  to {
+    transform: scale(1.025);
+    box-shadow:
+      0 7px 0 var(--ink),
+      0 0 0 10px #ffd23f;
+  }
+}
+
+/* Gesendet: Knöpfe gesperrt, gewählter Knopf bleibt erkennbar. */
+.choice-button:disabled,
+.choice-button[data-disabled='true'] {
+  cursor: default;
+  opacity: 0.45;
+  filter: saturate(0.4);
+  box-shadow: 0 3px 0 var(--ink);
+  transform: none;
+  animation: none;
+}
+
+.choice-button[data-chosen='true'] {
+  opacity: 1;
+  filter: none;
+  outline: 5px solid #fff;
+  outline-offset: -12px;
+}
+
+.choice-sent {
+  align-self: center;
+  margin: 0;
+  padding: 8px 18px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 0 var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+/* Warten: wer ist dran, Minispiel, Endplatz. */
+.waiting-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.waiting-who.player-symbol {
+  width: 112px;
+  height: 112px;
+  border-width: 5px;
+  background: var(--who);
+  color: var(--on-who);
+  box-shadow: 0 8px 0 var(--ink);
+  font-size: 64px;
+  -webkit-text-stroke: 0;
+}
+
+.waiting-icon {
+  filter: drop-shadow(0 6px 0 var(--ink));
+}
+
+.waiting-headline {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.waiting-lead {
+  margin: 0;
+  max-width: 320px;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.waiting-place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 30px;
+  border: 5px solid var(--ink);
+  border-radius: 28px;
+  background: var(--sun);
+  box-shadow: 0 8px 0 var(--ink);
+}
+
+.waiting-place b {
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+@media (orientation: portrait) {
+  .slot.layout-board {
+    row-gap: 12px;
+  }
+
+  /* Hochkant: Wahlknöpfe untereinander in voller Breite (Text passt), ab 5 zweispaltig. */
+  .choice-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(64px, 132px);
+  }
+
+  .choice-main[data-count='5'],
+  .choice-main[data-count='6'],
+  .choice-main[data-count='7'],
+  .choice-main[data-count='8'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .choice-main[data-count='1'] {
+    grid-auto-rows: minmax(64px, 180px);
+  }
+
+  /* Zusatzknöpfe (Items) schmal: kompakter, damit lange Namen passen. */
+  .choice-extra .choice-button {
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  .choice-extra .choice-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .choice-extra .choice-label {
+    font-size: 17px;
+  }
+
+  /* Reaktion: der Knopf bekommt die ganze Fläche, Knöpfe untereinander. */
+  .board-panel[data-prompt-kind='reaction'] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .board-panel[data-prompt-kind='reaction'] .board-status {
+    display: none;
+  }
+
+  .prompt-panel[data-kind='reaction'] .choice-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (orientation: landscape) {
+  /* Plakette links oben unter der Verbindungsanzeige, darunter der Stand. */
+  .slot.layout-board .player-badge {
+    top: calc(max(var(--frame), env(safe-area-inset-top)) + 30px);
+    left: calc(max(var(--frame), env(safe-area-inset-left)) + 10px);
+    right: auto;
+    max-width: 176px;
+  }
+
+  .slot .board-panel {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: 176px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .slot .board-status {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-top: 70px;
+  }
+
+  .slot .stat-items {
+    flex-basis: auto;
+    justify-content: flex-start;
+  }
+
+  .slot .prompt-panel {
+    gap: 8px;
+  }
+
+  .slot .prompt-title {
+    font-size: 22px;
+  }
+
+  .slot .choice-main {
+    grid-auto-rows: minmax(64px, 160px);
+  }
+
+  .slot .tone-roll .choice-label {
+    font-size: 34px;
+  }
+
+  .slot .waiting-who.player-symbol {
+    width: 88px;
+    height: 88px;
+    font-size: 50px;
+  }
+
+  .slot .waiting-headline {
+    font-size: 26px;
+  }
+}
+
+/* iPad-Zonen: alles absolut an den Rechtecken aus der Geometrie. */
+.zone-status,
+.zone-waiting,
+.zone-timer,
+.zone .zone-prompt-title,
+.zone .zone-choice {
+  position: absolute;
+}
+
+.zone-status .board-status {
+  height: 100%;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.board-status[data-compact='true'] .stat {
+  min-height: 34px;
+  padding: 2px 10px 2px 3px;
+  font-size: 18px;
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.board-status[data-compact='true'] .stat-round {
+  padding: 2px 10px;
+  font-size: 15px;
+}
+
+.board-status[data-compact='true'] .stat-items {
+  flex-basis: auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.board-status[data-compact='true'] .item-chip {
+  padding: 2px;
+  border-radius: 10px;
+}
+
+.board-status[data-compact='true'] .item-none {
+  font-size: 13px;
+}
+
+.zone .zone-prompt-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zone-timer .countdown {
+  height: 100%;
+}
+
+.zone-timer .countdown-track {
+  height: 10px;
+  border-width: 2px;
+}
+
+.zone-timer .countdown-seconds {
+  font-size: 14px;
+}
+
+.zone .zone-choice {
+  min-height: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  gap: 10px;
+}
+
+.zone .zone-choice .choice-label {
+  font-size: 22px;
+}
+
+.zone .zone-choice.tone-roll .choice-label {
+  font-size: 32px;
+}
+
+.zone .zone-choice.tone-reaction .choice-label {
+  font-size: 34px;
+}
+
+.zone .zone-choice.choice-extra {
+  border-width: 4px;
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+.zone .zone-choice.choice-extra .choice-label {
+  font-size: 17px;
+}
+
+.zone .zone-choice .choice-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.zone .zone-choice.tone-roll .choice-icon,
+.zone .zone-choice.tone-reaction .choice-icon {
+  width: 52px;
+  height: 52px;
+}
+
+.zone .zone-choice.choice-extra .choice-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.zone .zone-choice .choice-symbol {
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+}
+
+.zone-waiting {
+  display: flex;
+}
+
+.waiting-card[data-compact='true'] {
+  gap: 10px;
+}
+
+.waiting-card[data-compact='true'] .waiting-who.player-symbol {
+  width: 72px;
+  height: 72px;
+  font-size: 40px;
+}
+
+.waiting-card[data-compact='true'] .waiting-headline {
+  font-size: 24px;
+}
+
+.waiting-card[data-compact='true'] .waiting-lead {
+  font-size: 16px;
+}
+
+.waiting-card[data-compact='true'] .waiting-place b {
+  font-size: 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tone-reaction {
+    animation: none;
+  }
+}

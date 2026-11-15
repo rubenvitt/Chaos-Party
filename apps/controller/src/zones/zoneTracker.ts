@@ -23,12 +23,18 @@
  * 6. `setZones` (Kontextwechsel, Drehen, Größenänderung): Berührungen behalten ihre
  *    Zuordnung, solange ihre Zone gleich liegt und ihr Bedienelement noch existiert;
  *    sonst werden sie losgelassen und bis zum Abheben stillgelegt.
+ * 7. Wahlknöpfe der Brettphase (CHAOS-22) wirken wie der Bereit-Knopf: `choose` beim
+ *    Abheben **auf** dem Knopf (Wegrutschen oder Abbrechen = keine Wahl). Reaktionsknöpfe
+ *    (`instant`) wählen schon beim Aufsetzen. Gesperrte Knöpfe (`inert`) treffen nie; ein
+ *    Finger auf einem Knopf, der gesperrt wird oder zu einem alten Prompt gehört, wird
+ *    stillgelegt (Prompt-ID steckt in der Kennung des Knopfs).
  */
 import type { Button, SlotNumber } from '@chaos-party/protocol';
 import { knobOffset, stickFromOffset, ZERO_STICK, type Stick } from '../input/joystick.ts';
 import {
   controlAt,
   deltaToLocal,
+  parseChoiceControl,
   rectContains,
   sameFrame,
   toLocal,
@@ -43,7 +49,13 @@ export type ZoneEffect =
   | { readonly type: 'stick'; readonly slot: SlotNumber; readonly stick: Stick }
   | { readonly type: 'press'; readonly slot: SlotNumber; readonly button: Button }
   | { readonly type: 'release'; readonly slot: SlotNumber; readonly button: Button }
-  | { readonly type: 'ready'; readonly slot: SlotNumber };
+  | { readonly type: 'ready'; readonly slot: SlotNumber }
+  | {
+      readonly type: 'choose';
+      readonly slot: SlotNumber;
+      readonly promptId: number;
+      readonly option: string;
+    };
 
 /** Wem eine Berührung gehört. `control: null` = Zone ohne Wirkung (oder stillgelegt). */
 export interface TouchOwner {
@@ -58,6 +70,8 @@ export interface ZoneView {
   readonly pressed: readonly Button[];
   /** Ein Finger liegt auf dem Bereit-Knopf. */
   readonly readyHeld: boolean;
+  /** Wahlknöpfe (Kennung `choice:…`), auf denen gerade ein Finger liegt. */
+  readonly choicesHeld: readonly ControlKind[];
 }
 
 interface Binding {
@@ -69,6 +83,8 @@ interface Binding {
   last: Point;
   /** Lage der Zone beim Aufsetzen. */
   readonly frame: ZoneFrame;
+  /** Wahlknopf, der schon beim Aufsetzen gewählt hat (Abheben wählt nicht erneut). */
+  readonly instant: boolean;
 }
 
 export interface ZoneTracker {
@@ -109,18 +125,25 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
     return false;
   }
 
-  /** Effekte beim Loslassen; `ready` nur bei echtem Abheben auf dem Knopf. */
+  /** Liegt der Finger (letzter Punkt) noch auf seinem Bedienelement? */
+  function stillOn(binding: Binding): boolean {
+    const zone = zoneOf(binding.slot);
+    const own = zone?.controls.find((c) => c.kind === binding.control && c.inert !== true);
+    return (
+      zone !== undefined && own !== undefined && rectContains(own.hit, toLocal(zone, binding.last))
+    );
+  }
+
+  /** Effekte beim Loslassen; `ready`/`choose` nur bei echtem Abheben auf dem Knopf. */
   function releaseEffects(binding: Binding, completed: boolean): ZoneEffect[] {
     const { slot, control } = binding;
     const button = buttonOf(control);
     if (button !== null) return [{ type: 'release', slot, button }];
     if (control === 'stick') return [{ type: 'stick', slot, stick: ZERO_STICK }];
-    if (control === 'ready' && completed) {
-      const zone = zoneOf(slot);
-      const ready = zone?.controls.find((c) => c.kind === 'ready');
-      if (zone && ready && rectContains(ready.hit, toLocal(zone, binding.last))) {
-        return [{ type: 'ready', slot }];
-      }
+    if (control === 'ready' && completed && stillOn(binding)) return [{ type: 'ready', slot }];
+    const choice = parseChoiceControl(control);
+    if (choice !== null && completed && !binding.instant && stillOn(binding)) {
+      return [{ type: 'choose', slot, ...choice }];
     }
     return [];
   }
@@ -150,7 +173,7 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
           zone !== undefined &&
           // Zone verschoben/gedreht: alte Punkte passen nicht mehr zur neuen Lage.
           sameFrame(binding.frame, zone) &&
-          zone.controls.some((c) => c.kind === binding.control);
+          zone.controls.some((c) => c.kind === binding.control && c.inert !== true);
         if (!keep) {
           effects.push(...releaseEffects(binding, false));
           // Stilllegen bis zum Abheben: der Finger bekommt kein neues Bedienelement.
@@ -168,16 +191,20 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
       const hit = controlAt(zone, toLocal(zone, point));
       let control: ControlKind | null = hit?.kind ?? null;
       if (control !== null && heldBy(zone.slot, control)) control = null;
+      const instant = control !== null && hit?.instant === true;
       const binding: Binding = {
         slot: zone.slot,
         control,
         origin: point,
         last: point,
         frame: zone,
+        instant,
       };
       bindings.set(id, binding);
       const button = buttonOf(control);
       if (button !== null) effects.push({ type: 'press', slot: zone.slot, button });
+      const choice = instant ? parseChoiceControl(control) : null;
+      if (choice !== null) effects.push({ type: 'choose', slot: zone.slot, ...choice });
       return effects;
     },
 
@@ -228,11 +255,14 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
       let stick: ZoneView['stick'] = null;
       const pressed: Button[] = [];
       let readyHeld = false;
+      const choicesHeld: ControlKind[] = [];
       for (const b of bindings.values()) {
         if (b.slot !== slot) continue;
         const button = buttonOf(b.control);
         if (button !== null) pressed.push(button);
         if (b.control === 'ready') readyHeld = true;
+        if (parseChoiceControl(b.control) !== null && b.control !== null)
+          choicesHeld.push(b.control);
         if (b.control === 'stick' && zone) {
           const d = deltaToLocal(zone.rotation, b.last.x - b.origin.x, b.last.y - b.origin.y);
           stick = {
@@ -242,7 +272,7 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
         }
       }
       pressed.sort();
-      return { stick, pressed, readyHeld };
+      return { stick, pressed, readyHeld, choicesHeld };
     },
   };
 }

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures/test.ts';
-import { FakeSession, FAKE_TOKEN, VALID_CODE } from './fixtures/fakeSession.ts';
+import { FakeSession, FAKE_TOKEN, PROTOCOL_VERSION, VALID_CODE } from './fixtures/fakeSession.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
 
 /**
@@ -68,7 +68,9 @@ test('tritt per ?code= bei, zeigt die Lobby und nach „Bereit!“ das Spiel-Lay
 }, testInfo) => {
   await joinLobby(page);
 
-  expect(fake.handshakes).toEqual([{ v: 1, type: 'join', joinCode: VALID_CODE, seats: 1 }]);
+  expect(fake.handshakes).toEqual([
+    { v: PROTOCOL_VERSION, type: 'join', joinCode: VALID_CODE, seats: 1 },
+  ]);
   await expect(page.getByTestId('player-badge')).toContainText('Blau');
   await expect(page.getByTestId('player-badge')).toContainText('●');
   await expect(page.getByTestId('ready-button')).toBeVisible();
@@ -87,7 +89,7 @@ test('tritt per ?code= bei, zeigt die Lobby und nach „Bereit!“ das Spiel-Lay
   await page.getByTestId('ready-button').tap();
   await expect(slot(page)).toHaveAttribute('data-layout', 'joystick-buttons');
   await expect(slot(page)).toHaveAttribute('data-phase', 'play');
-  expect(fake.ofType('ready')).toEqual([{ v: 1, type: 'ready', slot: 1, seq: 1 }]);
+  expect(fake.ofType('ready')).toEqual([{ v: PROTOCOL_VERSION, type: 'ready', slot: 1, seq: 1 }]);
 
   for (const id of ['joystick', 'button-a', 'button-b']) {
     const box = await page.getByTestId(id).boundingBox();
@@ -122,7 +124,12 @@ test('ohne Code: Code-Eingabe, falscher Code wird erklärt, richtiger Code verbi
 
   await page.getByTestId('code-input').pressSequentially('abcd');
   await expect(slot(page)).toHaveAttribute('data-layout', 'lobby');
-  expect(fake.handshakes[1]).toEqual({ v: 1, type: 'join', joinCode: VALID_CODE, seats: 1 });
+  expect(fake.handshakes[1]).toEqual({
+    v: PROTOCOL_VERSION,
+    type: 'join',
+    joinCode: VALID_CODE,
+    seats: 1,
+  });
   expect(new URL(page.url()).searchParams.get('code')).toBe(VALID_CODE);
 
   // Ungültiger Code in der URL führt ebenfalls zur Eingabe, ohne Verbindung.
@@ -283,7 +290,11 @@ test('Fehler erscheinen als freundliche Texte; Verbindungsverlust → automatisc
   await expect(page.getByTestId('connection-overlay')).toHaveCount(0);
   await expect(page.getByTestId('error-screen')).toHaveCount(0);
   await expect(slot(page)).toHaveAttribute('data-layout', 'joystick-buttons');
-  expect(fake.handshakes.at(-1)).toEqual({ v: 1, type: 'reconnect', sessionToken: FAKE_TOKEN });
+  expect(fake.handshakes.at(-1)).toEqual({
+    v: PROTOCOL_VERSION,
+    type: 'reconnect',
+    sessionToken: FAKE_TOKEN,
+  });
 });
 
 test('Neuladen der Seite tritt per reconnect mit gemerktem Token wieder bei', async ({ page }) => {
@@ -291,7 +302,11 @@ test('Neuladen der Seite tritt per reconnect mit gemerktem Token wieder bei', as
   await page.reload();
   await expect(slot(page)).toHaveAttribute('data-layout', 'lobby');
   expect(fake.handshakes.map((m) => m.type)).toEqual(['join', 'reconnect']);
-  expect(fake.handshakes[1]).toEqual({ v: 1, type: 'reconnect', sessionToken: FAKE_TOKEN });
+  expect(fake.handshakes[1]).toEqual({
+    v: PROTOCOL_VERSION,
+    type: 'reconnect',
+    sessionToken: FAKE_TOKEN,
+  });
 });
 
 test('Wischen und Zwei-Finger-Zoom bewegen die Seite nicht', async ({ page }) => {
