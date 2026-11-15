@@ -23,7 +23,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
 | EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
 | EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen → EXP-010 |
-| EXP-010 | Lichtstimmung: je Brett, Uhrzeit oder Spielverlauf, inkl. Nacht | CHAOS-60 | offen: Ruben wählt (Empfehlung: Spielverlauf) |
+| EXP-010 | Lichtstimmung: je Brett, Uhrzeit oder Spielverlauf, inkl. Nacht | CHAOS-60 | keep C „Spielverlauf“ (Ruben, 2026-11-15); A und B discard |
 
 ---
 
@@ -873,7 +873,7 @@ Fehler unterwegs behoben: Gras und Kronen wurden in Dämmerung und Nacht weißli
 
 Bilder: Entscheidungsseite https://claude.ai/artifact/5WVskYB8BoiVT7wxsYuYCK, begehbare 3D-Fassung mit allen Stimmungen https://claude.ai/artifact/P4BrCKbYSyfXGHAo726W71 (Version 5).
 
-**Entscheidung:** offen, Ruben wählt die Zuordnung (Empfehlung C „Spielverlauf“, Brett-Standard A als Rückfall für einzelne Szenen wie Lobby und Siegerehrung).
+**Entscheidung:** keep C „Spielverlauf“, Ruben im Chat am 2026-11-15: „C“. Jede Partie ist ein Tag (`moodForRound`), Minispiele erben die Stimmung der Runde. A (fest je Brett) und B (Uhrzeit) sind verworfen; `moodForBoard` bleibt als Rückfall für Szenen ohne Runde (Lobby, Siegerehrung). Einbau ins Spiel: CHAOS-62 (Natur-Look im Spiel), CHAOS-63 (Lichtverlauf je Runde mit Überblendung).
 
 **Offen für Playtest:** Wirkung der Nacht am Fernseher (Schwarzwert, Abstand 3 m), Bildrate am Ziel-PC mit 6 Lichtern pro Material, ob der Wechsel zwischen den Runden als Überblendung reicht.
 
