@@ -14,6 +14,7 @@ import { formatStartupLines, renderTerminalQr } from './startup.ts';
  * - `JOIN_CODE`: fester Join-Code für Demos/Tests (sonst zufällig)
  * - `PUBLIC_HOST`, `PUBLIC_PORT`: Adresse/Port im QR-Link erzwingen (ADR-007)
  * - `TERMINAL_QR=0`: keinen QR-Code im Terminal zeichnen
+ * - `ROUNDS`: Runden des Brettspiels (Standard 5, M2), `SEED`: fester Seed (reproduzierbar)
  */
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -36,12 +37,25 @@ const target = resolveJoinTarget({
   joinCode,
 });
 
+const rounds = parseIntegerEnv('ROUNDS', 1, 20);
+const seed = parseIntegerEnv('SEED', 0, 2 ** 31 - 1);
+
 const server = createChaosServer({
   staticDir,
   hostDir,
   joinCode,
   joinUrl: target.joinUrl,
   joinUrlAlternatives: target.alternatives,
+  game: {
+    ...(rounds === undefined ? {} : { rounds }),
+    ...(seed === undefined ? {} : { seed }),
+  },
+  onGameStart: (info) => {
+    // Seed ausgeben: Mit SEED=<Wert> lässt sich dieselbe Partie nachstellen (M2).
+    console.log(
+      `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Seed ${String(info.seed)}`,
+    );
+  },
 });
 const address = await server.listen(port, host);
 // CHAOS-48: Prüfen, ob unter localhost wirklich dieser Server antwortet.
@@ -61,6 +75,19 @@ for (const [name, dir] of [
 if (process.stdout.isTTY && process.env.TERMINAL_QR !== '0') {
   console.log('');
   console.log(renderTerminalQr(target.joinUrl));
+}
+
+function parseIntegerEnv(name: string, min: number, max: number): number | undefined {
+  const raw = process.env[name]?.trim();
+  if (raw === undefined || raw === '') return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    console.warn(
+      `  ⚠ ${name}=${raw} ignoriert (erlaubt: ganze Zahl ${String(min)}–${String(max)}).`,
+    );
+    return undefined;
+  }
+  return value;
 }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

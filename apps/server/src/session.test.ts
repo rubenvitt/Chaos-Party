@@ -112,7 +112,7 @@ function lastLobby(out: Outgoing[]) {
 const move = (slot: 1 | 2 | 3 | 4, seq: number, x = 0.5, y = 0) =>
   createMessage('move', { slot, seq, x, y });
 const ready = (slot: 1 | 2 | 3 | 4, seq: number) => createMessage('ready', { slot, seq });
-const start = () => createMessage('start', {});
+const start = () => createMessage('start', { mode: 'arena' });
 
 /** Lobby mit Host und `controllers` iPhones (Slots 1…n), danach Start. */
 function playing(controllers = 2) {

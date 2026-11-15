@@ -7,7 +7,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { PROTOCOL_VERSION } from '@chaos-party/protocol';
 import { generateJoinCode } from './ids.ts';
 import type { RateLimitOptions } from './rate-limit.ts';
-import { Session, type SessionTimeouts } from './session.ts';
+import { Session, type SessionOptions, type SessionTimeouts } from './session.ts';
 import { attachWebSocket } from './socket.ts';
 
 export interface ChaosServerOptions {
@@ -32,7 +32,11 @@ export interface ChaosServerOptions {
   maxInvalidMessages?: number | undefined;
   /** Zeitgrenzen für Handshake, Herzschlag und Lobby-Schonfrist (CHAOS-12, ADR-009). */
   timeouts?: Partial<SessionTimeouts> | undefined;
-  /** Takt der Timeout-Prüfung in ms (Standard 1000). */
+  /** Brettspiel-Einstellungen (M2): Runden, fester Seed, Regeln, Brett. */
+  game?: SessionOptions['game'];
+  /** Wird bei jedem Partiestart aufgerufen (Seed ausgeben). */
+  onGameStart?: SessionOptions['onGameStart'];
+  /** Takt der Timeout-Prüfung und des Brettspiels in ms (Standard 100). */
   tickMs?: number | undefined;
   /**
    * Kennung dieses Prozesses in `/health` (CHAOS-48). Damit erkennt der Start, ob unter
@@ -96,6 +100,8 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     rateLimit: options.rateLimit,
     maxInvalidMessages: options.maxInvalidMessages,
     timeouts: options.timeouts,
+    game: options.game,
+    onGameStart: options.onGameStart,
   });
 
   const server = createServer((req, res) => {

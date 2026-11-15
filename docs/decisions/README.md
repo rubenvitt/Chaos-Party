@@ -23,3 +23,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-008](ADR-008-ipad-zonen.md) | Geteiltes iPad: Spielerzonen, Touch Events mit Zonen-Tracker, Drehen | Angenommen | CHAOS-13 |
 | [ADR-009](ADR-009-reconnect.md) | Reconnect und Verbindungsanzeige: Herzschlag, Timeouts, Token-/Slot-Politik, Client-Backoff | Angenommen | CHAOS-12 |
 | [ADR-010](ADR-010-messanzeige.md) | Messanzeige mit `?debug=1`: Rundlaufzeit, Bildrate, Eingabe→Frame als M1-Baseline | Angenommen | CHAOS-45 |
+| [ADR-011](ADR-011-brettspiel.md) | Brettspiel in M2: Regeln als reiner Reducer im Server, Protokoll v2, Host zeigt nur an | Angenommen | CHAOS-2 |

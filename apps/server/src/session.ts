@@ -43,7 +43,11 @@ import {
   type ServerMessage,
   type SlotIntentMessage,
   type SlotNumber,
+  type StartMessage,
+  type ChooseMessage,
 } from '@chaos-party/protocol';
+import { randomInt } from 'node:crypto';
+import { BoardGame, DEFAULT_GAME_SETTINGS, type BoardGameSettings } from './game.ts';
 import { generateToken, isValidJoinCode } from './ids.ts';
 import { DEFAULT_RATE_LIMIT, TokenBucket, type RateLimitOptions } from './rate-limit.ts';
 
@@ -122,6 +126,18 @@ export interface SessionOptions {
   timeouts?: Partial<SessionTimeouts> | undefined;
   /** Protokoll für unerwartete Fehler (Standard: `console.error`). */
   logError?: ((error: unknown) => void) | undefined;
+  /** Brettspiel-Einstellungen (M2): Runden, fester Seed, Regeln, Brett. */
+  game?: Partial<BoardGameSettings> | undefined;
+  /** Seed-Quelle, wenn `game.seed` fehlt (Standard: kryptografischer Zufall). */
+  randomSeed?: (() => number) | undefined;
+  /** Wird bei jedem Partiestart aufgerufen (z. B. Seed im Terminal ausgeben). */
+  onGameStart?: ((info: GameStartInfo) => void) | undefined;
+}
+
+export interface GameStartInfo {
+  readonly seed: number;
+  readonly rounds: number;
+  readonly slots: readonly SlotNumber[];
 }
 
 interface Connection {
@@ -173,6 +189,8 @@ export interface SessionSnapshot {
   players: SessionPlayerSnapshot[];
   /** Geprüfte Eingaben, die verworfen wurden, weil kein Host verbunden war. */
   droppedInputs: number;
+  /** Laufendes Brettspiel (Phase `board`) oder `null`. */
+  game: { seed: number; state: BoardGame['state'] } | null;
 }
 
 type InputMessage = Exclude<SlotIntentMessage, { type: 'ready' } | { type: 'choose' }>;
@@ -180,6 +198,8 @@ type InputMessage = Exclude<SlotIntentMessage, { type: 'ready' } | { type: 'choo
 interface SlotContext {
   layout: Layout;
   actions: Action[];
+  prompt?: ContextMessage['prompt'];
+  board?: ContextMessage['board'];
 }
 
 const LOBBY_CONTEXT: SlotContext = { layout: 'lobby', actions: ['ready'] };
@@ -188,6 +208,12 @@ const PLAY_CONTEXT: SlotContext = {
   layout: 'joystick-buttons',
   actions: ['move', 'button-a', 'button-b'],
 };
+
+/** Ein Prompt-Kontext ändert sich nur bei neuer Entscheidung, nicht mit der Restzeit. */
+function contextKey(context: SlotContext): string {
+  const { prompt, ...rest } = context;
+  return JSON.stringify({ ...rest, promptId: prompt?.id ?? null });
+}
 
 export class Session {
   readonly joinCode: string;
@@ -207,6 +233,13 @@ export class Session {
   private readonly maxInvalid: number;
   private readonly timeouts: SessionTimeouts;
   private readonly logError: (error: unknown) => void;
+  private readonly gameSettings: BoardGameSettings;
+  private readonly randomSeed: () => number;
+  private readonly onGameStart: ((info: GameStartInfo) => void) | undefined;
+  /** Laufendes Brettspiel (Phase `board`). */
+  private game: BoardGame | null = null;
+  /** Zuletzt gesendeter Brett-Kontext je Slot (nur bei Änderung neu senden). */
+  private readonly boardContextKeys = new Map<SlotNumber, string>();
 
   /** Gesammelte Aktionen des laufenden Ereignisses. */
   private out: Outgoing[] = [];
@@ -242,6 +275,9 @@ export class Session {
       ((error: unknown) => {
         console.error(error);
       });
+    this.gameSettings = { ...DEFAULT_GAME_SETTINGS, ...options.game };
+    this.randomSeed = options.randomSeed ?? (() => randomInt(0, 2 ** 31));
+    this.onGameStart = options.onGameStart;
   }
 
   get phase(): Phase {
@@ -328,6 +364,7 @@ export class Session {
         }
       }
       if (this.phaseValue === 'lobby') this.releaseExpiredSlots(now);
+      this.game?.apply({ type: 'tick', at: now });
     });
   }
 
@@ -347,6 +384,7 @@ export class Session {
         disconnectedAt: player.disconnectedAt,
       })),
       droppedInputs: this.droppedInputs,
+      game: this.game ? { seed: this.game.seed, state: this.game.state } : null,
     };
   }
 
@@ -419,12 +457,13 @@ export class Session {
       case 'host-hello':
         // Wiederholtes Hallo: Schnappschuss erneut senden.
         this.send(conn.id, this.lobbyMessage());
+        this.sendBoardSnapshot(conn.id);
         return;
       case 'heartbeat':
         this.send(conn.id, createMessage('heartbeat-ack', { t: message.t }));
         return;
       case 'start':
-        this.start(conn);
+        this.start(conn, message);
         return;
     }
   }
@@ -442,6 +481,7 @@ export class Session {
     conn.role = 'host';
     this.hostId = conn.id;
     this.lobbyDirty = true;
+    this.sendBoardSnapshot(conn.id);
   }
 
   private join(conn: Connection, message: JoinMessage, now: number): void {
@@ -496,6 +536,9 @@ export class Session {
         player.connectionId = conn.id;
         player.lastSeenAt = now;
         player.disconnectedAt = null;
+      }
+      if (this.game?.hasSlot(slot)) {
+        this.game.apply({ type: 'connection', slot, connected: true, at: now });
       }
     }
     this.attach(conn, message.sessionToken, slots, now);
@@ -561,8 +604,7 @@ export class Session {
     }
 
     if (message.type === 'choose') {
-      // Brettphase (M2): wird mit der Server-Integration angebunden.
-      this.reject(conn, 'out-of-phase', 'choose wird gerade nicht angeboten', seq);
+      this.choose(conn, player, message, now);
       return;
     }
 
@@ -583,21 +625,70 @@ export class Session {
     this.send(this.hostId, createMessage('input', { intent: toIntent(message), at: now }));
   }
 
-  private start(host: Connection): void {
+  private start(host: Connection, message: StartMessage): void {
     if (this.phaseValue !== 'lobby') {
       this.reject(host, 'out-of-phase', 'Spiel läuft bereits');
       return;
     }
-    const connected = [...this.players.values()].filter((player) => player.connectionId !== null);
+    const connected = this.sortedPlayers().filter((player) => player.connectionId !== null);
     if (connected.length === 0) {
       this.reject(host, 'out-of-phase', 'Mindestens ein verbundener Spieler nötig');
       return;
     }
-    this.phaseValue = 'play';
+    if ((message.mode ?? 'board') === 'board') {
+      this.startBoardGame(connected, message.rounds);
+    } else {
+      this.phaseValue = 'play';
+    }
     for (const player of this.sortedPlayers()) {
       if (player.connectionId !== null) this.sendContext(player.connectionId, player.slot);
     }
     this.lobbyDirty = true;
+  }
+
+  /**
+   * Brettspiel mit allen verbundenen Spielern starten (M2). Reservierte, aber getrennte
+   * Slots spielen nicht mit; ihre Controller sehen nach dem Wiederverbinden „warten“.
+   */
+  private startBoardGame(players: Player[], rounds: number | undefined): void {
+    const seed = this.gameSettings.seed ?? this.randomSeed();
+    const settings = { ...this.gameSettings, rounds: rounds ?? this.gameSettings.rounds };
+    const game = new BoardGame(
+      players.map((player) => ({ slot: player.slot, name: player.label })),
+      settings,
+      seed,
+    );
+    const started = game.apply({ type: 'start', at: this.now() });
+    if (!started.ok) throw new Error(`Spielstart abgelehnt: ${started.error.message}`);
+    this.game = game;
+    this.phaseValue = 'board';
+    this.boardContextKeys.clear();
+    this.onGameStart?.({ seed, rounds: settings.rounds, slots: players.map((p) => p.slot) });
+  }
+
+  private choose(conn: Connection, player: Player, message: ChooseMessage, now: number): void {
+    const { seq } = message;
+    if (!this.contextFor(player).actions.includes('choose')) {
+      this.reject(conn, 'invalid-choice', 'Gerade ist keine Entscheidung offen', seq);
+      return;
+    }
+    if (!conn.seq.accept(seq)) {
+      this.reject(conn, 'stale-seq', 'Veraltete Sequenznummer', seq);
+      return;
+    }
+    const result = this.game?.apply({
+      type: 'choose',
+      slot: player.slot,
+      promptId: message.promptId,
+      option: message.option,
+      at: now,
+    });
+    if (result && !result.ok) {
+      // Kommt im normalen Ablauf vor (Frist abgelaufen, doppelt getippt): zählt nicht als Missbrauch.
+      this.reject(conn, 'invalid-choice', result.error.message, seq);
+      // Den aktuellen Stand erneut schicken, damit der Controller die Sperre löst.
+      this.boardContextKeys.delete(player.slot);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -700,6 +791,9 @@ export class Session {
         if (player?.connectionId === id) {
           player.connectionId = null;
           player.disconnectedAt = now;
+          if (this.game?.hasSlot(slot)) {
+            this.game.apply({ type: 'connection', slot, connected: false, at: now });
+          }
         }
       }
       this.lobbyDirty = true;
@@ -723,20 +817,62 @@ export class Session {
 
   private contextFor(player: Player): SlotContext {
     if (this.phaseValue === 'play') return PLAY_CONTEXT;
+    if (this.phaseValue === 'board') return this.boardContextFor(player.slot);
     return player.ready ? WAIT_CONTEXT : LOBBY_CONTEXT;
+  }
+
+  /** Brettphase: eigener Stand, und `choose` nur mit offenem Prompt dieses Slots. */
+  private boardContextFor(slot: SlotNumber): SlotContext {
+    const game = this.game;
+    const board = game?.infoFor(slot);
+    if (!game || !board) return WAIT_CONTEXT;
+    const prompt = game.promptFor(slot, this.now());
+    return prompt
+      ? { layout: 'board', actions: ['choose'], prompt, board }
+      : { layout: 'board', actions: [], board };
   }
 
   private sendContext(to: ConnectionId, slot: SlotNumber): void {
     const player = this.players.get(slot);
     if (!player) return;
     const context = this.contextFor(player);
+    if (this.phaseValue === 'board') this.boardContextKeys.set(slot, contextKey(context));
     const message: ContextMessage = createMessage('context', {
       slot,
       phase: this.phaseValue,
       layout: context.layout,
       actions: [...context.actions],
+      ...(context.prompt === undefined ? {} : { prompt: context.prompt }),
+      ...(context.board === undefined ? {} : { board: context.board }),
     });
     this.send(to, message);
+  }
+
+  /** Neuer Host (oder erneutes Hallo) im laufenden Brettspiel: vollständiger Stand. */
+  private sendBoardSnapshot(to: ConnectionId): void {
+    if (this.phaseValue !== 'board' || !this.game) return;
+    this.send(to, createMessage('board', this.game.snapshotMessage(this.now())));
+  }
+
+  /**
+   * Nach jedem Ereignis in der Brettphase: neue Spielereignisse an den Host, geänderte
+   * Kontexte an die Controller (nur bei Änderung, nicht bei bloß weiterlaufender Frist).
+   */
+  private syncBoard(): void {
+    const game = this.game;
+    if (this.phaseValue !== 'board' || !game) return;
+    const now = this.now();
+    const messages = game.drainBoardMessages(now);
+    if (this.hostId !== null) {
+      for (const body of messages) this.send(this.hostId, createMessage('board', body));
+    }
+    for (const player of this.sortedPlayers()) {
+      if (player.connectionId === null) continue;
+      const key = contextKey(this.contextFor(player));
+      if (this.boardContextKeys.get(player.slot) !== key) {
+        this.sendContext(player.connectionId, player.slot);
+      }
+    }
   }
 
   private sortedPlayers(): Player[] {
@@ -772,6 +908,7 @@ export class Session {
     // `out` und `lobbyDirty` sind zwischen Ereignissen immer leer bzw. false.
     try {
       handler();
+      this.syncBoard();
     } catch (error) {
       this.logError(error);
       if (id !== null && this.connections.has(id)) {

@@ -150,7 +150,7 @@ async function controller(seats = 1): Promise<{ client: TestClient; welcome: Mes
 const slotsOf = (welcome: Message<'welcome'>) => welcome.players.map((player) => player.slot);
 
 async function startGame(hostClient: TestClient, controllers: TestClient[]) {
-  hostClient.send(createMessage('start', {}));
+  hostClient.send(createMessage('start', { mode: 'arena' }));
   await hostClient.next('lobby', (lobby) => lobby.phase === 'play');
   for (const client of controllers) {
     await client.next('context', (context) => context.phase === 'play');
