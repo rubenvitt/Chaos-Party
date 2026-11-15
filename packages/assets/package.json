@@ -2,7 +2,7 @@
   "name": "@chaos-party/assets",
   "version": "0.0.0",
   "private": true,
-  "description": "Assets mit Manifest (Herkunft, Lizenz, Budget): generierte Figuren (GLB), Porträts, Prüfskript.",
+  "description": "Assets mit Manifest (Herkunft, Lizenz, Budget): Figuren (GLB) und Porträts (WebP) aus Blender-Skripten, Prüfskript.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -11,7 +11,8 @@
     "./textures/*": "./textures/*"
   },
   "scripts": {
-    "generate": "node src/generator/cli.ts",
+    "generate": "blender/build-all.sh && blender/portraits-all.sh",
+    "generate:portraits": "blender/portraits-all.sh",
     "check": "node src/check/cli.ts",
     "typecheck": "tsc -p tsconfig.json"
   },

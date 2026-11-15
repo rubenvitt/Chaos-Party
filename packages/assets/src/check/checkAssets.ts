@@ -13,12 +13,22 @@
  * - GLB-Figuren: Animationsnamen genau wie im Vertrag, Höhe/Füße/Grundfläche aus den echten
  *   Eckpunkten (Ruhepose, mit Knoten-Transformen), Meshes/Primitives/Materialien/Dreiecke im
  *   Budget, Material `akzent` vorhanden und benutzt, Knoten `abzeichen` vorhanden;
- * - SVG: keine Skripte, Ereignis-Attribute oder externen Verweise.
+ * - SVG: keine Skripte, Ereignis-Attribute oder externen Verweise;
+ * - WebP: gültiger Container mit lesbaren Maßen;
+ * - Porträts (CHAOS-61): je Figur `<id>.webp` und Akzent-Maske `<id>-akzent.webp` im Manifest,
+ *   beide quadratisch, gleich groß, mindestens `PORTRAIT.minSize` und mit Alphakanal.
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
-import { ACCENT_MATERIAL, BADGE_NODE, CHARACTER_ANIMATIONS, CHARACTER_SCALE } from '../contract.ts';
+import {
+  ACCENT_MATERIAL,
+  BADGE_NODE,
+  CHARACTER_ANIMATIONS,
+  CHARACTER_IDS,
+  CHARACTER_SCALE,
+  PORTRAIT,
+} from '../contract.ts';
 import {
   ALLOWED_ASSET_LICENSES,
   ASSET_FILE_DIRS,
@@ -28,6 +38,7 @@ import {
   type AssetManifest,
 } from '../manifest.ts';
 import { GlbError, glbStats } from './glb.ts';
+import { WebpError, webpInfo, type WebpInfo } from './webp.ts';
 
 export interface CheckOptions {
   /** Wurzel des Repositorys (Manifest-Pfade sind relativ dazu). */
@@ -210,6 +221,43 @@ function checkModel(
   return { errors, note };
 }
 
+/** Porträt und Akzent-Maske je Figur (Lobby und Controller laden genau diese Dateien). */
+function checkPortraits(assetsDir: string, webps: ReadonlyMap<string, WebpInfo>): string[] {
+  const errors: string[] = [];
+  for (const id of CHARACTER_IDS) {
+    const imagePath = `${toPosix(assetsDir)}/${PORTRAIT.dir}/${id}.webp`;
+    const maskPath = `${toPosix(assetsDir)}/${PORTRAIT.dir}/${id}${PORTRAIT.accentSuffix}.webp`;
+    const image = webps.get(imagePath);
+    const mask = webps.get(maskPath);
+    for (const [path, info] of [
+      [imagePath, image],
+      [maskPath, mask],
+    ] as const) {
+      if (!info) {
+        errors.push(`Porträt „${id}“: ${path} fehlt im Manifest oder ist nicht lesbar`);
+        continue;
+      }
+      if (info.width !== info.height) {
+        errors.push(
+          `Porträt „${id}“: ${path} ist nicht quadratisch (${String(info.width)}×${String(info.height)})`,
+        );
+      }
+      if (info.width < PORTRAIT.minSize) {
+        errors.push(
+          `Porträt „${id}“: ${path} kleiner als ${String(PORTRAIT.minSize)} px (${String(info.width)})`,
+        );
+      }
+      if (!info.alpha) errors.push(`Porträt „${id}“: ${path} ohne Alphakanal`);
+    }
+    if (image && mask && (image.width !== mask.width || image.height !== mask.height)) {
+      errors.push(
+        `Porträt „${id}“: Maske ${String(mask.width)}×${String(mask.height)} passt nicht zum Bild ${String(image.width)}×${String(image.height)}`,
+      );
+    }
+  }
+  return errors;
+}
+
 async function packageLicense(fromDir: string, name: string): Promise<string | null> {
   try {
     const require = createRequire(join(fromDir, 'noop.js'));
@@ -239,6 +287,7 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
 
   const ids = new Set<string>();
   const filePaths = new Set<string>();
+  const webps = new Map<string, WebpInfo>();
   for (const entry of manifest.assets) {
     const label = `Asset „${entry.id}“`;
     if (ids.has(entry.id)) errors.push(`${label}: id doppelt`);
@@ -330,10 +379,23 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
       const problems = checkSvg(new TextDecoder().decode(bytes));
       for (const problem of problems) errors.push(`${label}: SVG ${problem}`);
       notes.push(`${label}: ${kib(bytes.byteLength)}`);
+    } else if (entry.path.endsWith('.webp')) {
+      try {
+        const info = webpInfo(bytes);
+        webps.set(entry.path, info);
+        notes.push(
+          `${label}: ${kib(bytes.byteLength)}, ${String(info.width)}×${String(info.height)} ${info.format}${info.alpha ? ' mit Alpha' : ''}`,
+        );
+      } catch (error) {
+        const reason = error instanceof WebpError ? error.message : String(error);
+        errors.push(`${label}: WebP nicht lesbar – ${reason}`);
+      }
     } else {
       notes.push(`${label}: ${kib(bytes.byteLength)}`);
     }
   }
+
+  errors.push(...checkPortraits(assetsDir, webps));
 
   // Jede Datei in den Asset-Ordnern muss im Manifest stehen.
   for (const dir of ASSET_FILE_DIRS) {

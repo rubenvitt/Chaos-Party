@@ -26,11 +26,10 @@ async function sandbox(): Promise<string> {
   await cp(join(packageDir, 'textures'), join(dir, 'packages/assets/textures'), {
     recursive: true,
   });
-  await mkdir(join(dir, 'packages/assets/src/generator'), { recursive: true });
-  await writeFile(join(dir, 'packages/assets/src/generator/cli.ts'), '// Generator\n');
-  // Figuren entstehen seit CHAOS-58 in Blender.
+  // Figuren (CHAOS-58) und Porträts (CHAOS-61) entstehen in Blender.
   await mkdir(join(dir, 'packages/assets/blender'), { recursive: true });
   await writeFile(join(dir, 'packages/assets/blender/build-all.sh'), '# Generator\n');
+  await writeFile(join(dir, 'packages/assets/blender/portraits-all.sh'), '# Generator\n');
   return dir;
 }
 
@@ -54,6 +53,19 @@ async function run(manifest: unknown, prepare?: (dir: string) => Promise<void>) 
   await writeFile(join(dir, 'packages/assets/manifest.json'), JSON.stringify(manifest));
   if (prepare) await prepare(dir);
   return checkAssets({ repoRoot: dir });
+}
+
+/** Minimaler VP8L-Kopf (RIFF/WEBP) mit Maßen und Alpha-Bit – reicht für die Prüfung. */
+function vp8l(width: number, height: number): Uint8Array {
+  const out = new Uint8Array(32);
+  const view = new DataView(out.buffer);
+  out.set(new TextEncoder().encode('RIFF'), 0);
+  view.setUint32(4, out.byteLength - 8, true);
+  out.set(new TextEncoder().encode('WEBPVP8L'), 8);
+  view.setUint32(16, 12, true);
+  out[20] = 0x2f;
+  view.setUint32(21, ((width - 1) | ((height - 1) << 14) | (1 << 28)) >>> 0, true);
+  return out;
 }
 
 /** GLB mit geändertem JSON-Chunk neu schreiben (BIN-Chunk bleibt). */
@@ -107,14 +119,14 @@ describe('Asset-Prüfung', () => {
   it('Datei ohne Manifest-Eintrag', async () => {
     const manifest = await fileManifest();
     const result = await run(
-      { ...manifest, assets: manifest.assets.filter((a) => a.id !== 'portraet-sock') },
+      { ...manifest, assets: manifest.assets.filter((a) => a.id !== 'portraet-sock-akzent') },
       async (dir) => {
         await mkdir(join(dir, 'packages/assets/sounds'), { recursive: true });
         await writeFile(join(dir, 'packages/assets/sounds/geheim.ogg'), 'x');
       },
     );
     expect(result.errors).toContain(
-      'Datei ohne Manifest-Eintrag: packages/assets/textures/portraits/sock.svg',
+      'Datei ohne Manifest-Eintrag: packages/assets/textures/portraits/sock-akzent.webp',
     );
     expect(result.errors).toContain(
       'Datei ohne Manifest-Eintrag: packages/assets/sounds/geheim.ogg',
@@ -200,13 +212,58 @@ describe('Asset-Prüfung', () => {
   });
 
   it('SVG mit Skript', async () => {
-    const result = await run(await fileManifest(), async (dir) => {
+    const manifest = await fileManifest();
+    const svg = {
+      id: 'test-svg',
+      kind: 'texture' as const,
+      source: 'generated' as const,
+      path: 'packages/assets/textures/test.svg',
+      description: 'Test-SVG',
+      generator: 'packages/assets/blender/portraits-all.sh',
+      license: 'LicenseRef-ChaosParty-Eigenwerk',
+      budgetBytes: 1024,
+    };
+    const result = await run({ ...manifest, assets: [...manifest.assets, svg] }, async (dir) => {
       await writeFile(
-        join(dir, 'packages/assets/textures/portraits/robot.svg'),
+        join(dir, svg.path),
         '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
       );
     });
-    expect(result.errors).toContain('Asset „portraet-robot“: SVG enthält <script>');
+    expect(result.errors).toContain('Asset „test-svg“: SVG enthält <script>');
+  });
+
+  it('kaputtes Porträt-WebP', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      await writeFile(join(dir, 'packages/assets/textures/portraits/robot.webp'), 'kein Bild');
+    });
+    expect(result.errors).toContain('Asset „portraet-robot“: WebP nicht lesbar – Datei zu kurz');
+    expect(result.errors).toContain(
+      'Porträt „robot“: packages/assets/textures/portraits/robot.webp fehlt im Manifest oder ist nicht lesbar',
+    );
+  });
+
+  it('Porträt ohne Akzent-Maske', async () => {
+    const manifest = await fileManifest();
+    const result = await run(
+      { ...manifest, assets: manifest.assets.filter((a) => a.id !== 'portraet-cactus-akzent') },
+      async (dir) => {
+        await rm(join(dir, 'packages/assets/textures/portraits/cactus-akzent.webp'));
+      },
+    );
+    expect(result.errors).toEqual([
+      'Porträt „cactus“: packages/assets/textures/portraits/cactus-akzent.webp fehlt im Manifest oder ist nicht lesbar',
+    ]);
+  });
+
+  it('Maske mit anderer Größe als das Porträt', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      // Gültiges verlustfreies WebP 300×300 mit Alpha (nur der Kopf zählt für die Prüfung).
+      await writeFile(
+        join(dir, 'packages/assets/textures/portraits/sock-akzent.webp'),
+        vp8l(300, 300),
+      );
+    });
+    expect(result.errors).toEqual(['Porträt „sock“: Maske 300×300 passt nicht zum Bild 384×384']);
   });
 
   it('generiert ohne Generator-Skript', async () => {

@@ -32,6 +32,7 @@ import { routeTouchEvent, TOUCH_EVENT_TYPES } from '../zones/touchRouter.ts';
 import { contextKey, zoneControlsInput } from '../zones/zoneInput.ts';
 import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/zoneTracker.ts';
 import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor, slotColorVars } from './color.ts';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
 import { useInterruption } from './useInterruption.ts';
@@ -302,8 +303,11 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
   });
   const badge = (
     <header className="player-badge zone-badge" data-testid="player-badge">
-      <span className="player-symbol" aria-hidden="true">
-        {PLAYER_SLOTS[player.slot].symbol}
+      <span className="badge-avatar">
+        <CharacterPortrait slot={player.slot} className="badge-portrait" decorative />
+        <span className="player-symbol" aria-hidden="true">
+          {PLAYER_SLOTS[player.slot].symbol}
+        </span>
       </span>
       <span className="player-label ui-text">{player.label}</span>
     </header>
