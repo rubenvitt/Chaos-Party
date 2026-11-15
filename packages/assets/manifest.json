@@ -1,0 +1,181 @@
+{
+  "$comment": "Asset-Manifest (CHAOS-28). Pfade relativ zum Repository. Prüfung: pnpm check:assets. Regeln und Stil: docs/art-direction.md.",
+  "version": 1,
+  "budgets": {
+    "model": {
+      "maxBytes": 307200,
+      "maxMeshes": 12,
+      "maxPrimitives": 24,
+      "maxMaterials": 6,
+      "maxTriangles": 15000
+    },
+    "texture": {
+      "maxBytes": 65536
+    },
+    "sound": {
+      "maxBytes": 262144
+    }
+  },
+  "assets": [
+    {
+      "id": "figur-robot",
+      "kind": "model",
+      "source": "generated",
+      "path": "packages/assets/models/characters/robot.glb",
+      "description": "Figur Schraubi (Aufzieh-Blechroboter mit Wackelantenne und Aufziehschlüssel); Material „akzent“ = Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-27)",
+      "budgetBytes": 307200,
+      "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
+      "height": 1.68
+    },
+    {
+      "id": "figur-cactus",
+      "kind": "model",
+      "source": "generated",
+      "path": "packages/assets/models/characters/cactus.glb",
+      "description": "Figur Kalle Kaktus (gerippter Kaktus im Tontopf mit Sonnenbrille und Halstuch); Material „akzent“ = Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-27)",
+      "budgetBytes": 307200,
+      "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
+      "height": 1.655
+    },
+    {
+      "id": "figur-raccoon",
+      "kind": "model",
+      "source": "generated",
+      "path": "packages/assets/models/characters/raccoon.glb",
+      "description": "Figur Wusel (Waschbär mit Diebesmaske, Halstuch und Ringelschwanz); Material „akzent“ = Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-27)",
+      "budgetBytes": 307200,
+      "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
+      "height": 1.565
+    },
+    {
+      "id": "figur-sock",
+      "kind": "model",
+      "source": "generated",
+      "path": "packages/assets/models/characters/sock.glb",
+      "description": "Figur Socke Sigi (Einzelsocke mit Ringeln und ungleichen Knopfaugen); Material „akzent“ = Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-27)",
+      "budgetBytes": 307200,
+      "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
+      "height": 1.507
+    },
+    {
+      "id": "portraet-robot",
+      "kind": "texture",
+      "source": "generated",
+      "path": "packages/assets/textures/portraits/robot.svg",
+      "description": "Lobby-Porträt von Schraubi (SVG, Akzent = currentColor).",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-28)",
+      "budgetBytes": 8192
+    },
+    {
+      "id": "portraet-cactus",
+      "kind": "texture",
+      "source": "generated",
+      "path": "packages/assets/textures/portraits/cactus.svg",
+      "description": "Lobby-Porträt von Kalle Kaktus (SVG, Akzent = currentColor).",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-28)",
+      "budgetBytes": 8192
+    },
+    {
+      "id": "portraet-raccoon",
+      "kind": "texture",
+      "source": "generated",
+      "path": "packages/assets/textures/portraits/raccoon.svg",
+      "description": "Lobby-Porträt von Wusel (SVG, Akzent = currentColor).",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-28)",
+      "budgetBytes": 8192
+    },
+    {
+      "id": "portraet-sock",
+      "kind": "texture",
+      "source": "generated",
+      "path": "packages/assets/textures/portraits/sock.svg",
+      "description": "Lobby-Porträt von Socke Sigi (SVG, Akzent = currentColor).",
+      "generator": "packages/assets/src/generator/cli.ts",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – eigener Entwurf, aus Code erzeugt (CHAOS-28)",
+      "budgetBytes": 8192
+    },
+    {
+      "id": "brett-felder",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/board/createBoardScene.ts",
+      "description": "Brett „Wackelwald“: Insel, Felder (Farbe + Form je Feldtyp), Wege mit Pfeilen, Bäume, Teich, Pilze, Felsen, Brücke.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "brett-marker",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/board/createBoardScene.ts",
+      "description": "Brett: Wegweiser-Schilder, Am-Zug-Ring und -Pfeil, Popups (Text auf DynamicTexture), Getrennt-Marker „!“.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "brett-fallen",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/board/createBoardScene.ts",
+      "description": "Brett: Fallen (Fangeisen mit Besitzerfarbe) und Trophäen-Pokal.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "brett-sockel",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/board/createBoardScene.ts",
+      "description": "Brett: Spielstein-Sockel in Slot-Farbe mit weißem Ring und schwebendem Slot-Symbol (● ▲ ■ ★).",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "figur-abzeichen",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/characters/badge.ts",
+      "description": "Slot-Abzeichen auf der Brust jeder Figur (Plakette mit Symbol in Slot-Farbe).",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "arena-m1",
+      "kind": "procedural-geometry",
+      "source": "procedural",
+      "path": "apps/host/src/scene/createGameScene.ts",
+      "description": "M1-Arena (Testszene mit Havok): Boden, Rand, Eckpfosten, Kapsel-Figuren.",
+      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "attribution": "Chaos Party – prozedural im Code"
+    },
+    {
+      "id": "schrift-nunito",
+      "kind": "font",
+      "source": "imported",
+      "path": "apps/host/src/main.tsx",
+      "package": "@fontsource-variable/nunito",
+      "description": "Schrift Nunito (variabel) für HUD, Lobby, Brett-Texte und Controller.",
+      "license": "OFL-1.1",
+      "attribution": "Nunito – Copyright 2014 The Nunito Project Authors (github.com/googlefonts/nunito), SIL Open Font License 1.1; verpackt von Fontsource."
+    }
+  ]
+}
