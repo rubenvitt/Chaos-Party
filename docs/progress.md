@@ -126,7 +126,7 @@ Details: [`testing.md`](testing.md).
 ## Nächste Schritte
 
 1. PR #5 (M2) und #6 (M3) mergen.
-2. Grafik-Neuausrichtung CHAOS-56: Referenzen von Ruben, Look-Dev mit 2–3 Richtungen, Entscheidung.
+2. Grafik-Neuausrichtung CHAOS-56: Look-Dev mit drei Richtungen steht (EXP-008, Vitrine `apps/host/src/lookdev/`, Entscheidungsseite https://claude.ai/artifact/P6iu4tF9iBFzfnSqgukHfR). **Wartet auf Rubens Wahl**; danach Design-System, Art Direction neu, Umsetzung.
 3. M4 (CHAOS-4): frei sind CHAOS-36 (Lobby/Charakterwahl/Rundenzahl/Start-Pause-Ende), CHAOS-37 (Rundenende, Siegerbildschirm), CHAOS-38 (Controller komplett), CHAOS-47 (iPad-Nachtest, Ruben), CHAOS-55 (Minispiel-Feinschliff).
 
 ## Offene Risiken (Kurzfassung)

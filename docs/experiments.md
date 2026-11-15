@@ -21,6 +21,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-005 | Arcade-Minispiel: drei Konzepte | CHAOS-29, CHAOS-30 | keep A4 „Sockenregen“; B „Kuckucks-Klatsche“, C „Aufzieh-Takt“ discard |
 | EXP-006 | Physik-Minispiel (Havok): Konzepte | CHAOS-29, CHAOS-31 | keep A5 „Pudding-Gerangel“ (Kirschfleck + Wackelkrone); „Letzter oben“, Saldo, „Krümel-Kehraus“ discard |
 | EXP-007 | Hybrid-Minispiel: Konzepte | CHAOS-29, CHAOS-32 | keep A6 „Wackelturm“; B „Geysir-Gier“ discard (gierig dominant) |
+| EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | offen – Ruben wählt (Entscheidungsseite) |
 
 ---
 
@@ -794,3 +795,35 @@ Begründung: A verbindet Ausführung (sanft lenken unter Kippgefahr, greifen, au
 6. Erkennen Zuschauer am Fernseher sofort, wer wie hoch stapelt und wer gerade jagt?
 
 **Für später (CHAOS-44):** Konzept B „Geysir-Gier“ (geteilte Becken, Geysir-Ritt); verstreute Krümel nach einem Sturz zum Aufsammeln; Törtchenberg, der schrumpft und nachwächst.
+
+---
+
+## EXP-008: Look-Dev – drei moderne Stilrichtungen (2026-11-15, CHAOS-56)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben findet den M2/M3-Look „70er-Jahre“ (flaches `StandardMaterial`, Halbkugellicht, Bonbonfarben, Grundkörper). Mit moderner Render-Pipeline (Umgebungslicht, weiche Schatten, Nachbearbeitung) und weicher modellierten Formen wirkt dasselbe Spiel „modern und schön“, ohne gekaufte Assets und ohne die Lesbarkeit am Fernseher zu verlieren. Welche Richtung „modern“ trifft, entscheidet Ruben (Art Direction ist Produktentscheidung).
+
+**Varianten** (gleicher Ausschnitt: Brettstück mit 8 Feldern, Bäumen, Teich, Trophäe; Nahansicht zweier Figuren; Pudding-Arena mit vier Figuren; HUD-Karten):
+- **A „Weich & glänzend“:** PBR mit Klarlack, Umgebungslicht aus prozeduralem Himmel (RGBE im Speicher → `HDRCubeTexture`, Harmonische + Vorfilterung), Kontaktschatten (PCSS), SSAO2, ACES, Bloom, Vignette; UI als Glas-Karten. Erwartet: am hochwertigsten; Risiko GPU-Last, Farben kippen ins Spielzeughafte.
+- **B „Cel-Shading“:** `StandardMaterial` + Material-Plugin `ToonPlugin` (Licht in drei Stufen, harte Glanzpunkte, Randlicht), farbige Konturen (`renderOutline`), FXAA; UI mit dicker Kontur und Versatzschatten. Erwartet: günstig, sehr lesbar, „Animationsfilm“; Risiko: doppelte Zeichenaufrufe, Flimmern dünner Teile.
+- **C „Low-Poly-Diorama“:** facettierte Formen (Flat-Shading, 9 Segmente), Pastell, tiefe warme Sonne, Dunst, SSAO, Tilt-Shift-Tiefenunschärfe; UI als Papier-Karten. Erwartet: ruhig, edel; Risiko: zu wenig „Chaos“, kontrastarm am Fernseher.
+
+**Objektive Messgrößen:** Zeichenaufrufe und Eckpunkte je Ansicht; Bildzeit (nur relativ, siehe Testumgebung); Lesbarkeit von Slot-Farbe + Symbol in der Brettansicht (Sichtprüfung).
+
+**Subjektive Fragen (für Ruben):** Wirkt modern? Schön? Passt zu Chaos Party? Was stört? Welche Richtung oder welcher Mix?
+
+**Testumgebung:** Look-Dev-Vitrine `apps/host/src/lookdev/lookdev.html?look=<weich|toon|diorama>&shot=<brett|figur|minispiel>&test=1` (nur Dev-Server), Chromium headless mit SwiftShader (Software-WebGL), 1600×900, Pixeldichte 2, 3 Aufwärm-Frames. Szene deterministisch (Seed 56 Brett, 7 Arena). Figuren = bestehende GLBs aus CHAOS-27, nur umgefärbt/umgeschattet.
+
+**Ergebnisse:**
+
+| Richtung | Zeichenaufrufe Brett / Arena | Eckpunkte Brett | Bildzeit SwiftShader Brett |
+| --- | --- | --- | --- |
+| A Weich | 421 / 213 | 101 435 | ≈ 12,6 s |
+| B Toon | 820 / 399 | 79 942 | ≈ 2,0 s |
+| C Diorama | 631 / 320 | 103 918 | ≈ 11,2 s |
+
+Software-Rendering ist kein Maß für den Ziel-PC; die Zeiten zeigen nur das Verhältnis: A und C kosten durch SSAO/MSAA/Unschärfe ein Vielfaches von B. Zeichenaufrufe sind in allen Richtungen unoptimiert (keine Instanzen, keine zusammengeführten Meshes) und würden bei der Umsetzung deutlich sinken. Belege: `docs/screenshots/chaos56-lookdev-<richtung>-<ansicht>.jpg`; Entscheidungsseite mit Bewertung: https://claude.ai/artifact/P6iu4tF9iBFzfnSqgukHfR.
+
+**Entscheidung:** offen – wartet auf Rubens Wahl (Bewertung auf der Entscheidungsseite). Danach: Design-System der gewählten Richtung, `docs/art-direction.md` neu, ADR zur Render-Pipeline, Bildraten-Messung am Ziel-PC.
+
+**Offen für Playtest:** Wirkung am Fernseher aus 3 m; Bildrate am Ziel-PC (`?debug=1`-Messanzeige) für die gewählte Richtung.
+
