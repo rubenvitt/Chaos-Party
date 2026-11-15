@@ -1,0 +1,22 @@
+{
+  "name": "@chaos-party/minigame-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minispiel-Vertrag: reine Typen, Wertung und Ergebnisprüfung (auch für den Server), Babylon-Laufzeitvertrag für den Host und ein Headless-Testharness.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./babylon": "./src/babylon/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^9.35.0",
+    "@babylonjs/havok": "^1.3.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
+  }
+}

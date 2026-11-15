@@ -1,0 +1,21 @@
+{
+  "name": "@chaos-party/minigames",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Die Minispiele (je Ordner ein Minispiel). `./catalog` ist rein (Steckbriefe für Server/Controller), `.` liefert die Babylon-Module für den Host.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog": "./src/catalog.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^9.35.0",
+    "@chaos-party/minigame-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
+  }
+}

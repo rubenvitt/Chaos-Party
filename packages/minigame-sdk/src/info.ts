@@ -1,0 +1,94 @@
+/**
+ * Reiner Teil des Minispiel-Vertrags (CHAOS-26, ADR-012): Beschreibung eines Minispiels,
+ * Eingaben und Ergebnis. Ohne Babylon, ohne DOM – Server, game-core-Integration,
+ * Controller und Host dürfen das importieren.
+ *
+ * Änderungen nur additiv und abgestimmt (Koordinator).
+ */
+
+/** Spielerplatz 1–4 (gleich `Slot` aus game-core und `SlotNumber` aus protocol). */
+export type Slot = 1 | 2 | 3 | 4;
+
+/** Kategorie laut ROADMAP M3. */
+export type MinigameCategory = 'arcade' | 'physics' | 'hybrid';
+
+/** Kennung eines Minispiels: Kleinbuchstaben, Ziffern, Bindestrich, 3–32 Zeichen. */
+export const MINIGAME_ID_PATTERN = /^[a-z0-9-]{3,32}$/;
+
+/** Grenzen für Texte, die über das Protokoll gehen (gleich in den zod-Schemas). */
+export const MINIGAME_TEXT_LIMITS = {
+  title: 24,
+  tagline: 64,
+  instruction: 64,
+  instructions: 3,
+  controlLabel: 16,
+  highlight: 64,
+  highlights: 4,
+} as const;
+
+/**
+ * Bedienung am Controller (iPhone und iPad-Zone nutzen dasselbe Layout `joystick-buttons`).
+ * `null` = Element wird nicht angezeigt und die Eingabe nicht angeboten. Die Texte sind
+ * kurze deutsche Verben („Laufen“, „Springen“) und stehen auf dem Controller und in der
+ * Anleitung am PC.
+ */
+export interface MinigameControls {
+  readonly joystick: string | null;
+  readonly a: string | null;
+  readonly b: string | null;
+}
+
+/**
+ * Steckbrief eines Minispiels. Wird vom Server für Auswahl, Fristen und Controller-Kontext
+ * genutzt und vom Host für Anleitung und Ergebnis – darum rein und serialisierbar.
+ */
+export interface MinigameInfo {
+  readonly id: string;
+  readonly category: MinigameCategory;
+  /** Name am PC und am Controller (≤ 24 Zeichen). */
+  readonly title: string;
+  /** Ein Satz, worum es geht (≤ 64 Zeichen). */
+  readonly tagline: string;
+  /** 1–3 kurze Zeilen Anleitung (je ≤ 64 Zeichen), Ziel zuerst. */
+  readonly instructions: readonly string[];
+  readonly controls: MinigameControls;
+  /** Reine Spielzeit in ms (ohne Intro/Ergebnis). Das Minispiel endet spätestens dann. */
+  readonly durationMs: number;
+  /** Braucht Havok? Dann aktiviert die Laufzeit die Physik in der Szene vor `prepare`. */
+  readonly physics: boolean;
+  /** Bei gleicher Punktzahl gleicher Platz; `higher` = mehr Punkte sind besser. */
+  readonly scoring: 'higher' | 'lower';
+  /** Einheit der Punkte für die Anzeige („Punkte“, „Sekunden“, „Meter“). */
+  readonly scoreUnit: string;
+}
+
+/** Eingabe eines Slots, wie die Laufzeit sie an das Minispiel gibt (ohne `seq`/Umschlag). */
+export type MinigameInput =
+  | { readonly type: 'move'; readonly x: number; readonly y: number }
+  | { readonly type: 'press'; readonly button: 'a' | 'b' }
+  | { readonly type: 'release'; readonly button: 'a' | 'b' };
+
+/** Platz eines Spielers im Minispiel. Gleichstand = gleicher Platz (1, 1, 3, 4). */
+export interface MinigamePlacement {
+  readonly slot: Slot;
+  readonly place: number;
+  /** Ganzzahlige Punktzahl in `info.scoreUnit` (für Anzeige und Prüfung). */
+  readonly score: number;
+}
+
+export interface MinigameResult {
+  readonly minigameId: string;
+  /** Alle teilnehmenden Slots, nach Platz sortiert. */
+  readonly placements: readonly MinigamePlacement[];
+  /** 0–4 kurze Höhepunkte für die Ergebnisanzeige („Rot flog dreimal vom Floß“). */
+  readonly highlights?: readonly string[];
+}
+
+/** Die vier kosmetischen Figuren (CHAOS-27). Keine Spielvorteile, nur Optik. */
+export const CHARACTER_IDS = ['robot', 'cactus', 'raccoon', 'sock'] as const;
+export type CharacterId = (typeof CHARACTER_IDS)[number];
+
+/** Standard-Zuordnung bis zur Charakterwahl in M4: Slot n → n-te Figur. */
+export function defaultCharacterFor(slot: Slot): CharacterId {
+  return CHARACTER_IDS[slot - 1] ?? 'robot';
+}
