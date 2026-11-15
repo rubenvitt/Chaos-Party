@@ -23,6 +23,7 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'heartbeat',
     'host-hello',
   ]),
+  board: new Set<ClientMessageType>(['reconnect', 'choose', 'heartbeat', 'host-hello']),
 };
 
 /** `true`, wenn eine Nachricht dieses Typs in der Phase angenommen werden darf. */

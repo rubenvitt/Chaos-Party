@@ -65,6 +65,7 @@ const PRESENTATION: Readonly<Record<UiErrorCode, ErrorPresentation>> = {
   'out-of-phase': { severity: 'toast', text: 'Das geht gerade nicht. Warte kurz.' },
   'stale-seq': { severity: 'silent', text: 'Eine Eingabe kam zu spät an.' },
   'rate-limited': { severity: 'toast', text: 'Nicht so hastig! Kurz durchatmen.' },
+  'invalid-choice': { severity: 'toast', text: 'Zu spät – die Entscheidung ist schon gefallen.' },
   internal: {
     severity: 'toast',
     text: 'Der Spiel-PC hat ein Problem. Versuch es gleich noch mal.',

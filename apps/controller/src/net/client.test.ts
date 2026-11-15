@@ -78,16 +78,16 @@ describe('createClient', () => {
     socket.receive(createMessage('heartbeat-ack', { t: 1 }));
     socket.receive('kein json');
     socket.receive({
-      v: 1,
+      v: 2,
       type: 'context',
       slot: 9,
       phase: 'lobby',
       layout: 'lobby',
       actions: [],
     });
-    socket.receive({ v: 2, type: 'heartbeat-ack', t: 1 });
+    socket.receive({ v: 3, type: 'heartbeat-ack', t: 1 });
     // Host-Nachricht ist für den Controller ungültig.
-    socket.receive({ v: 1, type: 'lobby', joinCode: 'ABCD', phase: 'lobby', players: [] });
+    socket.receive({ v: 2, type: 'lobby', joinCode: 'ABCD', phase: 'lobby', players: [] });
 
     expect(calls.messages.map((m) => m.type)).toEqual(['heartbeat-ack']);
     expect(calls.invalid.map((error) => error.code)).toEqual([

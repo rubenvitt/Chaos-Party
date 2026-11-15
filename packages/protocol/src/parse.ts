@@ -10,6 +10,7 @@ import {
   HostMessageSchema,
   MAX_ERROR_MESSAGE_LENGTH,
   MAX_MESSAGE_LENGTH,
+  MAX_SERVER_MESSAGE_LENGTH,
   ServerMessageSchema,
   ServerToControllerMessageSchema,
   ServerToHostMessageSchema,
@@ -39,11 +40,15 @@ function fail(code: ErrorCode, message: string): { ok: false; error: ProtocolErr
  * Gemeinsamer Ablauf: Größe → JSON → Objekt → Version → Schema.
  * `raw` darf ein JSON-String oder ein bereits geparster Wert sein.
  */
-function parseWith<T>(schema: z.ZodType<T>, raw: unknown): ParseResult<T> {
+function parseWith<T>(
+  schema: z.ZodType<T>,
+  raw: unknown,
+  maxLength: number = MAX_MESSAGE_LENGTH,
+): ParseResult<T> {
   let value: unknown = raw;
   if (typeof raw === 'string') {
-    if (raw.length > MAX_MESSAGE_LENGTH) {
-      return fail('too-large', `Nachricht länger als ${MAX_MESSAGE_LENGTH} Zeichen`);
+    if (raw.length > maxLength) {
+      return fail('too-large', `Nachricht länger als ${maxLength} Zeichen`);
     }
     try {
       value = JSON.parse(raw);
@@ -97,19 +102,19 @@ export function parseHostMessage(raw: unknown): ParseResult<HostMessage> {
 
 /** Beliebige Server-Nachricht (z. B. für Test-Clients). */
 export function parseServerMessage(raw: unknown): ParseResult<ServerMessage> {
-  return parseWith(ServerMessageSchema, raw);
+  return parseWith(ServerMessageSchema, raw, MAX_SERVER_MESSAGE_LENGTH);
 }
 
 /** Server-Nachricht aus Sicht eines Controllers. */
 export function parseServerToControllerMessage(
   raw: unknown,
 ): ParseResult<ServerToControllerMessage> {
-  return parseWith(ServerToControllerMessageSchema, raw);
+  return parseWith(ServerToControllerMessageSchema, raw, MAX_SERVER_MESSAGE_LENGTH);
 }
 
 /** Server-Nachricht aus Sicht des Hosts. */
 export function parseServerToHostMessage(raw: unknown): ParseResult<ServerToHostMessage> {
-  return parseWith(ServerToHostMessageSchema, raw);
+  return parseWith(ServerToHostMessageSchema, raw, MAX_SERVER_MESSAGE_LENGTH);
 }
 
 /** Serialisiert eine Nachricht für `WebSocket.send`. */
