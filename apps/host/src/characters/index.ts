@@ -68,6 +68,11 @@ export type CharacterSource = string | ArrayBufferView;
 
 export interface LoadCharactersOptions {
   readonly sources?: Partial<Readonly<Record<CharacterId, CharacterSource>>>;
+  /**
+   * glTF-PBR-Materialien unverändert lassen (neue Figuren mit Fell-Sheen und Vertexfarben,
+   * CHAOS-58). Standard: Umwandlung in `StandardMaterial` wie beim M3-Brett.
+   */
+  readonly keepPbr?: boolean;
 }
 
 /** Host-Erweiterung des Vertrags (additiv): Meshes, aktuelle Animation, Transparenz. */
@@ -113,6 +118,7 @@ async function loadContainer(
   scene: Scene,
   id: CharacterId,
   source: CharacterSource,
+  keepPbr = false,
 ): Promise<AssetContainer> {
   const container = await LoadAssetContainerAsync(
     source instanceof ArrayBuffer || ArrayBuffer.isView(source)
@@ -131,7 +137,7 @@ async function loadContainer(
   );
   // Materialien tauschen (in den Container, nicht in die Szene).
   const replaced = new Map<Material, StandardMaterial>();
-  for (const old of container.materials) {
+  for (const old of keepPbr ? [] : container.materials) {
     const mat = toStandard(scene, old);
     scene.removeMaterial(mat);
     replaced.set(old, mat);
@@ -141,8 +147,10 @@ async function loadContainer(
     if (mat) mesh.material = mat;
   }
   for (const old of replaced.keys()) old.dispose();
-  container.materials.length = 0;
-  container.materials.push(...replaced.values());
+  if (!keepPbr) {
+    container.materials.length = 0;
+    container.materials.push(...replaced.values());
+  }
   for (const group of container.animationGroups) group.stop();
   return container;
 }
@@ -179,6 +187,8 @@ function instantiate(
     if (baseName(mat.name) === ACCENT_MATERIAL && mat instanceof StandardMaterial) {
       mat.diffuseColor = accent;
       mat.emissiveColor = accent.scale(0.22);
+    } else if (baseName(mat.name) === ACCENT_MATERIAL && mat instanceof PBRMaterial) {
+      mat.albedoColor = accent.toLinearSpace();
     }
   }
 
@@ -299,7 +309,7 @@ export async function loadCharacters(
     await Promise.all(
       CHARACTER_IDS.map(async (id) => {
         const source = options.sources?.[id] ?? CHARACTER_MODEL_URLS[id];
-        containers.set(id, await loadContainer(scene, id, source));
+        containers.set(id, await loadContainer(scene, id, source, options.keepPbr ?? false));
       }),
     );
   } catch (error) {

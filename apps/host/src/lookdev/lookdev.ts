@@ -20,6 +20,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import '@fontsource-variable/nunito/wght.css';
 import { defaultCharacterFor, type Slot } from '@chaos-party/minigame-sdk';
+import { CHARACTER_ANIMATIONS } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { loadCharacters, type HostCharacterHandle } from '../characters/index.ts';
 import { buildArena, buildBoard } from './content.ts';
@@ -42,6 +43,7 @@ declare global {
       step(frames: number): void;
       measure(frames: number): LookdevStats;
       debug(): unknown;
+      play(animation: string): void;
     };
   }
 }
@@ -60,10 +62,11 @@ export interface LookdevStats {
 const params = new URLSearchParams(location.search);
 {
   const hash = location.hash.replace(/^#/, '');
-  const match = /^(.+)-(brett|figur|minispiel)$/.exec(hash);
+  const match = /^(.+)-(brett|figur|minispiel)(-neu)?$/.exec(hash);
   if (match?.[1] && match[2] && !params.has('look')) {
     params.set('look', match[1]);
     params.set('shot', match[2]);
+    if (match[3]) params.set('figuren', 'neu');
   }
 }
 const lookParam = params.get('look') ?? 'weich';
@@ -128,7 +131,23 @@ function restyle(handle: HostCharacterHandle): void {
   }
 }
 
-const library = await loadCharacters(scene);
+/**
+ * `figuren=neu` (CHAOS-58): neu modellierte Figuren aus Blender (`packages/assets/blender/`),
+ * erzeugt nach `apps/host/public/lookdev-figures/`; PBR-Materialien bleiben erhalten.
+ */
+const newFigures = params.get('figuren') === 'neu';
+const FIGURE_SUFFIX = import.meta.env.VITE_LOOKDEV_PACKED === '1' ? '.wasm' : '';
+const library = await loadCharacters(
+  scene,
+  newFigures
+    ? {
+        keepPbr: true,
+        sources: {
+          raccoon: `${import.meta.env.BASE_URL}lookdev-figures/raccoon.glb${FIGURE_SUFFIX}`,
+        },
+      }
+    : {},
+);
 const handles: HostCharacterHandle[] = [];
 
 function placeFigure(slot: Slot, at: Vector3, yaw: number): HostCharacterHandle {
@@ -142,7 +161,8 @@ function placeFigure(slot: Slot, at: Vector3, yaw: number): HostCharacterHandle 
   });
   handle.root.position.copyFrom(at);
   handle.root.rotation.y = yaw;
-  restyle(handle);
+  // Neue Figuren bringen ihre PBR-Materialien mit (Fell, Vertexfarben); nicht umfärben.
+  if (!(newFigures && defaultCharacterFor(slot) === 'raccoon')) restyle(handle);
   // Slot-Ring unter der Figur (Farbe + Symbol am Abzeichen).
   const ring = CreateTorus(
     `slot-ring-${String(slot)}`,
@@ -280,6 +300,10 @@ window.__lookdev = {
   step(frames) {
     for (let i = 0; i < frames; i++) scene.render();
   },
+  play(animation) {
+    const anim = CHARACTER_ANIMATIONS.find((a) => a === animation);
+    if (anim) for (const handle of handles) handle.play(anim);
+  },
   measure(frames) {
     const start = performance.now();
     for (let i = 0; i < frames; i++) scene.render();
@@ -303,6 +327,7 @@ function buildSwitcher(): void {
   const nav = document.getElementById('switcher');
   if (!nav || !natureVariant) return;
   document.body.dataset.interaktiv = 'ja';
+  const suffix = newFigures ? '-neu' : '';
   const row = (
     entries: readonly (readonly [string, string])[],
     current: string,
@@ -331,7 +356,7 @@ function buildSwitcher(): void {
         ['natur-wolken', 'Bewölkt'],
       ],
       natureVariant,
-      (id) => `${id}-${shot}`,
+      (id) => `${id}-${shot}${suffix}`,
     ),
     row(
       [
@@ -340,9 +365,30 @@ function buildSwitcher(): void {
         ['minispiel', 'Minispiel'],
       ],
       shot,
-      (id) => `${natureVariant}-${id}`,
+      (id) => `${natureVariant}-${id}${suffix}`,
+    ),
+    row(
+      [
+        ['alt', 'Figuren alt'],
+        ['neu', 'Figuren neu'],
+      ],
+      newFigures ? 'neu' : 'alt',
+      (id) => `${natureVariant}-${shot}${id === 'neu' ? '-neu' : ''}`,
     ),
   );
+  // Animationen ohne Neuladen abspielen (alle Figuren).
+  const anims = document.createElement('div');
+  for (const anim of CHARACTER_ANIMATIONS) {
+    const button = document.createElement('a');
+    button.href = '#';
+    button.textContent = anim;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      for (const handle of handles) handle.play(anim);
+    });
+    anims.append(button);
+  }
+  nav.append(anims);
 }
 
 if (testMode) {

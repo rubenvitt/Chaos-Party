@@ -12,6 +12,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 4000,
-    rolldownOptions: { input: 'src/lookdev/lookdev.html' },
+    // Ein einziges Skript statt hunderter Shader-Chunks (Artefakte begrenzen die Dateizahl).
+    rolldownOptions: { input: 'src/lookdev/lookdev.html', output: { inlineDynamicImports: true } },
   },
 });
