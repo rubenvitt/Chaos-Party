@@ -69,6 +69,14 @@ for (const file of await walk(join(out, 'assets'))) {
   }
 }
 
+// Neue Figuren aus Blender (CHAOS-58): Datei umbenennen, der Code hängt `.wasm` selbst an.
+const figureDir = join(out, 'lookdev-figures');
+if (existsSync(figureDir)) {
+  for (const file of await walk(figureDir)) {
+    if (file.endsWith('.glb')) await rename(file, `${file}.wasm`);
+  }
+}
+
 // HDR, glTF-Puffer und glTF-JSON.
 for (const file of await walk(assetDir)) {
   if (file.endsWith('.hdr') || file.endsWith('.bin')) {
@@ -101,7 +109,7 @@ const page = `<title>Chaos Party Naturwelt 3D</title>
 ${css ? `<link rel="stylesheet" href="./${css}">` : ''}
 ${style}
 <style>html,body{height:100%}:root{color-scheme:light}body{background:#dfe7ec}</style>
-<script>if (!/^#natur-(morgen|abend|wolken)-(brett|figur|minispiel)$/.test(location.hash)) location.hash = 'natur-morgen-brett';</script>
+<script>if (!/^#natur-(morgen|abend|wolken)-(brett|figur|minispiel)(-neu)?$/.test(location.hash)) location.hash = 'natur-abend-figur-neu';</script>
 ${body}
 <script type="module" src="./${script}"></script>
 `;

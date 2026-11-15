@@ -126,7 +126,7 @@ Details: [`testing.md`](testing.md).
 ## Nächste Schritte
 
 1. PR #5 (M2) und #6 (M3) mergen.
-2. Grafik-Neuausrichtung CHAOS-56: Look-Dev mit drei Richtungen steht (EXP-008, Vitrine `apps/host/src/lookdev/`, Entscheidungsseite https://claude.ai/artifact/P6iu4tF9iBFzfnSqgukHfR). Runde 1 → Mix A+C, etwas realistischer; Runde 2 „Stilisierte Natur“ (EXP-009, CHAOS-57) von Ruben bestätigt. Als Nächstes: Figuren (CHAOS-58), Controller-UI (CHAOS-59), Design-System, Umsetzung.
+2. Grafik-Neuausrichtung CHAOS-56: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Als Nächstes: Controller-UI (CHAOS-59), Porträts der neuen Figuren (CHAOS-61), Lichtstimmung je Brett/Tageszeit (CHAOS-60), Umsetzung des Natur-Looks im Spiel.
 3. M4 (CHAOS-4): frei sind CHAOS-36 (Lobby/Charakterwahl/Rundenzahl/Start-Pause-Ende), CHAOS-37 (Rundenende, Siegerbildschirm), CHAOS-38 (Controller komplett), CHAOS-47 (iPad-Nachtest, Ruben), CHAOS-55 (Minispiel-Feinschliff).
 
 ## Offene Risiken (Kurzfassung)

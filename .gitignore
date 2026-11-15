@@ -15,3 +15,7 @@ playwright-report/
 
 # Look-Dev-Assets (CC0, per scripts/fetch-lookdev-assets.mjs abrufbar)
 apps/host/public/lookdev-assets/
+
+apps/host/public/lookdev-figures/
+__pycache__/
+.venv-blender/
