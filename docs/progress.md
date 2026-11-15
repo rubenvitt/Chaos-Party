@@ -85,7 +85,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 
 ### Messwerte Performance (CHAOS-39)
 
-SwiftShader (Xeon 2,3 GHz ×4, Chromium 153 headless, 1280×720, Seed 2026, 4 Bots) – nur relativ, keine Aussage über echte Hardware:
+SwiftShader (Xeon 2,3 GHz ×4, Chromium 153 headless, 1280×720, Seed 2026, 4 Bots) – nur relativ, keine Aussage über echte Hardware. Historie (altes Brett aus Grundkörpern, vor CHAOS-62):
 
 | Szene | Bildabstand p50/p95 ms vorher → nachher | Draw Calls | Render-Schleifen |
 |---|---|---|---|
@@ -94,6 +94,17 @@ SwiftShader (Xeon 2,3 GHz ×4, Chromium 153 headless, 1280×720, Seed 2026, 4 Bo
 | Podest | 351/902 → 100/226 | 71 | 2 → 1 |
 
 Revanche ×3: Heap nach GC 20,0 → 21,3 MB, kein Leck. Server `board` ≈ 0,5/s à 1,4 kB. Hardware-Schwellen offen (Gerätecheckliste PF0–PF10). Details: [`performance.md`](performance.md).
+
+Nach CHAOS-62 (Natur-Look, Sparstufe `minimal` bei Software-Rendering in halber Auflösung; Baseline `tests/perf/baseline.json` neu geschrieben):
+
+| Szene | Bildabstand p50/p95 ms | Draw Calls | Render-Schleifen | Heap max MB |
+|---|---|---|---|---|
+| Brett | 204/899 | 256 (Bäume je Baum verformt, nicht instanzierbar; Schattenpass) | 1 | 194 |
+| Minispiele | 223–322 / 507–892 | 205–260 (Natur-Kulisse) | 1 | 90–120 |
+| Finale (Brett dahinter) | kein Bild | – | 1 | 175 |
+| Podest | 63/106 | 71 | 1 | 130 |
+
+Render-Pause hinter dem Finale und Messung je Szene funktionieren mit dem Natur-Brett; Revanche ×3: Heap nach GC 21,9 → 23,1 MB, kein Leck. Details: [`performance.md` §3a](performance.md#3a-nach-chaos-62-natur-look-aktuelle-baseline).
 
 ### Seeds (M4)
 
@@ -130,9 +141,9 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 |---|---|
 | `pnpm play` | ein Befehl: installiert/baut bei Bedarf, startet Port 8787, öffnet den Host (`OPEN=0` ohne Browser, `--rebuild`); frischer Klon bis `/health` ≈ 8 s (Linux) |
 | `pnpm smoke` | ok – Rauchtest des Start-Ablaufs nach `pnpm build` (≈ 1–6 s), läuft in CI |
-| `pnpm check` (M4, nach Merge von `main`) | ok – 1396 Tests in 116 Dateien, 13 Laufzeit-Pakete, 27 Asset-Einträge (Porträts als WebP + Masken) |
-| `pnpm test:e2e --trace off` (M4) | ok – 154 bestanden, 3 bewusst übersprungen, ≈ 4,5 min |
-| `pnpm perf` | ok – Messläufe Partie + Revanche ×3 gegen Baseline, ≈ 7 min (nicht in CI) |
+| `pnpm check` (M4, nach Merge von `main` mit CHAOS-62) | ok – 1419 Tests in 120 Dateien, 13 Laufzeit-Pakete, 51 Asset-Einträge (Porträts als WebP + Masken, Natur-Texturen und Himmel) |
+| `pnpm test:e2e --trace off` (M4) | ok – 154 bestanden, 3 bewusst übersprungen, ≈ 5 min; mit Natur-Brett `m4-gesamtablauf host-pause host-finale` 2× hintereinander grün |
+| `pnpm perf` | ok – Messläufe Partie + Revanche ×3 gegen Baseline, ≈ 6–7 min (nicht in CI); Baseline nach CHAOS-62 neu geschrieben |
 | `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-011 … EXP-013 |
 | `pnpm install --frozen-lockfile` | ok |
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |

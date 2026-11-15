@@ -1,6 +1,6 @@
 # Performance: Bildrate und Latenz (M4)
 
-**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-39 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
+**Stand:** 2026-11-15 (Baseline nach CHAOS-62 neu) · **Aufgabe:** CHAOS-39 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
 
 Kurz: Gemessen wird an zwei Stellen – **auf echter Hardware** mit der Messanzeige (`?debug=1`, Ruben, Abschnitt 11 der [Gerätecheckliste](device-test-checklist.md#11-m4--performance-für-chaos-43)) und **automatisch** im Headless-Chromium mit Software-Rendering (`pnpm perf`). Die automatischen Werte erlauben **nur relative Vergleiche** auf demselben Rechner (vorher/nachher). Sie sagen nichts darüber, wie flüssig das Spiel auf Rubens PC oder Fernseher läuft.
 
@@ -72,6 +72,8 @@ SwiftShader rendert WebGL **auf der CPU**. Bildabstände von 100–250 ms (4–1
 
 ## 3. Messung vorher/nachher (CHAOS-39)
 
+> **Historie:** Die Tabellen dieses Abschnitts messen das alte Brett aus Grundkörpern (vor dem Natur-Look CHAOS-62). Aktuelle Werte und Baseline: [Abschnitt 3a](#3a-nach-chaos-62-natur-look-aktuelle-baseline).
+
 **Testbedingungen:** Linux x64, Intel Xeon @ 2,30 GHz ×4, 16 GB, Node 22.23, Chromium 153 headless, ANGLE/SwiftShader, 1280×720, DPR 1; Szenario „Partie“ (4 Bots, Seed 2026); Systemlast 6–8 durch parallele Tests anderer Arbeitsstränge. „vorher“ = Stand mit Messung, ohne Optimierungen; „nachher“ = mit den Optimierungen aus Abschnitt 4. Je ein Lauf (der erste Vorher-Lauf hatte noch einen Fehler im Draw-Call-Zähler; seine Bildabstände stehen in Klammern).
 
 | Szene | Bildabstand p50 / p95 ms vorher → nachher | Draw Calls p50 | aktive Meshes | Render-Schleifen max | Kontexte max | Heap max MB |
@@ -94,12 +96,38 @@ SwiftShader rendert WebGL **auf der CPU**. Bildabstände von 100–250 ms (4–1
 
 **Lesart:** Belegt sind die strukturellen Änderungen – Brett −20 % Draw Calls, hinter dem Finale keine Brett-Bilder mehr und eine statt zwei Render-Schleifen. Am Podest halbiert das den Bildabstand bis auf ein Drittel (SwiftShader rechnet nur noch eine Szene); auf einer echten GPU ist der Gewinn kleiner, aber die doppelte Arbeit entfällt dort genauso. Die übrigen Unterschiede im Bildabstand liegen im Rauschen der Systemlast. Kein Speicherleck über drei Partien (Heap nach GC schwankt um ±0,7 MB, nach der ersten Partie sind Figuren, Shader und Schriften einmal geladen).
 
+## 3a. Nach CHAOS-62 (Natur-Look, aktuelle Baseline)
+
+Mit dem Merge von `main` (CHAOS-62, [ADR-014](decisions/ADR-014-natur-look.md)) zeigen Brett und Minispiele den Natur-Look: Insel mit Baumscheiben, Gras als Thin Instances, PBR-Materialien mit HDRI, Schatten, eigene Bäume. Bei Software-Rendering (also auch in `pnpm perf`) wählt die Szene ohne `?qualitaet=` die Sparstufe `minimal`, rendert in halber Auflösung (`setHardwareScalingLevel(2)`, 640 × 360 statt 1280 × 720) und macht größere Zeitschritte in Brett-Regie und Minispiel-Uhr. Die Zahlen sind deshalb **nicht** mit Abschnitt 3 vergleichbar; die Baseline `tests/perf/baseline.json` ist neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf`, 2026-11-15, gleicher Rechner, Systemlast ≈ 4).
+
+| Szene | Bildabstand p50 / p95 ms | Draw Calls p50 (vorher, altes Brett) | aktive Meshes | Render-Schleifen max | Kontexte max | Heap max MB | Texturen ~MB |
+|---|---|---|---|---|---|---|---|
+| lobby | 57 / 114 | 70 (70) | 42 | 1 | 1 | 25 | 4 |
+| brett | 204 / 899 | **256** (150) | 166 | 1 | 1 | 194 | 20 |
+| minispiel:sockenregen | 322 / 892 | 260 (156) | 162 | 1 | 1 | 104 | 12 |
+| minispiel:pudding-gerangel | 306 / 794 | 211 (82) | 113 | 1 | 1 | 120 | 14 |
+| minispiel:wackelturm | 223 / 507 | 205 (77) | 236 | 1 | 1 | 90 | 12 |
+| finale (Brett hinter der Zählung) | **kein Bild** | – | – | **1** | 2 | 175 | 19 |
+| podest | 63 / 106 | 71 (71) | 59 | **1** | 2 | 130 | 6 |
+
+| Weitere Werte | |
+|---|---|
+| Revanche ×3, Heap nach GC in der Lobby | 14,5 → 21,9 → 22,0 → 23,1 MB; DOM 177 → 193 → 193 → 193; je 1 Canvas, 1 Kontext |
+| Nachrichten an den Host (≈ 184 s) | `board` 96 (max 2,4 kB), `input` 6531, `lobby` 14 – wie vorher |
+| Bot-Rundlaufzeit über den Server | p50 0,51 ms, p95 0,82 ms, max 3,8 ms (n = 743) |
+
+**Lesart:**
+- **Die M4-Optimierungen tragen weiter:** Hinter der Trophäenzählung zeichnet das Natur-Brett kein Bild (`finale`: 0 Bilder, 1 Schleife), am Podest läuft nur dessen Szene (1 Schleife). Kein Speicherleck über drei Partien.
+- **Mehr Draw Calls durch den Look, nicht durch den Merge:** Brett 150 → 256, Minispiele +100 bis +130 (Kulisse aus `ctx.look`, Gras, Schattenpass). Die Baum-Instanzierung aus CHAOS-39 entfällt: Die Natur-Bäume sind je Baum verformt und je Material verschmolzen (`StaticBatch`, zwei Meshes je Baum, ≈ 30 Bäume, dazu der Schattenpass). Gleiche Geometrie für Instanzen gibt es nicht mehr.
+- **Heap und Texturspeicher steigen** durch PBR-Texturen, HDRI-Himmel und Umgebungslicht (Brett 63 → 194 MB Heap-Höchstwert, ≈ 20 MB Texturen). Der Heap nach GC in der Lobby bleibt bei ≈ 22 MB.
+- Bildabstände sind wegen halber Auflösung und Sparstufe nicht mit Abschnitt 3 vergleichbar. Wie flüssig `hoch`/`mittel`/`niedrig` auf einer echten GPU laufen, zeigen nur PF1/PF2 und N1–N3 der [Gerätecheckliste](device-test-checklist.md).
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
 |---|---|---|
 | Brett rendert hinter Trophäenzählung und Podest weiter: 2 Render-Schleifen, 2 Szenen je Bild (`finale`/`podest`: Schleifen 2) | `BoardScene.setRenderPaused`: Sobald das Finale das Brett überdeckt, stoppt `BoardStage` die Render-Schleife des Bretts; nur die Regie läuft per `requestAnimationFrame` weiter (Stand, HUD). Die Leinwand behält das letzte Bild (die Zählung ist zu 92–95 % deckend, das Podest ganz). Der Kontext bleibt: „Nochmal spielen“ führt in die Lobby, die das Brett ohnehin entsorgt. | Schleifen 2 → 1, Podest-Bildabstand p50 351 → 100 ms (SwiftShader) |
-| Brett: 15 Bäume aus je 3 Meshes = 45 Draw Calls | Bäume als Instanzen (`createInstance`) von 5 Vorlagen (Stamm, je Kronenform und Material); Wackeln weiter je Baum-Knoten | Draw Calls 187 → 150; Screenshot `host-brett` unverändert |
+| Brett: 15 Bäume aus je 3 Meshes = 45 Draw Calls | Bäume als Instanzen (`createInstance`) von 5 Vorlagen (Stamm, je Kronenform und Material); Wackeln weiter je Baum-Knoten | Draw Calls 187 → 150; Screenshot `host-brett` unverändert. **Entfallen mit CHAOS-62** (neue, je Baum verformte Bäume, siehe Abschnitt 3a) |
 | Alter Endstand nach „Nochmal spielen“: Der Server zählt `eventSeq` je Partie ab 0, die Regie hielt die neue Partie für „veraltet“ und zeigte weiter den Siegerbildschirm samt Podest (zwei Szenen) | Regie (`director.ts`) erkennt eine neue Partie (eventSeq 0 nach `game-results`) und springt auf den Stand; Unit-Test und Prüfung im Revanche-Messlauf | gefunden durch den Revanche-Messlauf; funktionaler Fehler, nicht nur Performance |
 
 Geprüft und **nicht** geändert:
@@ -112,7 +140,8 @@ Geprüft und **nicht** geändert:
 | Server-Broadcast der `board`-Views | ≈ 0,5 Nachrichten/s mit ≈ 1,4 kB; nur bei Ereignis oder geänderter Sicht (`lastViewKey`). Nicht relevant, nicht geändert |
 | `freezeActiveMeshes`, eingefrorene Materialien | JS-Render-Zeit je Bild 2–6 ms (Median) bei 60–250 ms Bildabstand: kein Engpass in SwiftShader; auf echter Hardware erst nach Rubens Messung bewerten (Figuren, Popups und Marker ändern die aktive Liste ständig) |
 | Schatten (1024er Karte, PCF) | Zeichnet nur Figuren, Wegweiser und Pokale; Änderung wäre sichtbar → nur bei Bedarf nach Hardware-Messung |
-| Minispiel Sockenregen (≈ 160 Draw Calls) | Größter Minispiel-Wert; liegt im Minispiel-Paket. Kandidat für Instanzen, falls Rubens Messung dort Ruckler zeigt |
+| Minispiel Sockenregen (≈ 160 Draw Calls, mit Natur-Kulisse ≈ 260) | Größter Minispiel-Wert; liegt im Minispiel-Paket. Kandidat für Instanzen, falls Rubens Messung dort Ruckler zeigt |
+| Natur-Bäume auf dem Brett (CHAOS-62, ≈ 30 Bäume à 2 Meshes plus Schattenpass) | Nicht instanzierbar (jeder Baum eigene Geometrie), wackeln je Baum. Zusammenfassen ginge nur mit Wind im Vertex-Shader statt Knoten-Drehung; erst nach Rubens Messung (PF2, N1–N3) und nur, wenn das Brett auf seiner GPU ruckelt |
 
 ## 5. Schwellen
 
