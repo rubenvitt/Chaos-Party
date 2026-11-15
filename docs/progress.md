@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-15 (M3 abnahmebereit) · **Aktueller Meilenstein:** M3 – Party-Identität und Minispiele (`CHAOS-3`), Abnahme CHAOS-35 offen
+**Stand:** 2026-11-15 (M3 freigegeben) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -10,8 +10,8 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 |---|---|---|---|
 | M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad offen) |
 | M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad nach M3 verschoben) ([`acceptance/M2.md`](acceptance/M2.md)) |
-| M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | umgesetzt (PR #6), **Abnahme offen** ([`acceptance/M3.md`](acceptance/M3.md)) |
-| M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | gesperrt bis M3-Freigabe |
+| M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | **APPROVED** 2026-11-15 (Optik → eigenes Epic CHAOS-56) ([`acceptance/M3.md`](acceptance/M3.md)) |
+| M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | freigegeben, als Nächstes |
 
 ## M1 – Aufgaben
 
@@ -64,7 +64,7 @@ Umgesetzt in **einem** PR ([#6](https://github.com/rubenvitt/chaos-party/pull/6)
 | CHAOS-32 | Hybrid: Wackelturm | im PR |
 | CHAOS-33 | Anleitungen, Ergebnisse, Ton, VFX, Animation (Host + Controller) | im PR |
 | CHAOS-34 | Tests Brett ↔ Minispiel, Wertung, Cleanup, Screenshot-Regression | im PR |
-| CHAOS-35 | **M3-Abnahme (Ruben)** | offen |
+| CHAOS-35 | **M3-Abnahme (Ruben)** | APPROVED 2026-11-15 |
 
 ### Seeds (M3)
 
@@ -119,15 +119,15 @@ Details: [`testing.md`](testing.md).
 | [`m2-demo.md`](m2-demo.md) | M2-Brettspiel ausprobieren |
 | [`acceptance/M2.md`](acceptance/M2.md) | Abnahmebericht M2 (APPROVED) |
 | [`m3-demo.md`](m3-demo.md) | M3-Minispiele ausprobieren |
-| [`acceptance/M3.md`](acceptance/M3.md) | Abnahmebericht M3 (offen) |
+| [`acceptance/M3.md`](acceptance/M3.md) | Abnahmebericht M3 (APPROVED) |
 | [`art-direction.md`](art-direction.md) | Stil-Leitfaden, Figuren |
 | `blockers.md` | nicht nötig (keine Blocker) |
 
 ## Nächste Schritte
 
-1. Ruben testet M3 ([`m3-demo.md`](m3-demo.md), Checkliste Abschnitte 9 und 10) und entscheidet über CHAOS-35.
-2. PR #5 (M2) und #6 (M3) mergen.
-3. Nach dem M3-Gate: iPad-Nachtest CHAOS-47 und M4 (CHAOS-4).
+1. PR #5 (M2) und #6 (M3) mergen.
+2. Grafik-Neuausrichtung CHAOS-56: Referenzen von Ruben, Look-Dev mit 2–3 Richtungen, Entscheidung.
+3. M4 (CHAOS-4): frei sind CHAOS-36 (Lobby/Charakterwahl/Rundenzahl/Start-Pause-Ende), CHAOS-37 (Rundenende, Siegerbildschirm), CHAOS-38 (Controller komplett), CHAOS-47 (iPad-Nachtest, Ruben), CHAOS-55 (Minispiel-Feinschliff).
 
 ## Offene Risiken (Kurzfassung)
 
