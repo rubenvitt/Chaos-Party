@@ -70,7 +70,8 @@ test.describe('Pause, Ende und Revanche (Node-Server, Production-Build)', () => 
       if (process.env.HOST_PAUSE_BELEG) {
         await page.evaluate(() => window.__chaos?.stepFrames(2));
         await page.screenshot({
-          path: 'docs/screenshots/m4-brett-pauseknopf.png',
+          path: 'docs/screenshots/m4-brett-pauseknopf.jpg',
+          quality: 88,
           animations: 'disabled',
         });
       }
@@ -83,7 +84,11 @@ test.describe('Pause, Ende und Revanche (Node-Server, Production-Build)', () => 
       await expect(page.getByTestId('pause-button')).toHaveCount(0);
       await page.evaluate(() => window.__chaos?.stepFrames(2));
       if (process.env.HOST_PAUSE_BELEG) {
-        await page.screenshot({ path: 'docs/screenshots/m4-pause.png', animations: 'disabled' });
+        await page.screenshot({
+          path: 'docs/screenshots/m4-pause.jpg',
+          quality: 88,
+          animations: 'disabled',
+        });
       }
       // Nur die Pause-Karte: Das Brett dahinter hängt vom Echtzeit-Ablauf der Bots ab.
       await expect(page.locator('.pause-card')).toHaveScreenshot('host-pause.png', {
@@ -157,7 +162,8 @@ test.describe('Pause, Ende und Revanche (Node-Server, Production-Build)', () => 
         // Laufendes Minispiel aus der echten Rotation (M4-Beleg, CHAOS-40).
         await page.evaluate(() => window.__chaosMinigame?.step(240));
         await page.screenshot({
-          path: 'docs/screenshots/m4-minispiel.png',
+          path: 'docs/screenshots/m4-minispiel.jpg',
+          quality: 88,
           animations: 'disabled',
         });
       }
