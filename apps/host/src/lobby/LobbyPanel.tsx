@@ -1,10 +1,15 @@
-import { CHARACTER_NAMES, defaultCharacterFor } from '@chaos-party/minigame-sdk';
-import { MAX_PLAYERS, type LobbyMessage } from '@chaos-party/protocol';
+import {
+  MAX_PLAYERS,
+  PLAYER_SLOTS,
+  type LobbyMessage,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { joinUrlForDevice, type JoinDevice } from './joinLink.ts';
+import { cardCharacter, roundOptions, roundsDuration, startState } from './lobbyState.ts';
 import { QrCode } from './QrCode.tsx';
 
 interface LobbyPanelProps {
@@ -13,7 +18,11 @@ interface LobbyPanelProps {
   readonly status: ConnectionStatus;
   readonly joinHintSeconds: number;
   readonly onStart: () => boolean;
+  /** Rundenzahl gewählt (sendet `configure`). */
+  readonly onRounds: (rounds: number) => void;
 }
+
+const ALL_SLOTS: readonly SlotNumber[] = [1, 2, 3, 4];
 
 const DEVICE_OPTIONS: readonly { device: JoinDevice; label: string; seats: string }[] = [
   { device: 'phone', label: 'iPhone', seats: '1 Spieler' },
@@ -34,19 +43,28 @@ function hostLabel(url: string): string {
  * Hinweis bei ausbleibenden Controllern (Annahmen B1/B2) und Umschalten auf eine
  * andere LAN-Adresse, falls der Server mehrere kennt (ADR-007). Ein Umschalter
  * „iPhone / iPad“ zeigt für das geteilte iPad denselben Link mit `seats=2` (CHAOS-14).
- * Je Spieler: Porträt und Name seiner Figur (CHAOS-28; bis zur Charakterwahl in M4 die
- * Standardfigur des Slots), Slot-Farbe und -Symbol.
+ * Je Spieler eine Karte (CHAOS-36): Porträt und Name der gewählten Figur (`character`, bei
+ * `null` „wählt noch …“ mit blassem Vorschlag), Slot-Farbe und -Symbol, Bereit-Status.
+ * Dazu die Rundenzahl aus `lobby.settings.roundPresets` (sendet `configure`) und der Start.
+ * Alles per Maus und Tastatur bedienbar (echte Knöpfe, sichtbarer Fokus).
  */
-export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }: LobbyPanelProps) {
+export function LobbyPanel({
+  lobby,
+  players,
+  status,
+  joinHintSeconds,
+  onStart,
+  onRounds,
+}: LobbyPanelProps) {
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
   const baseUrl = chosenUrl !== null && urls.includes(chosenUrl) ? chosenUrl : urls[0];
   const [device, setDevice] = useState<JoinDevice>('phone');
   const joinUrl = baseUrl === undefined ? undefined : joinUrlForDevice(baseUrl, device);
 
-  const connectedCount = players.filter((p) => p.connected).length;
-  const canStart = status === 'connected' && connectedCount > 0;
-  const allReady = players.length > 0 && players.every((p) => p.ready || !p.connected);
+  const start = startState(players, status);
+  const taken = new Set(players.map((p) => p.slot));
+  const freeSlots = ALL_SLOTS.filter((slot) => !taken.has(slot));
 
   const [waitedLong, setWaitedLong] = useState(false);
   const waiting = status === 'connected' && players.length === 0;
@@ -75,6 +93,7 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
     );
   }
 
+  const options = roundOptions(lobby.settings);
   return (
     <section className="lobby" aria-label="Lobby">
       <div className="lobby-card">
@@ -147,62 +166,65 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
               {players.length}/{MAX_PLAYERS}
             </span>
           </h2>
-          <ul className="lobby-players" aria-label="Beigetretene Spieler">
-            {players.map((p) => {
-              const character = defaultCharacterFor(p.slot);
-              return (
-                <li
-                  key={p.slot}
-                  className="lobby-player"
-                  data-testid={`lobby-player-${String(p.slot)}`}
-                  data-connected={p.connected}
-                  data-ready={p.ready}
-                  data-character={character}
-                  style={{ '--player-color': p.color } as CSSProperties}
-                >
-                  <span className="lobby-player-figure">
-                    <CharacterPortrait character={character} />
-                    <span className="player-dot" aria-hidden="true">
-                      <span className="player-symbol">{p.symbol}</span>
-                    </span>
+          {players.length === 0 ? (
+            <p className="lobby-empty">Noch niemand da – scannt den QR-Code!</p>
+          ) : (
+            <ul className="lobby-players" aria-label="Beigetretene Spieler">
+              {players.map((p) => (
+                <LobbyPlayerCard key={p.slot} player={p} all={players} />
+              ))}
+              {freeSlots.map((slot) => (
+                <li key={`frei-${String(slot)}`} className="lobby-player lobby-player--free">
+                  <span className="lobby-free-symbol" aria-hidden="true">
+                    {PLAYER_SLOTS[slot].symbol}
                   </span>
-                  <span className="lobby-player-label">
-                    {p.label}
-                    <span
-                      className="lobby-player-character"
-                      data-testid={`lobby-character-${String(p.slot)}`}
-                    >
-                      {CHARACTER_NAMES[character].name}
-                    </span>
-                  </span>
-                  <span className="lobby-player-state">
-                    {!p.connected ? '⚠ getrennt' : p.ready ? 'bereit ✓' : 'verbunden'}
-                  </span>
+                  <span className="lobby-free-text">Platz frei</span>
                 </li>
-              );
-            })}
-            {players.length === 0 && (
-              <li className="lobby-empty">Noch niemand da – scannt den QR-Code!</li>
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
+
+          <fieldset className="lobby-rounds" data-testid="lobby-rounds">
+            <legend>Runden</legend>
+            <div className="lobby-rounds-options">
+              {options.map((option) => (
+                <button
+                  key={option.rounds}
+                  type="button"
+                  className="lobby-rounds-option"
+                  data-testid={`rounds-${String(option.rounds)}`}
+                  data-custom={option.custom}
+                  aria-pressed={option.selected}
+                  aria-label={`${String(option.rounds)} Runden`}
+                  onClick={() => {
+                    onRounds(option.rounds);
+                  }}
+                >
+                  <span className="lobby-rounds-value">{option.rounds}</span>
+                  <span className="lobby-rounds-time">{roundsDuration(option.rounds)}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
 
           <button
             type="button"
             className="start-button"
             data-testid="start-button"
-            disabled={!canStart}
+            data-readiness={start.readiness}
+            data-highlight={start.highlighted}
+            disabled={!start.enabled}
             onClick={() => {
               onStart();
             }}
           >
             Los geht’s!
+            <span className="start-button-rounds">
+              {lobby.settings.rounds === 1 ? '1 Runde' : `${String(lobby.settings.rounds)} Runden`}
+            </span>
           </button>
-          <p className="start-hint">
-            {!canStart
-              ? 'Start, sobald mindestens ein Controller verbunden ist.'
-              : allReady
-                ? 'Alle bereit.'
-                : 'Starten geht auch, bevor alle „bereit“ getippt haben.'}
+          <p className="start-hint" data-testid="start-hint">
+            {start.hint}
           </p>
 
           {showJoinHelp && (
@@ -230,5 +252,51 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
         </div>
       </div>
     </section>
+  );
+}
+
+function LobbyPlayerCard({
+  player,
+  all,
+}: {
+  readonly player: HostPlayer;
+  readonly all: readonly HostPlayer[];
+}) {
+  const figure = cardCharacter(player, all);
+  const state = !player.connected ? '⚠ getrennt' : player.ready ? 'bereit ✓' : 'nicht bereit';
+  return (
+    <li
+      className="lobby-player"
+      data-testid={`lobby-player-${String(player.slot)}`}
+      data-connected={player.connected}
+      data-ready={player.ready}
+      data-character={player.character ?? ''}
+      data-choosing={!figure.chosen}
+      style={{ '--player-color': player.color } as CSSProperties}
+    >
+      <span className="lobby-player-figure">
+        <CharacterPortrait character={figure.character} />
+        {!figure.chosen && (
+          <span className="lobby-player-question" aria-hidden="true">
+            ?
+          </span>
+        )}
+        <span className="player-dot" aria-hidden="true">
+          <span className="player-symbol">{PLAYER_SLOTS[player.slot].symbol}</span>
+        </span>
+      </span>
+      <span className="lobby-player-label">
+        {player.label}
+        <span
+          className="lobby-player-character"
+          data-testid={`lobby-character-${String(player.slot)}`}
+        >
+          {figure.text}
+        </span>
+      </span>
+      <span className="lobby-player-state" data-testid={`lobby-state-${String(player.slot)}`}>
+        {state}
+      </span>
+    </li>
   );
 }

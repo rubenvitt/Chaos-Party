@@ -23,12 +23,40 @@ import {
   type GameMode,
   type InputIntent,
   type LobbyMessage,
+  type MinigameResultAckMessage,
   type MinigameResultMessage,
   type StartMessage,
 } from '@chaos-party/protocol';
 
 /** Inhalt einer `minigame-result`-Nachricht (ohne Umschlag). */
 export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
+
+/**
+ * Steuerbefehle des Hosts (Protokoll v4, ADR-014): Rundenzahl in der Lobby (`configure`),
+ * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
+ */
+export type HostCommand =
+  | { readonly type: 'configure'; readonly rounds: number }
+  | { readonly type: 'pause' }
+  | { readonly type: 'resume' }
+  | { readonly type: 'end-game' }
+  | { readonly type: 'rematch' };
+
+/** Baut die Protokoll-Nachricht zu einem Steuerbefehl. */
+export function createHostCommandMessage(command: HostCommand) {
+  switch (command.type) {
+    case 'configure':
+      return createMessage('configure', { rounds: command.rounds });
+    case 'pause':
+      return createMessage('pause', {});
+    case 'resume':
+      return createMessage('resume', {});
+    case 'end-game':
+      return createMessage('end-game', {});
+    case 'rematch':
+      return createMessage('rematch', {});
+  }
+}
 
 /**
  * - `connecting`: erster Verbindungsversuch läuft
@@ -85,6 +113,8 @@ export interface HostConnectionHandlers {
   onBoard?(board: BoardMessage): void;
   onInput?(intent: InputIntent, at: number): void;
   onServerError?(error: ErrorMessage): void;
+  /** Antwort auf ein gesendetes Minispiel-Ergebnis (v4, CHAOS-55). */
+  onResultAck?(ack: MinigameResultAckMessage): void;
 }
 
 export interface HostConnectionOptions {
@@ -126,6 +156,8 @@ export interface HostConnection {
    * besteht. Wiederholung und Einmaligkeit regelt `createResultSender`.
    */
   sendMinigameResult(result: MinigameResultPayload): boolean;
+  /** Sendet einen Steuerbefehl (v4); `false`, wenn gerade keine Verbindung besteht. */
+  sendCommand(command: HostCommand): boolean;
   /** Trennt endgültig (kein neuer Versuch). */
   close(): void;
 }
@@ -270,6 +302,9 @@ export function connectHost(
         case 'error':
           handlers.onServerError?.(message);
           break;
+        case 'minigame-result-ack':
+          handlers.onResultAck?.(message);
+          break;
         case 'heartbeat-ack':
           break;
       }
@@ -315,6 +350,11 @@ export function connectHost(
     sendMinigameResult(result) {
       if (socket?.readyState !== OPEN || status !== 'connected') return false;
       socket.send(encode(createMessage('minigame-result', result)));
+      return true;
+    },
+    sendCommand(command) {
+      if (socket?.readyState !== OPEN || status !== 'connected') return false;
+      socket.send(encode(createHostCommandMessage(command)));
       return true;
     },
     close() {

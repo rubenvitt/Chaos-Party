@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KeyboardState } from './keyboardInputSource.ts';
+import { isUiTarget, KeyboardState } from './keyboardInputSource.ts';
 
 describe('KeyboardState', () => {
   it('ordnet WASD Spieler 1 und Pfeile Spieler 2 zu', () => {
@@ -54,5 +54,16 @@ describe('KeyboardState', () => {
       input: { type: 'button', button: 'dash', pressed: false },
     });
     expect(kb.releaseAll()).toEqual([]);
+  });
+});
+
+describe('isUiTarget', () => {
+  it('erkennt fokussierte Bedienelemente, damit Enter/Leertaste dort wirken (CHAOS-36)', () => {
+    const element = (match: boolean) =>
+      ({ closest: () => (match ? {} : null) }) as unknown as EventTarget;
+    expect(isUiTarget(element(true))).toBe(true);
+    expect(isUiTarget(element(false))).toBe(false);
+    expect(isUiTarget(null)).toBe(false);
+    expect(isUiTarget({} as EventTarget)).toBe(false);
   });
 });

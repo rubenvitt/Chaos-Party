@@ -1,4 +1,4 @@
-import type { LobbyMessage } from '@chaos-party/protocol';
+import type { LobbyMessage, MinigameResultAckMessage } from '@chaos-party/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createBoardDirector, type BoardDirector } from '../board/director.ts';
 import { createIntentHub, type IntentHub } from '../input/webSocketInputSource.ts';
@@ -6,6 +6,7 @@ import { createBoardFeed, type BoardFeed } from './boardFeed.ts';
 import {
   connectHost,
   type ConnectionStatus,
+  type HostCommand,
   type HostConnection,
   type MinigameResultPayload,
   type StartOptions,
@@ -35,6 +36,13 @@ export interface HostSession {
   readonly start: (options?: StartOptions) => boolean;
   /** Ergebnis des laufenden Minispiels an den Server (über `results`). Stabile Referenz. */
   readonly submitMinigameResult: (result: MinigameResultPayload) => void;
+  /**
+   * Steuerbefehl an den Server (v4: `configure`, `pause`, `resume`, `end-game`, `rematch`);
+   * `false`, wenn nicht verbunden. Stabile Referenz.
+   */
+  readonly command: (command: HostCommand) => boolean;
+  /** Letzte Bestätigung eines Minispiel-Ergebnisses (v4, CHAOS-55) oder `null`. */
+  readonly resultAck: MinigameResultAckMessage | null;
 }
 
 /**
@@ -49,6 +57,7 @@ export function useHostSession(url: string | null): HostSession {
   const connectionRef = useRef<HostConnection | null>(null);
   const [status, setStatus] = useState<ConnectionStatus | null>(url === null ? null : 'connecting');
   const [lobby, setLobby] = useState<LobbyMessage | null>(null);
+  const [resultAck, setResultAck] = useState<MinigameResultAckMessage | null>(null);
 
   useEffect(() => {
     if (url === null) return;
@@ -69,6 +78,16 @@ export function useHostSession(url: string | null): HostSession {
       onServerError: (error) => {
         console.warn(`Server meldet ${error.code}: ${error.message}`);
         results.onError(error);
+      },
+      onResultAck: (ack) => {
+        if (ack.accepted)
+          console.info(`Minispiel-Ergebnis ${ack.minigameId}:${String(ack.round)} angenommen`);
+        else
+          console.warn(
+            `Minispiel-Ergebnis ${ack.minigameId}:${String(ack.round)} abgelehnt (${ack.code ?? 'ohne Code'})`,
+          );
+        results.onAck(ack);
+        setResultAck(ack);
       },
     });
     connectionRef.current = connection;
@@ -91,5 +110,21 @@ export function useHostSession(url: string | null): HostSession {
     [results],
   );
 
-  return { status, lobby, hub, director, feed, results, start, submitMinigameResult };
+  const command = useCallback(
+    (next: HostCommand) => connectionRef.current?.sendCommand(next) ?? false,
+    [],
+  );
+
+  return {
+    status,
+    lobby,
+    hub,
+    director,
+    feed,
+    results,
+    start,
+    submitMinigameResult,
+    command,
+    resultAck,
+  };
 }

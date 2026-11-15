@@ -61,6 +61,20 @@ describe('resultsDisplay', () => {
     expect(display.rows.every((row) => row.coins === null)).toBe(true);
   });
 
+  it('Münzen aus view.minigame.rewards (v4, CHAOS-55) gehen den Ereignissen vor', () => {
+    const view = minigameView('minigame-results', {
+      placements: [
+        { slot: 1, place: 1, score: 9 },
+        { slot: 2, place: 2, score: 4 },
+      ],
+      rewards: [{ slot: 1, coins: 10 }],
+    });
+    // Nach dem Neuladen fehlen die Ereignisse – der Stand reicht.
+    const display = resultsDisplay(view, INFO, null);
+    expect(display.rows.map((row) => row.coins)).toEqual([10, 0]);
+    expect(resultsDisplay(view, INFO, { 1: 99 }).rows[0]?.coins).toBe(10);
+  });
+
   it('alle gleich: „alle auf Platz 1“', () => {
     const view = minigameView(
       'minigame-results',

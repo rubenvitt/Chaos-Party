@@ -25,6 +25,8 @@ export interface ChaosMinigameTestHook {
   readonly resultState?: string | null;
   /** Nur Bühne: gezählte Effekte (im Testmodus stumm und unsichtbar). */
   readonly fx?: { readonly sounds: number; readonly bursts: number; readonly shakes: number };
+  /** Nur Bühne: Minispiel wegen Partie-Pause angehalten (v4). */
+  readonly paused?: boolean;
   /** Nur lokaler Ablauf (`?local=1&minigame=<id>&flow=1`): nächster Abschnitt (Intro → Spiel). */
   next?(): void;
 }

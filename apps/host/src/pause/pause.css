@@ -1,0 +1,136 @@
+/* Pause und vorzeitiges Ende (CHAOS-36). Tinte #1b1530, cremige Karten wie im Brett-HUD. */
+
+.pause-button {
+  position: absolute;
+  z-index: 7;
+  top: 112px;
+  left: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 12px;
+  border: 4px solid #1b1530;
+  border-radius: 999px;
+  background: #fffaf0;
+  box-shadow: 0 5px 0 #1b1530;
+  color: #1b1530;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pause-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #1b1530;
+}
+
+/* Zwei Balken als Pause-Symbol (CSS statt Glyphe: überall gleich). */
+.pause-button-icon {
+  width: 18px;
+  height: 20px;
+  background: linear-gradient(90deg, #1b1530 0 35%, transparent 35% 65%, #1b1530 65% 100%);
+}
+
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(27 21 48 / 62%);
+}
+
+.pause-card {
+  width: min(620px, 100%);
+  padding: 26px 36px 22px;
+  border: 5px solid #1b1530;
+  border-radius: 32px;
+  background: #fffaf0;
+  box-shadow: 0 10px 0 #1b1530;
+  text-align: center;
+  animation: board-pop 220ms ease-out;
+}
+
+.pause-kicker {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.pause-title {
+  margin: 0;
+  font-size: 84px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #fff;
+  -webkit-text-stroke: 3px #1b1530;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 #1b1530;
+}
+
+.pause-lead {
+  margin: 10px 0 20px;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.pause-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.pause-action {
+  min-width: 200px;
+  padding: 12px 22px;
+  border: 4px solid #1b1530;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 5px 0 #1b1530;
+  color: #1b1530;
+  font: inherit;
+  font-size: 26px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pause-action--primary {
+  background: #ffc83d;
+}
+
+.pause-action--danger {
+  background: #ffb3a7;
+}
+
+.pause-action:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #1b1530;
+}
+
+.pause-keys {
+  margin: 18px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+.pause-keys kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 6px;
+  border: 2px solid #1b1530;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pause-card {
+    animation: none;
+  }
+}

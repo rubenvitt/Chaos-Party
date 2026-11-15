@@ -9,7 +9,13 @@
  * `celebrate()` lässt die Figuren zum Ergebnis jubeln/schmollen. `dispose()` entsorgt alles:
  * Render-Schleife, Runner (räumt das Minispiel weg), Effekte, Figuren, Szene, Engine.
  *
- * Testmodus: keine Render-Schleife; `step(n)` rechnet n feste Schritte und rendert einmal.
+ * Pause (v4, ADR-014): `pause()`/`resume()` halten den Runner an (`runner.pause()`): fester Takt
+ * steht, Eingaben werden ignoriert, gehaltene Eingaben losgelassen, keine Nachholzeit. Das Bild
+ * wird weiter gerendert (Figuren-Leerlauf), die Spielzeit steht. Kommt die Pause vor dem Laden,
+ * wird der Runner direkt nach dem Vorbereiten angehalten.
+ *
+ * Testmodus: keine Render-Schleife; `step(n)` rechnet n feste Schritte und rendert einmal
+ * (in der Pause nur das Bild, ohne Schritte).
  */
 import { Engine } from '@babylonjs/core/Engines/engine.js';
 import { Color4 } from '@babylonjs/core/Maths/math.color.js';
@@ -56,6 +62,12 @@ export interface MinigameStage {
   readonly elapsedMs: number;
   readonly result: RunnerResult | null;
   readonly fxStats: FxStats;
+  /** Partie pausiert (Runner angehalten bzw. beim Laden anzuhalten). */
+  readonly paused: boolean;
+  /** Minispiel anhalten (Partie-Pause); idempotent. */
+  pause(): void;
+  /** Weiterspielen ohne Nachholzeit; idempotent. */
+  resume(): void;
   /** Spielzeit starten (idempotent; vor dem Laden: direkt danach). */
   start(): void;
   input(slot: Slot, input: MinigameInput): void;
@@ -106,7 +118,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   let library: CharacterLibrary | null = null;
   let handles = new Map<Slot, CharacterHandle>();
   // Als Objekt, damit TypeScript die Werte nach `await` nicht fälschlich festnagelt.
-  const flags = { startRequested: false, celebrated: false };
+  const flags = { startRequested: false, celebrated: false, paused: false };
   const isDisposed = () => status === 'disposed';
 
   const resize = () => {
@@ -147,6 +159,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
         options.onResult(result);
       },
     });
+    if (flags.paused) runner.pause();
     await runner.prepare();
     if (isDisposed()) return;
     // Erst wenn alle Shader/Texturen bereit sind, zeigt das erste Bild die ganze Szene
@@ -189,6 +202,19 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     get fxStats() {
       return fx.stats;
     },
+    get paused() {
+      return flags.paused;
+    },
+    pause() {
+      if (flags.paused || isDisposed()) return;
+      flags.paused = true;
+      runner?.pause();
+    },
+    resume() {
+      if (!flags.paused || isDisposed()) return;
+      flags.paused = false;
+      runner?.resume();
+    },
     start() {
       flags.startRequested = true;
       if (status === 'ready') startNow();
@@ -220,7 +246,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     },
     step(frames) {
       if (!runner) return;
-      for (let index = 0; index < frames; index++) {
+      for (let index = 0; index < frames && !flags.paused; index++) {
         if (runner.state === 'running' || runner.state === 'finished') runner.step(1);
       }
       renderOnce();

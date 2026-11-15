@@ -9,11 +9,21 @@
  * - **Ergebnis** (`minigame-results`): Anzeige aus dem autoritativen Server-Stand, Figuren
  *   jubeln/schmollen.
  *
+ * - **Pause** (v4, `view.paused`): Runner hält an (`stage.pause()`), Countdowns stehen; das
+ *   Pause-Overlay zeigt die App darüber.
+ * - **Ergebnis-Bestätigung** (v4, CHAOS-55): Lehnt der Server das Ergebnis ab
+ *   (`minigame-result-ack` mit `accepted: false`), erscheint dezent ein Hinweis mit Code.
+ *
  * Die Komponente wird je Minispiel (ID + Runde + Seed) neu eingehängt (`key`); beim Aushängen
  * entsorgt sie die ganze Bühne (Engine, Szene, Figuren, Effekte, Listener).
  */
 import type { MinigameHud, MinigameModule } from '@chaos-party/minigame-sdk/babylon';
-import { PLAYER_SLOTS, type BoardView, type SlotNumber } from '@chaos-party/protocol';
+import {
+  PLAYER_SLOTS,
+  type BoardView,
+  type MinigameResultAckMessage,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CoinIcon } from '../board/icons.tsx';
 import { soundEngine } from '../fx/audio.ts';
@@ -53,6 +63,8 @@ export interface MinigameScreenProps {
   readonly getResultState?: () => string;
   /** Nur lokaler Ablauf: nächster Abschnitt (Testhaken `next`). */
   readonly onNext?: () => void;
+  /** Letzte Ergebnis-Bestätigung des Servers (v4); Ablehnung wird dezent angezeigt. */
+  readonly resultAck?: MinigameResultAckMessage | null;
 }
 
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
@@ -156,6 +168,9 @@ export function MinigameScreen(props: MinigameScreenProps) {
           get fx() {
             return stage.fxStats;
           },
+          get paused() {
+            return stage.paused;
+          },
           next: () => {
             latest.current.props.onNext?.();
           },
@@ -185,6 +200,13 @@ export function MinigameScreen(props: MinigameScreenProps) {
       if (hook && window.__chaosMinigame === hook) delete window.__chaosMinigame;
     };
   }, [module, test, setup, plan]);
+
+  // --- Pause (v4): Runner anhalten bzw. fortsetzen -------------------------------------------
+  const paused = view.paused;
+  useEffect(() => {
+    if (paused) stageRef.current?.pause();
+    else stageRef.current?.resume();
+  }, [paused]);
 
   // --- Phasen: Spielzeit starten, Ergebnis feiern -------------------------------------------
   useEffect(() => {
@@ -255,7 +277,8 @@ export function MinigameScreen(props: MinigameScreenProps) {
   }, [test]);
 
   // Im Testmodus steht die Uhr: Countdown zeigt die Restzeit beim Empfang (stabile Bilder).
-  const clock = test ? receivedAt : Math.max(now, receivedAt);
+  // In der Pause steht sie ebenfalls (Restzeit des Servers gilt ab `pausedAt`).
+  const clock = test || paused ? receivedAt : Math.max(now, receivedAt);
   const introSeconds =
     stageName === 'intro' ? phaseSecondsLeft(view.remainingMs, receivedAt, clock) : null;
 
@@ -268,6 +291,12 @@ export function MinigameScreen(props: MinigameScreenProps) {
       soundEngine().play('tick', { pitch: introSeconds === 1 ? 1.25 : 1 });
     }
   }, [introSeconds]);
+
+  const ack = props.resultAck;
+  const rejected =
+    ack && !ack.accepted && ack.minigameId === info.id && ack.round === setup.round
+      ? (ack.code ?? 'abgelehnt')
+      : null;
 
   const results = useMemo(
     () => (stageName === 'results' ? resultsDisplay(view, info, props.rewards) : null),
@@ -298,6 +327,16 @@ export function MinigameScreen(props: MinigameScreenProps) {
         />
       )}
       {stageName === 'results' && results && <ResultsCard title={info.title} display={results} />}
+      {rejected && (
+        <p
+          className="minigame-ack"
+          role="status"
+          data-testid="result-rejected"
+          data-code={rejected}
+        >
+          Server hat das Ergebnis abgelehnt ({rejected})
+        </p>
+      )}
       {status === 'error' && (
         <p className="minigame-error" role="alert">
           Minispiel konnte nicht geladen werden.
@@ -388,7 +427,7 @@ function IntroCard({
             <li key={player.slot} className="minigame-roster-entry" style={colorStyle(player.slot)}>
               <PlayerBadge slot={player.slot} />
               <span className="minigame-roster-name">{player.name}</span>
-              <span className="minigame-roster-character">{characterName(player.slot)}</span>
+              <span className="minigame-roster-character">{characterName(view, player.slot)}</span>
             </li>
           ))}
         </ul>
@@ -457,7 +496,7 @@ function PlayHud({
               <PlayerBadge slot={player.slot} />
               <span className="minigame-score-who">
                 <span className="minigame-score-name">{player.name}</span>
-                <span className="minigame-score-character">{characterName(player.slot)}</span>
+                <span className="minigame-score-character">{characterName(view, player.slot)}</span>
               </span>
               <span className="minigame-score-value">
                 {entry?.score ?? 0}

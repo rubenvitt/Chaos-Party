@@ -3,6 +3,7 @@
  * Netzwerk- und Testcode die Szene ansprechen können, ohne die Engine zu laden.
  */
 import type { BoardDefinition } from '@chaos-party/game-core';
+import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { BoardFrame } from './director.ts';
 
@@ -30,6 +31,8 @@ export interface BoardScene {
   stepFrames(n: number): void;
   /** Weltpositionen der Spielfiguren (y = oben), nach Slot sortiert. */
   getPawnPositions(): PlayerPosition[];
+  /** Figur je Slot, wie in der Szene gebaut (gewählte Figur, v4). */
+  getPawnCharacters(): Partial<Record<SlotNumber, CharacterId>>;
   /** Meldet das Ende jedes gerenderten Frames (Debug-Messung). Liefert die Abmeldung. */
   onFrameRendered(listener: () => void): () => void;
   getRendererInfo(): RendererInfo;

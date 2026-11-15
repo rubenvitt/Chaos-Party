@@ -127,6 +127,37 @@ describe('createResultSender', () => {
     expect(u.sender.state).toBe('sent');
   });
 
+  it('wertet minigame-result-ack aus (v4, CHAOS-55)', () => {
+    const t = setup();
+    t.sender.onView(PLAY);
+    t.sender.submit(RESULT);
+    // Bestätigung zu einem anderen Minispiel zählt nicht.
+    t.sender.onAck({ minigameId: 'pump-parade', round: 1, accepted: false, code: 'out-of-phase' });
+    expect(t.sender.state).toBe('sent');
+    expect(t.sender.lastAck).toBeNull();
+    t.sender.onAck({ minigameId: 'pump-parade', round: 2, accepted: true });
+    expect(t.sender.state).toBe('accepted');
+    expect(t.sender.lastAck).toEqual({ minigameId: 'pump-parade', round: 2, accepted: true });
+
+    const u = setup();
+    u.sender.onView(PLAY);
+    u.sender.submit(RESULT);
+    // `out-of-phase` allein (könnte ein Steuerbefehl sein) ändert nichts, das `ack` entscheidet.
+    u.sender.onError({ code: 'out-of-phase', message: 'Kein Spiel' });
+    expect(u.sender.state).toBe('sent');
+    u.sender.onAck({
+      minigameId: 'pump-parade',
+      round: 2,
+      accepted: false,
+      code: 'invalid-result',
+    });
+    expect(u.sender.state).toBe('rejected');
+    expect(u.sender.lastAck?.code).toBe('invalid-result');
+    expect(u.warnings).toEqual([
+      'Server lehnt Minispiel-Ergebnis pump-parade:2 ab (invalid-result)',
+    ]);
+  });
+
   it('höchstens MAX_RESULT_ATTEMPTS Sendungen bei ständigem Verbindungsverlust', () => {
     const t = setup();
     t.sender.onView(PLAY);

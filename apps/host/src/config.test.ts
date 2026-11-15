@@ -1,6 +1,6 @@
 import { PLAYER_SLOTS } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CONFIG, parseHostConfig, serverWebSocketUrl } from './config.ts';
+import { DEFAULT_CONFIG, finaleSpeedOf, parseHostConfig, serverWebSocketUrl } from './config.ts';
 import { createLocalPlayers, playersFromLobby } from './players.ts';
 
 describe('parseHostConfig', () => {
@@ -42,6 +42,7 @@ describe('parseHostConfig', () => {
       flow: false,
       mute: false,
       volume: 70,
+      finale: null,
     });
     expect(DEFAULT_CONFIG.debug).toBe(false);
     expect(parseHostConfig('?debug=true').debug).toBe(true);
@@ -75,6 +76,17 @@ describe('parseHostConfig', () => {
   });
 });
 
+describe('finale', () => {
+  it('liest ?finale= und wählt den Standard je Modus', () => {
+    expect(parseHostConfig('?finale=fast').finale).toBe('fast');
+    expect(parseHostConfig('?finale=manual').finale).toBe('manual');
+    expect(parseHostConfig('?finale=quatsch').finale).toBeNull();
+    expect(finaleSpeedOf({ finale: null, test: false })).toBe('normal');
+    expect(finaleSpeedOf({ finale: null, test: true })).toBe('skip');
+    expect(finaleSpeedOf({ finale: 'manual', test: true })).toBe('manual');
+  });
+});
+
 describe('serverWebSocketUrl', () => {
   it('nutzt denselben Ursprung mit /ws', () => {
     expect(serverWebSocketUrl({ protocol: 'http:', host: 'localhost:8787' })).toBe(
@@ -101,7 +113,14 @@ describe('createLocalPlayers', () => {
 describe('playersFromLobby', () => {
   it('übernimmt nur beigetretene Slots, sortiert, mit Server-Farbe und -Bezeichnung', () => {
     const players = playersFromLobby([
-      { slot: 3, color: '#009E73', label: 'Mia', connected: false, ready: true, character: null },
+      {
+        slot: 3,
+        color: '#009E73',
+        label: 'Mia',
+        connected: false,
+        ready: true,
+        character: 'sock',
+      },
       { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
     ]);
     expect(players).toEqual([
@@ -112,6 +131,7 @@ describe('playersFromLobby', () => {
         symbol: PLAYER_SLOTS[1].symbol,
         connected: true,
         ready: false,
+        character: null,
       },
       {
         slot: 3,
@@ -120,6 +140,7 @@ describe('playersFromLobby', () => {
         symbol: PLAYER_SLOTS[3].symbol,
         connected: false,
         ready: true,
+        character: 'sock',
       },
     ]);
   });

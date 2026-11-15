@@ -13,8 +13,11 @@
  *   `minigame-play` derselben Runde zeigt – dann kam es nicht an.
  * - **Nicht endlos:** Lehnt der Server ab (`invalid-result`/`out-of-phase`), wird das
  *   protokolliert und nicht wiederholt; höchstens `MAX_RESULT_ATTEMPTS` Sendungen.
+ * - **Bestätigung (v4, CHAOS-55):** Der Server antwortet auf jedes Ergebnis mit
+ *   `minigame-result-ack`. `accepted: true` → `accepted`, `false` → `rejected` (mit Code in
+ *   `lastAck`, für die Debug-Anzeige). Ein `ack` zu einem anderen Minispiel zählt nicht.
  */
-import type { BoardView, ErrorMessage } from '@chaos-party/protocol';
+import type { BoardView, ErrorMessage, MinigameResultAckMessage } from '@chaos-party/protocol';
 import type { MinigameResultPayload } from './hostConnection.ts';
 
 export const MAX_RESULT_ATTEMPTS = 5;
@@ -41,6 +44,10 @@ export interface ResultSender {
   onDisconnected(): void;
   /** Fehlermeldung des Servers. */
   onError(error: Pick<ErrorMessage, 'code' | 'message'>): void;
+  /** Bestätigung des Servers zu einem Ergebnis (v4). */
+  onAck(ack: Omit<MinigameResultAckMessage, 'v' | 'type'>): void;
+  /** Letzte Bestätigung zum aktuellen Ergebnis oder `null`. */
+  readonly lastAck: Omit<MinigameResultAckMessage, 'v' | 'type'> | null;
   /**
    * Sendefunktion der aktuellen Verbindung (`false` = gerade nicht verbunden) oder `null`.
    * Wird nachträglich gesetzt, weil die Verbindung jünger ist als der Versand.
@@ -78,6 +85,7 @@ export function createResultSender(options: ResultSenderOptions = {}): ResultSen
   let attempts = 0;
   let latest: BoardView | null = null;
   let send = options.send ?? null;
+  let lastAck: Omit<MinigameResultAckMessage, 'v' | 'type'> | null = null;
 
   const keyOf = (result: MinigameResultPayload) => `${result.minigameId}:${String(result.round)}`;
 
@@ -118,11 +126,15 @@ export function createResultSender(options: ResultSenderOptions = {}): ResultSen
     get attempts() {
       return attempts;
     },
+    get lastAck() {
+      return lastAck;
+    },
     submit(result) {
       if (current && keyOf(current) === keyOf(result)) return;
       current = result;
       state = 'pending';
       attempts = 0;
+      lastAck = null;
       update();
     },
     onView(view) {
@@ -138,10 +150,22 @@ export function createResultSender(options: ResultSenderOptions = {}): ResultSen
       update();
     },
     onError(error) {
-      if (error.code !== 'invalid-result' && error.code !== 'out-of-phase') return;
+      // `out-of-phase` kann seit v4 auch einen Steuerbefehl (Pause …) betreffen; über das
+      // Ergebnis entscheidet dann das `ack`. `invalid-result` gehört immer zum Ergebnis.
+      if (error.code !== 'invalid-result') return;
       if (state !== 'sent' || !current) return;
       state = 'rejected';
       warn(`Server lehnt Minispiel-Ergebnis ${keyOf(current)} ab: ${error.message}`);
+    },
+    onAck(ack) {
+      if (ack.minigameId !== current?.minigameId || ack.round !== current.round) return;
+      lastAck = ack;
+      if (ack.accepted) {
+        state = 'accepted';
+        return;
+      }
+      state = 'rejected';
+      warn(`Server lehnt Minispiel-Ergebnis ${keyOf(current)} ab (${ack.code ?? 'ohne Code'})`);
     },
   };
 }

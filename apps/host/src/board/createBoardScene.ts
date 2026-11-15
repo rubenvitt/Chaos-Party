@@ -3,8 +3,9 @@
  * Spielfiguren, Trophäe, Fallen, Wegweiser, Popups und eine Kamera, die sanft dem aktiven
  * Spieler folgt. Brett aus Grundkörpern (M2), verspielt und vom Sofa aus lesbar.
  *
- * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (Slot n → Figur n,
- * `defaultCharacterFor`) auf einem Spielstein-Sockel in Slot-Farbe, darüber das Slot-Symbol.
+ * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (gewählte Figur aus
+ * `BoardPlayer.character`, CHAOS-36) auf einem Spielstein-Sockel in Slot-Farbe, darüber das
+ * Slot-Symbol.
  * Laufen spielt `run`, Trophäenkauf `cheer`, Münzverlust/Falle/Klau `hit`, Münzgewinn `jump`;
  * im Stand drehen sich die Figuren zur Kamera, beim Hüpfen in Laufrichtung.
  *
@@ -31,9 +32,8 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import type { BoardSpace, SpaceKind } from '@chaos-party/game-core';
-import { defaultCharacterFor } from '@chaos-party/minigame-sdk';
 import type { CharacterAnimation } from '@chaos-party/minigame-sdk/babylon';
-import { PLAYER_SLOTS, type SlotNumber } from '@chaos-party/protocol';
+import { PLAYER_SLOTS, type CharacterId, type SlotNumber } from '@chaos-party/protocol';
 import {
   loadCharacters,
   type CharacterLibrary,
@@ -873,7 +873,7 @@ export function createBoardScene(
     }
   }
 
-  function createPawn(slot: SlotNumber, library: CharacterLibrary): Pawn {
+  function createPawn(slot: SlotNumber, characterId: CharacterId, library: CharacterLibrary): Pawn {
     const style = PLAYER_SLOTS[slot];
     const root = new TransformNode(`figur-${slot}`, scene);
     const white = material('#ffffff', 0.35);
@@ -917,7 +917,7 @@ export function createBoardScene(
       name: style.label,
       color: style.color,
       symbol: style.symbol,
-      character: defaultCharacterFor(slot),
+      character: characterId,
     });
     character.root.parent = facing;
 
@@ -1012,8 +1012,14 @@ export function createBoardScene(
     const offsets = spreadPawns(standing);
     for (const fp of framePawns) {
       let pawn = pawns.get(fp.slot);
+      if (pawn && pawn.character.id !== fp.character) {
+        // Andere Figur im Slot (neue Partie nach der Revanche): Spielstein neu bauen.
+        disposePawn(pawn);
+        pawns.delete(fp.slot);
+        pawn = undefined;
+      }
       if (!pawn) {
-        pawn = createPawn(fp.slot, library);
+        pawn = createPawn(fp.slot, fp.character, library);
         pawns.set(fp.slot, pawn);
       }
       applyConnected(pawn, fp.connected);
@@ -1251,6 +1257,11 @@ export function createBoardScene(
       return [...pawns.values()]
         .map((p) => ({ slot: p.slot, x: p.position.x, y: p.position.y, z: p.position.z }))
         .sort((a, b) => a.slot - b.slot);
+    },
+    getPawnCharacters() {
+      const result: Partial<Record<SlotNumber, CharacterId>> = {};
+      for (const pawn of pawns.values()) result[pawn.slot] = pawn.character.id;
+      return result;
     },
     onFrameRendered(listener) {
       const observer = scene.onAfterRenderObservable.add(() => {

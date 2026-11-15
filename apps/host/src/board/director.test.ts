@@ -193,6 +193,56 @@ describe('createBoardDirector', () => {
     expect(director.getHud().promptSeconds).toBe(0);
   });
 
+  it('Pause (v4): Countdown steht still, solange der Stand pausiert ist', () => {
+    const director = started();
+    const view: BoardView = {
+      ...DEMO_VIEW,
+      gamePhase: 'reaction-window',
+      paused: true,
+      prompt: {
+        id: 9,
+        slot: 4,
+        kind: 'reaction',
+        title: 'Achtung!',
+        options: [{ id: 'brace', label: 'Festhalten!' }],
+        remainingMs: 2400,
+      },
+    };
+    director.receive(msg(view, [], 0));
+    director.advance(10_000);
+    expect(director.getHud().promptSeconds).toBe(3);
+    // Fortsetzen: neuer Stand, Restzeit läuft ab Empfang.
+    director.receive(msg({ ...view, paused: false }, [], 0));
+    director.advance(1000);
+    expect(director.getHud().promptSeconds).toBe(2);
+  });
+
+  it('Figuren je Slot aus dem Stand (gewählte Figur, v4)', () => {
+    const director = createBoardDirector();
+    director.receive(
+      msg(
+        {
+          ...DEMO_VIEW,
+          players: DEMO_VIEW.players.map((p) =>
+            p.slot === 1
+              ? { ...p, character: 'sock' }
+              : p.slot === 4
+                ? { ...p, character: 'robot' }
+                : p,
+          ),
+        },
+        [],
+        0,
+      ),
+    );
+    expect(director.getFrame().pawns.map((p) => p.character)).toEqual([
+      'sock',
+      'cactus',
+      'raccoon',
+      'robot',
+    ]);
+  });
+
   it('meldet HUD-Änderungen, aber nicht bei jedem Frame', () => {
     const director = started();
     const listener = vi.fn();
