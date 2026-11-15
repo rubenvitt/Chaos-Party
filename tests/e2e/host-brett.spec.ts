@@ -288,7 +288,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     });
     await playUntilIdle(page);
     const minigame = page.getByTestId('board-minigame');
-    await expect(minigame).toContainText('Minispiel – kommt in M3');
+    await expect(minigame).toContainText('Plätze werden ausgelost');
     await expect(minigame).toContainText('noch 3 s');
 
     await feed(page, {

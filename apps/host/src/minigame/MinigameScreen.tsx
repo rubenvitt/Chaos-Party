@@ -1,0 +1,540 @@
+/**
+ * Minispiel-Bühne im Spielablauf (M3, CHAOS-26/33): ersetzt in den Minispiel-Phasen das Brett.
+ *
+ * - **Intro** (`minigame-intro`): Szene ist vorbereitet, darüber die Anleitungskarte mit Titel,
+ *   Untertitel, Anleitung, Bedienung (Joystick/A/B mit Symbol) und Countdown.
+ * - **Spiel** (`minigame-play`): Runner läuft; Eingaben vom Server (`input`) und der Tastatur;
+ *   HUD mit Restzeit, Punkten je Spieler (Farbe + Symbol + Figur), Status und Banner. Das
+ *   Ergebnis geht über `onResult` (genau einmal) an den Versand.
+ * - **Ergebnis** (`minigame-results`): Anzeige aus dem autoritativen Server-Stand, Figuren
+ *   jubeln/schmollen.
+ *
+ * Die Komponente wird je Minispiel (ID + Runde + Seed) neu eingehängt (`key`); beim Aushängen
+ * entsorgt sie die ganze Bühne (Engine, Szene, Figuren, Effekte, Listener).
+ */
+import type { MinigameHud, MinigameModule } from '@chaos-party/minigame-sdk/babylon';
+import { PLAYER_SLOTS, type BoardView, type SlotNumber } from '@chaos-party/protocol';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { CoinIcon } from '../board/icons.tsx';
+import { soundEngine } from '../fx/audio.ts';
+import type { IntentHub } from '../input/webSocketInputSource.ts';
+import type { ConnectionStatus, MinigameResultPayload } from '../net/hostConnection.ts';
+import { ButtonIcon, JoystickIcon } from './icons.tsx';
+import { MinigameKeyboard } from './keyboard.ts';
+import {
+  characterName,
+  intentToMinigameInput,
+  minigameStageOf,
+  phaseSecondsLeft,
+  planPlay,
+  playersFromView,
+  type MinigameStageName,
+} from './plan.ts';
+import { resultPayload, resultsDisplay } from './results.ts';
+import { createMinigameStage, type MinigameStage, type StageStatus } from './stage.ts';
+import type { ChaosMinigameTestHook } from './testHook.ts';
+
+export interface MinigameScreenProps {
+  /** Neuester Server-Stand (Phase `minigame-*` dieses Minispiels). */
+  readonly view: BoardView;
+  /** Empfangszeit des Stands (`performance.now()`). */
+  readonly receivedAt: number;
+  /** Münzgewinne laut Server-Ereignissen (`null` = unbekannt). */
+  readonly rewards: Readonly<Partial<Record<SlotNumber, number>>> | null;
+  readonly module: MinigameModule;
+  /** Verbindungsstatus; `null` im lokalen Ablauf. */
+  readonly connection: ConnectionStatus | null;
+  readonly test: boolean;
+  /** Geprüfte Controller-Eingaben vom Server (`null` lokal). */
+  readonly hub: Pick<IntentHub, 'subscribe'> | null;
+  readonly onResult: (result: MinigameResultPayload) => void;
+  readonly onReady?: (ready: boolean) => void;
+  /** Zustand des Ergebnis-Versands für den Testhaken. */
+  readonly getResultState?: () => string;
+  /** Nur lokaler Ablauf: nächster Abschnitt (Testhaken `next`). */
+  readonly onNext?: () => void;
+}
+
+const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
+  connecting: 'Server: verbinde …',
+  connected: 'Server: verbunden',
+  disconnected: 'Server: getrennt – verbinde neu …',
+  'host-taken': 'Anderes Spielfenster ist schon verbunden – warte …',
+};
+
+function colorStyle(slot: SlotNumber): CSSProperties {
+  return { '--player-color': PLAYER_SLOTS[slot].color } as CSSProperties;
+}
+
+function PlayerBadge({ slot }: { readonly slot: SlotNumber }) {
+  return (
+    <span className="minigame-badge" aria-hidden="true" style={colorStyle(slot)}>
+      {PLAYER_SLOTS[slot].symbol}
+    </span>
+  );
+}
+
+export function MinigameScreen(props: MinigameScreenProps) {
+  const { view, receivedAt, module, test, hub, connection } = props;
+  const { info } = module;
+  const stageName: MinigameStageName = minigameStageOf(view) ?? 'intro';
+  const minigame = view.minigame;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<MinigameStage | null>(null);
+  const [status, setStatus] = useState<StageStatus>('loading');
+  const [hud, setHud] = useState<MinigameHud | null>(null);
+  const [now, setNow] = useState(() => performance.now());
+  // Beim Einhängen festgelegt: Spieler, Seed, Runde, Spielzeit (bzw. Restzeit nach Neuladen).
+  const [setup] = useState(() => ({
+    players: playersFromView(view),
+    seed: minigame?.seed ?? 0,
+    round: minigame?.round ?? view.round,
+    plan: planPlay(view, receivedAt, performance.now()),
+  }));
+  const { plan } = setup;
+
+  // Aktuelle Props für Rückrufe aus Effekten, die nur einmal laufen.
+  const latest = useRef({ props, stageName });
+  useEffect(() => {
+    latest.current = { props, stageName };
+  });
+  const networkInputs = useRef<Partial<Record<SlotNumber, number>>>({});
+
+  // --- Bühne aufbauen und entsorgen -----------------------------------------------------------
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'game-canvas';
+    canvas.setAttribute('aria-label', `Minispiel ${module.info.title}`);
+    container.appendChild(canvas);
+    const stage = createMinigameStage({
+      canvas,
+      module,
+      players: setup.players,
+      seed: setup.seed,
+      timeLimitMs: plan.kind === 'play' ? plan.timeLimitMs : module.info.durationMs,
+      testMode: test,
+      sound: soundEngine(),
+      onResult: (result) => {
+        latest.current.props.onResult(resultPayload(result.result, setup.round));
+      },
+    });
+    stageRef.current = stage;
+    let active = true;
+
+    const hook: ChaosMinigameTestHook | undefined = test
+      ? {
+          ready: false,
+          id: module.info.id,
+          get state() {
+            return stage.runnerState ?? 'created';
+          },
+          get elapsedMs() {
+            return stage.elapsedMs;
+          },
+          get result() {
+            return stage.result?.result ?? null;
+          },
+          step: (frames: number) => {
+            stage.step(frames);
+            setHud(stage.hud());
+          },
+          input: (slot, input) => {
+            stage.input(slot, input);
+          },
+          hud: () => stage.hud(),
+          get stage() {
+            return latest.current.stageName;
+          },
+          get networkInputs() {
+            return { ...networkInputs.current };
+          },
+          get resultState() {
+            return latest.current.props.getResultState?.() ?? null;
+          },
+          get fx() {
+            return stage.fxStats;
+          },
+          next: () => {
+            latest.current.props.onNext?.();
+          },
+        }
+      : undefined;
+    if (hook) window.__chaosMinigame = hook;
+
+    stage.ready.then(
+      () => {
+        if (!active) return;
+        setStatus('ready');
+        setHud(stage.hud());
+        if (hook) hook.ready = true;
+        latest.current.props.onReady?.(true);
+      },
+      () => {
+        if (active) setStatus('error');
+      },
+    );
+
+    return () => {
+      active = false;
+      stage.dispose();
+      canvas.remove();
+      stageRef.current = null;
+      latest.current.props.onReady?.(false);
+      if (hook && window.__chaosMinigame === hook) delete window.__chaosMinigame;
+    };
+  }, [module, test, setup, plan]);
+
+  // --- Phasen: Spielzeit starten, Ergebnis feiern -------------------------------------------
+  useEffect(() => {
+    if (stageName === 'play' && plan.kind === 'play') stageRef.current?.start();
+  }, [stageName, plan]);
+
+  const placements = minigame?.placements ?? null;
+  const aborted = minigame?.aborted ?? false;
+  useEffect(() => {
+    if (stageName !== 'results' || status !== 'ready' || aborted || !placements) return;
+    stageRef.current?.celebrate(placements);
+  }, [stageName, status, aborted, placements]);
+
+  // --- Verbindungsstatus der Spieler → neutrale Eingaben bei Trennung -------------------------
+  useEffect(() => {
+    if (status !== 'ready') return;
+    for (const player of view.players)
+      stageRef.current?.setConnected(player.slot, player.connected);
+  }, [view.players, status]);
+
+  // --- Eingaben: Server und Tastatur ----------------------------------------------------------
+  useEffect(() => {
+    if (!hub) return;
+    return hub.subscribe((intent) => {
+      const mapped = intentToMinigameInput(intent);
+      if (!mapped) return;
+      networkInputs.current[mapped.slot] = (networkInputs.current[mapped.slot] ?? 0) + 1;
+      stageRef.current?.input(mapped.slot, mapped.input);
+    });
+  }, [hub]);
+
+  useEffect(() => {
+    const keyboard = new MinigameKeyboard();
+    const apply = (code: string, pressed: boolean) => {
+      for (const { slot, input } of keyboard.key(code, pressed))
+        stageRef.current?.input(slot, input);
+    };
+    const down = (event: KeyboardEvent) => {
+      if (!event.repeat) apply(event.code, true);
+    };
+    const up = (event: KeyboardEvent) => {
+      apply(event.code, false);
+    };
+    const blur = () => {
+      for (const { slot, input } of keyboard.releaseAll()) stageRef.current?.input(slot, input);
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+    };
+  }, []);
+
+  // --- HUD und Uhr (nicht im Testmodus: dort treibt `step` die Anzeige) -----------------------
+  useEffect(() => {
+    if (test) return;
+    const timer = setInterval(() => {
+      setNow(performance.now());
+      const stage = stageRef.current;
+      if (stage?.status === 'ready') setHud(stage.hud());
+    }, 100);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [test]);
+
+  // Im Testmodus steht die Uhr: Countdown zeigt die Restzeit beim Empfang (stabile Bilder).
+  const clock = test ? receivedAt : Math.max(now, receivedAt);
+  const introSeconds =
+    stageName === 'intro' ? phaseSecondsLeft(view.remainingMs, receivedAt, clock) : null;
+
+  // --- Klänge: Minispiel-Start, Countdown-Ticks ----------------------------------------------
+  useEffect(() => {
+    if (latest.current.stageName === 'intro') soundEngine().play('minigame-start');
+  }, []);
+  useEffect(() => {
+    if (introSeconds !== null && introSeconds >= 1 && introSeconds <= 3) {
+      soundEngine().play('tick', { pitch: introSeconds === 1 ? 1.25 : 1 });
+    }
+  }, [introSeconds]);
+
+  const results = useMemo(
+    () => (stageName === 'results' ? resultsDisplay(view, info, props.rewards) : null),
+    [stageName, view, info, props.rewards],
+  );
+
+  return (
+    <div
+      className="minigame-screen"
+      data-testid="minigame-screen"
+      data-stage={stageName}
+      data-minigame={info.id}
+      data-status={status}
+    >
+      <div className="stage" ref={containerRef} />
+      {stageName === 'intro' && (
+        <IntroCard module={module} view={view} seconds={introSeconds} players={setup.players} />
+      )}
+      {stageName === 'play' && (
+        <PlayHud
+          module={module}
+          view={view}
+          hud={hud}
+          waiting={plan.kind === 'wait'}
+          remainingMs={
+            plan.kind === 'play' ? (hud?.remainingMs ?? plan.timeLimitMs) : plan.remainingMs
+          }
+        />
+      )}
+      {stageName === 'results' && results && <ResultsCard title={info.title} display={results} />}
+      {status === 'error' && (
+        <p className="minigame-error" role="alert">
+          Minispiel konnte nicht geladen werden.
+        </p>
+      )}
+      {connection !== null && connection !== 'connected' && (
+        <div className="minigame-connection" data-testid="connection" data-status={connection}>
+          {CONNECTION_TEXT[connection]}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Anleitung
+// ---------------------------------------------------------------------------------------------
+
+function IntroCard({
+  module,
+  view,
+  seconds,
+  players,
+}: {
+  readonly module: MinigameModule;
+  readonly view: BoardView;
+  readonly seconds: number | null;
+  readonly players: readonly { readonly slot: SlotNumber; readonly name: string }[];
+}) {
+  const { info } = module;
+  const { controls } = info;
+  return (
+    <div className="minigame-overlay" data-testid="minigame-intro">
+      <section className="minigame-card minigame-card--intro" aria-label="Anleitung">
+        <header className="minigame-card-head">
+          <p className="minigame-kicker">Minispiel · Runde {view.minigame?.round ?? view.round}</p>
+          {seconds !== null && (
+            <p
+              className="minigame-countdown"
+              data-testid="minigame-countdown"
+              data-seconds={seconds}
+            >
+              <span className="minigame-countdown-label">Los in</span>
+              <span className="minigame-countdown-value">{seconds}</span>
+            </p>
+          )}
+        </header>
+        <h2 className="minigame-title" data-testid="minigame-title">
+          {info.title}
+        </h2>
+        <p className="minigame-tagline">{info.tagline}</p>
+        <ol className="minigame-instructions">
+          {info.instructions.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ol>
+        <ul className="minigame-controls" aria-label="Bedienung" data-testid="minigame-controls">
+          {controls.joystick !== null && (
+            <li className="minigame-control" data-control="joystick">
+              <JoystickIcon />
+              <span>
+                <b>Joystick</b>
+                {controls.joystick}
+              </span>
+            </li>
+          )}
+          {controls.a !== null && (
+            <li className="minigame-control" data-control="a">
+              <ButtonIcon letter="A" />
+              <span>
+                <b>Knopf A</b>
+                {controls.a}
+              </span>
+            </li>
+          )}
+          {controls.b !== null && (
+            <li className="minigame-control" data-control="b">
+              <ButtonIcon letter="B" />
+              <span>
+                <b>Knopf B</b>
+                {controls.b}
+              </span>
+            </li>
+          )}
+        </ul>
+        <ul className="minigame-roster" aria-label="Mitspieler">
+          {players.map((player) => (
+            <li key={player.slot} className="minigame-roster-entry" style={colorStyle(player.slot)}>
+              <PlayerBadge slot={player.slot} />
+              <span className="minigame-roster-name">{player.name}</span>
+              <span className="minigame-roster-character">{characterName(player.slot)}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Spiel-HUD
+// ---------------------------------------------------------------------------------------------
+
+function PlayHud({
+  module,
+  view,
+  hud,
+  waiting,
+  remainingMs,
+}: {
+  readonly module: MinigameModule;
+  readonly view: BoardView;
+  readonly hud: MinigameHud | null;
+  readonly waiting: boolean;
+  readonly remainingMs: number;
+}) {
+  const { info } = module;
+  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const scores = new Map((hud?.scores ?? []).map((entry) => [entry.slot, entry]));
+  const players = [...view.players].sort((a, b) => a.slot - b.slot);
+  return (
+    <div className="minigame-hud" data-testid="minigame-hud">
+      <header className="minigame-hud-top">
+        <p className="minigame-hud-title">{info.title}</p>
+        <p
+          className="minigame-timer"
+          data-testid="minigame-timer"
+          data-seconds={seconds}
+          data-urgent={seconds <= 3}
+        >
+          {seconds}
+          <span className="minigame-timer-unit">s</span>
+        </p>
+      </header>
+      {hud?.banner && (
+        <p className="minigame-banner" data-testid="minigame-banner">
+          {hud.banner}
+        </p>
+      )}
+      {waiting && (
+        <p className="minigame-banner minigame-banner--wait" data-testid="minigame-wait">
+          Gleich vorbei – der Server wertet aus …
+        </p>
+      )}
+      <ul className="minigame-scores" aria-label="Punkte">
+        {players.map((player) => {
+          const entry = scores.get(player.slot);
+          const statusText = player.connected ? entry?.status : '⚠ getrennt';
+          return (
+            <li
+              key={player.slot}
+              className="minigame-score"
+              data-testid={`minigame-score-${player.slot}`}
+              data-connected={player.connected}
+              style={colorStyle(player.slot)}
+            >
+              <PlayerBadge slot={player.slot} />
+              <span className="minigame-score-who">
+                <span className="minigame-score-name">{player.name}</span>
+                <span className="minigame-score-character">{characterName(player.slot)}</span>
+              </span>
+              <span className="minigame-score-value">
+                {entry?.score ?? 0}
+                <span className="minigame-score-unit">{info.scoreUnit}</span>
+              </span>
+              {statusText && <span className="minigame-score-status">{statusText}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ergebnis
+// ---------------------------------------------------------------------------------------------
+
+function ResultsCard({
+  title,
+  display,
+}: {
+  readonly title: string;
+  readonly display: ReturnType<typeof resultsDisplay>;
+}) {
+  return (
+    <div className="minigame-overlay" data-testid="minigame-results" data-aborted={display.aborted}>
+      <section className="minigame-card minigame-card--results" aria-label="Ergebnis">
+        <p className="minigame-kicker">Ergebnis · {title}</p>
+        <h2 className="minigame-title minigame-headline" data-testid="minigame-headline">
+          {display.headline}
+        </h2>
+        {display.aborted ? (
+          <p className="minigame-tagline">Das Ergebnis kam nicht rechtzeitig an.</p>
+        ) : (
+          <ol className="minigame-ranking">
+            {display.rows.map((row) => (
+              <li
+                key={row.slot}
+                className="minigame-rank"
+                data-testid={`minigame-rank-${row.slot}`}
+                data-place={row.place}
+                data-tied={row.tied}
+                style={colorStyle(row.slot)}
+              >
+                <span className="minigame-rank-place">
+                  {row.place}.{row.tied && <span className="minigame-rank-tie">geteilt</span>}
+                </span>
+                <PlayerBadge slot={row.slot} />
+                <span className="minigame-rank-who">
+                  <span className="minigame-rank-name">{row.name}</span>
+                  <span className="minigame-rank-character">{row.character}</span>
+                </span>
+                <span className="minigame-rank-score">{row.scoreText}</span>
+                <span
+                  className="minigame-rank-coins"
+                  data-testid={`minigame-coins-${row.slot}`}
+                  data-coins={row.coins ?? ''}
+                >
+                  {row.coins !== null && (
+                    <>
+                      <CoinIcon size={30} />+{row.coins}
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {display.highlights.length > 0 && (
+          <ul className="minigame-highlights" aria-label="Höhepunkte">
+            {display.highlights.map((line) => (
+              <li key={line}>★ {line}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}

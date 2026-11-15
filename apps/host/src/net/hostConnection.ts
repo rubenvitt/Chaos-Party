@@ -23,8 +23,12 @@ import {
   type GameMode,
   type InputIntent,
   type LobbyMessage,
+  type MinigameResultMessage,
   type StartMessage,
 } from '@chaos-party/protocol';
+
+/** Inhalt einer `minigame-result`-Nachricht (ohne Umschlag). */
+export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
  * - `connecting`: erster Verbindungsversuch läuft
@@ -117,6 +121,11 @@ export interface HostConnection {
   readonly status: ConnectionStatus;
   /** Sendet `start`; `false`, wenn gerade keine Verbindung besteht. */
   sendStart(options?: StartOptions): boolean;
+  /**
+   * Sendet das Ergebnis des laufenden Minispiels (M3); `false`, wenn gerade keine Verbindung
+   * besteht. Wiederholung und Einmaligkeit regelt `createResultSender`.
+   */
+  sendMinigameResult(result: MinigameResultPayload): boolean;
   /** Trennt endgültig (kein neuer Versuch). */
   close(): void;
 }
@@ -301,6 +310,11 @@ export function connectHost(
     sendStart(options) {
       if (socket?.readyState !== OPEN || status !== 'connected') return false;
       socket.send(encode(createStartMessage(options)));
+      return true;
+    },
+    sendMinigameResult(result) {
+      if (socket?.readyState !== OPEN || status !== 'connected') return false;
+      socket.send(encode(createMessage('minigame-result', result)));
       return true;
     },
     close() {

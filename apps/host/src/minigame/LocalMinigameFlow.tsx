@@ -1,0 +1,96 @@
+/**
+ * Lokaler Minispiel-Ablauf (`/host/?local=1&minigame=<id>&flow=1`, M3): Intro → Spiel →
+ * Ergebnis mit lokalen Zeiten und Tastatur-Spielern, ohne Server – dieselbe Bühne
+ * (`MinigameScreen`) wie im echten Spielablauf. Für Screenshots von Anleitung und Ergebnis.
+ *
+ * Ohne Testmodus wechselt das Intro nach `LOCAL_INTRO_MS` ins Spiel; im Testmodus
+ * (`&test=1`) schaltet `window.__chaosMinigame.next()` weiter, `step(n)` rechnet das Spiel.
+ * Das Ergebnis erscheint, sobald das Minispiel fertig ist.
+ */
+import { getMinigameModule } from '@chaos-party/minigames';
+import { useCallback, useEffect, useState } from 'react';
+import type { MinigameResultPayload } from '../net/hostConnection.ts';
+import { MinigameScreen } from './MinigameScreen.tsx';
+import { LOCAL_INTRO_MS, localRewards, localView, type LocalFlowState } from './localFlow.ts';
+import { minigameStageOf } from './plan.ts';
+
+interface LocalMinigameFlowProps {
+  readonly id: string;
+  readonly players: number;
+  readonly seed: number;
+  readonly test: boolean;
+}
+
+export function LocalMinigameFlow({ id, players, seed, test }: LocalMinigameFlowProps) {
+  const module = getMinigameModule(id);
+  const [state, setState] = useState<LocalFlowState & { readonly receivedAt: number }>(() => ({
+    view: localView(module?.info ?? { id, durationMs: 5_000 }, 'intro', { players, seed }),
+    rewards: null,
+    receivedAt: performance.now(),
+  }));
+  const [ready, setReady] = useState(false);
+  const stage = minigameStageOf(state.view);
+
+  const toPlay = useCallback(() => {
+    if (!module) return;
+    setState((current) =>
+      minigameStageOf(current.view) === 'intro'
+        ? {
+            view: localView(module.info, 'play', { players, seed }),
+            rewards: null,
+            receivedAt: performance.now(),
+          }
+        : current,
+    );
+  }, [module, players, seed]);
+
+  const onResult = useCallback(
+    (result: MinigameResultPayload) => {
+      if (!module) return;
+      setState({
+        view: localView(module.info, 'results', { players, seed, result }),
+        rewards: localRewards(result),
+        receivedAt: performance.now(),
+      });
+    },
+    [module, players, seed],
+  );
+
+  useEffect(() => {
+    if (test || stage !== 'intro') return;
+    const timer = setTimeout(toPlay, LOCAL_INTRO_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [test, stage, toPlay]);
+
+  if (!module) {
+    return (
+      <main className="host" data-scene="error">
+        <p className="minigame-preview-error">Unbekanntes Minispiel: {id}</p>
+      </main>
+    );
+  }
+  return (
+    <main
+      className="host"
+      data-mode="local"
+      data-phase="board"
+      data-scene={ready ? 'ready' : 'loading'}
+      data-minigame={id}
+    >
+      <MinigameScreen
+        view={state.view}
+        receivedAt={state.receivedAt}
+        rewards={state.rewards}
+        module={module}
+        connection={null}
+        test={test}
+        hub={null}
+        onResult={onResult}
+        onReady={setReady}
+        onNext={toPlay}
+      />
+    </main>
+  );
+}

@@ -7,7 +7,8 @@
  *   der Host startet das Brettspiel. Wer eine Entscheidung angeboten bekommt, tippt einen
  *   Knopf – genau wie ein Mensch, nur ohne Bedenkzeit.
  * - Seed fest (`E2E_GAME_SEED`), eine Runde: Würfeln, Laufen, Feldereignis, Zugwechsel,
- *   Platzhalter-Minispiel, Endstand auf Host und Handys.
+ *   Minispiel (seit M3 echt: Host spielt es in Echtzeit und meldet das Ergebnis; niemand
+ *   drückt, also Gleichstand), Endstand auf Host und Handys.
  *
  * Gewartet wird nur auf DOM-Zustände. Was das **nicht** beweist: echtes iOS-Safari, WLAN,
  * Lesbarkeit am Fernseher – siehe `docs/device-test-checklist.md`.
@@ -94,7 +95,11 @@ test.describe('M2-Durchstich: Brettspiel mit echten Seiten', () => {
     await expect(first.getByTestId('choice-roll')).toBeHidden({ timeout: 10_000 });
 
     // Weiterspielen, bis der Endstand da ist: jede angebotene Entscheidung beantworten.
+    // Seit M3 spielt der Host das Minispiel der Runde in Echtzeit (Minispiel-Bühne) und
+    // schickt das Ergebnis; mitschreiben, welche Abschnitte zu sehen waren.
     const answered: string[] = [];
+    const minigameStages = new Set<string>();
+    const minigameAborted = new Set<string>();
     const results = host.getByTestId('board-results');
     const deadline = Date.now() + 150_000;
     while (!(await results.isVisible())) {
@@ -104,8 +109,20 @@ test.describe('M2-Durchstich: Brettspiel mit echten Seiten', () => {
         const id = await answerPrompt(phone);
         if (id) answered.push(id);
       }
+      const stage = await host
+        .getByTestId('minigame-screen')
+        .getAttribute('data-stage', { timeout: 100 })
+        .catch(() => null);
+      if (stage) minigameStages.add(stage);
+      const aborted = await host
+        .getByTestId('minigame-results')
+        .getAttribute('data-aborted', { timeout: 100 })
+        .catch(() => null);
+      if (aborted) minigameAborted.add(aborted);
       await host.waitForTimeout(250);
     }
+    expect([...minigameStages].sort()).toEqual(['intro', 'play', 'results']);
+    expect([...minigameAborted]).toEqual(['false']);
 
     // Beide Spieler waren dran (das zweite Handy hat mindestens einmal gewürfelt).
     expect(answered).toContain('choice-roll');

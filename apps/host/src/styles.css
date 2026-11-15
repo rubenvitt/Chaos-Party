@@ -952,3 +952,452 @@ body,
   padding: 32px;
   font-size: 24px;
 }
+
+/* ------------------------------------------------------------------------------------------
+ * Minispiel-Bühne im Spielablauf (M3, CHAOS-26): Anleitung, Spiel-HUD, Ergebnis.
+ * Große Schrift für den Sofa-Abstand; Spieler immer mit Farbe + Symbol + Name.
+ * ------------------------------------------------------------------------------------------ */
+.minigame-screen {
+  position: absolute;
+  inset: 0;
+}
+
+.minigame-badge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 4px solid #1b1530;
+  border-radius: 50%;
+  background: var(--player-color);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.minigame-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(27 21 48 / 38%);
+  pointer-events: none;
+}
+
+.minigame-card {
+  width: min(1000px, 100%);
+  max-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 24px 40px 28px;
+  border: 6px solid #1b1530;
+  border-radius: 34px;
+  background: #fffaf0;
+  box-shadow: 0 10px 0 #1b1530;
+  animation: board-pop 260ms ease-out;
+}
+
+.minigame-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.minigame-kicker {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.minigame-countdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 900;
+}
+
+.minigame-countdown-label {
+  font-size: 22px;
+}
+
+.minigame-countdown-value {
+  display: grid;
+  place-items: center;
+  min-width: 64px;
+  height: 64px;
+  border: 5px solid #1b1530;
+  border-radius: 50%;
+  background: #ffd23f;
+  font-size: 38px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minigame-title {
+  margin: 2px 0 2px;
+  font-size: 66px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.minigame-tagline {
+  margin: 0 0 14px;
+  font-size: 30px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.minigame-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  counter-reset: schritt;
+}
+
+.minigame-instructions li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 30px;
+  font-weight: 800;
+  counter-increment: schritt;
+}
+
+.minigame-instructions li::before {
+  content: counter(schritt);
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 4px solid #1b1530;
+  border-radius: 12px;
+  background: #e9e4ff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.minigame-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.minigame-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px 8px 10px;
+  border: 4px solid #1b1530;
+  border-radius: 22px;
+  background: #fff;
+}
+
+.minigame-control span {
+  display: flex;
+  flex-direction: column;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.minigame-control b {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.minigame-roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 3px dashed rgb(27 21 48 / 25%);
+  list-style: none;
+}
+
+.minigame-roster-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.minigame-roster-character {
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+/* Spiel-HUD: oben Titel und Zeit, unten Punkte je Spieler (Szene bleibt frei). */
+.minigame-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px 24px;
+  pointer-events: none;
+}
+
+.minigame-hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.minigame-hud-title {
+  margin: 0;
+  padding: 8px 20px;
+  border: 4px solid #1b1530;
+  border-radius: 20px;
+  background: rgb(255 250 240 / 92%);
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.minigame-timer {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 96px;
+  justify-content: center;
+  margin: 0;
+  padding: 4px 22px;
+  border: 5px solid #1b1530;
+  border-radius: 26px;
+  background: #fffaf0;
+  box-shadow: 0 6px 0 #1b1530;
+  font-size: 58px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.minigame-timer[data-urgent='true'] {
+  background: #ffb3a7;
+}
+
+.minigame-timer-unit {
+  font-size: 26px;
+}
+
+.minigame-banner {
+  align-self: center;
+  margin: 0;
+  padding: 10px 28px;
+  border: 5px solid #1b1530;
+  border-radius: 24px;
+  background: #ffd23f;
+  font-size: 36px;
+  font-weight: 900;
+  animation: board-pop 260ms ease-out;
+}
+
+.minigame-banner--wait {
+  background: #fffaf0;
+  font-size: 28px;
+}
+
+.minigame-scores {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minigame-score {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 230px;
+  padding: 8px 18px 8px 10px;
+  border: 4px solid #1b1530;
+  border-bottom: 10px solid var(--player-color);
+  border-radius: 22px;
+  background: rgb(255 250 240 / 94%);
+}
+
+.minigame-score[data-connected='false'] {
+  filter: grayscale(0.7);
+}
+
+.minigame-score-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.minigame-score-name {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.minigame-score-character {
+  font-size: 16px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.minigame-score-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 38px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.minigame-score-unit {
+  font-size: 14px;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+.minigame-score-status {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #1b1530;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* Ergebnis */
+.minigame-card--results {
+  width: min(900px, 100%);
+}
+
+.minigame-headline {
+  margin-bottom: 14px;
+  font-size: 56px;
+}
+
+.minigame-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minigame-rank {
+  display: grid;
+  grid-template-columns: 92px auto 1fr auto 110px;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 18px;
+  border: 4px solid #1b1530;
+  border-left: 16px solid var(--player-color);
+  border-radius: 20px;
+  background: #fff;
+  font-weight: 900;
+}
+
+.minigame-rank[data-place='1'] {
+  background: #fff1b8;
+}
+
+.minigame-rank-place {
+  display: flex;
+  flex-direction: column;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.minigame-rank-tie {
+  margin-top: 4px;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.minigame-rank-who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.minigame-rank-name {
+  font-size: 30px;
+}
+
+.minigame-rank-character {
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.minigame-rank-score {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minigame-rank-coins {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minigame-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.minigame-connection,
+.minigame-error {
+  position: absolute;
+  z-index: 6;
+  top: 16px;
+  left: 50%;
+  margin: 0;
+  padding: 8px 18px;
+  border: 4px solid #1b1530;
+  border-radius: 18px;
+  background: #ffe2b8;
+  font-size: 20px;
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minigame-card,
+  .minigame-banner {
+    animation: none;
+  }
+}

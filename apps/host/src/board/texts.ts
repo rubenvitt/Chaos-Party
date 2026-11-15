@@ -281,3 +281,21 @@ export function signedAmount(delta: number): string {
   if (delta < 0) return `−${-delta}`;
   return '±0';
 }
+
+/**
+ * Text des Minispiel-Overlays am Brett (nur Platzhalter oder unbekanntes Minispiel – echte
+ * Minispiele zeigt die Minispiel-Bühne).
+ */
+export function minigameOverlayText(view: BoardView | null): { title: string; lead: string } {
+  const id = view?.minigame?.id;
+  if (id === undefined || id === 'placeholder') {
+    return {
+      title: 'Minispiel-Pause',
+      lead: 'Diesmal ohne Minispiel: Die Plätze werden ausgelost.',
+    };
+  }
+  return {
+    title: 'Minispiel läuft',
+    lead: `Dieser PC kennt „${id}“ nicht – bitte Chaos Party aktualisieren. Ohne Ergebnis gibt es keine Münzen.`,
+  };
+}
