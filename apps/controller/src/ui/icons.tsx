@@ -4,14 +4,18 @@ import { INK } from './color.ts';
 
 /**
  * Kleine Symbole der Brettphase als Inline-SVG (CHAOS-22): keine Emoji (Schrift des
- * Geräts), keine Bilddateien, überall gleich. Dicke Tinte-Kontur wie die übrige UI.
+ * Geräts), keine Bilddateien, überall gleich. Gefüllte Symbole mit feiner dunkler Kontur
+ * (lesbar auf Glas, CHAOS-59); reine Linien zeichnen in der Textfarbe (`currentColor`).
  */
 const STROKE = {
   stroke: INK,
-  strokeWidth: 2,
+  strokeWidth: 1.6,
   strokeLinejoin: 'round',
   strokeLinecap: 'round',
 } as const;
+
+/** Linien ohne Füllung: in der Textfarbe des Knopfs, damit sie auf Glas sichtbar sind. */
+const LINE = { ...STROKE, stroke: 'currentColor', strokeWidth: 2 } as const;
 
 const SHAPES: Readonly<Record<IconName, ReactElement>> = {
   coin: (
@@ -67,13 +71,13 @@ const SHAPES: Readonly<Record<IconName, ReactElement>> = {
   brace: (
     <>
       <circle cx="12" cy="5" r="2.5" fill="#fff" {...STROKE} />
-      <path d="M12 7.5V20M8 11h8" fill="none" {...STROKE} />
-      <path d="M4.5 13.5a7.5 7.5 0 0 0 15 0" fill="none" {...STROKE} />
+      <path d="M12 7.5V20M8 11h8" fill="none" {...LINE} />
+      <path d="M4.5 13.5a7.5 7.5 0 0 0 15 0" fill="none" {...LINE} />
     </>
   ),
   arrow: <path d="M3 9h10V4.5l8 7.5-8 7.5V15H3z" fill="#fff" {...STROKE} />,
   skip: <path d="M3 5l7 7-7 7zM12 5l7 7-7 7z" fill="#fff" {...STROKE} />,
-  cancel: <path d="M6 6l12 12M18 6L6 18" fill="none" {...STROKE} strokeWidth={3} />,
+  cancel: <path d="M6 6l12 12M18 6L6 18" fill="none" {...LINE} strokeWidth={3} />,
   star: (
     <path
       d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"

@@ -6,7 +6,7 @@ import type { SlotIntent } from '../net/client.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
-import { INK, readableTextColor } from './color.ts';
+import { readableTextColor } from './color.ts';
 import { Joystick } from './Joystick.tsx';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
 
@@ -40,7 +40,6 @@ export function SlotController({
   const cssVars = {
     '--player': player.color,
     '--on-player': readableTextColor(player.color),
-    '--ink': INK,
   } as CSSProperties;
   const layout = context?.layout ?? 'wait';
   const minigame = context?.minigame;
