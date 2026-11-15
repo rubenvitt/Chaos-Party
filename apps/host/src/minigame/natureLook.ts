@@ -251,12 +251,17 @@ export function createMinigameLook(scene: Scene, settings: LookSettings): HostMi
     },
     async finish(camera) {
       if (!world) return null;
-      const target = 'target' in camera ? (camera as { target: Vector3 }).target : Vector3.Zero();
+      // Schärfe auf den Blickpunkt (Arc-Rotate- und Free-Kamera sind beide TargetCameras).
+      const aim = (camera as Partial<{ getTarget(): Vector3 }>).getTarget;
+      const target = typeof aim === 'function' ? aim.call(camera) : Vector3.Zero();
+      // Vor dem ersten Bild ist `globalPosition` einer Free-Kamera noch nicht berechnet.
+      camera.computeWorldMatrix();
       const distance = Vector3.Distance(camera.globalPosition, target);
       const lit = await applyNatureLook(scene, camera, {
         mood: settings.mood,
         quality: settings.quality,
-        focus: { distance, fStop: 6 },
+        // Minispiele: Spielfläche komplett scharf, nur Bäume und Horizont werden weich.
+        focus: { distance, fStop: 10 },
         viewDistance: distance,
         lanterns: world.lanterns,
         terrain: world.terrain,

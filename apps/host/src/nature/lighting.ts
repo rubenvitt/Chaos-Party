@@ -105,6 +105,10 @@ export async function applyNatureLook(
   options: NatureLookOptions,
 ): Promise<NatureLook> {
   const { mood } = options;
+  // Tiefenunschärfe und SSAO lesen die Tiefe normiert auf die Sichtweite: Mit der
+  // Standard-Sichtweite 10 000 ist sie zu grob, alles wird unscharf. Himmel und Dunst liegen
+  // innerhalb von 600 Einheiten.
+  camera.maxZ = Math.min(camera.maxZ, 600);
   let level = options.quality;
   const settings = QUALITY[level];
   const wanted = (options.sun ?? DEFAULT_SUN).azimuth;
