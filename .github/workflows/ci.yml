@@ -48,6 +48,10 @@ jobs:
       - name: Lizenzen
         run: pnpm check:licenses
 
+      # Asset-Manifest: Dateien, Lizenzen, Budgets, Figuren-Vertrag (CHAOS-28).
+      - name: Assets
+        run: pnpm check:assets
+
       # Browser-Cache je Playwright-Version (in package.json fest gepinnt). Bei einem
       # Treffer fehlen nur die System-Bibliotheken, die `install-deps` nachzieht.
       - name: Playwright-Version bestimmen

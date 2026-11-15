@@ -1,7 +1,9 @@
+import { CHARACTER_NAMES, defaultCharacterFor } from '@chaos-party/minigame-sdk';
 import { MAX_PLAYERS, type LobbyMessage } from '@chaos-party/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
+import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { joinUrlForDevice, type JoinDevice } from './joinLink.ts';
 import { QrCode } from './QrCode.tsx';
 
@@ -32,6 +34,8 @@ function hostLabel(url: string): string {
  * Hinweis bei ausbleibenden Controllern (Annahmen B1/B2) und Umschalten auf eine
  * andere LAN-Adresse, falls der Server mehrere kennt (ADR-007). Ein Umschalter
  * „iPhone / iPad“ zeigt für das geteilte iPad denselben Link mit `seats=2` (CHAOS-14).
+ * Je Spieler: Porträt und Name seiner Figur (CHAOS-28; bis zur Charakterwahl in M4 die
+ * Standardfigur des Slots), Slot-Farbe und -Symbol.
  */
 export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }: LobbyPanelProps) {
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
@@ -144,24 +148,39 @@ export function LobbyPanel({ lobby, players, status, joinHintSeconds, onStart }:
             </span>
           </h2>
           <ul className="lobby-players" aria-label="Beigetretene Spieler">
-            {players.map((p) => (
-              <li
-                key={p.slot}
-                className="lobby-player"
-                data-testid={`lobby-player-${String(p.slot)}`}
-                data-connected={p.connected}
-                data-ready={p.ready}
-                style={{ '--player-color': p.color } as CSSProperties}
-              >
-                <span className="player-dot" aria-hidden="true">
-                  <span className="player-symbol">{p.symbol}</span>
-                </span>
-                <span className="lobby-player-label">{p.label}</span>
-                <span className="lobby-player-state">
-                  {!p.connected ? '⚠ getrennt' : p.ready ? 'bereit ✓' : 'verbunden'}
-                </span>
-              </li>
-            ))}
+            {players.map((p) => {
+              const character = defaultCharacterFor(p.slot);
+              return (
+                <li
+                  key={p.slot}
+                  className="lobby-player"
+                  data-testid={`lobby-player-${String(p.slot)}`}
+                  data-connected={p.connected}
+                  data-ready={p.ready}
+                  data-character={character}
+                  style={{ '--player-color': p.color } as CSSProperties}
+                >
+                  <span className="lobby-player-figure">
+                    <CharacterPortrait character={character} />
+                    <span className="player-dot" aria-hidden="true">
+                      <span className="player-symbol">{p.symbol}</span>
+                    </span>
+                  </span>
+                  <span className="lobby-player-label">
+                    {p.label}
+                    <span
+                      className="lobby-player-character"
+                      data-testid={`lobby-character-${String(p.slot)}`}
+                    >
+                      {CHARACTER_NAMES[character].name}
+                    </span>
+                  </span>
+                  <span className="lobby-player-state">
+                    {!p.connected ? '⚠ getrennt' : p.ready ? 'bereit ✓' : 'verbunden'}
+                  </span>
+                </li>
+              );
+            })}
             {players.length === 0 && (
               <li className="lobby-empty">Noch niemand da – scannt den QR-Code!</li>
             )}

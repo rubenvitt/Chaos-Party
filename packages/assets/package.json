@@ -1,0 +1,29 @@
+{
+  "name": "@chaos-party/assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Assets mit Manifest (Herkunft, Lizenz, Budget): generierte Figuren (GLB), Porträts, Prüfskript.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest.json": "./manifest.json",
+    "./models/*": "./models/*",
+    "./textures/*": "./textures/*"
+  },
+  "scripts": {
+    "generate": "node src/generator/cli.ts",
+    "check": "node src/check/cli.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@babylonjs/core": "^9.35.0",
+    "@babylonjs/loaders": "^9.35.0",
+    "@babylonjs/serializers": "^9.35.0",
+    "@chaos-party/minigame-sdk": "workspace:*",
+    "@types/node": "^22.20.5",
+    "babylonjs-gltf2interface": "^9.35.0"
+  }
+}
