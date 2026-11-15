@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { CoinIcon, TrophyIcon } from '../board/icons.tsx';
 import type { FinaleSpeed } from '../config.ts';
+import { attachPerf } from '../debug/perf.ts';
 import { playerName, winnerText } from '../board/texts.ts';
 import { soundEngine } from '../fx/audio.ts';
 import { CharacterPortrait } from '../lobby/CharacterPortrait.tsx';
@@ -293,6 +294,7 @@ function WinnerScreen({
     container.appendChild(canvas);
     const stage = createPodiumStage({ canvas, entries, testMode: test });
     podiumRef.current = stage;
+    const stopPerf = attachPerf('podest', stage);
     let active = true;
     stage.ready.then(
       () => {
@@ -306,6 +308,7 @@ function WinnerScreen({
     );
     return () => {
       active = false;
+      stopPerf();
       stage.dispose();
       canvas.remove();
       podiumRef.current = null;

@@ -408,8 +408,12 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     receive(message) {
       const { view, events, eventSeq } = message;
       const end = eventSeq + events.length;
-      if (nextSeq === null || eventSeq > nextSeq) {
-        // Erste Nachricht oder Lücke: ohne Animation auf den Stand springen.
+      // Neue Partie nach „Nochmal spielen“: Der Server zählt `eventSeq` wieder ab 0. Ohne
+      // diese Erkennung gälte sie als veraltet und das Brett zeigte weiter den alten Endstand.
+      const shown = latest ?? committed?.view ?? null;
+      const newGame = eventSeq === 0 && nextSeq !== null && shown?.gamePhase === 'game-results';
+      if (nextSeq === null || eventSeq > nextSeq || newGame) {
+        // Erste Nachricht, Lücke oder neue Partie: ohne Animation auf den Stand springen.
         flush();
         commit(view, now);
         jumps++;

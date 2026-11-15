@@ -28,6 +28,8 @@ import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder.js';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder.js';
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
+import type { InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh.js';
+import '@babylonjs/core/Meshes/instancedMesh.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
@@ -39,6 +41,7 @@ import {
   type CharacterLibrary,
   type HostCharacterHandle,
 } from '../characters/index.ts';
+import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { FramePawn, FramePopup } from './director.ts';
 import {
@@ -245,12 +248,42 @@ export function createBoardScene(
     if (testMode) {
       scene.render();
     } else {
-      engine.runRenderLoop(() => {
-        update(Math.min(MAX_STEP_MS, engine.getDeltaTime()));
-        scene.render();
-      });
+      startLoop();
     }
   })();
+
+  // ---------------------------------------------------------------------------
+  // Render-Schleife und Pause hinter dem Finale (CHAOS-39)
+  // ---------------------------------------------------------------------------
+
+  /** Brett verdeckt (Finale): kein Rendern, nur die Regie läuft weiter. */
+  let renderPaused = false;
+  /** rAF-Kennung der Regie-Schleife während der Pause. */
+  let directorFrame: number | null = null;
+
+  function startLoop(): void {
+    if (renderPaused) {
+      // Nur die Regie weiterlaufen lassen (Stand, HUD), ohne WebGL-Arbeit.
+      let last = performance.now();
+      const tick = (now: number): void => {
+        update(Math.min(MAX_STEP_MS, Math.max(0, now - last)));
+        last = now;
+        directorFrame = requestAnimationFrame(tick);
+      };
+      directorFrame = requestAnimationFrame(tick);
+      return;
+    }
+    engine.runRenderLoop(() => {
+      update(Math.min(MAX_STEP_MS, engine.getDeltaTime()));
+      scene.render();
+    });
+  }
+
+  function stopLoop(): void {
+    engine.stopRenderLoop();
+    if (directorFrame !== null) cancelAnimationFrame(directorFrame);
+    directorFrame = null;
+  }
 
   // ---------------------------------------------------------------------------
   // Grundlagen
@@ -386,38 +419,71 @@ export function createBoardScene(
     const trunkMat = material('#8a5a3b', 0.05);
     const leafA = material('#3f9e4d', 0.08);
     const leafB = material('#57b85a', 0.08);
+    // Instanzen (CHAOS-39): Je Teil und Material gibt es eine Vorlage (die ersten Bäume), alle
+    // weiteren Bäume sind Instanzen davon. Babylon zeichnet jede Vorlage samt Instanzen in
+    // einem Aufruf (Hardware-Instancing) statt einen Aufruf je Teil (15 Bäume: 45 → 5).
+    // Geometrie, Material, Lage und Wackeln (je Baum-Knoten) bleiben gleich.
+    const templates = new Map<string, Mesh>();
+    const treePart = (
+      key: string,
+      create: () => Mesh,
+      mat: StandardMaterial,
+      root: TransformNode,
+      y: number,
+    ): void => {
+      const template = templates.get(key);
+      const part: Mesh | InstancedMesh = template ? template.createInstance(key) : create();
+      if (!template) {
+        const mesh = part as Mesh;
+        mesh.material = mat;
+        mesh.receiveShadows = true;
+        templates.set(key, mesh);
+      }
+      part.parent = root;
+      part.position.y = y;
+      part.isPickable = false;
+    };
     TREES.forEach((t, i) => {
       const root = new TransformNode(`baum-${i}`, scene);
       root.position.set(t.x, 0, t.z);
       root.scaling.setAll(t.s);
-      const trunk = CreateCylinder(
+      treePart(
         'stamm',
-        { diameterTop: 0.25, diameterBottom: 0.4, height: 1, tessellation: 10 },
-        scene,
+        () =>
+          CreateCylinder(
+            'stamm',
+            { diameterTop: 0.25, diameterBottom: 0.4, height: 1, tessellation: 10 },
+            scene,
+          ),
+        trunkMat,
+        root,
+        0.5,
       );
-      trunk.parent = root;
-      trunk.position.y = 0.5;
-      trunk.material = trunkMat;
-      const lower = CreateCylinder(
-        'krone',
-        { diameterTop: 0, diameterBottom: 1.8, height: 1.6, tessellation: 14 },
-        scene,
+      const even = i % 2 === 0;
+      treePart(
+        even ? 'krone-unten-a' : 'krone-unten-b',
+        () =>
+          CreateCylinder(
+            'krone',
+            { diameterTop: 0, diameterBottom: 1.8, height: 1.6, tessellation: 14 },
+            scene,
+          ),
+        even ? leafA : leafB,
+        root,
+        1.6,
       );
-      lower.parent = root;
-      lower.position.y = 1.6;
-      lower.material = i % 2 === 0 ? leafA : leafB;
-      const upper = CreateCylinder(
-        'krone',
-        { diameterTop: 0, diameterBottom: 1.3, height: 1.2, tessellation: 14 },
-        scene,
+      treePart(
+        even ? 'krone-oben-b' : 'krone-oben-a',
+        () =>
+          CreateCylinder(
+            'krone',
+            { diameterTop: 0, diameterBottom: 1.3, height: 1.2, tessellation: 14 },
+            scene,
+          ),
+        even ? leafB : leafA,
+        root,
+        2.35,
       );
-      upper.parent = root;
-      upper.position.y = 2.35;
-      upper.material = i % 2 === 0 ? leafB : leafA;
-      for (const m of [trunk, lower, upper]) {
-        m.receiveShadows = true;
-        m.isPickable = false;
-      }
       trees.push(root);
     });
 
@@ -1264,12 +1330,10 @@ export function createBoardScene(
       return result;
     },
     onFrameRendered(listener) {
-      const observer = scene.onAfterRenderObservable.add(() => {
-        listener();
-      });
-      return () => {
-        scene.onAfterRenderObservable.remove(observer);
-      };
+      return observeFrames(scene, listener);
+    },
+    getResourceStats() {
+      return resourceStats(scene);
     },
     getRendererInfo(): RendererInfo {
       const gl = engine.getGlInfo();
@@ -1281,11 +1345,19 @@ export function createBoardScene(
         height: engine.getRenderHeight(),
       };
     },
+    setRenderPaused(paused) {
+      if (paused === renderPaused) return;
+      renderPaused = paused;
+      // Im Testmodus treibt nur `stepFrames` die Szene; vor dem Aufbau startet `ready` die Schleife.
+      if (testMode || !built || disposed) return;
+      stopLoop();
+      startLoop();
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
       window.removeEventListener('resize', onResize);
-      engine.stopRenderLoop();
+      stopLoop();
       for (const pawn of pawns.values()) pawn.character.dispose();
       pawns.clear();
       characters?.dispose();

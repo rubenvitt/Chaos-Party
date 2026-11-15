@@ -4,6 +4,7 @@ coverage/
 node_modules/
 test-results/
 playwright-report/
+perf-results/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
 .claude/

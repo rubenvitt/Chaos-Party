@@ -5,7 +5,10 @@ import { createDemoMessages, DEMO_DELAYS_MS } from './board/demo.ts';
 import type { BoardScene } from './board/types.ts';
 import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
-import { createFrameMeter, type FrameMeter } from './debug/frameMeter.ts';
+import { attachPerf, installPerfMonitor } from './debug/perf.ts';
+import { createPerfMonitor, type PerfMonitor } from './debug/perfMonitor.ts';
+import { environmentSample } from './debug/renderProbe.ts';
+import { scenePerfReport } from './debug/summary.ts';
 import { soundEngine } from './fx/audio.ts';
 import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
@@ -48,8 +51,8 @@ const isKnownMinigame = (id: string) => getMinigameModule(id) !== undefined;
 export function App({ config }: AppProps) {
   const { seed, test, local, debug } = config;
   const localBoard = local && config.board;
-  // Nur mit `?debug=1` (CHAOS-45): Bildrate und Eingabe→Frame messen.
-  const [meter] = useState<FrameMeter | null>(() => (debug ? createFrameMeter() : null));
+  // Nur mit `?debug=1` (CHAOS-45, CHAOS-39): Bildrate, Eingang→Frame und Kennzahlen je Szene.
+  const [monitor] = useState<PerfMonitor | null>(() => (debug ? createPerfMonitor() : null));
   const session = useHostSession(local ? null : serverWebSocketUrl(window.location));
   const [localPlayers] = useState(() => createLocalPlayers(config.players));
   const lobbyPlayers = session.lobby?.players;
@@ -77,7 +80,12 @@ export function App({ config }: AppProps) {
   const sceneRef = useRef<GameScene | null>(null);
   const boardSceneRef = useRef<BoardScene | null>(null);
   const playersRef = useRef(players);
+  const phaseRef = useRef(phase);
   const { hub } = session;
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   useEffect(() => {
     // In der Brettphase läuft die Brett-Szene (BoardStage); die Arena wird entsorgt.
@@ -111,18 +119,8 @@ export function App({ config }: AppProps) {
       : undefined;
     if (hook) window.__chaos = hook;
 
-    // Messung (nur Debug): Frame-Ende aus der Szene, Eingang jeder Server-Eingabe aus dem
-    // Verteiler – synchron im `message`-Ereignis der WebSocket-Verbindung.
-    const stopFrameMeter = meter
-      ? scene.onFrameRendered(() => {
-          meter.frameEnded(performance.now());
-        })
-      : undefined;
-    const stopInputMeter = meter
-      ? hub.subscribe(() => {
-          meter.inputReceived(performance.now());
-        })
-      : undefined;
+    // Messung (nur Debug, CHAOS-39): Arena heißt in der Lobby „lobby“, im Spiel „arena“.
+    const stopPerf = attachPerf(() => (phaseRef.current === 'lobby' ? 'lobby' : 'arena'), scene);
 
     // Tastatur immer (lokal: Demo-Spieler; mit Server: beigetretene Slots), dazu Netzwerk.
     const stopKeyboard = createKeyboardInputSource(window).start(scene);
@@ -162,14 +160,50 @@ export function App({ config }: AppProps) {
       active = false;
       stopKeyboard();
       stopNetwork?.();
-      stopFrameMeter?.();
-      stopInputMeter?.();
+      stopPerf();
       scene.dispose();
       canvas.remove();
       sceneRef.current = null;
       if (hook && window.__chaos === hook) delete window.__chaos;
     };
-  }, [seed, test, local, hub, meter, boardMode]);
+  }, [seed, test, local, hub, boardMode]);
+
+  // Messung je Szene (nur Debug, CHAOS-39): seitenweit anmelden, Eingänge zählen (Controller-
+  // Eingaben synchron im `message`-Ereignis, neue Brett-Stände beim Empfang), alle 500 ms
+  // Kontexte/Schleifen/Heap/Bestand lesen; Bericht unter `window.__chaosPerf`.
+  useEffect(() => {
+    if (!monitor) return;
+    const uninstall = installPerfMonitor(monitor);
+    const stopInputs = hub.subscribe(() => {
+      monitor.inputReceived(performance.now(), 'input');
+    });
+    const stopBoard = feed.subscribe(() => {
+      monitor.inputReceived(performance.now(), 'board');
+    });
+    const timer = setInterval(() => {
+      monitor.sampleEnvironment(environmentSample());
+    }, 500);
+    window.__chaosPerf = {
+      report: () => monitor.report(),
+      summary: () =>
+        scenePerfReport(monitor.report(), {
+          device: navigator.userAgent,
+          renderer: (boardSceneRef.current ?? sceneRef.current)?.getRendererInfo() ?? null,
+          testMode: test,
+        }),
+      activeScenes: () => monitor.activeScenes(),
+      reset: () => {
+        monitor.reset();
+      },
+    };
+    return () => {
+      uninstall();
+      stopInputs();
+      stopBoard();
+      clearInterval(timer);
+      delete window.__chaosPerf;
+    };
+  }, [monitor, hub, feed, test]);
 
   // Lokaler Brett-Modus: Beispiel-Spielstand, mit `demo` die Ereignisfolge in Schleife
   // (nicht im Testmodus – dort speisen Tests Nachrichten über den Testhaken ein).
@@ -292,7 +326,6 @@ export function App({ config }: AppProps) {
           connection={session.status}
           test={test}
           local={local}
-          meter={meter}
           onReady={setBoardReady}
           onScene={onBoardScene}
           finaleSpeed={finaleSpeedOf(config)}
@@ -314,7 +347,7 @@ export function App({ config }: AppProps) {
       )}
       {!local && boardMode && <PauseControls view={latest.view} onCommand={command} />}
       <PlayerToasts players={players} enabled={!local} />
-      {meter && <DebugOverlay meter={meter} getRenderer={getRenderer} testMode={test} />}
+      {monitor && <DebugOverlay monitor={monitor} getRenderer={getRenderer} testMode={test} />}
       {!local && phase === 'lobby' && session.status !== null && (
         <LobbyPanel
           lobby={session.lobby}
