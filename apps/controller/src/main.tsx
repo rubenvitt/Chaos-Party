@@ -15,6 +15,7 @@ import { installIosGuards } from './ui/iosGuards.ts';
 // Mitgelieferte Schrift (OFL-1.1): gleiche Optik auf allen Geräten und stabile Screenshots.
 import '@fontsource-variable/inter/wght.css';
 import './styles.css';
+import './styles-m4.css';
 
 const root = document.getElementById('root');
 if (!root) {
