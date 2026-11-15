@@ -7,15 +7,16 @@
  * `index.ts` das Modul registrieren.
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
+import { PUDDING_GERANGEL_INFO } from './pudding-gerangel/info.ts';
 import { PUMP_PARADE_INFO } from './pump-parade/info.ts';
 
-export const MINIGAME_INFOS: readonly MinigameInfo[] = [PUMP_PARADE_INFO];
+export const MINIGAME_INFOS: readonly MinigameInfo[] = [PUMP_PARADE_INFO, PUDDING_GERANGEL_INFO];
 
 /**
  * Minispiele, die in echten Partien vorkommen (Reihenfolge egal; game-core mischt per Seed).
  * Solange keines eingetragen ist, läuft die Pump-Parade als Rückfall.
  */
-export const ROTATION: readonly string[] = [];
+export const ROTATION: readonly string[] = [PUDDING_GERANGEL_INFO.id];
 
 export function getMinigameInfo(id: string): MinigameInfo | undefined {
   return MINIGAME_INFOS.find((info) => info.id === id);
