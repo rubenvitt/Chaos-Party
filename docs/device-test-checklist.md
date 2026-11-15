@@ -104,7 +104,7 @@ Hier jede Gerät-/Browser-Kombination eintragen, die nicht funktioniert hat (z. 
 | Controls lesbar und ohne Erklärung verständlich? | |
 | Verbindung stabil, Wiederverbindung brauchbar? | |
 | Reaktionszeit tolerierbar? | |
-| Entscheidung | APPROVED / CHANGES REQUESTED / BLOCKED |
+| Entscheidung | **APPROVED** durch Ruben am 2026-11-15 („approved“); nur iPhone getestet, Einzelwerte nicht gemeldet |
 
 ## 8. M2 – Brettspiel (für CHAOS-25)
 
@@ -112,7 +112,7 @@ Hier jede Gerät-/Browser-Kombination eintragen, die nicht funktioniert hat (z. 
 
 Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entscheidungen, die Sperre nach dem Senden, der Countdown, gleichzeitige Wahlen in zwei iPad-Zonen und eine komplette Runde mit Host und zwei iPhones gegen den echten Server. Diese Liste prüft, was nur echte Geräte und echte Menschen zeigen.
 
-**Voraussetzung:** Das geteilte iPad aus Abschnitt 4 (I1–I9) ist noch offen (CHAOS-47). Bitte vorher oder zusammen mit B6/B7 prüfen.
+**iPad nach M3 verschoben (Ruben, 2026-11-15):** M2 wird nur mit iPhones getestet. B6/B7 und das geteilte iPad aus Abschnitt 4 (I1–I9, CHAOS-47) folgen nach dem M3-Gate; dort als „verschoben“ eintragen.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
@@ -136,4 +136,4 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entsch
 | 2–4 Personen spielen wiederholt Züge ohne Verwirrung? | |
 | Sabotage macht Spaß statt zu frustrieren? | |
 | Reaktionsfenster bremsen die Runde nicht? | |
-| Entscheidung | APPROVED / CHANGES REQUESTED / BLOCKED |
+| Entscheidung | **APPROVED** durch Ruben am 2026-11-15 („approved“); nur iPhone getestet, Einzelwerte nicht gemeldet |
