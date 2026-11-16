@@ -204,6 +204,7 @@ Details: [`testing.md`](testing.md).
 4. **Renderer-Spike CHAOS-75:** Ruben misst mit [`renderer-spike.md`](renderer-spike.md) (R1–R11) und entscheidet über [ADR-016](decisions/ADR-016-renderer.md) (Vorschlag: bei Babylon bleiben, WebGPU bei ≥ 20 % Vorteil übernehmen, tvOS als eigener RealityKit-Spike mit Server auf PC/Mac).
 5. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage).
 6. **Mehr Minispiel-Vielfalt (CHAOS-54):** Kuckucks-Klatsche ist überarbeitet (EXP-016) und läuft als viertes Minispiel in der Rotation (`packages/minigames/src/kuckucks-klatsche/`). Es ist das erste Minispiel nur mit Knopf A, gedacht auch für die kleinen Zonen am geteilten iPad. Bei 10 Runden kommt jedes Minispiel jetzt 2–3-mal statt 3–4-mal. Ruben prüft es mit Gerätecheckliste P6a; Bild: `docs/screenshots/chaos54-kuckucks-klatsche.jpg`. Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) bleiben Kandidaten im Backlog (CHAOS-79).
+7. **Minispiel-Ausbau auf ~200 (CHAOS-80):** Ruben möchte rund 200 Minispiele. Konzept steht in [`minigames/README.md`](minigames/README.md) (Fabrik aus Baukasten, gemeinsamen Prüfungen und Trichter) und [`minigames/katalog.md`](minigames/katalog.md) (200 Skizzen MG-001 … MG-200 in 20 Familien). Nächster Schritt ist Rubens Konzept-Abnahme CHAOS-82 mit fünf offenen Entscheidungen (README §7); erst danach startet das Fundament (CHAOS-83 … CHAOS-88).
 
 ## Offene Risiken (Kurzfassung)
 
