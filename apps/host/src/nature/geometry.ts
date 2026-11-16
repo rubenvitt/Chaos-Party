@@ -628,7 +628,7 @@ export function fireflies(
   terrain: Terrain,
   count: number,
   rnd: () => number,
-): { mesh: Mesh; update(seconds: number): void } {
+): { mesh: Mesh; update(seconds: number): void; setFade(fraction: number): void } {
   const dot = CreateSphere('gluehwuermchen', { diameter: 0.06, segments: 4 }, scene);
   const mat = new PBRMaterial('gluehwuermchen', scene);
   mat.unlit = true;
@@ -658,10 +658,14 @@ export function fireflies(
   const posV = new Vector3();
   const identity = Quaternion.Identity();
   const m = new Matrix();
+  /** Einblenden über die Größe (0 = unsichtbar), ohne Material- oder Sichtbarkeitswechsel. */
+  let fade = 1;
+  let lastTime = 0;
   const update = (time: number): void => {
+    lastTime = time;
     base.forEach((b, i) => {
       const t = time * b.speed + b.phase;
-      const pulse = 0.55 + 0.45 * Math.sin(t * 2.3);
+      const pulse = (0.55 + 0.45 * Math.sin(t * 2.3)) * fade;
       scaleV.set(pulse, pulse, pulse);
       posV.set(
         b.x + Math.sin(t) * 0.35,
@@ -674,5 +678,14 @@ export function fireflies(
     dot.thinInstanceSetBuffer('matrix', matrices, 16, false);
   };
   update(0);
-  return { mesh: dot, update };
+  return {
+    mesh: dot,
+    update,
+    setFade(fraction) {
+      const next = Math.min(1, Math.max(0, fraction));
+      if (next === fade) return;
+      fade = next;
+      update(lastTime);
+    },
+  };
 }

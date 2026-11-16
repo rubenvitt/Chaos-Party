@@ -9,6 +9,8 @@
  * damit weitere Bretter ihre eigene Natur bekommen, ohne diesen Code umzubauen.
  */
 import type { Material } from '@babylonjs/core/Materials/material.js';
+import { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
+import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
@@ -33,7 +35,7 @@ import {
   trophyCup,
   type Grass,
 } from '../nature/geometry.ts';
-import type { NatureMaterials } from '../nature/materials.ts';
+import type { NatureMaterials, PlainOptions } from '../nature/materials.ts';
 import { seeded } from '../nature/noise.ts';
 import { createTerrain, type Hollow, type Terrain } from '../nature/terrain.ts';
 import { boardBounds, type Point2 } from './layout.ts';
@@ -75,13 +77,18 @@ export interface NatureBoardWorld {
   readonly casters: readonly Mesh[];
   readonly lanterns: readonly { readonly light: Vector3; readonly glass: Mesh }[];
   readonly grass: Grass;
+  /**
+   * Eigenleuchten der Feld-Einlagen, Ränder und Symbole setzen (Anteil der eigenen Farbe,
+   * `LightMood.night.tileGlow`); für die Überblendung je Runde (CHAOS-63), ohne Shaderwechsel.
+   */
+  setTileGlow(fraction: number): void;
 }
 
 export interface NatureBoardOptions {
   readonly mats: NatureMaterials;
   /** Spitzenfarbe der Halme (Stimmung). */
   readonly grassTip: string;
-  /** Eigenleuchten der Einlagen (Nacht). */
+  /** Eigenleuchten der Einlagen beim Aufbau (Nacht); später über `setTileGlow`. */
   readonly glow: number;
   /** Halme bei Anteil 1 (Standard {@link BOARD_GRASS}). */
   readonly grassCount?: number;
@@ -168,7 +175,7 @@ export function buildNatureBoard(
   casters.push(...buildIsland(scene, mats, terrain).slice(1));
 
   const statics = new StaticBatch('brett');
-  buildTiles(scene, mats, board.spaces, glow, rnd, statics);
+  const setTileGlow = buildTiles(scene, mats, board.spaces, glow, rnd, statics);
   buildPathMarkers(scene, mats, edges, terrain, rnd, statics);
 
   // Trophäen: Pokal über dem Feld, ein weicher Lichtring darunter.
@@ -384,7 +391,7 @@ export function buildNatureBoard(
     scale: 1.25,
   });
 
-  return { terrain, trees, trophies, casters, lanterns, grass };
+  return { terrain, trees, trophies, casters, lanterns, grass, setTileGlow };
 }
 
 /** Felder ab `start` bis zur nächsten Zusammenführung (beschrifteter Abzweig einer Gabel). */
@@ -424,7 +431,23 @@ function buildTiles(
   glow: number,
   rnd: () => number,
   batch: StaticBatch,
-): void {
+): (fraction: number) => void {
+  // Leuchtende Materialien gehören den Feldern (eigene Instanzen statt geteilter aus dem
+  // Cache), damit ihr Eigenleuchten sich zur Laufzeit ändern lässt.
+  const glowing = new Map<string, { mat: Material; color: Color3; factor: number }>();
+  const lit = (hex: string, options: PlainOptions, factor: number): Material => {
+    const key = `${hex}-${JSON.stringify(options)}-${String(factor)}`;
+    const hit = glowing.get(key);
+    if (hit) return hit.mat;
+    const mat = mats.fresh(hex, { ...options, glow: glow * factor }, `feld-${key}`);
+    glowing.set(key, { mat, color: Color3.FromHexString(hex), factor });
+    return mat;
+  };
+  const setGlow = (fraction: number): void => {
+    for (const { mat, color, factor } of glowing.values()) {
+      if (mat instanceof PBRMaterial) mat.emissiveColor = color.scale(fraction * factor);
+    }
+  };
   const bark = mats.textured('bark_brown_02', {
     u: 4,
     v: 0.45,
@@ -432,10 +455,10 @@ function buildTiles(
     key: 'scheibe-rinde',
   });
   const wood = mats.textured('oak_veneer_01', { u: 0.6, tint: '#e6cfae', key: 'scheibe-holz' });
-  const rim = mats.plain(CREAM, { roughness: 0.5, glow: glow * 0.5 });
-  const ink = mats.plain(CREAM, { roughness: 0.4, clearCoat: 0.4, glow: glow * 0.7 });
+  const rim = lit(CREAM, { roughness: 0.5 }, 0.5);
+  const ink = lit(CREAM, { roughness: 0.4, clearCoat: 0.4 }, 0.7);
   const dark = mats.plain(INK, { roughness: 0.45, clearCoat: 0.4 });
-  const red = mats.plain('#c8443c', { roughness: 0.5, clearCoat: 0.4, glow: glow * 0.5 });
+  const red = lit('#c8443c', { roughness: 0.5, clearCoat: 0.4 }, 0.5);
   const at = (mesh: Mesh, x: number, y: number, z: number, material: Material): void => {
     mesh.position.set(x, y, z);
     batch.add(mesh, material);
@@ -461,13 +484,7 @@ function buildTiles(
     const outline = polygon(scene, 'farbrand', 1.16, 0.02, style);
     at(outline, x, TILE_TOP - 0.005, z, rim);
     const inlay = polygon(scene, 'farbe', 1.0, 0.02, style);
-    at(
-      inlay,
-      x,
-      TILE_TOP + 0.002,
-      z,
-      mats.plain(style.paint, { roughness: 0.45, clearCoat: 0.6, glow }),
-    );
+    at(inlay, x, TILE_TOP + 0.002, z, lit(style.paint, { roughness: 0.45, clearCoat: 0.6 }, 1));
 
     const y = TILE_TOP + 0.02;
     switch (space.kind) {
@@ -549,6 +566,7 @@ function buildTiles(
       }
     }
   }
+  return setGlow;
 }
 
 /** Wegpfeil in der Mitte jeder Verbindung, Trittsteine bei langen Wegen. */

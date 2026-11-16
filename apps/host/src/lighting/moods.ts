@@ -9,8 +9,9 @@
  * - `uhr`: echte Uhrzeit des PCs (`CLOCK_SCHEDULE`),
  * - `verlauf`: Spielverlauf, erste Runde morgens, letzte Runde nachts (`ROUND_ARC`).
  *
- * Die Szene (heute die Look-Dev-Vitrine `apps/host/src/lookdev/nature.ts`, später das Brett)
- * setzt eine `LightMood` in Lichter, Himmel und Nachbearbeitung um.
+ * Im Spiel gilt `verlauf` (Rubens Wahl, CHAOS-63): Brett und Minispiele folgen der Runde,
+ * `../nature/lighting.ts` setzt eine `LightMood` in Lichter, Himmel und Nachbearbeitung um und
+ * blendet beim Rundenwechsel über (`./transition.ts`).
  */
 
 export const LIGHT_MOOD_IDS = [
@@ -239,6 +240,28 @@ export function moodForRound(round: number, totalRounds: number): LightMoodId {
   const index = Math.round(((r - 1) / (totalRounds - 1)) * last);
   return ROUND_ARC[index] ?? 'nacht';
 }
+
+/**
+ * Stimmungen, die eine Brett-Szene in Runde `round` brauchen kann (CHAOS-63): die der Runde
+ * und die der nächsten. Das Brett wird nach jedem Minispiel neu aufgebaut (noch in der alten
+ * Runde) und blendet beim Rundenwechsel in die nächste Stimmung über; deren Himmel und
+ * Nachtlichter lädt die Szene deshalb schon beim Aufbau.
+ */
+export function moodsForBoardRound(round: number, totalRounds: number): LightMoodId[] {
+  const current = moodForRound(round, totalRounds);
+  const next = round < totalRounds ? moodForRound(round + 1, totalRounds) : current;
+  return next === current ? [current] : [current, next];
+}
+
+/**
+ * Feste Stimmungen außerhalb der Partie (CHAOS-63, Vorschlag aus dem Ticket): Die Lobby spielt
+ * in der Goldenen Stunde, die Siegerehrung nachts (die Partie endet nachts). Beide Szenen haben
+ * noch keinen Natur-Look; sie lesen den Wert, sobald sie ihn bekommen.
+ */
+export const SCENE_MOODS = {
+  lobby: 'abend',
+  finale: 'nacht',
+} as const satisfies Readonly<Record<string, LightMoodId>>;
 
 export interface MoodContext {
   readonly boardId: string;

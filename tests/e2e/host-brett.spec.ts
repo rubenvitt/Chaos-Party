@@ -186,6 +186,58 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(page).toHaveScreenshot('host-brett.png', { mask: hudMask(page) });
   });
 
+  test('Lichtverlauf: Rundenwechsel blendet weich in die nächste Stimmung (CHAOS-63)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    await openBoard(page);
+    const lightMood = () => page.evaluate(() => window.__chaos?.board?.getLightMood() ?? null);
+    const hud = page.getByTestId('board-hud');
+    // Runde 2 von 5: Mittag, kein Übergang.
+    expect(await lightMood()).toEqual({ from: 'mittag', to: 'mittag', progress: 1 });
+    await expect(hud).toHaveAttribute('data-sky', 'hell');
+
+    const base = await demoView(page, 0);
+    const nextRound = async (round: number, eventSeq: number) => {
+      await feed(page, {
+        v: 4,
+        type: 'board',
+        view: { ...base, round },
+        events: [{ type: 'round-started', round }],
+        eventSeq,
+      });
+      await playUntilIdle(page);
+    };
+
+    // Runde 3: Goldene Stunde, Überblendung über 4 s (240 Bilder à 1/60 s).
+    await nextRound(3, 0);
+    const start = await lightMood();
+    expect(start).toMatchObject({ from: 'mittag', to: 'abend' });
+    expect(start?.progress).toBeLessThan(0.05);
+    await stepFrames(page, 120);
+    const half = await lightMood();
+    expect(half?.progress).toBeGreaterThan(0.4);
+    expect(half?.progress).toBeLessThan(0.6);
+    await stepFrames(page, 130);
+    expect(await lightMood()).toEqual({ from: 'abend', to: 'abend', progress: 1 });
+
+    // Runde 4 und 5: Dämmerung, dann Nacht; der HUD-Titel wird hell.
+    await nextRound(4, 1);
+    await expect(hud).toHaveAttribute('data-sky', 'dunkel');
+    await stepFrames(page, 250);
+    expect(await lightMood()).toEqual({ from: 'daemmerung', to: 'daemmerung', progress: 1 });
+    await nextRound(5, 2);
+    await stepFrames(page, 250);
+    expect(await lightMood()).toEqual({ from: 'nacht', to: 'nacht', progress: 1 });
+    await expect(page.getByTestId('board-round')).toHaveText('Runde 5/5');
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos63-brett-nacht-sparstufe.png' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-nacht.png', { mask: hudMask(page) });
+    expectNoProblems(problems);
+  });
+
   test('Figur hüpft Feld für Feld, Item landet in der Leiste', async ({ page }) => {
     const problems = collectProblems(page);
     await openBoard(page);

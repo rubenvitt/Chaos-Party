@@ -56,6 +56,11 @@ export interface MinigameStageOptions {
   readonly seed: number;
   /** Spielzeit (ms); nach Host-Neuladen die Restzeit. */
   readonly timeLimitMs: number;
+  /**
+   * Runde und Rundenzahl der Partie (Lichtverlauf, CHAOS-63): Das Minispiel erbt die Stimmung
+   * der Runde. `null`/fehlend: feste Brett-Stimmung (lokaler Ablauf, Vorschau).
+   */
+  readonly lightRound?: { readonly round: number; readonly rounds: number } | null;
   readonly testMode: boolean;
   readonly sound: SoundEngine;
   /** Genau einmal, sobald das Minispiel ein (geprüftes) Ergebnis hat. */
@@ -126,8 +131,13 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   // Testmodus: Figuren-Animationen laufen je Bild um feste 16 ms (stabile Screenshots).
   scene.useConstantAnimationDeltaTime = testMode;
   const fx: HostMinigameFx = createMinigameFx(scene, { sound: options.sound, testMode });
-  // Stimmung zunächst wie das Brett; der Lichtverlauf je Runde folgt in CHAOS-63.
-  const settings = currentLookSettings(testMode, 'wackelwald', engine.getGlInfo().renderer);
+  // Stimmung der Runde (Lichtverlauf, CHAOS-63); ohne Runde wie das Brett.
+  const settings = currentLookSettings(
+    testMode,
+    'wackelwald',
+    engine.getGlInfo().renderer,
+    options.lightRound ?? null,
+  );
   applyRenderScale(engine, settings);
   const look = createMinigameLook(scene, settings);
   const adaptive = createAdaptiveQuality(settings.quality, settings.automatic);

@@ -335,5 +335,21 @@ Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `min
 | N3 | Zum Vergleich `?qualitaet=mittel` und `?qualitaet=niedrig` | fps je Stufe; sieht man den Unterschied aus 3 m? | | |
 | N4 | Ruckeln beim Wechsel Brett → Minispiel → Brett | kein langes Standbild beim Laden (Himmel, Texturen) | | |
 | N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
-| N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Vorgriff auf CHAOS-63) | | |
+| N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Lichtverlauf je Runde: Abschnitt 14) | | |
 | N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |
+
+## 14. Lichtverlauf je Runde am Fernseher (für CHAOS-56/CHAOS-63)
+
+**Stand:** 2026-11-16 · **Aufgabe:** CHAOS-63 · Beleg der Automatik: `docs/screenshots/chaos63-lichtverlauf.jpg` (Stufe `mittel`, Software-Rendering, nur Optik, keine Bildrate)
+
+Automatisch geprüft: Reihenfolge der Stimmungen je Rundenzahl und stetige Überblendung (`apps/host/src/lighting/transition.test.ts`), Rundenwechsel 2→5 am Brett mit Fortschritt der Überblendung und Nachtbild in der Sparstufe (`host-brett.spec.ts`). **Nicht** automatisch prüfbar: Wirkung und Lesbarkeit am Fernseher, Bildrate nachts auf echter GPU, ob man den Wechsel des Umgebungslichts zur Hälfte der Überblendung sieht. Ablauf: `pnpm build && pnpm start`, Partie mit 5 Runden (Standard) und `?debug=1`; für mehr Runden in der Lobby umstellen.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| L1 | Partie mit 5 Runden durchspielen | Runde 1 Morgen, 2 Mittag, 3 Goldene Stunde, 4 Dämmerung, 5 Nacht; Minispiele in derselben Stimmung wie ihre Runde | | |
+| L2 | Rundenwechsel beobachten (nach dem Minispiel, „Runde x beginnt!“) | weiche Überblendung über ≈ 4 s, kein Standbild, kein Ruckler, kein sichtbarer Sprung des Himmels; fällt der Wechsel des Umgebungslichts zur Hälfte auf? | | |
+| L3 | Lesbarkeit aus 3 m in jeder Stimmung | Feldtypen (Farbe **und** Form, Symbol), Figuren, Sockel und Slot-Farben erkennbar, besonders in Dämmerung und Nacht (leuchtende Felder nicht zu blass) | | |
+| L4 | HUD-Unterzeile „Wackelwald · Runde x/y“ oben links | in Dämmerung und Nacht hell und lesbar | | |
+| L5 | Bildrate in Runde 4 und 5 (`?debug=1`, bis zu 6 Lichter pro Material) | ≥ 50 fps bei `hoch`, sonst Stufe notieren; Vergleich zur Bildrate in Runde 1–2 | | |
+| L6 | Optional: 10 Runden | Stimmungen nie rückwärts, letzte Runde nachts | | |
+| L7 | Gesamteindruck „ein Tag pro Partie“ | passt der Verlauf? Zu schnell dunkel, zu lang hell? | | |

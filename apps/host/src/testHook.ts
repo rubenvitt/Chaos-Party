@@ -27,6 +27,8 @@ export interface ChaosBoardTestHook {
   getPawnSpaces(): Partial<Record<PlayerSlot, string>>;
   /** Figur je Slot in der Brett-Szene (gewählte Figur aus `BoardPlayer.character`, v4). */
   getPawnCharacters(): Partial<Record<PlayerSlot, CharacterId>>;
+  /** Lichtverlauf je Runde (CHAOS-63): Stimmung, Ziel und Fortschritt der Überblendung. */
+  getLightMood(): { from: string; to: string; progress: number } | null;
   /** Kurzfassung des HUD: übernommene Phase, wer dran ist, sichtbare Meldungen. */
   getHud(): { gamePhase: GamePhaseName | null; activeSlot: PlayerSlot | null; messages: string[] };
   /**

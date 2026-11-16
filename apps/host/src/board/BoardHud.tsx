@@ -13,6 +13,7 @@ import {
   type SlotNumber,
 } from '@chaos-party/protocol';
 import type { CSSProperties } from 'react';
+import { lookMood } from '../nature/settings.ts';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HudMessage, HudSnapshot, MinigameSummary } from './director.ts';
 import { CoinIcon, ItemIcon, TrophyIcon } from './icons.tsx';
@@ -203,11 +204,18 @@ export function BoardHud({ hud, boardName, connection }: BoardHudProps) {
   const { view } = hud;
   const banner = bannerText(view);
   const players = view ? [...view.players].sort((a, b) => a.slot - b.slot) : [];
+  // Lichtverlauf (CHAOS-63): In Dämmerung und Nacht steht der Titel hell auf dunklem Himmel.
+  const { mood } = lookMood(
+    typeof location === 'undefined' ? '' : location.search,
+    view?.boardId ?? '',
+    view ? { round: view.round, rounds: view.rounds } : null,
+  );
   return (
     <div
       className="hud board-hud"
       data-testid="board-hud"
       data-game-phase={view?.gamePhase ?? 'none'}
+      data-sky={mood.night ? 'dunkel' : 'hell'}
     >
       <header className="hud-top">
         <div className="hud-title">

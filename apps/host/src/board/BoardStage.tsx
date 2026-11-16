@@ -121,6 +121,7 @@ export function BoardStage({
           },
           getPawnSpaces: () => director.getPawnSpaces(),
           getPawnCharacters: () => scene.getPawnCharacters(),
+          getLightMood: () => scene.getLightMood(),
           getHud: () => {
             const view = director.getHud().view;
             return {
