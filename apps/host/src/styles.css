@@ -2,8 +2,8 @@
   color-scheme: light;
   font-family: 'Nunito Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
   color: #1b1530;
-  /* Hintergrund des Spiels: der Canvas ist transparent und liegt darüber. */
-  background: #8fd8ff;
+  /* Hintergrund, bis eine Szene ihren Himmel zeigt (Goldene Stunde der Lobby, CHAOS-77). */
+  background: #f2d2b0;
 }
 
 html,
@@ -14,12 +14,16 @@ body,
   overflow: hidden;
 }
 
+/*
+ * Sichtbar nur, solange eine Szene lädt: Danach deckt der Himmel des Natur-Looks ab. Farben der
+ * Goldenen Stunde (Lobby, `SCENE_MOODS.lobby`, CHAOS-77), damit der Übergang nicht springt.
+ */
 .host {
   position: relative;
   height: 100%;
   background:
-    radial-gradient(ellipse at 50% 120%, #fff4c9 0%, transparent 55%),
-    linear-gradient(180deg, #7ccfff 0%, #b9b2ff 70%, #f0b6ff 100%);
+    radial-gradient(ellipse at 50% 120%, #ffd9a0 0%, transparent 55%),
+    linear-gradient(180deg, #8fb4d8 0%, #e9cfb4 65%, #f2b98c 100%);
 }
 
 .stage {
@@ -94,12 +98,16 @@ body,
   transform-origin: left center;
 }
 
+/* Unterzeile über der Wiese der Lobby-Arena (Natur-Look, CHAOS-77): hell mit dunklem Schein. */
 .hud-title p {
   margin: 6px 0 0 4px;
   font-size: 15px;
   font-weight: 700;
-  color: #1b1530;
-  opacity: 0.75;
+  color: #fffaf0;
+  opacity: 0.95;
+  text-shadow:
+    0 1px 2px rgb(10 12 30 / 80%),
+    0 0 10px rgb(10 12 30 / 60%);
 }
 
 .hud-status {
@@ -737,9 +745,13 @@ body,
 /* Brettphase (M2, CHAOS-20): Spielerleiste, Banner, Status, Ticker, Overlays  */
 /* ------------------------------------------------------------------------- */
 
+/* Am Brett tagsüber dunkel auf hellem Himmel, ab der Dämmerung hell (unten). */
 .board-hud .hud-title p {
   font-size: 18px;
   font-weight: 800;
+  color: #1b1530;
+  opacity: 0.75;
+  text-shadow: none;
   transition:
     color 1.5s ease,
     text-shadow 1.5s ease;
