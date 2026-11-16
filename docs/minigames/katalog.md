@@ -8,7 +8,7 @@ Kürzel: Kategorie `Ar` Arcade, `Ph` Physik, `Hy` Hybrid · Bedienung `A`, `AB`,
 
 Schon vorhanden (nicht im Katalog gezählt): Sockenregen, Pudding-Gerangel, Wackelturm, Kuckucks-Klatsche (Rotation), Pump-Parade (Rückfall). Kandidaten aus M3 (CHAOS-79): Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier.
 
-**Pilotwelle** (Vorschlag): MG-001, MG-011, MG-023, MG-033, MG-045, MG-101, MG-111, MG-121 – im Katalog mit ★ markiert.
+**Pilotwelle** (von Ruben freigegeben, 2026-11-16): MG-001, MG-011, MG-023, MG-033, MG-045, MG-101, MG-111, MG-121 – im Katalog mit ★ markiert.
 
 ---
 
@@ -179,7 +179,7 @@ Schon vorhanden (nicht im Katalog gezählt): Sockenregen, Pudding-Gerangel, Wack
 
 ## 12. Bluff & geheime Wahl (FFA)
 
-Nutzt die privaten Bildschirme der iPhones. Am geteilten iPad sieht die Nachbarin mit (Entscheidung offen, siehe README §7).
+Nutzt die privaten Bildschirme der iPhones. Am geteilten iPad sieht die Nachbarin mit. Ruben (2026-11-16): erlaubt, bringt am iPad aber wenig; die Rotation zieht diese Spiele bei iPad-Zonen deutlich seltener.
 
 | Nr | Name | Kat | Bed. | Idee | Kniff |
 |---|---|---|---|---|---|
@@ -256,7 +256,7 @@ Nutzt die privaten Bildschirme der iPhones. Am geteilten iPad sieht die Nachbari
 
 ## 17. Einer gegen alle (`1v3`)
 
-Braucht die Spielform „Teams“ (README §7). Bei 2 Personen: 1 gegen 1; bei 3 Personen: 1 gegen 2.
+Braucht die Spielform „Teams“ (freigegeben, README §7, `CHAOS-89`). Bei 2 Personen: 1 gegen 1; bei 3 Personen: 1 gegen 2.
 
 | Nr | Name | Kat | Bed. | Idee | Kniff |
 |---|---|---|---|---|---|
@@ -307,7 +307,7 @@ Alle spielen gemeinsam gegen das Spiel, gewertet wird trotzdem einzeln (Anteil a
 
 ## 20. Mikro-Spiele (`Mikro`, 5–8 s, Schnellfeuer-Kette)
 
-Gedacht für eine Runde aus fünf Mikro-Spielen am Stück. Braucht den Schnellfeuer-Ablauf (README §7).
+Eigene Mechanik (README §7): Fünf Mikro-Spiele am Stück ersetzen das Minispiel einer Runde. Eigener Vorrat, zählt nicht zu den ~200 vollen Minispielen. Braucht den Schnellfeuer-Ablauf (`CHAOS-90`).
 
 | Nr | Name | Kat | Bed. | Idee | Kniff |
 |---|---|---|---|---|---|

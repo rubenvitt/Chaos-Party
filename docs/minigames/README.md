@@ -98,6 +98,18 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Spielbar:** mit Szene im Baukasten, über die **Minispiel-Galerie** am Host einzeln startbar (Übungsmodus).
 - **Rotation:** in echten Partien. Nach jedem Minispiel können alle am Controller **Daumen hoch / runter** geben. Die Stimmen werden lokal gesammelt; Spiele mit vielen Daumen runter fallen aus der Rotation und gehen zurück in den Trichter.
 
+### 5.5 Gegen Gleichförmigkeit
+
+Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Spiele „einem Muster folgen“. Die Fabrik ist nur dann freigegeben, wenn das nicht passiert. Darum gelten diese Regeln:
+
+- **Baukasten = Unterbau, nie Spielidee.** Er liefert Zeit, Punkte, Bots, Laden, Highlights, Arenen und Figuren-Grundbewegung. Es gibt keine Spielvorlage mit Lücken zum Ausfüllen. Kernmechanik und Kniff schreibt jedes Spiel selbst.
+- **Vielfalts-Steckbrief je Spiel** (Felder im Steckbrief): Kernverb (fangen, ausweichen, rempeln, zielen, stapeln, wählen …), Ziel (sammeln, überleben, zuerst, genau, Mehrheit …), Arena-Form, Kamera (Draufsicht, Seite, Verfolger, fest), Bedienung, Spielform, Tempo (ruhig, wechselnd, hektisch).
+- **Mindestabstand:** Ein neues Spiel muss sich vom ähnlichsten bestehenden Spiel in **mindestens 3** Merkmalen unterscheiden. Der gemeinsame Vertragstest rechnet das aus und nennt das ähnlichste Spiel. Ausnahmen begründet der Katalog-Eintrag.
+- **Eigener Kniff:** Der Kniff eines Spiels (Spalte im Katalog) kommt in keinem anderen Spiel vor.
+- **Optik variiert bewusst:** Orte (Garten, Küche, Bad, Teich, Spielzimmer, Wald, Dachboden), Tageszeit, Kamera. Es soll nicht jedes Spiel eine runde Arena von oben sein.
+- **Rotation:** nie zwei Spiele derselben Familie oder mit demselben Kernverb hintereinander.
+- **Abbruchkriterium:** Bei der Zwischenabnahme (`CHAOS-92`) spielt Ruben die Pilot-Spiele hintereinander. Fühlen sie sich gleich an, wird die Fabrik geändert, bevor weitere Wellen starten.
+
 ## 6. Folgen für den Rest des Spiels
 
 - **Rotation:** Bei 200 Spielen kommt in einer Partie (10–20 Runden) fast nie ein Spiel doppelt. Die Auswahl braucht: Ziehen ohne Wiederholung (auch über Partien hinweg), Mischen über die Achsen, Filter nach Spielerzahl und iPad-Zonen, Sperrliste/Favoriten.
@@ -105,13 +117,17 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Assets:** Viele Spiele brauchen Requisiten (Toaster, Melone, Gießkanne). Weiter mit dem eigenen Blender-Skript-Generator (ADR-013) und CC0-Quellen; je Familie ein **Requisiten-Set**, keine Einzelanfertigung je Spiel.
 - **Ladezeit und Bundle:** 200 Spiele dürfen den Host nicht aufblähen. Minispiel-Module werden **erst bei Bedarf geladen** (dynamischer Import je Spiel).
 
-## 7. Entscheidungen für Ruben
+## 7. Entscheidungen (Konzept-Gate `CHAOS-82`, Ruben, 2026-11-16)
 
-1. **Rahmen freigeben:** Fabrik-Ansatz (Baukasten + Trichter) statt 200 Einzelstücke im heutigen Stil.
-2. **Neue Spielformen:** Dürfen 1 gegen 3, 2 gegen 2 und Koop rein? Sie brauchen eine Münz-Regel (Vorschlag: Team-Sieg = Münzen für alle im Team, Einzelner gegen drei bekommt bei Sieg das Doppelte) und Ersatz bei 2 oder 3 Personen (2v2 → 1v1, bei 3 Personen 1v2 mit Vorteil). Betrifft 30 Skizzen.
-3. **Mikro-Spiele:** Soll es eine „Schnellfeuer“-Runde geben, in der 5 Mikro-Spiele à 5–8 s am Stück laufen? Betrifft 10 Skizzen, wäre aber der schnellste Weg zu großen Zahlen.
-4. **Geheime Wahl am geteilten iPad:** In Familie 12 sieht die Nachbarin die Wahl. Akzeptieren (Party-Chaos) oder diese Spiele bei iPad-Zonen aus der Rotation nehmen?
-5. **Reihenfolge:** Vorschlag Pilotwelle mit 8 Spielen aus 8 Familien, danach Zwischenabnahme, dann Familie für Familie.
+| # | Frage | Rubens Antwort | Folge |
+|---|---|---|---|
+| 1 | Fabrik-Ansatz | „ich habe angst, dass sie dann einem pattern folgen. aber wenn dem nicht so ist go for it“ | Freigegeben mit Auflage: Regeln gegen Gleichförmigkeit (§5.5), Prüfung bei der Zwischenabnahme |
+| 2 | Neue Spielformen 1v3, 2v2, Koop | „ja neue formen“ | `CHAOS-89` freigegeben. Münz-Regel aus dem Vorschlag ist Startwert, ein Experiment legt sie fest |
+| 3 | Mikro-Spiele / Schnellfeuer | „ja bestimmt(?) aber als neue Mechanik dann?“ | Ja, als **eigene Mechanik**: Schnellfeuer ist eine eigene Rundenart, kein normales Minispiel (siehe unten) |
+| 4 | Geheime Wahl am geteilten iPad | „ja, aber da bringt das glaube ich wenig am ipad“ | Erlaubt. Die Rotation zieht diese Spiele bei iPad-Zonen deutlich seltener (`CHAOS-85`) |
+| 5 | Reihenfolge Pilot → Zwischenabnahme → Familien | „ja“ | Wie §8 |
+
+**Schnellfeuer als eigene Mechanik:** Fünf Mikro-Spiele am Stück ersetzen das normale Minispiel einer Runde. Gewertet wird über alle fünf, die Münzen folgen der normalen Platzierung. Der Auslöser wird per Experiment gewählt (`CHAOS-90`). Varianten: (a) ein neues Brett-Ereignis „Schnellfeuer!“, (b) feste Runde zur Halbzeit, (c) Finale in der letzten Runde. Vorschlag: (a), weil Brett-Ereignisse zum Kern des Spiels gehören und die Überraschung erhalten. Die Mikro-Spiele bilden einen eigenen Vorrat und zählen nicht als volle Minispiele. Das Ziel „~200“ meint volle Minispiele, die Mikro-Spiele kommen obendrauf.
 
 ## 8. Wellenplan (Vorschlag)
 
@@ -120,7 +136,7 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 | 0 | Konzept (dieses Dokument + Katalog) | `CHAOS-81` |
 | Gate | Konzept-Abnahme durch Ruben (§7) | `CHAOS-82` |
 | 1 | Fundament: Baukasten, gemeinsame Prüfungen, Rotation für großen Katalog, Laden bei Bedarf, Galerie mit Daumen-Bewertung, Art-Kit | `CHAOS-83` … `CHAOS-88` |
-| 1b | Nur nach Freigabe: neue Spielformen (Teams, Koop), Schnellfeuer-Runde | `CHAOS-89`, `CHAOS-90` |
+| 1b | Neue Spielformen (Teams, Koop) und Schnellfeuer als eigene Rundenart (beides freigegeben) | `CHAOS-89`, `CHAOS-90` |
 | 2 | Pilotwelle: MG-001, MG-011, MG-023, MG-033, MG-045, MG-101, MG-111, MG-121 (alle Bedienungen, acht Familien). Messen: Zeilen und Aufwand je Spiel, Ausfallquote, Bewertung | `CHAOS-91` |
 | Gate | Zwischenabnahme durch Ruben: Fabrik bestätigt oder angepasst, Tempo der Wellen | `CHAOS-92` |
 | 3 | Familien-Wellen 1–20 (Familien 17–20 erst nach `CHAOS-89`/`CHAOS-90`) | `CHAOS-94` … `CHAOS-113` |
