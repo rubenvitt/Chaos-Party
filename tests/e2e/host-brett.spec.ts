@@ -410,4 +410,26 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(page.getByTestId('board-rank-4')).toHaveAttribute('data-place', '3');
     expectNoProblems(problems);
   });
+
+  test('?gpu=webgpu ohne WebGPU im Browser fällt auf WebGL2 zurück (CHAOS-75)', async ({
+    page,
+  }) => {
+    // Wie ein Browser ohne WebGPU (CI-Chromium rendert ohnehin per Software).
+    await page.addInitScript(() => {
+      delete (Navigator.prototype as { gpu?: unknown }).gpu;
+    });
+    const warnings: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'warning') warnings.push(msg.text());
+    });
+    const problems = collectProblems(page);
+    // Ohne Testmodus: Nur dann startet das Brett die Engine asynchron (WebGPU-Pfad).
+    await page.goto('/host/?local=1&board=1&debug=1&gpu=webgpu');
+    await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready', {
+      timeout: 60_000,
+    });
+    await expect(page.getByTestId('debug-renderer')).toContainText('WebGL2');
+    expect(warnings.some((w) => w.includes('WebGPU nicht verfügbar'))).toBe(true);
+    expectNoProblems(problems);
+  });
 });

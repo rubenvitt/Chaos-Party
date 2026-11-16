@@ -55,7 +55,16 @@ export interface HostConfig {
    * `null` = Standard (`normal`, im Testmodus `skip`). `manual`: Uhr nur über den Testhaken.
    */
   readonly finale: FinaleSpeed | null;
+  /**
+   * Grafik-Schnittstelle des Bretts (`?gpu=webgl|webgpu`, CHAOS-75 Renderer-Spike). Standard
+   * WebGL2; ohne WebGPU-Adapter fällt `webgpu` auf WebGL2 zurück (Messanzeige zeigt die API).
+   */
+  readonly gpu: GpuBackend;
 }
+
+/** Grafik-Schnittstelle der Host-Szene (CHAOS-75). */
+export type GpuBackend = 'webgl' | 'webgpu';
+export const GPU_BACKENDS: readonly GpuBackend[] = ['webgl', 'webgpu'];
 
 export type FinaleSpeed = 'normal' | 'fast' | 'skip' | 'manual';
 const FINALE_SPEEDS: readonly FinaleSpeed[] = ['normal', 'fast', 'skip', 'manual'];
@@ -81,6 +90,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   mute: false,
   volume: 70,
   finale: null,
+  gpu: 'webgl',
 };
 
 /** Höchstzahl Runden (gleich `MAX_ROUNDS` im Protokoll). */
@@ -118,6 +128,7 @@ export function parseHostConfig(search: string): HostConfig {
     mute: flag(params.get('mute')),
     volume: Number.isInteger(volume) ? Math.min(100, Math.max(0, volume)) : DEFAULT_CONFIG.volume,
     finale: FINALE_SPEEDS.find((speed) => speed === params.get('finale')) ?? null,
+    gpu: GPU_BACKENDS.find((backend) => backend === params.get('gpu')) ?? DEFAULT_CONFIG.gpu,
   };
 }
 

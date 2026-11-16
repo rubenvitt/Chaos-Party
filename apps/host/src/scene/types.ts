@@ -58,8 +58,10 @@ export interface GameSceneOptions {
 
 /** Grafik-Infos für die Debug-Anzeige (CHAOS-45): was der Browser über die GPU verrät. */
 export interface RendererInfo {
-  /** WebGL-Version (1 oder 2). */
+  /** WebGL-Version (1 oder 2); 0 bei WebGPU. */
   readonly webgl: number;
+  /** Grafik-Schnittstelle, z. B. „WebGL2“ oder „WebGPU“ (CHAOS-75); fehlt bei älteren Szenen. */
+  readonly api?: string;
   /** Grafikkarte/Treiber laut WebGL (ggf. unmaskiert), z. B. „ANGLE (NVIDIA …)“. */
   readonly renderer: string;
   readonly vendor: string;

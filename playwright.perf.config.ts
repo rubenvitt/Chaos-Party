@@ -40,7 +40,13 @@ export default defineConfig({
           headless: !gpu,
           args: [
             ...(gpu
-              ? ['--disable-gpu-vsync', '--disable-frame-rate-limit']
+              ? [
+                  '--disable-gpu-vsync',
+                  '--disable-frame-rate-limit',
+                  // Renderer-Spike (CHAOS-75): Playwrights Chromium bietet `navigator.gpu` nur so;
+                  // wirkt nur mit `PERF_QUERY=&gpu=webgpu`.
+                  '--enable-unsafe-webgpu',
+                ]
               : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
             '--ignore-gpu-blocklist',
             // `performance.memory` ungerundet (sonst grob gestuft und verzögert).

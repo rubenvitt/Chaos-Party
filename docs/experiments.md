@@ -1157,3 +1157,46 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 
 **Offen (nur auf echter Hardware):** Rubens PC und Fernseher (Grafikkarte, Browser, Auflösung, Bildwiederholrate), Checkliste PF0–PF10 und N1–N3. Ein Fernseher mit 30 Hz (4K über HDMI 1.4) liegt dauerhaft unter 45 fps und würde bis `niedrig` abstufen; dann `?qualitaet=hoch` setzen.
 
+
+## EXP-015: Renderer-Alternativen – WebGPU, WebAssembly, nativ (2026-11-16, CHAOS-75)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben will ein flüssiges Bild am PC und Fernseher und später eine Apple TV als Host. Frage: Bringt ein anderer Renderer (Babylon mit WebGPU, Bevy als WebAssembly, Bevy nativ) bei **derselben Szene** spürbar mehr Bildrate, und welcher Weg führt zu tvOS? Erwartung nach EXP-014: Der Haupt-Engpass (PCSS) ist behoben; ein API-Wechsel spart vor allem CPU-Zeit je Draw Call, kaum GPU-Zeit.
+
+**Varianten:**
+
+| # | Variante | Prototyp |
+|---|---|---|
+| V1 | Babylon.js WebGL2 (heute) | Spiel, `/host/?local=1&board=1&demo=1&debug=1` |
+| V2 | Babylon.js WebGPU, gleicher Code | `&gpu=webgpu` (nur Brett, WebGL2-Rückfall; `apps/host/src/scene/engineFactory.ts`) |
+| V3 | Bevy 0.20.1 als WebAssembly (WebGPU bzw. WebGL2) | `spikes/renderer-bevy`, `build-web.sh` |
+| V4 | Bevy 0.20.1 nativ (Metal/DX12/Vulkan) | `spikes/renderer-bevy`, `cargo run --release` |
+| V5 | Swift/RealityKit (tvOS 26), Unity 6, Godot, Babylon Native | kein Prototyp, Recherche |
+
+**Testszene:** das echte Brett „Wackelwald“ im Beispiel-Spielstand, Stufe `hoch`, exportiert mit `node scripts/spike-export-board.mjs` (Babylon-Serializer → GLB). Umfang laut Export: 201 Meshes (176 aktiv), ≈ 500 000 Vertices, 94 Materialien, 55 Texturen; im GLB 121 Meshes, 57 Materialien, 23 Texturen (PNG); 8 Thin-Instance-Gruppen mit 64 246 Instanzen (Gras, Blumen); 4 Figuren aus den Original-GLBs mit Idle-Animation. Unterschiede der Bevy-Szene (kein HDRI-Licht, keine Nachbearbeitung, statische Bäume, `KHR_texture_transform` nur auf der Grundfarbe): [`renderer-spike.md` §4](renderer-spike.md#4-was-die-szenen-gleich-haben--und-was-nicht).
+
+**Messgrößen:** Bildabstand Median/p95 ohne VSync (Babylon: Messanzeige bzw. `PERF_GPU=1 pnpm perf`; Bevy: `SPIKE-ERGEBNIS`-Zeile), Auflösung 1080p und 4K; dazu Aufwand, Lizenz/Kosten, Weiterverwendbarkeit von game-core, Protokoll und Controllern, tvOS-Reife. Subjektiv: sieht die Szene gleichwertig aus, Ladezeit.
+
+**Testumgebung bisher:** nur die Cloud-Umgebung (Linux x64, 4 Kerne, 16 GB, **keine GPU**). Dort ließ sich nur bauen und funktional prüfen:
+
+- **V2:** Typecheck, Lint, Unit-Tests grün. Die `WebGPUEngine` startet in Headless-Chromium 153 (Adapter „swiftshader“), lädt nichts vom CDN (glslang/twgsl werden nicht gebraucht), aber das Gerät geht beim ersten Zeichnen verloren („Device was destroyed“). Ein Rohtest ohne Spielcode (Canvas konfigurieren, 30× leeren) verliert das Gerät genauso, mit drei Flag-Kombinationen. → Grenze der Software-GPU, kein Befund über den Spielcode. In CI bleibt WebGPU damit unprüfbar.
+- **V3 (WebAssembly):** baut in ≈ 8 min (WebGPU und WebGL2). Programm 35 MB (≈ 8 MB gzip) plus Szene ≈ 43 MB. Die **WebGL2-Fassung rendert im Headless-Chromium** (SwiftShader) dieselbe Szene: Insel, Felder, Bäume, Teich, Pokale, Wegweiser, 4 Figuren, 64 246 Gras-/Blumen-Instanzen ([Bild](screenshots/chaos75-bevy-webgl2-swiftshader.jpg); Vergleich: [`chaos62-brett-hoch.jpg`](screenshots/chaos62-brett-hoch.jpg)). Sie wirkt heller und flacher (kein HDRI, keine Nachbearbeitung). Unter WebGL2 schaltet Bevy SSAO, OIT und Compute ab und erlaubt nur **eine** Schattenkaskade. Bildabstand unter SwiftShader ≈ 6 s – nur Funktionsnachweis. Die WebGPU-Fassung ist hier nicht prüfbar (wie V2).
+- **V4 (nativ):** baut in ≈ 10 min (Erst-Build). In der Cloud ließ sich weder ein Fenster (SwiftShader-Vulkan ohne X11-Oberfläche, GL-Backend nicht gebaut) noch ein Offscreen-Bild erzeugen (Bildabstände wurden gemeldet, aber kein Bild – Zahlen verworfen). Nach drei Versuchen eingestellt (Fehlerregel aus `CLAUDE.md`); das Programm ist identisch mit V3 bis auf die Plattformschicht.
+- **Fehler im Spike gefunden und behoben:** Der Babylon-Serializer rechnet linkshändig → rechtshändig durch Spiegeln von **x** um, nicht von z. Mit z-Spiegelung stand die Bevy-Kamera auf der Gegenseite (Schrift spiegelverkehrt); jetzt stimmen Kamera, Licht, Figuren und Instanzen mit dem GLB überein.
+- Bevy-API: zwischen den bekannten Versionen und 0.20 viele Umbenennungen (`SceneRoot` → `WorldAssetRoot`, `shadows_enabled` → `shadow_maps_enabled`, `FontSize`); glTF-Erweiterung `EXT_mesh_gpu_instancing` nicht unterstützt (Instanzen deshalb als eigene Datei).
+
+**Ergebnisse auf echter Hardware:** **offen** – Messbogen R1–R12 in [`renderer-spike.md`](renderer-spike.md#5-messbogen) (PC, Mac; Apple TV nicht messbar).
+
+**Recherche (Stand 16.11.2026):**
+
+| Thema | Befund | Quelle |
+|---|---|---|
+| tvOS Web | kein öffentliches WKWebView, kein Browser; JavaScriptCore seit tvOS 9 | developer.apple.com/documentation/webkit/wkwebview, …/javascriptcore |
+| RealityKit tvOS | ab tvOS 26: ShaderGraph/Custom Materials, Partikel, Physik, Richtungslicht-Schatten, Skelett-Posen; USD/USDZ, glTF nur über Umwandlung; SceneKit in Wartung | developer.apple.com/documentation/realitykit, WWDC25 Session 288, Forum-Thread 831599 |
+| Bevy | 0.20.1 (28.10.2026); tvOS-Issue #13058 offen, winit 0.30 ohne tvOS (0.31 Beta); WebGPU im Browser „experimentell“ | crates.io, github.com/bevyengine/bevy/issues/13058, Bevy examples/README |
+| Rust tvOS | `aarch64-apple-tvos(-sim)` Tier 2 seit Rust 1.95 | rust-lang/rust RELEASES.md, platform-support |
+| Unity 6 | tvOS offiziell (Metal); Personal frei bis 200 000 $, Splash optional (Stand 2024, 2026 unverifiziert) | docs.unity3d.com, unity.com Blog 12.09.2024 |
+| Godot | kein offizieller tvOS-Export (Entwurfs-PR #118332); Web ohne WebGPU | godot-docs, github.com/godotengine/godot/pull/118332 |
+| Babylon Native | kein tvOS, „public preview“ | BabylonNative README |
+| Babylon WebGPU | Umsetzung vollständig; WGSL-Kern-Shader, glslang/twgsl nur für GLSL; Safari 26 mit WebGPU | Babylon-Doku webGPUStatus, Safari-26-Release-Notes |
+
+**Entscheidung:** **iterate** – Prototypen und Messbogen stehen; die Wahl fällt erst mit Rubens Messwerten. Vorschlag in [ADR-016](decisions/ADR-016-renderer.md): bei Babylon bleiben, WebGPU als Option übernehmen, wenn R1/R2 (bzw. R7/R8) ≥ 20 % Vorteil zeigen, tvOS (CHAOS-74) als eigener Spike mit RealityKit und Server auf PC/Mac.
