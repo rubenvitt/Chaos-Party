@@ -192,6 +192,21 @@ describe('Einstellungen des Natur-Looks', () => {
     expect(isSoftwareRenderer(gpu)).toBe(false);
     expect(isSoftwareRenderer('llvmpipe (LLVM 15.0.7, 256 bits)')).toBe(true);
   });
+
+  it('Lobby und Siegerehrung: feste Stimmung, Runde zählt nicht, URL gewinnt (CHAOS-77)', () => {
+    const late = { round: 5, rounds: 5 };
+    expect(parseLookSettings('', { ...board, round: late, scene: 'lobby' })).toMatchObject({
+      mood: { id: 'abend' },
+      fixedMood: true,
+    });
+    expect(parseLookSettings('', { ...board, scene: 'finale' }).mood.id).toBe('nacht');
+    expect(parseLookSettings('?stimmung=morgen', { ...board, scene: 'finale' }).mood.id).toBe(
+      'morgen',
+    );
+    expect(parseLookSettings('', { ...board, scene: 'lobby', testMode: true }).quality).toBe(
+      'minimal',
+    );
+  });
 });
 
 describe('Natur-Assets im Build', () => {

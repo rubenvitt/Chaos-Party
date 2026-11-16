@@ -4,24 +4,23 @@
  * Plätze gleich hoch), Platz 1 jubelt, die anderen hüpfen bzw. schmollen; dazu Konfetti.
  * Framework-frei; React (`Finale.tsx`) baut die Bühne auf und entsorgt sie.
  *
- * Licht und Material wie auf dem Brett (Halbkugel + Sonne mit weichen Schatten,
- * `StandardMaterial` mit leichtem Eigenleuchten, Tinte `#1b1530`), Himmel als CSS-Verlauf.
+ * Natur-Look wie am Brett (CHAOS-77): Das Podest steht auf einer kleinen Insel mit Gras,
+ * Bäumen und Laternen (`../nature/stageLook.ts`), fest bei Nacht (`SCENE_MOODS.finale`, die
+ * Partie endet nachts). Die Blöcke sind aus Holz, ihr Deckel in Slot-Farbe leuchtet nachts wie
+ * die Felder am Brett, ein warmer Spot von vorn oben hebt Figuren und Platzziffern hervor.
+ * Grafikstufen und Automatik wie Brett und Minispiele (CHAOS-71: Sparstufe ohne HDRI).
  *
  * Testmodus: keine Render-Schleife, keine Partikel; `step(n)` rendert n Bilder mit festem
  * Animationsschritt (stabile Screenshots).
  */
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
-import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
-import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
-import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator.js';
-import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
+import { SpotLight } from '@babylonjs/core/Lights/spotLight.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
-import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder.js';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
@@ -35,6 +34,10 @@ import {
 import type { PerfSource } from '../debug/perfTypes.ts';
 import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import { createParticleFx, type ParticleFx } from '../fx/particles.ts';
+import type { NatureLook } from '../nature/lighting.ts';
+import { createAdaptiveQuality } from '../nature/quality.ts';
+import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
+import { createStageLook } from '../nature/stageLook.ts';
 
 const INK = '#1b1530';
 const FONT = '"Nunito Variable", ui-rounded, system-ui, sans-serif';
@@ -61,7 +64,7 @@ export interface PodiumStageOptions {
 export interface PodiumStage extends PerfSource {
   /** Erfüllt, sobald Figuren und Podest stehen und das erste Bild gerendert ist. */
   readonly ready: Promise<void>;
-  /** Nur Testmodus: `frames` Bilder mit festem Animationsschritt. */
+  /** Nur Testmodus: `frames` Schritte mit festem Animationsschritt, gezeichnet wird das letzte. */
   step(frames: number): void;
   dispose(): void;
 }
@@ -81,8 +84,17 @@ export function podiumSlots(count: number): number[] {
   return order.slice(0, count).map((index) => index * spacing);
 }
 
-/** Podestfarbe je Platz: Gold, Silber, Bronze, Lila. */
-const BLOCK_COLORS = ['#ffd23f', '#d6e0ea', '#e9a66b', '#c9bff0'];
+/** Farbstich des Holzes je Platz: Gold, Silber, Bronze, Lila. */
+const BLOCK_COLORS = ['#ffd75e', '#e2e8ee', '#eaa974', '#cfc6f2'];
+
+/** Halme bei Grafikstufe `hoch` (kleine Insel, die Kamera sieht vor allem das Podest). */
+const PODIUM_GRASS = 22000;
+
+/**
+ * Spot aufs Podest bei Nacht (Lesbarkeit von Figuren, Ziffern und Slot-Farben am Fernseher):
+ * Stärke für ≈ 10 Einheiten Abstand (PBR fällt mit dem Quadrat der Entfernung ab).
+ */
+const SPOT = { intensity: 140, angle: 1.0, exponent: 1.5, color: '#ffe3bd' } as const;
 
 export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   const { canvas, testMode } = options;
@@ -94,9 +106,23 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
     !testMode,
   );
   const scene = new Scene(engine);
+  // Bis der Himmel steht, scheint der CSS-Verlauf durch; danach deckt der Natur-Look ab.
   scene.clearColor = new Color4(0, 0, 0, 0);
   scene.useConstantAnimationDeltaTime = testMode;
   scene.skipPointerMovePicking = true;
+
+  // Natur-Look: Nacht (bzw. `?stimmung=`), Grafikstufe wie Brett und Minispiele.
+  const settings = sceneLookSettings(testMode, 'finale', engine.getGlInfo().renderer);
+  applyRenderScale(engine, settings);
+  const night = settings.mood.night;
+  const look = createStageLook(scene, settings, {
+    grass: PODIUM_GRASS,
+    seed: 5,
+    extraLights: night ? 1 : 0,
+  });
+  const adaptive = createAdaptiveQuality(settings.quality, settings.automatic);
+  let lighting: NatureLook | null = null;
+  let seconds = 0;
 
   // Als Objekt, damit TypeScript den Wert nach `await` nicht fälschlich festnagelt.
   const life = { disposed: false };
@@ -109,16 +135,21 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   let cheerTimer = 0;
 
   const resize = () => {
+    // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
     engine.resize();
+    applyRenderScale(engine, settings, adaptive.level);
     placeCamera();
   };
   window.addEventListener('resize', resize);
 
+  // Podest mittig auf der Insel (die Kulisse liegt um den Ursprung).
+  const raw = podiumSlots(entries.length);
+  const rawCenter = (Math.min(0, ...raw) + Math.max(0, ...raw)) / 2;
+  const xs = raw.map((x) => x - rawCenter);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const centerX = 0;
   // Kamera so weit weg, dass alle Podeste (plus Figurenbreite) ins Bild passen.
-  const xs = podiumSlots(entries.length);
-  const minX = Math.min(0, ...xs);
-  const maxX = Math.max(0, ...xs);
-  const centerX = (minX + maxX) / 2;
   const camera = new FreeCamera('podest-kamera', new Vector3(0, 0, 0), scene);
   camera.fov = 0.62;
   camera.minZ = 0.5;
@@ -131,30 +162,20 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   };
   placeCamera();
 
-  const hemi = new HemisphericLight('himmel', new Vector3(0.2, 1, -0.3), scene);
-  hemi.intensity = 0.75;
-  hemi.diffuse = new Color3(1, 0.97, 0.92);
-  hemi.groundColor = new Color3(0.5, 0.45, 0.7);
-  hemi.specular = new Color3(0.05, 0.05, 0.05);
-  const direction = new Vector3(0.35, -1, 0.55).normalize();
-  const sun = new DirectionalLight('sonne', direction, scene);
-  sun.position = direction.scale(-20);
-  sun.intensity = 0.6;
-  sun.specular = new Color3(0.2, 0.2, 0.2);
-  const shadows = new ShadowGenerator(1024, sun);
-  shadows.usePercentageCloserFiltering = true;
-  shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-  shadows.bias = 0.004;
-  shadows.darkness = 0.45;
-
-  function material(name: string, hex: string, emissive = 0.12): StandardMaterial {
-    const mat = new StandardMaterial(name, scene);
-    const color = Color3.FromHexString(hex);
-    mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(emissive);
-    mat.specularColor = new Color3(0.08, 0.08, 0.08);
-    materials.push(mat);
-    return mat;
+  // Spot von vorn oben aufs Podest, nur nachts (Mondlicht allein ist am Fernseher zu dunkel).
+  if (night) {
+    const from = new Vector3(centerX, 9, -7);
+    const spot = new SpotLight(
+      'podest-spot',
+      from,
+      new Vector3(centerX, 1.2, 0).subtract(from).normalize(),
+      SPOT.angle,
+      SPOT.exponent,
+      scene,
+    );
+    spot.intensity = SPOT.intensity;
+    spot.diffuse = Color3.FromHexString(SPOT.color);
+    spot.specular = spot.diffuse.scale(0.4);
   }
 
   function plate(text: string, color: string): StandardMaterial {
@@ -183,68 +204,55 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   }
 
   function buildStage(): void {
-    // Runde Grasinsel (cremiger Rand, dunkle Tinte darunter). Halbkugellicht + Sonne ergeben
-    // auf der Oberseite ≈ 1,25 × Grundfarbe: #72a755 erscheint so als Gras-Referenz #8fd16a
-    // (Art Direction). Mit #7cc35a lag die Insel bei (158, 243, 110) und überstrahlte die
-    // Podeste – auf echter GPU genauso, das ist Lichtrechnung, nicht SwiftShader (CHAOS-40).
-    const diameter = maxX - minX + 6;
-    const grass = CreateCylinder('insel', { diameter, height: 0.3, tessellation: 72 }, scene);
-    grass.position.set(centerX, -0.15, 0.6);
-    grass.material = material('insel-mat', '#72a755', 0.03);
-    grass.receiveShadows = true;
-    const rim = CreateCylinder(
-      'insel-rand',
-      { diameter: diameter + 0.5, height: 0.3, tessellation: 72 },
-      scene,
-    );
-    rim.position.set(centerX, -0.2, 0.6);
-    rim.material = material('insel-rand-mat', '#f3e7c4', 0.15);
-    const ink = CreateCylinder(
-      'insel-tinte',
-      { diameter: diameter + 0.8, height: 0.3, tessellation: 72 },
-      scene,
-    );
-    ink.position.set(centerX, -0.3, 0.6);
-    ink.material = material('insel-tinte-mat', INK, 0);
-    for (const mesh of [grass, rim, ink]) mesh.isPickable = false;
+    // Lichtung auf der Insel: frei und eben unter dem Podest, Laternen links und rechts.
+    look.backdrop({ halfX: (maxX - minX) / 2 + 1.6, halfZ: 1.6 });
   }
 
   function buildBlock(entry: PodiumEntry, x: number): Vector3 {
+    const mats = look.materials;
     const height = podiumHeight(entry.place);
-    const color = BLOCK_COLORS[entry.place - 1] ?? '#c9bff0';
+    const color = BLOCK_COLORS[entry.place - 1] ?? '#cfc6f2';
     const root = new TransformNode(`podest-${String(entry.slot)}`, scene);
     root.position.x = x;
-    // Dunkler Sockel unten (Tinte) statt Umriss: hebt den Block vom Gras ab.
-    const foot = CreateBox('podest-fuss', { width: 2.06, height: 0.12, depth: 2.06 }, scene);
+    // Sockel aus moosigem Stein: hebt den Block von der Wiese ab.
+    const foot = CreateBox('podest-fuss', { width: 2.1, height: 0.14, depth: 2.1 }, scene);
     foot.parent = root;
-    foot.position.y = 0.06;
-    foot.material = material(`podest-fuss-${String(entry.slot)}`, INK, 0);
+    foot.position.y = 0.05;
+    foot.material = mats.textured('mossy_rock', { u: 1, tint: '#8c8f86' });
+    // Block aus Holz, im Farbton des Platzes (Gold, Silber, Bronze).
     const block = CreateBox('podest', { width: 1.9, height, depth: 1.9 }, scene);
     block.parent = root;
-    block.position.y = height / 2;
-    block.material = material(`podest-${String(entry.slot)}-mat`, color);
-    block.receiveShadows = true;
-    // Deckel in Slot-Farbe (Spieler-Kennung, dazu das Symbol über dem Kopf im 2D-Overlay).
+    block.position.y = height / 2 + 0.1;
+    block.material = mats.textured('oak_veneer_01', {
+      u: 1,
+      v: Math.max(0.4, height / 1.9),
+      tint: color,
+      key: `podest-${String(entry.place)}`,
+    });
+    // Deckel in Slot-Farbe (Spieler-Kennung, dazu das Symbol über dem Kopf im 2D-Overlay);
+    // leuchtet nachts wie die Feld-Einlagen am Brett.
     const lid = CreateBox('podest-deckel', { width: 2.0, height: 0.14, depth: 2.0 }, scene);
     lid.parent = root;
-    lid.position.y = height + 0.04;
-    lid.material = material(
-      `podest-deckel-${String(entry.slot)}`,
-      PLAYER_SLOTS[entry.slot].color,
-      0.2,
-    );
-    lid.receiveShadows = true;
+    lid.position.y = height + 0.14;
+    lid.material = mats.plain(PLAYER_SLOTS[entry.slot].color, {
+      roughness: 0.45,
+      clearCoat: 0.4,
+      glow: Math.max(0.12, night?.tileGlow ?? 0),
+    });
     // Platzziffer vorne auf dem Block.
     const number = CreatePlane('podest-zahl', { size: Math.min(1.2, height * 0.92) }, scene);
     number.parent = root;
-    number.position.set(0, height / 2 + 0.02, -0.97);
+    number.position.set(0, height / 2 + 0.12, -0.97);
     number.material = plate(String(entry.place), '#ffffff');
     const meshes: Mesh[] = [foot, block, lid, number];
     for (const mesh of meshes) {
       mesh.isPickable = false;
-      if (mesh !== number) shadows.addShadowCaster(mesh, false);
+      if (mesh !== number) {
+        look.addCaster(mesh);
+        mesh.receiveShadows = true;
+      }
     }
-    return new Vector3(x, height + 0.1, 0);
+    return new Vector3(x, height + 0.21, 0);
   }
 
   function celebrate(): void {
@@ -260,6 +268,11 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
     }
   }
 
+  // Je Bild: Glühwürmchen (deterministisch im Testmodus, `step` zählt feste 1/60 s).
+  scene.onBeforeRenderObservable.add(() => {
+    look.update(seconds);
+  });
+
   const ready = (async () => {
     try {
       await document.fonts.load(`900 64px ${FONT}`);
@@ -267,7 +280,7 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
       // Ersatzschrift: lesbar, nur weniger hübsch.
     }
     if (isDisposed()) return;
-    const loaded = await loadCharacters(scene);
+    const loaded = await loadCharacters(scene, { keepPbr: true });
     if (isDisposed()) {
       loaded.dispose();
       return;
@@ -286,16 +299,25 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
       handle.root.position.copyFrom(top);
       handle.root.rotation.y = FACE_CAMERA;
       handle.root.scaling.setAll(CHARACTER_SCALE);
-      shadows.addShadowCaster(handle.shadowCaster, false);
+      look.addCaster(handle.shadowCaster);
       handles.push({ entry, handle, top });
     });
     celebrate();
+    lighting = await look.finish(camera);
+    if (isDisposed()) return;
     await scene.whenReadyAsync(true);
     if (isDisposed()) return;
     scene.render();
     if (testMode) return;
     engine.runRenderLoop(() => {
-      cheerTimer += engine.getDeltaTime();
+      const dt = engine.getDeltaTime();
+      const next = adaptive.frame(dt);
+      if (next) {
+        lighting?.setQuality(next);
+        applyRenderScale(engine, settings, next);
+      }
+      seconds += dt / 1000;
+      cheerTimer += dt;
       if (cheerTimer >= CHEER_EVERY_MS) {
         cheerTimer = 0;
         celebrate();
@@ -311,7 +333,12 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
     ready,
     step(frames) {
       if (life.disposed || !scene.activeCamera) return;
-      for (let index = 0; index < frames; index++) scene.render();
+      // Alle Schritte animieren, nur das letzte Bild zeichnen (Software-GPU, wie das Brett).
+      for (let index = 0; index < frames; index++) {
+        seconds += 1 / 60;
+        if (index < frames - 1) scene.animate();
+      }
+      if (frames > 0) scene.render();
     },
     onFrameRendered(listener) {
       return observeFrames(scene, listener);

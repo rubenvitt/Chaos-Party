@@ -4,21 +4,22 @@
  * Framework-unabhängig (kein React): Die Szene bekommt Spielerliste und Eingaben
  * über die `GameScene`-Schnittstelle und gibt nichts an die UI zurück außer `ready`.
  * Deep-Imports statt `@babylonjs/core`-Barrel, damit Vite nur Benötigtes bündelt.
+ *
+ * Natur-Look (CHAOS-77): Die Arena ist eine Lichtung auf einer kleinen Insel
+ * (`../nature/stageLook.ts`), die Banden sind Baumstämme, die Eckpfosten Baumstümpfe. Die Lobby
+ * spielt fest in der Goldenen Stunde (`SCENE_MOODS.lobby`), mit Grafikstufen und Automatik wie
+ * Brett und Minispiele. Die Physik (Boden, Banden) bleibt unsichtbar und unverändert.
  */
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
-import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
-import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
-import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator.js';
-import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
+import type { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
 import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder.js';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder.js';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder.js';
-import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
+import type { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import '@babylonjs/core/Physics/joinedPhysicsEngineComponent.js';
 import {
@@ -30,6 +31,10 @@ import '@babylonjs/core/Physics/v2/physicsEngineComponent.js';
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
+import type { NatureLook } from '../nature/lighting.ts';
+import { createAdaptiveQuality } from '../nature/quality.ts';
+import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
+import { createStageLook } from '../nature/stageLook.ts';
 import { loadHavok } from './havok.ts';
 import {
   approachAngle,
@@ -57,8 +62,10 @@ const ARENA = {
   depth: 11,
   wallHeight: 0.7,
   wallThickness: 0.5,
-  tile: 1.5,
 } as const;
+
+/** Halme bei Grafikstufe `hoch`: Die Lobby-Insel ist etwas größer als die der Minispiele. */
+const LOBBY_GRASS = 34000;
 
 const CHARACTER = {
   radius: 0.55,
@@ -77,10 +84,12 @@ interface Character {
   face: TransformNode;
   antenna: Mesh;
   aggregate: PhysicsAggregate;
-  material: StandardMaterial;
+  material: PBRMaterial;
+  /** Augen und Pupillen (eigene Materialien je Figur). */
+  faceMaterials: PBRMaterial[];
   /** Rotes „!“ über dem Kopf, nur sichtbar, solange der Controller getrennt ist (CHAOS-12). */
   marker: TransformNode;
-  markerMaterial: StandardMaterial;
+  markerMaterial: PBRMaterial;
   stick: { x: number; y: number };
   dashQueued: boolean;
   lastDashAt: number;
@@ -106,11 +115,19 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
   );
 
   const scene = new Scene(engine);
-  scene.clearColor = new Color4(0, 0, 0, 0); // Hintergrund kommt als CSS-Verlauf
+  // Bis der Himmel steht, scheint der CSS-Verlauf durch; danach deckt der Natur-Look ab.
+  scene.clearColor = new Color4(0, 0, 0, 0);
   scene.skipPointerMovePicking = true;
   if (testMode) {
     scene.useConstantAnimationDeltaTime = true;
   }
+
+  // Natur-Look: Goldene Stunde (bzw. `?stimmung=`), Grafikstufe wie Brett und Minispiele.
+  const settings = sceneLookSettings(testMode, 'lobby', engine.getGlInfo().renderer);
+  applyRenderScale(engine, settings);
+  const look = createStageLook(scene, settings, { grass: LOBBY_GRASS, seed: 11 });
+  const adaptive = createAdaptiveQuality(settings.quality, settings.automatic);
+  let lighting: NatureLook | null = null;
 
   const spawnPoints = computeSpawnPoints(options.seed, {
     halfWidth: ARENA.width / 2 - 2,
@@ -125,17 +142,16 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
   // Funktion statt direkter Abfrage: `dispose()` kann zwischen zwei `await` laufen.
   const isDisposed = (): boolean => disposed;
   let simTime = 0;
-  let shadows: ShadowGenerator | undefined;
 
   const camera = new FreeCamera('kamera', new Vector3(0, 13.5, -13.5), scene);
   camera.setTarget(new Vector3(0, 0, -0.6));
   camera.fov = 0.78;
   camera.inputs.clear(); // feste Kamera, keine Maus-/Tastatursteuerung
 
-  buildLights();
-
   const onResize = (): void => {
+    // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
     engine.resize();
+    applyRenderScale(engine, settings, adaptive.level);
     if (testMode && physicsReady) {
       scene.render();
     }
@@ -164,6 +180,10 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     buildArena();
     scene.onBeforePhysicsObservable.add(beforePhysicsStep);
     syncPlayers();
+    lighting = await look.finish(camera);
+    if (isDisposed()) {
+      throw new Error('Szene wurde während des Aufbaus entsorgt');
+    }
 
     await scene.whenReadyAsync(true);
     if (isDisposed()) {
@@ -172,53 +192,44 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     if (testMode) {
       scene.render();
     } else {
+      let last = performance.now();
       engine.runRenderLoop(() => {
+        const now = performance.now();
+        const next = adaptive.frame(now - last);
+        last = now;
+        if (next) {
+          lighting?.setQuality(next);
+          applyRenderScale(engine, settings, next);
+        }
         scene.render();
       });
     }
   })();
 
-  function buildLights(): void {
-    const hemi = new HemisphericLight('himmel', new Vector3(0.2, 1, -0.3), scene);
-    hemi.intensity = 0.6;
-    hemi.diffuse = new Color3(1, 0.97, 0.92);
-    hemi.groundColor = new Color3(0.45, 0.4, 0.65);
-    hemi.specular = new Color3(0.1, 0.1, 0.1);
+  // Je Bild (auch `stepFrames`): Glühwürmchen und Überblendung in Simulationszeit.
+  scene.onBeforeRenderObservable.add(() => {
+    look.update(simTime);
+  });
 
-    // Sonne von links vorn oben: Gesichter beleuchtet, Schatten fallen sichtbar nach rechts.
-    const direction = new Vector3(0.6, -1, 0.25).normalize();
-    const sun = new DirectionalLight('sonne', direction, scene);
-    sun.position = direction.scale(-20);
-    sun.intensity = 0.6;
-    sun.specular = new Color3(0.25, 0.25, 0.25);
-    // Enger Tiefenbereich, sonst schluckt der Bias die Schatten (Tiefe wird auf min..max normiert).
-    sun.shadowMinZ = 5;
-    sun.shadowMaxZ = 40;
-
-    shadows = new ShadowGenerator(1024, sun);
-    shadows.usePercentageCloserFiltering = true;
-    shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-    shadows.bias = 0.002;
-    shadows.darkness = 0.45;
-  }
-
-  function material(name: string, hex: string, emissive = 0.08): StandardMaterial {
-    const mat = new StandardMaterial(name, scene);
-    const color = Color3.FromHexString(hex);
-    mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(emissive);
-    mat.specularColor = new Color3(0.12, 0.12, 0.12);
-    return mat;
+  /** Eigenes PBR-Material im Look (gehört der Figur bzw. Szene). */
+  function material(hex: string, emissive = 0): PBRMaterial {
+    return look.material(hex, { finish: 'lack', emissive }) as PBRMaterial;
   }
 
   function buildArena(): void {
-    const { width, depth, wallHeight, wallThickness, tile } = ARENA;
+    const { width, depth, wallHeight, wallThickness } = ARENA;
+    const mats = look.materials;
+    // Lichtung auf der Insel: frei und eben bis hinter die Banden.
+    look.backdrop({
+      halfX: width / 2 + wallThickness + 0.4,
+      halfZ: depth / 2 + wallThickness + 0.4,
+    });
 
-    // Boden: dicke Platte (Physik) + Schachbrettfliesen als Optik.
+    // Boden: dicke Platte nur für die Physik, sichtbar ist die Wiese.
     const floor = CreateBox('boden', { width, height: 0.5, depth }, scene);
     floor.position.y = -0.25;
-    floor.material = material('boden-mat', '#f7dcae', 0.04);
-    floor.receiveShadows = true;
+    floor.isVisible = false;
+    floor.isPickable = false;
     new PhysicsAggregate(
       floor,
       PhysicsShapeType.BOX,
@@ -226,66 +237,68 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       scene,
     );
 
-    const tiles: Mesh[] = [];
-    const cols = Math.floor(width / tile);
-    const rows = Math.floor(depth / tile);
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r < rows; r++) {
-        if ((c + r) % 2 === 0) continue;
-        const t = CreateBox(`fliese-${c}-${r}`, { width: tile, height: 0.02, depth: tile }, scene);
-        t.position.set(
-          -((cols - 1) * tile) / 2 + c * tile,
-          0.01,
-          -((rows - 1) * tile) / 2 + r * tile,
-        );
-        tiles.push(t);
-      }
-    }
-    const checker = Mesh.MergeMeshes(tiles, true);
-    if (checker) {
-      checker.name = 'fliesen';
-      checker.material = material('fliesen-mat', '#f9b98c', 0.04);
-      checker.receiveShadows = true;
-      checker.freezeWorldMatrix();
-    }
-
-    // Niedrige Banden ringsum, bonbonfarben.
-    const wallMat = material('bande-mat', '#ff7eb6', 0.12);
+    // Banden: unsichtbare Physik-Kästen, sichtbar je ein liegender Baumstamm.
     const walls: [string, number, number, number, number][] = [
       ['bande-nord', 0, depth / 2 + wallThickness / 2, width + 2 * wallThickness, wallThickness],
       ['bande-sued', 0, -depth / 2 - wallThickness / 2, width + 2 * wallThickness, wallThickness],
       ['bande-ost', width / 2 + wallThickness / 2, 0, wallThickness, depth],
       ['bande-west', -width / 2 - wallThickness / 2, 0, wallThickness, depth],
     ];
+    const logDiameter = wallHeight * 0.9;
     for (const [name, x, z, w, d] of walls) {
       const wall = CreateBox(name, { width: w, height: wallHeight, depth: d }, scene);
       wall.position.set(x, wallHeight / 2, z);
-      wall.material = wallMat;
-      wall.receiveShadows = true;
+      wall.isVisible = false;
+      wall.isPickable = false;
       new PhysicsAggregate(
         wall,
         PhysicsShapeType.BOX,
         { mass: 0, friction: 0.1, restitution: 0.8 },
         scene,
       );
+      const length = Math.max(w, d);
+      const log = CreateCylinder(
+        `${name}-stamm`,
+        { diameter: logDiameter, height: length, tessellation: 18 },
+        scene,
+      );
+      // Zylinder steht entlang y: um z (Nord/Süd) bzw. x (Ost/West) auf die Seite legen.
+      if (w > d) log.rotation.z = Math.PI / 2;
+      else log.rotation.x = Math.PI / 2;
+      log.position.set(x, logDiameter / 2 - 0.02, z);
+      log.material = mats.textured('bark_brown_02', {
+        u: 1.5,
+        v: Math.round(length / 1.4),
+        tint: '#b39a84',
+        key: `lobby-stamm-${String(Math.round(length))}`,
+      });
+      log.isPickable = false;
     }
 
-    // Eckpfosten mit Kugelkappe – reine Deko, macht die Arena spielzeughafter.
-    const postMat = material('pfosten-mat', '#7c5cff', 0.15);
+    // Eckpfosten: Baumstümpfe mit Jahresringen obenauf (wie die Baumscheiben-Felder am Brett).
+    const bark = mats.textured('bark_brown_02', { u: 1.5, v: 0.6, tint: '#a58c76' });
+    const rings = mats.textured('oak_veneer_01', { u: 0.6, tint: '#e8cfae' });
+    const stumpHeight = wallHeight + 0.25;
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
         const x = sx * (width / 2 + wallThickness / 2);
         const z = sz * (depth / 2 + wallThickness / 2);
-        const post = CreateCylinder(
+        const stump = CreateCylinder(
           'pfosten',
-          { diameter: 0.8, height: wallHeight + 0.3, tessellation: 24 },
+          { diameterTop: 0.86, diameterBottom: 1.0, height: stumpHeight, tessellation: 20 },
           scene,
         );
-        post.position.set(x, (wallHeight + 0.3) / 2, z);
-        post.material = postMat;
-        const cap = CreateSphere('pfosten-kappe', { diameter: 0.8, segments: 16 }, scene);
-        cap.position.set(x, wallHeight + 0.3, z);
-        cap.material = postMat;
+        stump.position.set(x, stumpHeight / 2, z);
+        stump.material = bark;
+        stump.isPickable = false;
+        const top = CreateCylinder(
+          'pfosten-ringe',
+          { diameter: 0.84, height: 0.02, tessellation: 20 },
+          scene,
+        );
+        top.position.set(x, stumpHeight + 0.005, z);
+        top.material = rings;
+        top.isPickable = false;
       }
     }
   }
@@ -298,14 +311,14 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       scene,
     );
     root.position.set(spawn.x, CHARACTER.height / 2 + 0.02, spawn.z);
-    const mat = material(`spieler-${player.slot}-mat`, player.color, 0.18);
+    const mat = material(player.color);
     root.material = mat;
 
     // Gesicht: dreht sich in Laufrichtung, unabhängig vom (rotationsgesperrten) Körper.
     const face = new TransformNode(`spieler-${player.slot}-gesicht`, scene);
     face.parent = root;
-    const white = material(`spieler-${player.slot}-augen`, '#ffffff', 0.35);
-    const black = material(`spieler-${player.slot}-pupillen`, '#1b1530', 0);
+    const white = material('#ffffff', 0.25);
+    const black = material('#1b1530');
     for (const side of [-1, 1]) {
       const eye = CreateSphere('auge', { diameter: 0.34, segments: 16 }, scene);
       eye.parent = face;
@@ -343,7 +356,9 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     aggregate.body.setLinearDamping(0.05);
 
     for (const mesh of [root, ...root.getChildMeshes()]) {
-      shadows?.addShadowCaster(mesh, false);
+      look.addCaster(mesh);
+      mesh.receiveShadows = true;
+      mesh.isPickable = false;
     }
 
     // Getrennt-Marker (CHAOS-12): ein „!“ in Warnorange schwebt über dem Kopf – vom Sofa aus
@@ -351,7 +366,7 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
     const marker = new TransformNode(`spieler-${player.slot}-getrennt`, scene);
     marker.parent = root;
     marker.position.y = CHARACTER.height / 2 + 1.0;
-    const markerMaterial = material(`spieler-${player.slot}-getrennt-mat`, '#d55e00', 0.6);
+    const markerMaterial = material('#d55e00', 1);
     const bar = CreateCylinder(
       'getrennt-strich',
       { diameterTop: 0.2, diameterBottom: 0.12, height: 0.5, tessellation: 12 },
@@ -373,6 +388,7 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
       antenna,
       aggregate,
       material: mat,
+      faceMaterials: [white, black],
       marker,
       markerMaterial,
       stick: { x: 0, y: 0 },
@@ -387,8 +403,9 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
   function applyAppearance(character: Character): void {
     const { player, material: mat, root } = character;
     const color = Color3.FromHexString(player.color);
-    mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(0.18);
+    mat.albedoColor = color.toLinearSpace();
+    // Etwas Eigenleuchten: Slot-Farbe bleibt im warmen Abendlicht klar erkennbar.
+    mat.emissiveColor = color.scale(0.08);
     const alpha = player.connected ? 1 : 0.35;
     mat.alpha = alpha;
     for (const child of root.getChildMeshes()) {
@@ -402,10 +419,11 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
 
   function disposeCharacter(character: Character): void {
     for (const mesh of [character.root, ...character.root.getChildMeshes()]) {
-      shadows?.removeShadowCaster(mesh, false);
+      look.removeCaster(mesh);
     }
     character.aggregate.dispose();
     character.material.dispose();
+    for (const mat of character.faceMaterials) mat.dispose();
     character.markerMaterial.dispose();
     character.root.dispose(false, false);
   }
@@ -505,9 +523,10 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
         throw new Error('stepFrames ist nur im Testmodus verfügbar');
       }
       if (!physicsReady || disposed) return;
-      for (let i = 0; i < n; i++) {
-        scene.render();
-      }
+      // Alle Schritte rechnen (Physik, Animationen), aber nur das letzte Bild zeichnen: wie
+      // Brett und Minispiele, auf Software-GPUs kostet jedes Bild des Natur-Looks viel.
+      for (let i = 0; i < n - 1; i++) scene.animate();
+      if (n > 0) scene.render();
     },
     onFrameRendered(listener) {
       return observeFrames(scene, listener);
@@ -523,6 +542,9 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
         vendor: gl.vendor,
         width: engine.getRenderWidth(),
         height: engine.getRenderHeight(),
+        ...(lighting
+          ? { quality: `${lighting.quality}${settings.automatic ? ' (auto)' : ''}` }
+          : {}),
       };
     },
     getPlayerPositions(): PlayerPosition[] {

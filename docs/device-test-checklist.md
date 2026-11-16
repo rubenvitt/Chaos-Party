@@ -354,7 +354,21 @@ Automatisch geprüft: Reihenfolge der Stimmungen je Rundenzahl und stetige Über
 | L6 | Optional: 10 Runden | Stimmungen nie rückwärts, letzte Runde nachts | | |
 | L7 | Gesamteindruck „ein Tag pro Partie“ | passt der Verlauf? Zu schnell dunkel, zu lang hell? | | |
 
-## 15. Renderer-Spike: WebGPU, Bevy WebAssembly, Bevy nativ (für CHAOS-75)
+## 15. Lobby und Siegerehrung im Natur-Look (für CHAOS-56/CHAOS-77)
+
+**Stand:** 2026-11-16 · **Aufgabe:** CHAOS-77 · Belege der Automatik: `docs/screenshots/chaos77-lobby.jpg`, `chaos77-arena.jpg`, `chaos77-podest.jpg` (Stufe `mittel`, Software-Rendering, nur Optik, keine Bildrate)
+
+Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physik und Eingaben der Arena unverändert, Screenshot-Regression in der Sparstufe `minimal`. **Nicht** automatisch prüfbar: Wirkung am Fernseher, Bildrate, Standbild beim Übergang zum Podest auf echter GPU (CHAOS-71). Ablauf: `pnpm build && pnpm start`, Host mit `?debug=1`, eine kurze Partie bis zur Siegerehrung.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| LS1 | Lobby öffnen, zwei Controller beitreten lassen | Goldene Stunde: warmes, tiefes Licht, lange Schatten, Lichtung mit Baumstämmen; QR-Code und Panel gut lesbar; Unterzeile oben links hell und lesbar | | |
+| LS2 | In der Lobby mit den Figuren herumlaufen und schubsen | Bewegung und Banden wie vorher, Figuren und Slot-Farben gut erkennbar; flüssig (Debug-Zeile: Stufe und fps notieren) | | |
+| LS3 | Übergang Trophäenzählung → Siegerbildschirm | kein Standbild > 1 s (CHAOS-71); falls doch: Dauer und Stufe notieren | | |
+| LS4 | Siegerbildschirm aus 3 m | Nacht mit Spot, Laternen und Glühwürmchen; Platzziffern, Figuren und leuchtende Slot-Deckel sofort erkennbar; Endstand rechts gut lesbar | | |
+| LS5 | Gesamteindruck | Passen Lobby und Siegerehrung zum Look des Bretts? Zu dunkel, zu bunt, zu blass? | | |
+
+## 16. Renderer-Spike: WebGPU, Bevy WebAssembly, Bevy nativ (für CHAOS-75)
 
 **Stand:** 2026-11-16 · **Aufgabe:** CHAOS-75 · **Entwurf:** [ADR-016](decisions/ADR-016-renderer.md) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
