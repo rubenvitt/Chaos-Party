@@ -87,9 +87,9 @@ Die ARView hält bei voller Szene 120 Hz im Median, das p95 zeigt aber einzelne 
 
 Offscreen kostet ein Bild nacheinander gemessen 14–21 ms. Der Grundwert streut zwischen den Läufen schon um 16,8–21,3 ms, jede Variante wurde nur einmal gemessen. Über dieses Rauschen hinaus zeigt nur „Schatten aus“ einen Unterschied; Grasanteil und MSAA lassen sich davon nicht trennen. Die Offscreen-Werte sind **nicht mit Bevys Bildabstand bei `vsync=0` vergleichbar**: Bevy überlappt die Bilder (Pipelining), diese Schleife wartet jedes Bild ab. Mit Bevy vergleichbar ist nur der ARView-Wert.
 
-Funktionsproben im Simulator (keine Messungen): iPad (A16) mit 2360×1640 und tvOS (Apple TV 4K, 3. Generation) mit 3840×2160 laufen beide mit voller Szene und 64 246 Instanzen bei 60 Hz.
+Funktionsproben im Simulator (keine Messungen): iPhone 17 Pro (Querformat), iPad (A16) mit 2360×1640 und tvOS (Apple TV 4K, 3. Generation) mit 3840×2160 laufen beide mit voller Szene und 64 246 Instanzen bei 60 Hz.
 
-Bilder: [`docs/screenshots/chaos78-realitykit-macos.jpg`](../../docs/screenshots/chaos78-realitykit-macos.jpg) (ARView-Schnappschuss ohne HUD), [`…-ipad-sim.jpg`](../../docs/screenshots/chaos78-realitykit-ipad-sim.jpg), [`…-tvos-sim.jpg`](../../docs/screenshots/chaos78-realitykit-tvos-sim.jpg).
+Bilder: [`docs/screenshots/chaos78-realitykit-macos.jpg`](../../docs/screenshots/chaos78-realitykit-macos.jpg) (ARView-Schnappschuss ohne HUD), [`…-ipad-sim.jpg`](../../docs/screenshots/chaos78-realitykit-ipad-sim.jpg), [`…-iphone-sim.jpg`](../../docs/screenshots/chaos78-realitykit-iphone-sim.jpg), [`…-tvos-sim.jpg`](../../docs/screenshots/chaos78-realitykit-tvos-sim.jpg).
 
 ### Unterschiede zu Babylon/Bevy
 

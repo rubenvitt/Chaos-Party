@@ -1370,7 +1370,7 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 - Die ARView hält im Median 120 Hz, das p95 zeigt einzelne verpasste Bilder; Reserve über 120 Hz unbekannt. Weitere ARView-Läufe waren ungültig, weil macOS das verdeckte Fenster auf ≈ 10 Hz drosselte.
 - Offscreen-Werte warten jedes Bild ab (kein Pipelining) und sind deshalb **nicht** mit Bevy `vsync=0` vergleichbar. Nur „Schatten aus“ hebt sich vom Rauschen ab.
 - Eine GPU-Zeit liefert RealityKit unter macOS nicht (`__frameTime()` = 0); dafür bleibt Instruments.
-- **Simulatoren (keine Messungen):** iPad (A16) 2360×1640 und Apple TV 4K (3. Gen., tvOS 27) 3840×2160 zeigen die volle Szene bei 60 Hz ([Mac](screenshots/chaos78-realitykit-macos.jpg), [iPad-Sim](screenshots/chaos78-realitykit-ipad-sim.jpg), [tvOS-Sim](screenshots/chaos78-realitykit-tvos-sim.jpg)).
+- **Simulatoren (keine Messungen):** iPhone 17 Pro, iPad (A16) 2360×1640 und Apple TV 4K (3. Gen., tvOS 27) 3840×2160 zeigen die volle Szene bei 60 Hz ([Mac](screenshots/chaos78-realitykit-macos.jpg), [iPad-Sim](screenshots/chaos78-realitykit-ipad-sim.jpg), [iPhone-Sim](screenshots/chaos78-realitykit-iphone-sim.jpg), [tvOS-Sim](screenshots/chaos78-realitykit-tvos-sim.jpg)).
 - **Echte Apple TV:** nicht gemessen (kein Gerät am Rechner, kein Signier-Team eingerichtet) → Gerätecheckliste §17, Messbogen R12.
 
 **Befunde unterwegs:**
