@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-15 (M4 umgesetzt, wartet auf Abnahme) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben, Performance offen) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -11,7 +11,7 @@ Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`).
 | M1 – Technischer Durchstich | CHAOS-1 | CHAOS-16 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad offen) |
 | M2 – Spielbares Brett | CHAOS-2 | CHAOS-25 | **APPROVED** 2026-11-15 (nur iPhone getestet, iPad nach M3 verschoben) ([`acceptance/M2.md`](acceptance/M2.md)) |
 | M3 – Party-Identität und Minispiele | CHAOS-3 | CHAOS-35 | **APPROVED** 2026-11-15 (Optik → eigenes Epic CHAOS-56) ([`acceptance/M3.md`](acceptance/M3.md)) |
-| M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | umgesetzt, **wartet auf Rubens Abnahme** ([`acceptance/M4.md`](acceptance/M4.md)) |
+| M4 – Vollständiger Vertical Slice | CHAOS-4 | CHAOS-43 | **APPROVED** 2026-11-16 trotz Ruckeln; Performance auf echter Hardware folgt (CHAOS-73) ([`acceptance/M4.md`](acceptance/M4.md)) |
 
 ## M1 – Aufgaben
 
@@ -81,7 +81,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-41 | Gesamtablauf-E2E, Gerätecheckliste Abschnitt 12, [`m4-demo.md`](m4-demo.md) | im PR |
 | CHAOS-42 | `pnpm play`, `pnpm smoke`, [`known-issues.md`](known-issues.md), [`security-license-review.md`](security-license-review.md), Abnahmebericht | im PR |
 | CHAOS-47 | **Ruben:** iPad-Nachtest aus M1 (I1–I9) | offen, Voraussetzung für CHAOS-43 |
-| CHAOS-43 | **M4-Abnahme (Ruben)** | offen |
+| CHAOS-43 | **M4-Abnahme (Ruben)** | APPROVED 2026-11-16 (trotz Ruckeln, „hakelig langsam“) |
 
 ### Messwerte Performance (CHAOS-39)
 
@@ -191,7 +191,7 @@ Details: [`testing.md`](testing.md).
 ## Nächste Schritte
 
 1. M4-PR [#16](https://github.com/rubenvitt/chaos-party/pull/16) mergen (nach CI). Stand von `main` (CHAOS-60, CHAOS-61, CHAOS-64, CHAOS-62) ist eingemischt: Die Figurenwahl im Controller, die Plakette und der Endstand zeigen die neuen Blender-Porträts (Plakette mit der gewählten Figur), die M4-E2E-Tests öffnen Controller-Geräte im Chromium ohne GPU (`deviceBrowser`). Das Brett im Natur-Look (CHAOS-62) behält die M4-Fähigkeiten: Render-Pause hinter Trophäenzählung/Podest, Messung je Szene, gewählte Figuren und Revanche; die Minispiel-Bühne verbindet `ctx.look`/Grafikstufen mit der Pause (ADR-015).
-2. **Ruben:** iPad-Nachtest CHAOS-47 (Checkliste Abschnitt 4), Performance PF0–PF10 (Abschnitt 11), Natur-Look N1–N7 (Abschnitt 13) und eine komplette Partie mit kleiner Gruppe (Abschnitt 12, [`m4-demo.md`](m4-demo.md)); dann Entscheidung an CHAOS-43.
+2. **Performance auf echter Hardware (höchste Priorität):** Ruben erlebt die Partie als „hakelig langsam“. Erst messen (`?debug=1` → „Alle Szenen kopieren“, Checkliste PF0–PF10, N1–N7), dann die Ursache beheben (CHAOS-73; Kandidaten in [`performance.md`](performance.md) §3a, Podest CHAOS-71). Offen bleibt der iPad-Nachtest CHAOS-47 (Checkliste Abschnitt 4).
 3. Grafik-Neuausrichtung CHAOS-56 läuft getrennt weiter: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht (Laternen, Glühwürmchen, leuchtende Felder), Ruben wählte den Lichtwechsel im Lauf der Partie (Runde 1 morgens, letzte Runde nachts). Natur-Look im Spiel erledigt (CHAOS-62, ADR-014): Modul `apps/host/src/nature/`, Brett als Insel mit Baumscheiben-Feldern (`board/natureBoard.ts`), Minispiele über den optionalen Vertrag `ctx.look` (Kulisse, PBR-Materialien), CC0-Texturen und -Himmel im Asset-Paket, Grafikstufen `hoch`/`mittel`/`niedrig` mit Automatik und Sparstufe `minimal` (Testmodus, Software-Rendering). Bilder: `docs/screenshots/chaos62-*.jpg`. Offen: Bildrate am Ziel-PC (Gerätecheckliste N1–N7). Als Nächstes: Lichtverlauf je Runde (CHAOS-63). Wackelnder E2E-Test „geteiltes iPad: zwei Finger steuern zwei Figuren“ behoben (CHAOS-64): Controller-Geräte laufen im Test in einem eigenen Chromium ohne GPU (siehe `docs/testing.md`).
 4. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage).
 
