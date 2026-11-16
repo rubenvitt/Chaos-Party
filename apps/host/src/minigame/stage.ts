@@ -142,6 +142,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   const isDisposed = () => status === 'disposed';
 
   const resize = () => {
+    applyRenderScale(engine, settings, adaptive.level);
     engine.resize();
   };
   window.addEventListener('resize', resize);
@@ -200,7 +201,10 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     engine.runRenderLoop(() => {
       const now = performance.now();
       const next = adaptive.frame(now - last);
-      if (next) lighting?.setQuality(next);
+      if (next) {
+        lighting?.setQuality(next);
+        applyRenderScale(engine, settings, next);
+      }
       runner?.advance((now - last) / 1000);
       seconds += (now - last) / 1000;
       look.update(seconds);

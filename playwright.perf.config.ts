@@ -10,6 +10,13 @@ import { defineConfig, devices } from '@playwright/test';
  * Ergebnisse: `perf-results/` (nicht eingecheckt), Vergleich mit `tests/perf/baseline.json`.
  * Siehe `docs/performance.md`.
  */
+/**
+ * `PERF_GPU=1`: echte Grafikkarte statt SwiftShader (Fenster sichtbar, sonst nimmt Chromium
+ * auch ohne Schalter SwiftShader), ohne VSync-Bremse, damit der Bildabstand die Kosten zeigt und
+ * nicht die Bildwiederholrate (CHAOS-73). Nur zum Messen am eigenen Rechner, nicht für CI.
+ */
+const gpu = process.env.PERF_GPU === '1';
+
 export default defineConfig({
   testDir: 'tests/perf',
   globalSetup: './tests/e2e/global-setup.ts',
@@ -30,9 +37,11 @@ export default defineConfig({
         viewport: { width: 1280, height: 720 },
         deviceScaleFactor: 1,
         launchOptions: {
+          headless: !gpu,
           args: [
-            '--use-angle=swiftshader',
-            '--enable-unsafe-swiftshader',
+            ...(gpu
+              ? ['--disable-gpu-vsync', '--disable-frame-rate-limit']
+              : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
             '--ignore-gpu-blocklist',
             // `performance.memory` ungerundet (sonst grob gestuft und verzögert).
             '--enable-precise-memory-info',

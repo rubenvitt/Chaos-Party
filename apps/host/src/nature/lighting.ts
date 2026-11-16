@@ -196,8 +196,10 @@ export async function applyNatureLook(
       shadows.contactHardeningLightSizeUVRatio = mood.key.penumbra;
     } else {
       shadows.usePercentageCloserFiltering = true;
-      shadows.filteringQuality = ShadowGenerator.QUALITY_LOW;
     }
+    // Auch bei PCSS: Die Standardstufe HIGH kostete auf einer M3 Max am Brett ≈ 23 ms je Bild
+    // (1080p), LOW ≈ 1 ms bei kaum sichtbarem Unterschied (CHAOS-73, docs/experiments.md).
+    shadows.filteringQuality = ShadowGenerator.QUALITY_LOW;
     // Kleine Karten mit einfacher Filterung brauchen mehr Abstand gegen Schatten-Akne.
     shadows.bias = settings.softShadows ? 0.0015 : 0.005;
     shadows.normalBias = settings.softShadows ? 0.012 : 0.03;

@@ -27,6 +27,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-011 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20 |
 | EXP-012 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
 | EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
+| EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
 
 ---
 
@@ -1109,3 +1110,50 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 **Offen für Playtest:** Chaos-Gefühl gegen Frust, Häufigkeit mit 2 Spielern (nur etwa alle 6 Runden eine Sabotage).
 
 **Für später (CHAOS-44):** Sabotage-Stärke mit der Partiedauer skalieren (z. B. Klau = 5 + Runde/5), falls lange Partien zahm wirken.
+
+---
+
+## EXP-014: Host-Grafik auf echter GPU – Engpass der Grafikstufen (2026-11-16, CHAOS-73)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben fand den Natur-Look am PC „zu langsam“. Gemessen war bisher nur SwiftShader. Annahme: Ein einzelner teurer Teil der Stufe `hoch` (Schatten, SSAO, Nachbearbeitung, Gras oder Auflösung) frisst die GPU. Ziel: Brett und Minispiele flüssig (p95 ≤ 20 ms, Ziel 60 fps) ohne sichtbaren Rückfall auf Notgrafik.
+
+**Testumgebung:** MacBook Pro, Apple M3 Max, Chromium 153 (Playwright, **sichtbares Fenster** – headless nimmt Chromium auf dem Mac SwiftShader), ANGLE/Metal, **ohne VSync** (`--disable-gpu-vsync --disable-frame-rate-limit`), damit der Bildabstand die Kosten zeigt und nicht die 60 Hz. Brett im Demo-Modus (`/host/?local=1&board=1&demo=1&debug=1`), je Variante 9 s Anlauf, dann 4 s Messung mit `__chaosPerf`; ganze Partie mit `PERF_GPU=1 pnpm perf -g Partie` (4 Bots, Seed 2026). Varianten über einen temporären URL-Schalter je Feld der Grafikstufe (nicht eingecheckt).
+
+**Messgrößen:** Bildabstand Median/p95, JS-Render-Zeit, Draw Calls; CPU-Profil (CDP) der Render-Schleife.
+
+**Ergebnisse – Brett, 1920×1080, DPR 1 (Median ms):**
+
+| Variante | Bildabstand | Draw Calls |
+|---|---|---|
+| `hoch` (Stand vorher) | **28** | 441 |
+| `mittel` (vorher) | 21 | 436 |
+| `niedrig` | 1,8 | 269 |
+| `minimal` | 1,9 | 265 |
+| `mittel` ohne Tiefenunschärfe / ohne Bloom / Schatten 1024 / Gras 25 % / MSAA 1 | 20 / 20 / 18 / 17 / 15 | 273 … 436 |
+| `mittel` ohne PCSS (PCF) | **3,7** | 436 |
+| `hoch` ohne PCSS (PCF HIGH / MEDIUM / LOW) | 5,2 / 5,1 / 5,2 | 441 |
+| `hoch` mit PCSS, Filterstufe MEDIUM / **LOW** | 6,4 / **6,1** | 441 |
+
+- **Engpass:** die weichen Kontaktschatten (PCSS, `useContactHardeningShadow`) in Babylons Standard-Filterstufe `HIGH` – ≈ 23 ms je Bild auf einer M3 Max. Das CPU-Profil zeigt 54 % in `uniformMatrix4fv` und 20 % in `drawElementsInstanced` bei Render-Zeit ≈ Bildabstand: Der Befehlspuffer ist voll, JS wartet auf die GPU. Draw Calls sind auf diesem Rechner nicht der Hebel (269 Draw Calls in 1,6 ms bei `niedrig`).
+- PCSS mit Filterstufe `LOW` sieht im Vergleich (Ausschnitt Figur und Felder, 1080p) praktisch gleich aus wie `HIGH` und kostet ≈ 1 ms mehr als PCF.
+- **Auflösung:** 4K (1920×1080 bei DPR 2) kostet `hoch` ohne PCSS 15 ms, mit Grenze 2560×1440 noch 8,8 ms; `mittel` (Grenze 1080p) 4,0 ms, `niedrig` (1600×900) 1,9 ms.
+- **Automatik:** Jede Szene baute eine neue Engine und begann wieder bei `hoch`; die erste Abstufung kam frühestens nach ≈ 7 s, Schattenart und -größe änderten sich zur Laufzeit nie. In der GPU-Partie vorher lief das Brett 74 s mit 26 ms Median.
+
+**Ganze Partie, M3 Max, ohne VSync (Bildabstand p50 / p95 ms):**
+
+| Szene | vorher 1080p | nachher 1080p | nachher 4K (DPR 2) |
+|---|---|---|---|
+| brett | 26 / 29 | 5,5 / 8,0 | 8,7 / 13,6 |
+| minispiel:sockenregen | 15 / 19 | 4,2 / 6,1 | 7,4 / 12,0 |
+| minispiel:pudding-gerangel | 20 / 25 | 4,8 / 7,2 | 8,2 / 12,8 |
+| minispiel:wackelturm | 15 / 18 | 4,4 / 6,0 | 7,6 / 13,2 |
+| lobby / podest | 0,8 / 2,5 · 1,7 / 2,6 | 1,8 / 2,6 · 0,9 / 2,5 | 2,3 / 2,8 · 1,6 / 2,8 |
+
+**Entscheidung:** keep –
+1. PCSS bleibt (Look), aber immer mit Filterstufe `LOW` (`nature/lighting.ts`).
+2. Jede Stufe begrenzt die Renderpixel (`maxRenderPixels`: `hoch` 2560×1440, `mittel` 1920×1080, `niedrig` 1600×900; `minimal` unverändert). Wirkt sofort, auch bei einer Abstufung mitten in der Szene.
+3. Die Automatik merkt sich die erreichte Stufe für die Sitzung; Brett und Minispiele danach starten mit ihr.
+4. **WebGPU** (`WebGPUEngine`) nicht gemessen: In Playwrights Chromium gibt es `navigator.gpu` nicht ohne Zusatzschalter, und der Wechsel braucht asynchronen Engine-Start und WGSL-Übersetzung an fünf Stellen. Nach dem Fund ist WebGL nicht der Engpass; WebGPU gehört in den Renderer-Spike CHAOS-75.
+
+**Offen (nur auf echter Hardware):** Rubens PC und Fernseher (Grafikkarte, Browser, Auflösung, Bildwiederholrate), Checkliste PF0–PF10 und N1–N3. Ein Fernseher mit 30 Hz (4K über HDMI 1.4) liegt dauerhaft unter 45 fps und würde bis `niedrig` abstufen; dann `?qualitaet=hoch` setzen.
+

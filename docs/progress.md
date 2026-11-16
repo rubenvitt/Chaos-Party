@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben, Performance offen) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -82,6 +82,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-42 | `pnpm play`, `pnpm smoke`, [`known-issues.md`](known-issues.md), [`security-license-review.md`](security-license-review.md), Abnahmebericht | im PR |
 | CHAOS-47 | **Ruben:** iPad-Nachtest aus M1 (I1–I9) | offen, Voraussetzung für CHAOS-43 |
 | CHAOS-43 | **M4-Abnahme (Ruben)** | APPROVED 2026-11-16 (trotz Ruckeln, „hakelig langsam“) |
+| CHAOS-73 | Ruckeln auf echter GPU: PCSS-Filterstufe `LOW`, Auflösungsgrenze je Grafikstufe, Automatik merkt sich die Stufe ([EXP-014](experiments.md)) | im PR, Messung an Rubens PC/Fernseher offen |
 
 ### Messwerte Performance (CHAOS-39)
 
@@ -145,6 +146,7 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `pnpm test:e2e --trace off` (M4) | ok – 154 bestanden, 3 bewusst übersprungen, ≈ 5 min; mit Natur-Brett `m4-gesamtablauf host-pause host-finale` 2× hintereinander grün |
 | CI-Nachstellung (CHAOS-41) | `CI=1 taskset -c 0-1 pnpm exec playwright test m2-brett-durchstich m4-gesamtablauf --project=chromium --repeat-each=5`: vorher 4 von 6 Läufen rot (Anleitung nicht gesehen, Podest „loading“, Revanche verloren), nach dem Fix 15/15 grün; `controller-m4` Endstand mit ±0,1–0,3 px Zeichenabstand stabil |
 | `pnpm perf` | ok – Messläufe Partie + Revanche ×3 gegen Baseline, ≈ 6–7 min (nicht in CI); Baseline nach CHAOS-62 neu geschrieben |
+| `E2E_SKIP_BUILD=1 PERF_GPU=1 PERF_VIEWPORT=1920x1080 PERF_DPR=1 pnpm perf -g Partie` | ok (2026-11-16, CHAOS-73, M3 Max) – Partie auf echter GPU im sichtbaren Fenster ohne VSync, ≈ 3 min; Brett 5,5 ms Median (vorher 26 ms), siehe [`performance.md` §3b](performance.md#3b-erste-messung-auf-echter-gpu-chaos-73) |
 | `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-011 … EXP-013 |
 | `pnpm install --frozen-lockfile` | ok |
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
