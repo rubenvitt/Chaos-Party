@@ -28,6 +28,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-012 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
 | EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 | EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
+| EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
 
 ---
 
@@ -1200,3 +1201,140 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 | Babylon WebGPU | Umsetzung vollständig; WGSL-Kern-Shader, glslang/twgsl nur für GLSL; Safari 26 mit WebGPU | Babylon-Doku webGPUStatus, Safari-26-Release-Notes |
 
 **Entscheidung:** **iterate** – Prototypen und Messbogen stehen; die Wahl fällt erst mit Rubens Messwerten. Vorschlag in [ADR-016](decisions/ADR-016-renderer.md): bei Babylon bleiben, WebGPU als Option übernehmen, wenn R1/R2 (bzw. R7/R8) ≥ 20 % Vorteil zeigen, tvOS (CHAOS-74) als eigener Spike mit RealityKit und Server auf PC/Mac.
+
+---
+
+## EXP-016: Kuckucks-Klatsche überarbeitet – Arcade nur mit Knopf A (2026-11-16, CHAOS-54)
+
+**Anlass:** Nach M4 soll es mehr Minispiel-Vielfalt geben (CHAOS-54). Kandidaten waren die in M3 verworfenen Konzepte Kuckucks-Klatsche, Aufzieh-Takt (EXP-005), Krümel-Kehraus (EXP-006) und Geysir-Gier (EXP-007). Gewählt wurde **Kuckucks-Klatsche**, weil es als einziges Konzept nur Knopf A braucht. Das ist eine neue Bedienung in der Rotation und ideal für die kleinen Zonen am geteilten iPad (EXP-005: „sehr gut: ein großer Knopf“). Physik ist mit Pudding-Gerangel besetzt und Push-your-luck mit Wackelturm (Turmhöhe). Ein zweites Spiel derselben Art hätte weniger Vielfalt gebracht als eine neue Bedienung.
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Reflexspiel nur mit A wird fair und spannend, wenn es kein Wettrennen um den schnellsten Finger ist. Jede Person bekommt ihre eigenen Signale. Geschwindigkeit entscheidet nur noch darüber, wer einen verschlafenen Kuckuck klauen darf. Die Erwartung vorher: Schwächere gewinnen deutlich öfter als in B1/B2 (0 %), es gibt laufend etwas zu tun (B: 1,7 Drücke je 10 s), und Dauerdrücken lohnt sich nicht.
+
+**Was aus EXP-005 … EXP-007 übernommen wurde:**
+- *EXP-005, B:* 90 % Wartezeit, Sieg der schnellsten Finger, bis 32 % Gleichstand → eigene Türen statt einer Uhr, Punkte für alle statt nur für den Schnellsten, mehr Ereignisse.
+- *EXP-005, A:* sichtbare Endphase (Schleudergang) erzeugt Spannung → „Mitternacht“: in den letzten 8 s öffnen die Türen doppelt so oft. Unsichtbares Gummiband (A5) ohne Wirkung → kein verdeckter Aufholmechanismus.
+- *EXP-007:* dominante Strategien mit dem Eindringling-Test suchen (Dauerklatscher, Raffzahn, brav). Höchstens 3 Anleitungszeilen und wenige Begriffe (hier 4: Tür, Gong, Finte, benommen).
+
+**Regeln (gewählte Fassung K2, `KUCKUCK_RULES` in `packages/minigames/src/kuckucks-klatsche/logic.ts`):**
+- Jede Person hat eine runde Tür in ihrer Farbe mit ihrem Symbol. Die Tür rappelt 0,35 s, dann springt etwas heraus.
+- **Kuckuck:** 0,8 s lang darf nur die Besitzerin klatschen (+2). Danach Gong (weißer Ring): 0,9 s lang darf jeder (Erster bekommt ihn; Besitzerin +1, Klau +1). Sonst entwischt er.
+- **Finte** (28 %, Gummiente, Socke, Blume): wer bei der eigenen Finte klatscht, verliert 1 Punkt (nie unter 0) und ist benommen.
+- **Leerklatscher:** Ein Druck ohne Ziel (Tür zu, rappelt noch, fremder Kuckuck vor dem Gong) macht 1,0 s benommen. Benommen zählt kein Druck.
+- Ein Druck trifft zuerst die eigene Tür, sonst den am längsten freigegebenen fremden Kuckuck.
+- Pausen zwischen zwei Öffnungen 0,9–2,3 s, zu Mitternacht (letzte 8 s) halb so lang. Spielzeit 30 s.
+
+**Varianten:** B1/B2 (alter Prototyp aus EXP-005) und A4* (Sockenregen, echte Logik) als Messlatten. K1–K8 laufen auf der **echten Spiellogik**, die Varianten sind Regel-Sätze:
+- K1: eigene Türen, Gong-Klau, Leerklatscher, ohne Mitternacht
+- **K2: K1 + Mitternacht (gewählt)**
+- K3/K4: eigenes Fenster 0,6 s bzw. 1,0 s statt 0,8 s
+- K5: ohne Klauen (nach dem Gong nur noch die Besitzerin, +1)
+- K6: Benommenheit 0,7 s (erste Fassung), K7: ohne Benommenheit
+- K8: Finten-Beutel (je Tür genau 2 Finten in 7 Öffnungen, gleich viele Chancen für alle)
+
+**Objektive Messgrößen:** wie EXP-005 (Punkte des Siegers, Abstand Platz 1–2, Gleichstand, Führungswechsel, Comeback, Siegquote Profi und Neuling, knappe Besetzungen Gut gegen Normal und 4× Normal, Drücke je 10 s). Dazu Klau, Finten und Leerklatscher je Runde sowie der Eindringling-Test aus EXP-007: Eine Strategie spielt gegen zwei normale Bots (3 Spieler, alle mit Profil Normal, Platz reihum). Faktor > 1 heißt, die Strategie schlägt die normale Spielweise.
+
+**Bots:** Profile aus EXP-005 (Profi, Gut, Normal, Neuling; Annahmen, nicht gemessen). Sie sehen nur, was ein Mensch am Fernseher sieht: welche Tür rappelt, was herausspringt, den Gong, ob ein Kuckuck schon weg ist. Ungeduld (`falseStart`) führt zu Vorausdrücken und Finten-Klatschern, Aussetzer (`lapse`) zum Verschlafen. Ob jemand klaut, steuert `judgement` (Strategie „normal“). Ist das Ziel schon weg, bremst ein Bot mit Wahrscheinlichkeit `judgement`. Wer benommen ist, drückt danach meist gleich noch einmal. Strategien: *brav* klaut nie, *Raffzahn* klaut alles, *Dauerklatscher* drückt stur alle 0,22 s.
+
+**Testumgebung:** Node 22, Vitest, Linux-Container, Basis-Commit `5fdd6e8`, Ergebnisse vom Commit, der diesen Eintrag einführt. Fester Schritt 1/60 s, Seeds 1–300 je Zeile. Laufzeit ≈ 20 s:
+
+```sh
+EXPERIMENTS=1 pnpm exec vitest run packages/minigames/src/prototypes/arcade/experimentKuckuck --silent=false
+```
+
+Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots für die echte Logik), `experimentKuckuck.ts` (Varianten und Tabellen). Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test (Teil von `pnpm test`). Rauschen: Bei 300 Seeds liegt der Standardfehler einer Quote um 50 % bei ≈ 3 Prozentpunkten, der eines Siegfaktors bei ≈ 0,08.
+
+**Ergebnisse:**
+
+**EXP-016 Kuckucks-Klatsche neu gegen alt (30 s, Seeds 1–300 je Zeile)**
+
+| Variante | Sp. | Punkte P1 | Abstand 1–2 | Gleichstand P1 | Führungswechsel | Comeback | Siege Profi | Siege Neuling | fair | Drücke/10 s | Klau/Runde | Finten/Runde | Leer/Runde |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B1: alt: eine Uhr, Schnellster +1 | 2 | 4,8 | 98 % | 0 % | 0,0 | 0 % | 100 % | 0 % | 50 % | 1,7 | – | – | – |
+| B1: alt: eine Uhr, Schnellster +1 | 3 | 4,5 | 91 % | 1 % | 0,1 | 5 % | 99 % | 0 % | 33 % | 1,7 | – | – | – |
+| B1: alt: eine Uhr, Schnellster +1 | 4 | 3,7 | 67 % | 9 % | 0,3 | 13 % | 89 % | 0 % | 25 % | 1,7 | – | – | – |
+| B2: alt: eine Uhr, 2 / Rest 1 | 2 | 9,7 | 62 % | 0 % | 0,1 | 1 % | 100 % | 0 % | 50 % | 1,7 | – | – | – |
+| B2: alt: eine Uhr, 2 / Rest 1 | 3 | 9,4 | 48 % | 1 % | 0,2 | 6 % | 99 % | 0 % | 33 % | 1,7 | – | – | – |
+| B2: alt: eine Uhr, 2 / Rest 1 | 4 | 8,7 | 32 % | 10 % | 0,3 | 13 % | 88 % | 0 % | 25 % | 1,7 | – | – | – |
+| K1: eigene Türen, Gong-Klau, Leerklatscher | 2 | 18,3 | 32 % | 5 % | 1,6 | 17 % | 80 % | 20 % | 50 % | 3,2 | 0,8 | 1,4 | 1,0 |
+| K1: eigene Türen, Gong-Klau, Leerklatscher | 3 | 19,2 | 20 % | 9 % | 2,8 | 26 % | 65 % | 12 % | 33 % | 3,2 | 1,5 | 2,2 | 2,1 |
+| K1: eigene Türen, Gong-Klau, Leerklatscher | 4 | 20,2 | 16 % | 10 % | 3,7 | 35 % | 47 % | 10 % | 25 % | 3,2 | 1,9 | 2,6 | 3,3 |
+| K2: K1 + Mitternacht (gewählt) | 2 | 20,3 | 34 % | 5 % | 1,7 | 19 % | 84 % | 16 % | 50 % | 3,5 | 0,8 | 1,6 | 1,0 |
+| K2: K1 + Mitternacht (gewählt) | 3 | 21,5 | 22 % | 7 % | 2,9 | 32 % | 65 % | 9 % | 33 % | 3,6 | 1,6 | 2,5 | 2,3 |
+| K2: K1 + Mitternacht (gewählt) | 4 | 22,1 | 15 % | 11 % | 3,9 | 39 % | 51 % | 8 % | 25 % | 3,6 | 2,0 | 3,1 | 3,6 |
+| K3: K2, eigenes Fenster 0,6 s | 2 | 20,5 | 44 % | 1 % | 1,3 | 11 % | 93 % | 7 % | 50 % | 3,7 | 1,1 | 1,6 | 2,0 |
+| K3: K2, eigenes Fenster 0,6 s | 3 | 21,2 | 25 % | 6 % | 2,5 | 25 % | 72 % | 5 % | 33 % | 3,8 | 1,9 | 2,7 | 3,9 |
+| K3: K2, eigenes Fenster 0,6 s | 4 | 22,3 | 18 % | 7 % | 3,8 | 41 % | 58 % | 1 % | 25 % | 3,9 | 2,8 | 3,4 | 5,8 |
+| K4: K2, eigenes Fenster 1,0 s | 2 | 20,6 | 33 % | 6 % | 1,6 | 20 % | 81 % | 20 % | 50 % | 3,4 | 0,8 | 1,4 | 0,8 |
+| K4: K2, eigenes Fenster 1,0 s | 3 | 21,0 | 20 % | 8 % | 2,8 | 36 % | 62 % | 15 % | 33 % | 3,5 | 1,4 | 2,3 | 1,9 |
+| K4: K2, eigenes Fenster 1,0 s | 4 | 22,2 | 15 % | 12 % | 3,8 | 40 % | 46 % | 5 % | 25 % | 3,5 | 1,9 | 3,0 | 2,8 |
+| K5: K2 ohne Klauen | 2 | 19,5 | 31 % | 4 % | 1,7 | 25 % | 81 % | 19 % | 50 % | 3,5 | 0,0 | 1,5 | 1,6 |
+| K5: K2 ohne Klauen | 3 | 20,0 | 20 % | 7 % | 3,0 | 38 % | 57 % | 16 % | 33 % | 3,6 | 0,0 | 2,6 | 3,9 |
+| K5: K2 ohne Klauen | 4 | 20,8 | 14 % | 14 % | 3,4 | 35 % | 38 % | 10 % | 25 % | 3,7 | 0,0 | 3,3 | 6,1 |
+| K6: K2, benommen nur 0,7 s (erste Fassung) | 2 | 20,4 | 33 % | 5 % | 1,7 | 20 % | 83 % | 17 % | 50 % | 3,5 | 0,8 | 1,6 | 1,0 |
+| K6: K2, benommen nur 0,7 s (erste Fassung) | 3 | 21,5 | 22 % | 9 % | 2,9 | 33 % | 65 % | 9 % | 33 % | 3,6 | 1,4 | 2,5 | 2,2 |
+| K6: K2, benommen nur 0,7 s (erste Fassung) | 4 | 22,1 | 15 % | 13 % | 4,1 | 45 % | 47 % | 8 % | 25 % | 3,6 | 1,9 | 3,0 | 3,3 |
+| K7: K2 ohne Benommenheit | 2 | 20,6 | 33 % | 6 % | 1,7 | 20 % | 84 % | 17 % | 50 % | 3,5 | 0,8 | 1,6 | 1,0 |
+| K7: K2 ohne Benommenheit | 3 | 21,4 | 21 % | 9 % | 2,9 | 34 % | 63 % | 10 % | 33 % | 3,6 | 1,3 | 2,5 | 2,2 |
+| K7: K2 ohne Benommenheit | 4 | 22,3 | 16 % | 11 % | 4,0 | 41 % | 49 % | 7 % | 25 % | 3,6 | 1,7 | 3,1 | 3,4 |
+| K8: K2 mit Finten-Beutel (2 je 7 Öffnungen) | 2 | 19,3 | 30 % | 2 % | 1,8 | 14 % | 95 % | 5 % | 50 % | 3,5 | 0,8 | 1,7 | 1,1 |
+| K8: K2 mit Finten-Beutel (2 je 7 Öffnungen) | 3 | 20,0 | 18 % | 7 % | 3,4 | 28 % | 83 % | 4 % | 33 % | 3,6 | 1,5 | 2,6 | 2,3 |
+| K8: K2 mit Finten-Beutel (2 je 7 Öffnungen) | 4 | 20,2 | 11 % | 13 % | 4,7 | 48 % | 68 % | 2 % | 25 % | 3,6 | 2,0 | 3,1 | 3,6 |
+| A4*: Sockenregen (Messlatte) | 2 | 32,2 | 36 % | 1 % | 1,3 | 8 % | 95 % | 5 % | 50 % | 22,6 | – | – | – |
+| A4*: Sockenregen (Messlatte) | 3 | 24,9 | 28 % | 5 % | 2,0 | 20 % | 85 % | 2 % | 33 % | 22,0 | – | – | – |
+| A4*: Sockenregen (Messlatte) | 4 | 20,5 | 24 % | 7 % | 2,6 | 32 % | 70 % | 3 % | 25 % | 21,3 | – | – | – |
+
+**EXP-016 Knappe Besetzungen (Seeds 1–300)**
+
+| Variante | Duell: Siege Normal | Duell: Gleichstand | Duell: Führungswechsel | 4× Normal: Abstand 1–2 | 4× Normal: Gleichstand P1 | 4× Normal: Führungswechsel | 4× Normal: Comeback |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| B1: alt: eine Uhr, Schnellster +1 | 15 % | 7 % | 0,3 | 40 % | 32 % | 0,6 | 35 % |
+| B2: alt: eine Uhr, 2 / Rest 1 | 15 % | 8 % | 0,3 | 17 % | 27 % | 0,6 | 34 % |
+| K1: eigene Türen, Gong-Klau, Leerklatscher | 42 % | 7 % | 1,8 | 14 % | 12 % | 3,6 | 38 % |
+| K2: K1 + Mitternacht (gewählt) | 40 % | 7 % | 2,1 | 15 % | 9 % | 3,9 | 37 % |
+| K3: K2, eigenes Fenster 0,6 s | 36 % | 7 % | 1,9 | 15 % | 9 % | 4,1 | 43 % |
+| K4: K2, eigenes Fenster 1,0 s | 39 % | 7 % | 2,0 | 15 % | 9 % | 3,6 | 35 % |
+| K5: K2 ohne Klauen | 44 % | 6 % | 2,1 | 15 % | 11 % | 3,7 | 38 % |
+| K6: K2, benommen nur 0,7 s (erste Fassung) | 39 % | 8 % | 2,0 | 14 % | 12 % | 3,9 | 40 % |
+| K7: K2 ohne Benommenheit | 41 % | 8 % | 2,0 | 14 % | 10 % | 3,8 | 38 % |
+| K8: K2 mit Finten-Beutel (2 je 7 Öffnungen) | 33 % | 10 % | 3,0 | 8 % | 21 % | 5,3 | 51 % |
+| A4*: Sockenregen (Messlatte) | 34 % | 4 % | 2,5 | 17 % | 10 % | 3,0 | 49 % |
+
+**EXP-016 Eindringling gegen 2× normal (3 Sp., alle Profil Normal, Siegfaktor; 1,00 = fair; Seeds 1–300)**
+
+| Variante | normal | brav (klaut nie) | Raffzahn (klaut alles) | Dauerklatscher |
+| --- | --- | --- | --- | --- |
+| K1: eigene Türen, Gong-Klau, Leerklatscher | 1,01 | 0,81 | 1,09 | 0,41 |
+| K2: K1 + Mitternacht (gewählt) | 0,98 | 0,83 | 1,02 | 0,55 |
+| K3: K2, eigenes Fenster 0,6 s | 1,04 | 0,88 | 1,17 | 0,29 |
+| K4: K2, eigenes Fenster 1,0 s | 1,02 | 0,92 | 1,13 | 0,85 |
+| K5: K2 ohne Klauen | 1,00 | 1,02 | 1,00 | 0,42 |
+| K6: K2, benommen nur 0,7 s (erste Fassung) | 1,01 | 0,86 | 1,04 | 1,06 |
+| K7: K2 ohne Benommenheit | 1,05 | 0,96 | 1,13 | 1,88 |
+| K8: K2 mit Finten-Beutel (2 je 7 Öffnungen) | 0,92 | 0,82 | 0,98 | 0,32 |
+
+**Auswertung:**
+- **Gegenüber der alten Fassung:** Der Neuling gewinnt gegen den Profi jetzt 16 % (2 Sp.) bzw. 8–9 % (3/4 Sp.) statt nie. Im knappen Duell gewinnt Normal gegen Gut 40 % statt 15 %, mehr als bei Sockenregen (34 %). Es gibt 1,7–3,9 Führungswechsel statt 0–0,3, und unter vier gleich Starken sinken die Gleichstände von 27–32 % auf 9 %. Je Person und 10 s kommen 3,6 Drücke statt 1,7. Das bleibt ein Reflexspiel und ist ruhiger als Sockenregen (22 Aktionen), aber man wartet nicht mehr 90 % der Zeit.
+- **Woher die Chancen kommen:** Vor allem vom **Türglück**. Jede Tür würfelt ihre Finten und Pausen selbst, also bekommt mal die eine, mal die andere Person mehr echte Kuckucke. K8 (Finten-Beutel, gleich viele Chancen für alle) nimmt dieses Glück weg. Der Neuling gewinnt dann nur noch 2–5 %, der Profi 68–95 %, und unter gleich Starken verdoppeln sich die Gleichstände (9 % → 21 %). Mit dem Beutel wird die Wertung strenger, aber nicht fairer.
+- **Fenster der Besitzerin:** 0,6 s (K3) bestraft langsame Reaktion zu stark (Neuling 1–7 %). 1,0 s (K4) hilft dem Neuling bei 2–3 Spielern (15–20 %), lässt aber Dauerklatschen fast aufholen (0,85). 0,8 s ist der Kompromiss.
+- **Klauen (K5):** Ohne Klauen ist das Spiel etwas fairer für Schwache (10–19 %), aber es gibt keine Interaktion. Man spielt dann nur noch neben-, nicht gegeneinander. Das war in EXP-005 der Hauptgrund gegen C. Mit Klauen gibt es 0,8–2 Klau-Momente je Runde, sichtbar als fliegende Klatsche. „Brav“ (nie klauen) fällt auf 0,83 und „Raffzahn“ steigt nur auf 1,02: Klauen lohnt sich, dominiert aber nicht.
+- **Benommenheit gegen Dauerdrücken:** Ohne Benommenheit (K7) gewinnt der Dauerklatscher fast doppelt so oft wie fair (1,88). Mit 0,7 s (K6, erste Fassung) liegt er noch bei 1,06. Erst 1,0 s macht Dauerdrücken klar schlechter (0,55), ohne die übrigen Kennzahlen zu verschieben. Der Grund: Benommen bleibt der Dauerklatscher fast immer und trifft den eigenen Kuckuck dann oft erst nach dem Gong. Fast jede eigene Finte erwischt er.
+- **Mitternacht (K2 gegen K1):** Am Ende kommen mehr Ereignisse, die Comebacks steigen leicht (4 Sp.: 35 % → 39 %), und es gibt etwas mehr Führungswechsel. Der Neuling verliert bei 2 Spielern ein paar Punkte (20 % → 16 %, nahe am Rauschen). Behalten als sichtbares Finale, wie der Schleudergang bei Sockenregen.
+- **Ein einzelner Lauf ist kein Beleg.** Im headless Test (`kuckucksKlatsche.test.ts`) schlägt der Dauerklatscher einzelne Spieler, wenn eine dritte Person gar nicht drückt. Die verschlafenen Kuckucke klaut dann fast nur er. Das ist am echten Tisch selten und zeigt sich nur über viele Seeds.
+
+**Entscheidung:** **keep K2** als „Kuckucks-Klatsche“ (`kuckucks-klatsche`, Arcade, 30 s, nur A, ohne Physik), in Katalog und Rotation.
+- **Gründe:** Neue Bedienung (nur A) für mehr Vielfalt und für die iPad-Zonen. Echte Chancen für Schwächere, mehr als bei jedem anderen Arcade-Konzept. Interaktion durch Klauen ohne Wettrennen-Zwang. Keine dominante Strategie. 3 Anleitungszeilen mit 4 Begriffen.
+- **Rotation:** Es sind jetzt vier Minispiele; bei 10 Runden kommt jedes 2–3-mal statt 3–4-mal (EXP-011: Wiederholung war ein Kritikpunkt). Kuckucks-Klatsche dauert 30 s wie Sockenregen; die Partiedauer aus EXP-011 ändert sich dadurch kaum.
+- **discard:** K8 (Beutel: weniger Chancen, mehr Gleichstand), K3 (zu streng), K6/K7 (Dauerdrücken lohnt). K4 und K5 bleiben Stellschrauben, falls der Playtest es verlangt (`ownS`, `steal`).
+
+**Umsetzung:** `packages/minigames/src/kuckucks-klatsche/` (`logic.ts` rein, `index.ts` Babylon-Ansicht mit Natur-Look, `highlights.ts`, Tests). Die Logik gibt Ereignisse aus (`drainEvents`), daraus macht die Ansicht Ton, Effekte und Animationen. Belegbild: `docs/screenshots/chaos54-kuckucks-klatsche.jpg` (4 Spieler, Orange klatscht, Blau verpasst das eigene Fenster: weißer Gong-Ring). Vorschau: `/host/?local=1&minigame=kuckucks-klatsche&players=4`.
+
+**Offen für Playtest (Ruben, Gerätecheckliste P6a):**
+1. Findet jede Person ihre Tür sofort (Farbe + Symbol über der Tür, Figur daneben)?
+2. Unterscheidet man auf Sofa-Abstand den Kuckuck von Ente, Socke und Blume? Ist die Finte witzig oder gemein?
+3. Wird der weiße Gong-Ring als „jetzt darf jeder“ verstanden? Fühlt sich Klauen witzig an?
+4. Fühlt sich Türglück („bei mir kam kaum was“) unfair an? Falls ja: Beutel (K8) erneut abwägen, obwohl er Schwächeren schadet.
+5. Ist 1 s Benommenheit nach einem Leerklatscher die richtige Härte, und merkt man, warum man benommen ist (Sterne, „benommen“ im HUD)?
+6. Reicht der große A-Knopf in der 4er-Zone am iPad? Ist das Spiel mit 30 s zu lang für reines Klatschen?
+7. Die Bot-Profile sind Annahmen. Echte Reaktionszeiten (CHAOS-49) können die Fenster verschieben.
+
+**Für später:** Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) → CHAOS-79.
