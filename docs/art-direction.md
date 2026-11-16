@@ -112,18 +112,36 @@ Wegpfeile in Creme, Trittsteine auf langen Wegen, Wackelwald in der Mitte, Wald 
 an den Seiten (vorn verdeckt er die untere Reihe), Teich an der Sumpfabkürzung, Pilze am
 Pilzpfad, Felsen am Klippenweg, Bretter der Wackelbrücke, sechs Laternen (nachts Lichter).
 
-**Minispiele** (`apps/host/src/minigame/natureLook.ts`, Vertrag `MinigameLook`): Das Minispiel
-nennt seine Spielfläche (`backdrop({ halfX, halfZ, groundY, surface })`), der Host baut eine
+**Minispiele** (`apps/host/src/minigame/natureLook.ts` über die gemeinsame Bühnen-Kulisse
+`apps/host/src/nature/stageLook.ts`, Vertrag `MinigameLook`): Das Minispiel nennt seine Spielfläche (`backdrop({ halfX, halfZ, groundY, surface })`), der Host baut eine
 kleine Insel mit Wiese oder Picknickdecke, Bäumen hinten und seitlich, Felsen, Blumen und vier
 Laternen. Sockenregen: Badvorleger auf der Wiese (statt Waschküche). Pudding-Gerangel: Pudding
 auf einem Baumstumpf über einer Picknickdecke (statt Sahnesee). Wackelturm: Karodecke auf der
 Wiese. Pump-Parade (Rückfall): Wiese.
 
+**Lobby-Arena und Siegerpodest (CHAOS-77)** nutzen dieselbe Kulisse (`createStageLook`):
+
+- *Lobby* (`apps/host/src/scene/createGameScene.ts`): Lichtung auf einer Insel, fest in der
+  **Goldenen Stunde** (`SCENE_MOODS.lobby`). Banden als liegende Baumstämme (Rinde), Eckpfosten als
+  Baumstümpfe mit Jahresringen obenauf (wie die Baumscheiben am Brett). Die Physik (Boden,
+  Banden) ist unverändert und unsichtbar. Die Kapsel-Figuren bleiben (M1-Arena), jetzt lackiert
+  (PBR) mit leichtem Eigenleuchten der Slot-Farbe. HUD-Unterzeile hell mit dunklem Schein.
+- *Siegerpodest* (`apps/host/src/finale/podiumStage.ts`): fest **nachts** (`SCENE_MOODS.finale`, die
+  Partie endet nachts). Blöcke aus Holz im Farbton des Platzes (Gold, Silber, Bronze, Lila) auf
+  moosigem Steinsockel, Deckel in Slot-Farbe mit Eigenleuchten wie die Feld-Einlagen nachts,
+  weiße Platzziffer mit Tinte-Kontur, vier Laternen, Glühwürmchen und ein warmer Spot von vorn
+  oben aufs Podest (Mondlicht allein ist am Fernseher zu dunkel). Die Figuren behalten ihre
+  PBR-Materialien wie am Brett.
+- CSS-Hintergründe: `.host` in den Farben der Goldenen Stunde (sichtbar nur während des Ladens),
+  Trophäenzählung und Siegerbildschirm als Nachthimmel. `?stimmung=<id>` gilt auch hier.
+- Bilder (Stufe `mittel`, Software-Rendering): `docs/screenshots/chaos77-lobby.jpg`,
+  `chaos77-arena.jpg`, `chaos77-podest.jpg`.
+
 **Grafikstufen** (`?qualitaet=hoch|mittel|niedrig|minimal`, sonst `hoch` mit Automatik):
 
 | Stufe | Gras | SSAO | Unschärfe | MSAA | Bloom | Schatten | HDRI-Licht | Detailkarten |
 |---|---|---|---|---|---|---|---|---|
-| hoch | 100 % (Brett 64 000, Minispiel 30 000) | ja | ja | 4 | ja | PCSS 4096² | ja | ja |
+| hoch | 100 % (Brett 64 000, Minispiel 30 000, Lobby 34 000, Podest 22 000) | ja | ja | 4 | ja | PCSS 4096² | ja | ja |
 | mittel | 55 % | – | ja | 4 | ja | PCSS 2048² | ja | ja |
 | niedrig | 25 % | – | – | – | – | PCF 1024² | ja (128²) | ja |
 | minimal | 8 % | – | – | – | – | PCF 1024² | – | – |
@@ -136,8 +154,8 @@ eine Stimmung, nie rückwärts (`moodForRound`). Beim Rundenwechsel blendet das 
 über (Himmel als zweiter Würfel, Licht, Dunst und Farbabstimmung gemischt, Umgebungslicht wechselt
 zur Hälfte); Laternen, Schein, Glühwürmchen und leuchtende Felder gibt es nur in Dämmerung und
 Nacht. Minispiele erben die Stimmung der Runde. In Dämmerung und Nacht wird die Unterzeile des
-HUD hell. Lobby und Siegerehrung bekommen feste Stimmungen (`SCENE_MOODS`: Goldene Stunde bzw.
-Nacht), sobald sie den Natur-Look haben. Ohne bekannte Runde (Vorschau, lokaler Minispiel-Ablauf)
+HUD hell. Lobby und Siegerehrung haben feste Stimmungen (`SCENE_MOODS`: Goldene Stunde bzw.
+Nacht, CHAOS-77). Ohne bekannte Runde (Vorschau, lokaler Minispiel-Ablauf)
 gilt die Brett-Stimmung (Goldene Stunde). Fest zum Ansehen: `?stimmung=<id>` (Morgen, Mittag,
 Wolken, Abend, Dämmerung, Nacht). Bilder: `docs/screenshots/chaos63-lichtverlauf.jpg`.
 

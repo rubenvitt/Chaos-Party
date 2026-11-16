@@ -93,6 +93,11 @@ export interface NatureLookOptions {
    * abgestimmt (Vitrine); weiter entfernte Kameras bekommen entsprechend dünneren Dunst.
    */
   readonly viewDistance?: number;
+  /**
+   * Eigene Lichter der Szene (z. B. Spot aufs Podest, CHAOS-77): Nachts dürfen alle Materialien
+   * so viele Lichter mehr verarbeiten als Sonne, Bodenlicht und Laternen.
+   */
+  readonly extraLights?: number;
 }
 
 export interface NatureLook {
@@ -323,8 +328,8 @@ export async function applyNatureLook(
       flies.setFade(0);
       glow.addIncludedOnlyMesh(flies.mesh);
     }
-    // Sonne, Bodenlicht und bis zu sechs Laternen pro Material.
-    const count = 2 + lights.length;
+    // Sonne, Bodenlicht, bis zu sechs Laternen und eigene Lichter der Szene pro Material.
+    const count = 2 + lights.length + (options.extraLights ?? 0);
     const raise = (mat: unknown): void => {
       if (mat instanceof PBRMaterial) mat.maxSimultaneousLights = count;
     };

@@ -13,9 +13,20 @@
   justify-content: center;
   gap: 34px;
   padding: 24px;
+  /* Die Partie endet nachts (CHAOS-77): Nachthimmel, das Brett scheint gedämpft durch. */
   background:
-    radial-gradient(ellipse at 50% 18%, rgb(255 244 201 / 95%) 0%, transparent 55%),
-    linear-gradient(180deg, rgb(124 207 255 / 92%) 0%, rgb(185 178 255 / 95%) 70%, #f0b6ff 100%);
+    radial-gradient(ellipse at 50% 18%, rgb(255 214 150 / 30%) 0%, transparent 55%),
+    linear-gradient(
+      180deg,
+      rgb(30 39 72 / 88%) 0%,
+      rgb(30 39 66 / 90%) 70%,
+      rgb(14 18 30 / 94%) 100%
+    );
+}
+
+.finale--tally .finale-kicker {
+  color: #fffaf0;
+  opacity: 0.85;
 }
 
 .finale-head {
@@ -209,11 +220,12 @@
 }
 
 /* Siegerbildschirm: Podest links (3D-Canvas), Endstand rechts. */
+/* Nachthimmel wie die Podest-Szene (`SCENE_MOODS.finale`), Laternenschein von unten. */
 .finale--winner {
   background:
-    radial-gradient(ellipse at 33% 108%, #fff4c9 0%, transparent 55%),
-    radial-gradient(ellipse at 33% 0%, rgb(255 255 255 / 55%) 0%, transparent 45%),
-    linear-gradient(180deg, #7ccfff 0%, #b9b2ff 65%, #f0b6ff 100%);
+    radial-gradient(ellipse at 33% 108%, rgb(255 156 74 / 28%) 0%, transparent 55%),
+    radial-gradient(ellipse at 33% 0%, rgb(127 156 255 / 28%) 0%, transparent 45%),
+    linear-gradient(180deg, #2c3a70 0%, #1e2742 60%, #10141f 100%);
 }
 
 .finale-podium {

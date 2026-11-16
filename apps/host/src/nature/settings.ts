@@ -2,8 +2,9 @@
  * Welche Stimmung und welche Grafikstufe eine Natur-Szene bekommt (CHAOS-62).
  *
  * - Stimmung: nach Runde (`moodForRound`, Lichtverlauf CHAOS-63), ohne bekannte Runde fest je
- *   Brett (`moodForBoard`). `?stimmung=<id>` setzt sie fest, auch über Rundenwechsel hinweg
- *   (Ansehen, Lesbarkeit prüfen, Screenshots).
+ *   Brett (`moodForBoard`). Lobby und Siegerehrung haben eine feste Stimmung (`SCENE_MOODS`,
+ *   CHAOS-77). `?stimmung=<id>` setzt sie fest, auch über Rundenwechsel hinweg (Ansehen,
+ *   Lesbarkeit prüfen, Screenshots).
  * - Grafikstufe: `?qualitaet=hoch|mittel|niedrig|minimal` fest; ohne Angabe `hoch` (bzw. die
  *   in dieser Sitzung schon erreichte Stufe) mit Automatik (stuft bei niedriger Bildrate ab).
  *   Im Testmodus immer `minimal`, bei Software-Rendering ohne Angabe ebenfalls
@@ -14,6 +15,7 @@ import {
   LIGHT_MOODS,
   moodForBoard,
   moodForRound,
+  SCENE_MOODS,
   type LightMood,
   type LightMoodId,
 } from '../lighting/moods.ts';
@@ -41,19 +43,25 @@ export interface LookSettings {
   readonly software: boolean;
 }
 
+/** Szenen außerhalb der Partie mit fester Stimmung (`SCENE_MOODS`). */
+export type FixedMoodScene = keyof typeof SCENE_MOODS;
+
 /**
- * Stimmung für eine Szene: `?stimmung=` fest, sonst nach Runde, ohne Runde fest je Brett.
- * Auch der HUD liest sie (helle Schrift in Dämmerung und Nacht).
+ * Stimmung für eine Szene: `?stimmung=` fest, sonst die feste Stimmung der Szene (Lobby,
+ * Siegerehrung), sonst nach Runde, ohne Runde fest je Brett. Auch der HUD liest sie (helle
+ * Schrift in Dämmerung und Nacht).
  */
 export function lookMood(
   search: string,
   boardId: string,
   round: { readonly round: number; readonly rounds: number } | null | undefined,
+  scene?: FixedMoodScene,
 ): { readonly mood: LightMood; readonly fixed: boolean } {
   const moodParam = new URLSearchParams(search).get('stimmung') ?? '';
   if ((LIGHT_MOOD_IDS as readonly string[]).includes(moodParam)) {
     return { mood: LIGHT_MOODS[moodParam as LightMoodId], fixed: true };
   }
+  if (scene) return { mood: LIGHT_MOODS[SCENE_MOODS[scene]], fixed: true };
   const id =
     round && round.rounds > 0 ? moodForRound(round.round, round.rounds) : moodForBoard(boardId);
   return { mood: LIGHT_MOODS[id], fixed: false };
@@ -70,10 +78,12 @@ export function parseLookSettings(
     readonly renderer?: string;
     /** Von der Automatik in dieser Sitzung erreichte Stufe (Startwert statt `hoch`). */
     readonly sessionQuality?: QualityLevel | null;
+    /** Lobby oder Siegerehrung: feste Stimmung aus `SCENE_MOODS` statt Runde bzw. Brett. */
+    readonly scene?: FixedMoodScene;
   },
 ): LookSettings {
   const params = new URLSearchParams(search);
-  const chosen = lookMood(search, context.boardId, context.round);
+  const chosen = lookMood(search, context.boardId, context.round, context.scene);
   const base = { mood: chosen.mood, fixedMood: chosen.fixed };
   if (context.testMode) return { ...base, quality: 'minimal', automatic: false, software: false };
   const software = isSoftwareRenderer(context.renderer ?? '');
@@ -94,6 +104,21 @@ export function currentLookSettings(
     testMode,
     boardId,
     round,
+    renderer,
+    sessionQuality: sessionQuality(),
+  });
+}
+
+/** Einstellungen für Lobby bzw. Siegerehrung (feste Stimmung, CHAOS-77). */
+export function sceneLookSettings(
+  testMode: boolean,
+  scene: FixedMoodScene,
+  renderer: string,
+): LookSettings {
+  return parseLookSettings(typeof location === 'undefined' ? '' : location.search, {
+    testMode,
+    boardId: '',
+    scene,
     renderer,
     sessionQuality: sessionQuality(),
   });
