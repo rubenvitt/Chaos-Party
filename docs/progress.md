@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -115,6 +115,7 @@ Render-Pause hinter dem Finale und Messung je Szene funktionieren mit dem Natur-
 | E2E-Gesamtablauf (`m4-gesamtablauf.spec.ts`) | 2026, schnelles Test-Pacing, Minispiele 6 s |
 | Server-Integration (Reconnect, Host-Verlust, gemischt, Determinismus, Fuzz) | siehe [`testing.md`](testing.md) (u. a. `INTEGRATION_SEEDS`, 424242, 99, Fuzz 1/2/3/2026) |
 | Experimente EXP-011 … EXP-013 | Seeds 1–200 je Spielerzahl (`EXPERIMENTS=m4 …`) |
+| Experiment EXP-016 (Kuckucks-Klatsche, CHAOS-54) | Seeds 1–300 je Zeile (`EXPERIMENTS=1 … experimentKuckuck`) |
 | `pnpm perf` | 2026 |
 
 ### Seeds (M3)
@@ -202,6 +203,7 @@ Details: [`testing.md`](testing.md).
 3. Grafik-Neuausrichtung CHAOS-56 läuft getrennt weiter: Look-Dev abgeschlossen (EXP-008, EXP-009; PR #7, #8). Figuren neu aus Blender-Skripten (CHAOS-58, ADR-013), von Ruben abgenommen. Controller-UI „Glas & Licht“ umgesetzt (CHAOS-59). Porträts der neuen Figuren in Lobby und Controller (CHAOS-61, Blender-Render, `docs/screenshots/chaos61-portraets.jpg`). Lichtstimmungen als Daten (`apps/host/src/lighting/moods.ts`, CHAOS-60, EXP-010): sechs Stimmungen inkl. Dämmerung und Nacht (Laternen, Glühwürmchen, leuchtende Felder), Ruben wählte den Lichtwechsel im Lauf der Partie (Runde 1 morgens, letzte Runde nachts). Natur-Look im Spiel erledigt (CHAOS-62, ADR-014): Modul `apps/host/src/nature/`, Brett als Insel mit Baumscheiben-Feldern (`board/natureBoard.ts`), Minispiele über den optionalen Vertrag `ctx.look` (Kulisse, PBR-Materialien), CC0-Texturen und -Himmel im Asset-Paket, Grafikstufen `hoch`/`mittel`/`niedrig` mit Automatik und Sparstufe `minimal` (Testmodus, Software-Rendering). Bilder: `docs/screenshots/chaos62-*.jpg`. Offen: Bildrate am Ziel-PC (Gerätecheckliste N1–N7). Lichtverlauf je Runde umgesetzt (CHAOS-63): Partie als Tag von Morgen bis Nacht, 4 s Überblendung beim Rundenwechsel ohne Nachladen, Minispiele erben die Runden-Stimmung, HUD nachts hell; Bild `docs/screenshots/chaos63-lichtverlauf.jpg`, Gerätetest Checkliste Abschnitt 14 (L1–L7). Lobby-Arena und Siegerpodest im Natur-Look (CHAOS-77): gemeinsame Bühnen-Kulisse `nature/stageLook.ts`, Lobby fest in der Goldenen Stunde (Baumstamm-Banden, Baumstumpf-Pfosten), Siegerehrung fest nachts (Holzpodest, leuchtende Slot-Deckel, Spot, Laternen), CSS-Hintergründe passend; Bilder `docs/screenshots/chaos77-*.jpg`, Gerätetest Checkliste Abschnitt 15 (LS1–LS5). Wackelnder E2E-Test „geteiltes iPad: zwei Finger steuern zwei Figuren“ behoben (CHAOS-64): Controller-Geräte laufen im Test in einem eigenen Chromium ohne GPU (siehe `docs/testing.md`).
 4. **Renderer-Spike CHAOS-75:** Ruben misst mit [`renderer-spike.md`](renderer-spike.md) (R1–R11) und entscheidet über [ADR-016](decisions/ADR-016-renderer.md) (Vorschlag: bei Babylon bleiben, WebGPU bei ≥ 20 % Vorteil übernehmen, tvOS als eigener RealityKit-Spike mit Server auf PC/Mac).
 5. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage).
+6. **Mehr Minispiel-Vielfalt (CHAOS-54):** Kuckucks-Klatsche ist überarbeitet (EXP-016) und läuft als viertes Minispiel in der Rotation (`packages/minigames/src/kuckucks-klatsche/`). Es ist das erste Minispiel nur mit Knopf A, gedacht auch für die kleinen Zonen am geteilten iPad. Bei 10 Runden kommt jedes Minispiel jetzt 2–3-mal statt 3–4-mal. Ruben prüft es mit Gerätecheckliste P6a; Bild: `docs/screenshots/chaos54-kuckucks-klatsche.jpg`. Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) bleiben Kandidaten im Backlog (CHAOS-79).
 
 ## Offene Risiken (Kurzfassung)
 

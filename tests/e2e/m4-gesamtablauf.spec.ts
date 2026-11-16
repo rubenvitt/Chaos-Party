@@ -27,7 +27,7 @@
  */
 import type { Locator, Page } from '@playwright/test';
 import { withRules } from '../../packages/game-core/src/index.ts';
-import { rotationInfos } from '../../packages/minigames/src/catalog.ts';
+import { getMinigameInfo, rotationInfos } from '../../packages/minigames/src/catalog.ts';
 import type { CharacterId, SlotNumber } from '../../packages/protocol/src/index.ts';
 import type {} from '../../apps/host/src/finale/testHook.ts';
 import type {} from '../../apps/host/src/minigame/testHook.ts';
@@ -384,55 +384,66 @@ async function playMinigame(
     await expect(seat.root, `${seat.label}: Spiel-Layout`).toHaveAttribute('data-screen', 'play');
   }
 
-  // Joystick: alle Finger setzen auf und ziehen (verschiedene Richtungen je Platz).
-  const before = new Map<SlotNumber, number>();
-  for (const seat of seats) before.set(seat.slot, await minigameInputs(host, seat.slot));
-  const directions = [
-    { x: 1, y: 0 },
-    { x: -1, y: 0 },
-    { x: 0, y: -1 },
-    { x: 0, y: 1 },
-  ];
-  for (const [index, seat] of seats.entries()) {
-    const touch = touches.get(seat.page);
-    if (!touch) throw new Error(`${seat.label}: kein TouchScreen`);
-    const stick = seat.root.getByTestId('joystick');
-    const box = await stick.boundingBox();
-    if (!box) throw new Error(`${seat.label}: Joystick unsichtbar`);
-    const from = await centerOf(stick);
-    const reach = Math.min(box.width, box.height) / 2;
-    const dir = directions[index % directions.length] ?? { x: 1, y: 0 };
-    await touch.down(seat.slot, from);
-    await touch.move(seat.slot, { x: from.x + dir.x * reach, y: from.y + dir.y * reach }, 6);
-  }
-  // Erst rechnen, wenn bei jedem Platz der volle Ausschlag angekommen ist – nicht schon bei der
-  // ersten Zwischenstellung des Wischs. Sonst hängt das Minispiel-Ergebnis (und damit Endstand
-  // und Siegerbild) davon ab, wie viele Nachrichten unter Last rechtzeitig da waren (CHAOS-41).
-  for (const seat of seats) {
-    await expect
-      .poll(() => minigameInputs(host, seat.slot), { message: `${seat.label}: Joystick am Host` })
-      .toBeGreaterThan(before.get(seat.slot) ?? 0);
-    await expect
-      .poll(
-        async () => {
-          const move = (await lastNetworkInput(host, seat.slot))?.move;
-          return move ? Math.hypot(move.x, move.y) : 0;
-        },
-        { message: `${seat.label}: voller Ausschlag am Host` },
-      )
-      .toBeGreaterThan(0.95);
-  }
-  await host.evaluate(() => window.__chaosMinigame?.step(45));
+  // Joystick (nur wenn das Minispiel einen hat; Kuckucks-Klatsche ist z. B. nur Knopf A, CHAOS-54):
+  // alle Finger setzen auf und ziehen (verschiedene Richtungen je Platz).
+  if (getMinigameInfo(id)?.controls.joystick) {
+    const before = new Map<SlotNumber, number>();
+    for (const seat of seats) before.set(seat.slot, await minigameInputs(host, seat.slot));
+    const directions = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: -1 },
+      { x: 0, y: 1 },
+    ];
+    for (const [index, seat] of seats.entries()) {
+      const touch = touches.get(seat.page);
+      if (!touch) throw new Error(`${seat.label}: kein TouchScreen`);
+      const stick = seat.root.getByTestId('joystick');
+      const box = await stick.boundingBox();
+      if (!box) throw new Error(`${seat.label}: Joystick unsichtbar`);
+      const from = await centerOf(stick);
+      const reach = Math.min(box.width, box.height) / 2;
+      const dir = directions[index % directions.length] ?? { x: 1, y: 0 };
+      await touch.down(seat.slot, from);
+      await touch.move(seat.slot, { x: from.x + dir.x * reach, y: from.y + dir.y * reach }, 6);
+    }
+    // Erst rechnen, wenn bei jedem Platz der volle Ausschlag angekommen ist – nicht schon bei der
+    // ersten Zwischenstellung des Wischs. Sonst hängt das Minispiel-Ergebnis (und damit Endstand
+    // und Siegerbild) davon ab, wie viele Nachrichten unter Last rechtzeitig da waren (CHAOS-41).
+    for (const seat of seats) {
+      await expect
+        .poll(() => minigameInputs(host, seat.slot), { message: `${seat.label}: Joystick am Host` })
+        .toBeGreaterThan(before.get(seat.slot) ?? 0);
+      await expect
+        .poll(
+          async () => {
+            const move = (await lastNetworkInput(host, seat.slot))?.move;
+            return move ? Math.hypot(move.x, move.y) : 0;
+          },
+          { message: `${seat.label}: voller Ausschlag am Host` },
+        )
+        .toBeGreaterThan(0.95);
+    }
+    await host.evaluate(() => window.__chaosMinigame?.step(45));
 
-  // Loslassen (Stick am Host wieder in der Mitte) und Knopf A tippen (Drücken und Loslassen am
-  // Host), bevor zu Ende gerechnet wird.
-  for (const touch of new Set(touches.values())) await touch.upAll();
-  for (const seat of seats) {
-    await expect
-      .poll(async () => (await lastNetworkInput(host, seat.slot))?.move, {
-        message: `${seat.label}: Stick losgelassen am Host`,
-      })
-      .toEqual({ x: 0, y: 0 });
+    // Loslassen (Stick am Host wieder in der Mitte) und Knopf A tippen (Drücken und Loslassen am
+    // Host), bevor zu Ende gerechnet wird.
+    for (const touch of new Set(touches.values())) await touch.upAll();
+    for (const seat of seats) {
+      await expect
+        .poll(async () => (await lastNetworkInput(host, seat.slot))?.move, {
+          message: `${seat.label}: Stick losgelassen am Host`,
+        })
+        .toEqual({ x: 0, y: 0 });
+    }
+  } else {
+    // Nur Knopf A: Der Controller zeigt keinen Joystick.
+    for (const seat of seats) {
+      await expect(seat.root.getByTestId('joystick'), `${seat.label}: kein Joystick`).toHaveCount(
+        0,
+      );
+    }
+    await host.evaluate(() => window.__chaosMinigame?.step(45));
   }
   const buttonsBefore = new Map<SlotNumber, { presses: number; releases: number }>();
   for (const seat of seats) {
