@@ -35,7 +35,16 @@ xcrun simctl install "Apple TV 4K (3rd generation)" build/Build/Products/Release
 xcrun simctl launch --console-pty "Apple TV 4K (3rd generation)" dev.rubeen.chaosparty.renderspike --sekunden=10 --bleiben=1
 ```
 
-Für echte Geräte (Apple TV, iPad) braucht es ein Team zum Signieren. Das ist absichtlich nicht eingerichtet.
+Für echte Geräte das eigene Team nur auf der Kommandozeile mitgeben (nicht ins Repo), dann per `devicectl` installieren und starten:
+
+```bash
+xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike -destination 'generic/platform=iOS' -configuration Release -derivedDataPath build -allowProvisioningUpdates DEVELOPMENT_TEAM=<TEAM-ID> CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development" build
+xcrun devicectl list devices
+xcrun devicectl device install app --device <ID> build/Build/Products/Release-iphoneos/ChaosRenderSpike.app
+xcrun devicectl device process launch --device <ID> --console --terminate-existing dev.rubeen.chaosparty.renderspike --sekunden=30
+```
+
+Für die Apple TV dasselbe mit `generic/platform=tvOS` und `Release-appletvos`. Vorher die Apple TV mit Xcode koppeln (Apple TV: Einstellungen → Fernbedienungen und Geräte → Remote-App und Geräte; Mac: Xcode → Window → Devices and Simulators).
 
 ### Parameter
 
@@ -86,6 +95,8 @@ Während der Messungen lief GeForce NOW im Hintergrund. Die Werte sind deshalb n
 Die ARView hält bei voller Szene 120 Hz im Median, das p95 zeigt aber einzelne verpasste Bilder. Die Reserve über 120 Hz bleibt unbekannt; das Ergebnis ist also nur eine Untergrenze. Dieser Lauf war der einzige mit sichtbarem Fenster und entstand, bevor Himmelskuppeln und Dunst ausgeblendet wurden. Beide liegen hinter `far`, der Unterschied sollte also klein sein. Weitere ARView-Läufe am Mac waren durch die Fensterdrosselung unbrauchbar (Median ≈ 103 ms) und fehlen in der Tabelle.
 
 Offscreen kostet ein Bild nacheinander gemessen 14–21 ms. Der Grundwert streut zwischen den Läufen schon um 16,8–21,3 ms, jede Variante wurde nur einmal gemessen. Über dieses Rauschen hinaus zeigt nur „Schatten aus“ einen Unterschied; Grasanteil und MSAA lassen sich davon nicht trennen. Die Offscreen-Werte sind **nicht mit Bevys Bildabstand bei `vsync=0` vergleichbar**: Bevy überlappt die Bilder (Pipelining), diese Schleife wartet jedes Bild ab. Mit Bevy vergleichbar ist nur der ARView-Wert.
+
+**Echtes iPhone 16 Pro** (nur Benchmark, kein Host), 2622×1206, volle Szene: Median 16,68 ms, p95 17,4 ms, max 20,6 ms, 60,0 fps. Die ARView bleibt bei 60 Hz, auch mit `--bildrate=120` und `CADisableMinimumFrameDurationOnPhone` (getestet, wieder entfernt).
 
 Funktionsproben im Simulator (keine Messungen): iPhone 17 Pro (Querformat), iPad (A16) mit 2360×1640 und tvOS (Apple TV 4K, 3. Generation) mit 3840×2160 laufen beide mit voller Szene und 64 246 Instanzen bei 60 Hz.
 

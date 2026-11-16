@@ -1371,6 +1371,7 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 - Offscreen-Werte warten jedes Bild ab (kein Pipelining) und sind deshalb **nicht** mit Bevy `vsync=0` vergleichbar. Nur „Schatten aus“ hebt sich vom Rauschen ab.
 - Eine GPU-Zeit liefert RealityKit unter macOS nicht (`__frameTime()` = 0); dafür bleibt Instruments.
 - **Simulatoren (keine Messungen):** iPhone 17 Pro, iPad (A16) 2360×1640 und Apple TV 4K (3. Gen., tvOS 27) 3840×2160 zeigen die volle Szene bei 60 Hz ([Mac](screenshots/chaos78-realitykit-macos.jpg), [iPad-Sim](screenshots/chaos78-realitykit-ipad-sim.jpg), [iPhone-Sim](screenshots/chaos78-realitykit-iphone-sim.jpg), [tvOS-Sim](screenshots/chaos78-realitykit-tvos-sim.jpg)).
+- **iPhone 16 Pro (echtes Gerät, nur Benchmark, kein Host):** volle Szene bei nativer Auflösung 2622×1206, Median 16,68 ms, p95 17,4 ms, max 20,6 ms, 60,0 fps über 30 s (zwei Läufe gleich). Die ARView bleibt bei 60 Hz, auch mit `--bildrate=120` und `CADisableMinimumFrameDurationOnPhone`; die Reserve darüber ist unbekannt. Weil das iPhone (A18 Pro) eine stärkere GPU hat als die Apple TV 4K (A15), ist das nur ein Hinweis, kein Ersatz für R12.
 - **Echte Apple TV:** nicht gemessen (kein Gerät am Rechner, kein Signier-Team eingerichtet) → Gerätecheckliste §17, Messbogen R12.
 
 **Befunde unterwegs:**

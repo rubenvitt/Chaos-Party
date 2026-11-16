@@ -139,5 +139,6 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen.
 | R12 | Apple TV 4K | RealityKit (§3b) | Metal | 1080p und 4K | | | Bildabstand vsync-gebunden (60 Hz); p95 und verpasste Bilder zählen |
 | R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 8,30 | 17,0 | 16.11., M3 Max 120 Hz, **vorläufig**: GeForce NOW lief mit; am 120-Hz-Deckel |
 | R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,8–21,3 | 23–40 | wie R13 vorläufig; nacheinander gemessen, nicht mit R10 vergleichbar |
+| R15 | iPhone 16 Pro (nur Benchmark) | RealityKit (§3b) ARView | Metal | 2622×1206 | 16,68 | 17,4 | 16.11., echtes Gerät, volle Szene; ARView bleibt bei 60 Hz (auch mit `--bildrate=120`), max 20,6 ms |
 
 Außerdem: Sieht Bevy gleichwertig aus (ja/nein, Bildschirmfotos)? Spürbare Ladezeit (Bevy-WASM lädt ≈ 27 MB Szene plus das Programm)?
