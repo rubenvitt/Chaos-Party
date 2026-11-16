@@ -142,8 +142,9 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   const isDisposed = () => status === 'disposed';
 
   const resize = () => {
-    applyRenderScale(engine, settings, adaptive.level);
+    // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
     engine.resize();
+    applyRenderScale(engine, settings, adaptive.level);
   };
   window.addEventListener('resize', resize);
 

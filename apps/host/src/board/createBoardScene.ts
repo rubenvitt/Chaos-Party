@@ -206,8 +206,9 @@ export function createBoardScene(
   let activeArrow: Mesh | undefined;
 
   const onResize = (): void => {
-    applyRenderScale(engine, look, adaptive.level);
+    // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
     engine.resize();
+    applyRenderScale(engine, look, adaptive.level);
     if (testMode && built) scene.render();
   };
   window.addEventListener('resize', onResize);

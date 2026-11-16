@@ -84,8 +84,9 @@ export function MinigamePreview({ id, players, seed, test }: PreviewProps) {
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
     const resize = () => {
-      applyRenderScale(engine, settings, adaptive.level);
+      // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
       engine.resize();
+      applyRenderScale(engine, settings, adaptive.level);
     };
     window.addEventListener('resize', resize);
 
