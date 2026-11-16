@@ -206,7 +206,9 @@ export function createBoardScene(
   let activeArrow: Mesh | undefined;
 
   const onResize = (): void => {
+    // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
     engine.resize();
+    applyRenderScale(engine, look, adaptive.level);
     if (testMode && built) scene.render();
   };
   window.addEventListener('resize', onResize);
@@ -284,7 +286,10 @@ export function createBoardScene(
       const dt = engine.getDeltaTime();
       // Lange Lücken (z. B. das erste Bild nach der Pause) verwirft die Automatik selbst.
       const next = adaptive.frame(dt);
-      if (next) lighting?.setQuality(next);
+      if (next) {
+        lighting?.setQuality(next);
+        applyRenderScale(engine, look, next);
+      }
       update(Math.min(maxStepMs, dt));
       scene.render();
     });

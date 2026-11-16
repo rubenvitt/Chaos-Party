@@ -16,6 +16,10 @@
  * keine Aussage über echte Hardware (`docs/performance.md`). Ergebnisse in `perf-results/`.
  * `PERF_UPDATE_BASELINE=1` schreibt `tests/perf/baseline.json` neu; `PERF_STRICT=1` prüft
  * zusätzlich die zeitlichen Schwellen; `PERF_LABEL=…` benennt die Ergebnisdatei.
+ *
+ * Echte GPU (CHAOS-73): `PERF_GPU=1` (siehe `playwright.perf.config.ts`), dazu
+ * `PERF_VIEWPORT=1920x1080`, `PERF_DPR=2` und `PERF_QUERY=&qualitaet=hoch`. Ohne Vergleich
+ * mit der Baseline (die gilt nur für SwiftShader).
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { cpus, loadavg, totalmem } from 'node:os';
@@ -42,6 +46,13 @@ const PLAY_MS = 15_000;
 const LOBBY_MS = 10_000;
 /** So lange bleibt der Messlauf auf dem Siegerpodest. */
 const PODIUM_MS = 10_000;
+const GPU = process.env.PERF_GPU === '1';
+const [VIEW_W, VIEW_H] = (process.env.PERF_VIEWPORT ?? '1280x720').split('x').map(Number) as [
+  number,
+  number,
+];
+const DPR = Number(process.env.PERF_DPR ?? '1');
+const QUERY = process.env.PERF_QUERY ?? '';
 
 interface WsStats {
   readonly byType: Record<string, { count: number; bytes: number; maxBytes: number }>;
@@ -76,14 +87,14 @@ function watchHostSocket(page: Page): WsStats {
 
 async function openPerfHost(browser: Browser, server: RunningServer, query: string) {
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-    deviceScaleFactor: 1,
+    viewport: { width: VIEW_W, height: VIEW_H },
+    deviceScaleFactor: DPR,
   });
   const page = await context.newPage();
   const problems = collectProblems(page);
   const ws = watchHostSocket(page);
   const cdp = await context.newCDPSession(page);
-  await page.goto(`${server.base}/host/?debug=1${query}`);
+  await page.goto(`${server.base}/host/?debug=1${query}${QUERY}`);
   await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready');
   await expect(page.getByTestId('connection')).toHaveAttribute('data-status', 'connected');
   return { context, page, problems, ws, cdp };
@@ -142,7 +153,7 @@ function environmentInfo(browserVersion: string) {
     memoryGB: Math.round(totalmem() / 1024 ** 3),
     // Systemlast am Ende (1/5/15 min): Andere Prozesse auf dem Rechner verfälschen Zeiten.
     loadAverage: loadavg().map((value) => Math.round(value * 100) / 100),
-    browser: `Chromium ${browserVersion} headless, SwiftShader (ANGLE), 1280×720, DPR 1`,
+    browser: `Chromium ${browserVersion} ${GPU ? 'GPU, ohne VSync' : 'headless, SwiftShader (ANGLE)'}, ${String(VIEW_W)}×${String(VIEW_H)}, DPR ${String(DPR)}${QUERY ? `, ${QUERY}` : ''}`,
   };
 }
 
@@ -258,7 +269,8 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
         `Bot-RTT über den Server: ${JSON.stringify(result.botRtt)}; Event-Loop: ${JSON.stringify(result.eventLoop)}`,
       );
       console.log(`\n${comparisonTable(comparisons)}\n`);
-      if (process.env.PERF_UPDATE_BASELINE === '1') updateBaseline('partie', scenes, environment);
+      if (process.env.PERF_UPDATE_BASELINE === '1' && !GPU)
+        updateBaseline('partie', scenes, environment);
 
       const failed = comparisons.flatMap((c) =>
         c.results
@@ -269,7 +281,7 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
           )
           .map((r) => `${c.scene}.${r.metric}: ${String(r.current)} > ${String(r.limit)}`),
       );
-      if (process.env.PERF_UPDATE_BASELINE !== '1')
+      if (process.env.PERF_UPDATE_BASELINE !== '1' && !GPU)
         expect(failed, 'Regressionen gegen die Baseline').toEqual([]);
       expectNoProblems(host.problems, 'Host');
     } finally {

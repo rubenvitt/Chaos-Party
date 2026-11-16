@@ -15,7 +15,8 @@ export interface Problems {
 export function collectProblems(page: Page): Problems {
   const problems: Problems = { consoleErrors: [], pageErrors: [] };
   page.on('console', (msg) => {
-    if (msg.type() === 'error') problems.consoleErrors.push(msg.text());
+    // Mit Adresse: „Failed to load resource: 404“ allein sagt nicht, welche Datei fehlt.
+    if (msg.type() === 'error') problems.consoleErrors.push(`${msg.text()} ${msg.location().url}`);
   });
   page.on('pageerror', (error) => problems.pageErrors.push(error.message));
   return problems;

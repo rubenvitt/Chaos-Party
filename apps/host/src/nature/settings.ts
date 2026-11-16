@@ -3,9 +3,10 @@
  *
  * - Stimmung: zunächst fest je Brett (`moodForBoard`); der Lichtverlauf je Runde folgt in
  *   CHAOS-63. `?stimmung=<id>` überschreibt sie (Ansehen, Lesbarkeit prüfen, Screenshots).
- * - Grafikstufe: `?qualitaet=hoch|mittel|niedrig|minimal` fest; ohne Angabe `hoch` mit
- *   Automatik (stuft bei niedriger Bildrate ab). Im Testmodus immer `minimal`, bei
- *   Software-Rendering ohne Angabe ebenfalls (`isSoftwareRenderer`).
+ * - Grafikstufe: `?qualitaet=hoch|mittel|niedrig|minimal` fest; ohne Angabe `hoch` (bzw. die
+ *   in dieser Sitzung schon erreichte Stufe) mit Automatik (stuft bei niedriger Bildrate ab).
+ *   Im Testmodus immer `minimal`, bei Software-Rendering ohne Angabe ebenfalls
+ *   (`isSoftwareRenderer`).
  */
 import {
   LIGHT_MOOD_IDS,
@@ -14,7 +15,14 @@ import {
   type LightMood,
   type LightMoodId,
 } from '../lighting/moods.ts';
-import { isSoftwareRenderer, parseQualityLevel, type QualityLevel } from './quality.ts';
+import {
+  isSoftwareRenderer,
+  parseQualityLevel,
+  QUALITY,
+  renderScalingLevel,
+  sessionQuality,
+  type QualityLevel,
+} from './quality.ts';
 
 export interface LookSettings {
   readonly mood: LightMood;
@@ -36,6 +44,8 @@ export function parseLookSettings(
     readonly boardId: string;
     /** WebGL-Renderer (`engine.getGlInfo().renderer`), erkennt Software-Rendering. */
     readonly renderer?: string;
+    /** Von der Automatik in dieser Sitzung erreichte Stufe (Startwert statt `hoch`). */
+    readonly sessionQuality?: QualityLevel | null;
   },
 ): LookSettings {
   const params = new URLSearchParams(search);
@@ -49,7 +59,7 @@ export function parseLookSettings(
   const fixed = parseQualityLevel(params.get('qualitaet'));
   if (fixed) return { mood, quality: fixed, automatic: false, software };
   if (software) return { mood, quality: 'minimal', automatic: false, software };
-  return { mood, quality: 'hoch', automatic: true, software };
+  return { mood, quality: context.sessionQuality ?? 'hoch', automatic: true, software };
 }
 
 /** Einstellungen aus der aktuellen Seiten-URL. */
@@ -62,16 +72,41 @@ export function currentLookSettings(
     testMode,
     boardId,
     renderer,
+    sessionQuality: sessionQuality(),
   });
 }
 
 /**
- * Software-Rendering: halbe Auflösung (ein Viertel der Pixel). Spielbar ist es dort ohnehin
- * nicht; so bleibt mehr Rechenzeit für Regie, Minispiel-Uhr und Controller-Seiten.
+ * Renderauflösung der Stufe setzen; beim Aufbau, nach jedem Stufenwechsel und bei Größenänderung
+ * aufrufen. Software-Rendering: halbe Auflösung (ein Viertel der Pixel). Spielbar ist es dort
+ * ohnehin nicht; so bleibt mehr Rechenzeit für Regie, Minispiel-Uhr und Controller-Seiten.
+ * Sonst begrenzt `maxRenderPixels` die Pixelzahl (4K, HiDPI; CHAOS-73).
  */
 export function applyRenderScale(
-  engine: { setHardwareScalingLevel(level: number): void },
+  engine: {
+    setHardwareScalingLevel(level: number): void;
+    getHardwareScalingLevel(): number;
+    getRenderingCanvas(): HTMLCanvasElement | null;
+  },
   settings: LookSettings,
+  level: QualityLevel = settings.quality,
 ): void {
-  if (settings.software && settings.quality === 'minimal') engine.setHardwareScalingLevel(2);
+  if (settings.software && level === 'minimal') {
+    engine.setHardwareScalingLevel(2);
+    return;
+  }
+  const maxPixels = QUALITY[level].maxRenderPixels;
+  const canvas = engine.getRenderingCanvas();
+  // Unbegrenzt (minimal, Testmodus): Babylons eigene Einstellung bleibt unangetastet.
+  if (!Number.isFinite(maxPixels) || !canvas) return;
+  const scaling = renderScalingLevel(
+    canvas.clientWidth,
+    canvas.clientHeight,
+    window.devicePixelRatio,
+    maxPixels,
+  );
+  // setHardwareScalingLevel ruft resize() auf; nur bei echter Änderung.
+  if (Math.abs(scaling - engine.getHardwareScalingLevel()) > 1e-3) {
+    engine.setHardwareScalingLevel(scaling);
+  }
 }

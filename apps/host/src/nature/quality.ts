@@ -5,7 +5,11 @@
  * - Start: `?qualitaet=hoch|mittel|niedrig` (fest, keine Automatik) oder `hoch` mit Automatik.
  * - Automatik (`AdaptiveQuality`): Liegt die Bildrate über ein Messfenster unter
  *   {@link ADAPT.minFps}, geht es eine Stufe nach unten. Nach oben geht es nie automatisch
- *   (kein Pendeln zwischen Stufen mitten im Spiel).
+ *   (kein Pendeln zwischen Stufen mitten im Spiel). Die erreichte Stufe gilt für den Rest der
+ *   Sitzung: Jede neue Szene (Brett, Minispiel) startet mit ihr statt wieder bei `hoch`
+ *   (CHAOS-73, {@link sessionQuality}).
+ * - Jede Stufe begrenzt die Renderauflösung ({@link QualitySettings.maxRenderPixels}): Auf 4K
+ *   bzw. HiDPI bestimmt sonst die Pixelzahl die Bildrate (CHAOS-73).
  * - Sparstufe `minimal`: im Testmodus und wenn der Browser per Software rendert (SwiftShader,
  *   llvmpipe …, z. B. ohne Grafiktreiber). Wenig Gras, kein HDRI-Umgebungslicht, keine
  *   Nachbearbeitung – die Screenshots der Tests zeigen den Look, nicht die volle Pracht.
@@ -42,6 +46,11 @@ export interface QualitySettings {
    * (sonst nur die Farbtextur); nur beim Aufbau wirksam.
    */
   readonly materialDetail: boolean;
+  /**
+   * Höchstens so viele Pixel rendern (Breite × Höhe nach Gerätepixelverhältnis); darüber
+   * rendert die Szene kleiner und der Browser skaliert hoch. Zur Laufzeit wirksam.
+   */
+  readonly maxRenderPixels: number;
 }
 
 export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
@@ -58,6 +67,7 @@ export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
     shadows: true,
     environment: true,
     materialDetail: true,
+    maxRenderPixels: 2560 * 1440,
   },
   mittel: {
     grass: 0.55,
@@ -72,6 +82,7 @@ export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
     shadows: true,
     environment: true,
     materialDetail: true,
+    maxRenderPixels: 1920 * 1080,
   },
   niedrig: {
     grass: 0.25,
@@ -86,6 +97,7 @@ export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
     shadows: true,
     environment: true,
     materialDetail: true,
+    maxRenderPixels: 1600 * 900,
   },
   minimal: {
     grass: 0.08,
@@ -100,6 +112,8 @@ export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
     shadows: true,
     environment: false,
     materialDetail: false,
+    // Unbegrenzt: Testmodus und Software-Rendering regeln die Auflösung selbst (settings.ts).
+    maxRenderPixels: Infinity,
   },
 };
 
@@ -126,6 +140,19 @@ export const ADAPT = {
   /** Lücken über diesem Wert (Tab im Hintergrund) zählen nicht als Frame. */
   pauseMs: 500,
 } as const;
+
+/** Von der Automatik erreichte Stufe dieser Sitzung (Seite), `null` = noch nicht abgestuft. */
+let sessionLevel: QualityLevel | null = null;
+
+/** Stufe, mit der die nächste Szene startet, wenn die Automatik an ist. */
+export function sessionQuality(): QualityLevel | null {
+  return sessionLevel;
+}
+
+/** Für Tests: Sitzung vergessen. */
+export function resetSessionQuality(): void {
+  sessionLevel = null;
+}
 
 export interface AdaptiveQuality {
   readonly level: QualityLevel;
@@ -164,10 +191,28 @@ export function createAdaptiveQuality(start: QualityLevel, automatic: boolean): 
       const next = lowerLevel(level);
       if (!next) return null;
       level = next;
+      sessionLevel = next;
       settle = ADAPT.settleMs;
       return next;
     },
   };
+}
+
+/**
+ * Hardware-Skalierung für Babylon (`engine.setHardwareScalingLevel`): Renderpixel =
+ * CSS-Pixel / Stufe². Ohne Begrenzung 1/dpr (scharf auf HiDPI), sonst so, dass höchstens
+ * `maxPixels` gerendert werden.
+ */
+export function renderScalingLevel(
+  cssWidth: number,
+  cssHeight: number,
+  dpr: number,
+  maxPixels: number,
+): number {
+  const native = 1 / Math.max(1, dpr);
+  const pixels = cssWidth * cssHeight;
+  if (!(pixels > 0) || !Number.isFinite(maxPixels)) return native;
+  return Math.max(native, Math.sqrt(pixels / maxPixels));
 }
 
 /** Rendert der Browser ohne echte GPU (Software-Rasterizer)? Dann nur die Sparstufe. */

@@ -1,6 +1,6 @@
 # Performance: Bildrate und Latenz (M4)
 
-**Stand:** 2026-11-15 (Baseline nach CHAOS-62 neu) · **Aufgabe:** CHAOS-39 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
+**Stand:** 2026-11-16 (erste Messung auf echter GPU, CHAOS-73) · **Aufgabe:** CHAOS-39, CHAOS-73 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
 
 Kurz: Gemessen wird an zwei Stellen – **auf echter Hardware** mit der Messanzeige (`?debug=1`, Ruben, Abschnitt 11 der [Gerätecheckliste](device-test-checklist.md#11-m4--performance-für-chaos-43)) und **automatisch** im Headless-Chromium mit Software-Rendering (`pnpm perf`). Die automatischen Werte erlauben **nur relative Vergleiche** auf demselben Rechner (vorher/nachher). Sie sagen nichts darüber, wie flüssig das Spiel auf Rubens PC oder Fernseher läuft.
 
@@ -52,7 +52,13 @@ PERF_LABEL=vorher pnpm perf            # Ergebnisdatei perf-results/partie-vorhe
 PERF_STRICT=1 pnpm perf                # zusätzlich zeitliche Schwellen prüfen (gleicher Rechner!)
 PERF_UPDATE_BASELINE=1 pnpm perf       # Baseline neu schreiben (nach bewusster Änderung)
 pnpm perf -g Revanche                  # nur ein Szenario
+
+# Echte Grafikkarte (CHAOS-73): sichtbares Fenster, ohne VSync, ohne Baseline-Vergleich
+E2E_SKIP_BUILD=1 PERF_GPU=1 PERF_VIEWPORT=1920x1080 PERF_DPR=2 PERF_LABEL=gpu-4k pnpm perf -g Partie
+PERF_QUERY='&qualitaet=mittel' …        # feste Grafikstufe statt Automatik
 ```
+
+Headless nimmt Chromium auch auf einem Rechner mit GPU SwiftShader; `PERF_GPU=1` öffnet deshalb ein Fenster. Ohne VSync zeigt der Bildabstand die Kosten (hunderte fps möglich), nicht die Bildwiederholrate.
 
 Aufbau: `playwright.perf.config.ts`, `tests/perf/` (eigenes Playwright-Projekt, nicht Teil von `pnpm test:e2e`). Production-Build, echter Server im Testprozess, Host-Seite **ohne** Testmodus (echte Render-Schleife) mit `?debug=1`, 1280×720, DPR 1, ein Worker. Vier synthetische Controller (`tests/perf/perfBot.ts`) wählen Figuren, sind bereit, beantworten jede Brett-Entscheidung und spielen Minispiele mit `move` 30/s (Zufallsweg, fester Seed) sowie A alle ~0,7 s und B alle ~1,5 s, soweit angeboten. Brett-Seed `2026`.
 
@@ -122,6 +128,25 @@ Mit dem Merge von `main` (CHAOS-62, [ADR-014](decisions/ADR-014-natur-look.md)) 
 - **Heap und Texturspeicher steigen** durch PBR-Texturen, HDRI-Himmel und Umgebungslicht (Brett 63 → 194 MB Heap-Höchstwert, ≈ 20 MB Texturen). Der Heap nach GC in der Lobby bleibt bei ≈ 22 MB.
 - Bildabstände sind wegen halber Auflösung und Sparstufe nicht mit Abschnitt 3 vergleichbar. Wie flüssig `hoch`/`mittel`/`niedrig` auf einer echten GPU laufen, zeigen nur PF1/PF2 und N1–N3 der [Gerätecheckliste](device-test-checklist.md).
 
+## 3b. Erste Messung auf echter GPU (CHAOS-73)
+
+Apple M3 Max, Chromium 153 mit ANGLE/Metal, ohne VSync, ganze Partie (`PERF_GPU=1`), Automatik an. Herleitung, Varianten und Profil: [EXP-014](experiments.md#exp-014-host-grafik-auf-echter-gpu--engpass-der-grafikstufen-2026-11-16-chaos-73).
+
+| Szene | Bildabstand p50 / p95 ms vorher, 1080p | nachher, 1080p | nachher, 4K (DPR 2) | Draw Calls p50 |
+|---|---|---|---|---|
+| lobby | 0,8 / 2,5 | 1,8 / 2,6 | 2,3 / 2,8 | 70 |
+| brett | **26 / 29** | **5,5 / 8,0** | 8,7 / 13,6 | 422 |
+| minispiel:sockenregen | 15 / 19 | 4,2 / 6,1 | 7,4 / 12,0 | 415 |
+| minispiel:pudding-gerangel | 20 / 25 | 4,8 / 7,2 | 8,2 / 12,8 | 327 |
+| minispiel:wackelturm | 15 / 18 | 4,4 / 6,0 | 7,6 / 13,2 | 328 |
+| podest | 1,7 / 2,6 | 0,9 / 2,5 | 1,6 / 2,8 | 71 |
+
+**Lesart:**
+- **Engpass waren die weichen Kontaktschatten (PCSS)** in Babylons Filterstufe `HIGH`: ≈ 23 ms je Bild am Brett, selbst auf einer M3 Max. Die GPU war voll, JS wartete in `uniformMatrix4fv`/`drawElements` (Render-Zeit ≈ Bildabstand). Mit Filterstufe `LOW` sehen sie praktisch gleich aus und kosten ≈ 1 ms.
+- **Auflösung** ist der zweite Hebel: Bei 4K kostet dieselbe Szene etwa das Dreifache. Jede Stufe begrenzt jetzt die Renderpixel (`hoch` 2560×1440, `mittel` 1920×1080, `niedrig` 1600×900); die Host-Zeile der Messanzeige zeigt die tatsächliche Renderauflösung.
+- **Draw Calls** (≈ 330–420 bei `hoch`; Tiefenunschärfe und Schattenpass zeichnen die Szene erneut) sind auf diesem Rechner kein Engpass (`niedrig`: 269 Draw Calls in 1,6 ms). Auf schwachen CPUs bleibt Bündeln ein Kandidat.
+- Wie viel Luft eine schwächere Grafikkarte hat, zeigt nur Rubens Messung (PF1/PF2, N1–N3). Reicht `hoch` dort nicht, stuft die Automatik ab und merkt sich die Stufe für die Sitzung (jede neue Szene startet mit ihr statt wieder bei `hoch`).
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
@@ -139,7 +164,7 @@ Geprüft und **nicht** geändert:
 | Speicher über mehrere Partien | Kein Wachstum (Revanche ×3); Dispose beim Szenenwechsel greift |
 | Server-Broadcast der `board`-Views | ≈ 0,5 Nachrichten/s mit ≈ 1,4 kB; nur bei Ereignis oder geänderter Sicht (`lastViewKey`). Nicht relevant, nicht geändert |
 | `freezeActiveMeshes`, eingefrorene Materialien | JS-Render-Zeit je Bild 2–6 ms (Median) bei 60–250 ms Bildabstand: kein Engpass in SwiftShader; auf echter Hardware erst nach Rubens Messung bewerten (Figuren, Popups und Marker ändern die aktive Liste ständig) |
-| Schatten (1024er Karte, PCF) | Zeichnet nur Figuren, Wegweiser und Pokale; Änderung wäre sichtbar → nur bei Bedarf nach Hardware-Messung |
+| Schatten (1024er Karte, PCF) | Zeichnet nur Figuren, Wegweiser und Pokale; Änderung wäre sichtbar → nur bei Bedarf nach Hardware-Messung. **Nachtrag CHAOS-73:** Der Natur-Look nutzt bei `hoch`/`mittel` PCSS; dessen Filterstufe `HIGH` war der Engpass (Abschnitt 3b), jetzt `LOW` |
 | Minispiel Sockenregen (≈ 160 Draw Calls, mit Natur-Kulisse ≈ 260) | Größter Minispiel-Wert; liegt im Minispiel-Paket. Kandidat für Instanzen, falls Rubens Messung dort Ruckler zeigt |
 | Natur-Bäume auf dem Brett (CHAOS-62, ≈ 30 Bäume à 2 Meshes plus Schattenpass) | Nicht instanzierbar (jeder Baum eigene Geometrie), wackeln je Baum. Zusammenfassen ginge nur mit Wind im Vertex-Shader statt Knoten-Drehung; erst nach Rubens Messung (PF2, N1–N3) und nur, wenn das Brett auf seiner GPU ruckelt |
 
@@ -156,7 +181,8 @@ Geprüft und **nicht** geändert:
 | Render-Zeit p95 je Szene | ≤ Baseline · 1,25 + 2 ms | eigene Baseline | nur `PERF_STRICT=1` |
 | Heap max je Szene | ≤ Baseline · 1,2 + 10 MB | eigene Baseline | nur `PERF_STRICT=1` |
 | Heap über drei Partien | Partie 3 ≤ max(Partie 1 · 1,1; Partie 1 + 5 MB) | im selben Lauf | immer |
-| Bildrate/Bildabstand auf Rubens PC | **offen, Messung durch Ruben** (PF1/PF2) | Gerätecheckliste | – |
+| Bildrate/Bildabstand auf Rubens PC | **offen, Messung durch Ruben** (PF1/PF2); Ziel CHAOS-73: Brett und Minispiele p95 ≤ 20 ms in 1080p | Gerätecheckliste | – |
+| Bildabstand auf dem Mac (M3 Max, ohne VSync) | Richtwert aus Abschnitt 3b; nur Vergleich vorher/nachher mit `PERF_GPU=1` auf demselben Rechner | EXP-014 | – (kein Grenzwert in `pnpm perf`) |
 | Eingabe→Frame und RTT auf echten Geräten | **offen, Messung durch Ruben** (PF3, PF5, PF6) | Gerätecheckliste | – |
 
 Vorschlag für die Zeit nach Rubens Messung: dieselbe Regel wie oben (+25 % auf den gemessenen p95 je Szene) als Regressionsgrenze für spätere Messungen auf **seinem** Rechner; eine harte Untergrenze („mindestens X fps“) erst, wenn PF2 zeigt, ab welchem Wert es sich unflüssig anfühlt.
@@ -165,7 +191,7 @@ Die Baseline gilt für den Rechner, auf dem sie entstand (`environment` in der D
 
 ## 6. Nur auf echter Hardware messbar
 
-- Bildrate und Bildabstand mit echter GPU, HiDPI/4K-Auflösung und Fernseher (Bildwiederholrate, Eingabeverzögerung des Fernsehers).
+- Bildrate und Bildabstand mit **Rubens** GPU, HiDPI/4K-Auflösung und Fernseher (Bildwiederholrate, Eingabeverzögerung des Fernsehers). Gemessen ist bisher nur ein Mac mit M3 Max (Abschnitt 3b).
 - Gesamtlatenz Finger → Bild (Touch-Verarbeitung in iOS-Safari, WLAN, Compositor, Monitor): nur Zeitlupenvideo.
 - RTT über echtes WLAN (2,4/5 GHz, Mesh, Störungen), iOS-Timer-Drosselung, Energiesparmodus.
 - Verhalten schwacher PCs (integrierte Grafik), Thermik über eine lange Partie.

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { fbm, seeded } from './noise.ts';
 import {
   ADAPT,
@@ -8,6 +8,9 @@ import {
   parseQualityLevel,
   QUALITY,
   QUALITY_LEVELS,
+  renderScalingLevel,
+  resetSessionQuality,
+  sessionQuality,
 } from './quality.ts';
 import { parseLookSettings } from './settings.ts';
 import { createTerrain, rimRadius } from './terrain.ts';
@@ -67,6 +70,8 @@ describe('Gelände', () => {
 });
 
 describe('Grafikstufen', () => {
+  beforeEach(resetSessionQuality);
+
   it('werden von hoch nach niedrig billiger', () => {
     const [hoch, mittel, niedrig] = QUALITY_LEVELS.map((l) => QUALITY[l]);
     expect(hoch?.grass).toBeGreaterThan(mittel?.grass ?? 1);
@@ -77,6 +82,22 @@ describe('Grafikstufen', () => {
     expect(QUALITY.minimal.ssao).toBe(false);
     expect(QUALITY.minimal.environment).toBe(false);
     expect(QUALITY.minimal.postProcess).toBe(false);
+    expect(hoch?.maxRenderPixels).toBeGreaterThan(mittel?.maxRenderPixels ?? Infinity);
+    expect(mittel?.maxRenderPixels).toBeGreaterThan(niedrig?.maxRenderPixels ?? Infinity);
+  });
+
+  it('Renderauflösung: nativ bis zur Grenze, darüber kleiner', () => {
+    const fullHd = 1920 * 1080;
+    // 1080p, DPR 1: unter der Grenze nativ.
+    expect(renderScalingLevel(1920, 1080, 1, fullHd)).toBe(1);
+    // 1080p-Fenster mit DPR 2 (4K): auf 1080p begrenzt.
+    expect(renderScalingLevel(1920, 1080, 2, fullHd)).toBeCloseTo(1);
+    // 4K mit DPR 1 (Fernseher): halbe Kantenlänge.
+    expect(renderScalingLevel(3840, 2160, 1, fullHd)).toBeCloseTo(2);
+    // HiDPI unter der Grenze bleibt scharf; ohne Grenze oder Größe nativ.
+    expect(renderScalingLevel(800, 600, 2, fullHd)).toBe(0.5);
+    expect(renderScalingLevel(3840, 2160, 2, Infinity)).toBe(0.5);
+    expect(renderScalingLevel(0, 0, 2, fullHd)).toBe(0.5);
   });
 
   it('URL-Werte und Abstufung', () => {
@@ -107,6 +128,23 @@ describe('Grafikstufen', () => {
     // Nach dem Wechsel wieder Anlaufzeit, dann weiter nach unten bis zum Boden.
     expect(run(quality, 30, 30)).toEqual(['niedrig']);
     expect(quality.level).toBe('niedrig');
+  });
+
+  it('Automatik merkt sich die Stufe für die nächste Szene der Sitzung', () => {
+    expect(sessionQuality()).toBeNull();
+    run(createAdaptiveQuality('hoch', true), 30, 8);
+    expect(sessionQuality()).toBe('mittel');
+    // Feste Stufen ändern die Sitzung nicht.
+    run(createAdaptiveQuality('niedrig', false), 20, 30);
+    expect(sessionQuality()).toBe('mittel');
+    const gpu = { testMode: false, boardId: 'wackelwald', renderer: 'ANGLE (Apple, M3)' };
+    expect(parseLookSettings('', { ...gpu, sessionQuality: 'mittel' })).toMatchObject({
+      quality: 'mittel',
+      automatic: true,
+    });
+    expect(parseLookSettings('?qualitaet=hoch', { ...gpu, sessionQuality: 'mittel' }).quality).toBe(
+      'hoch',
+    );
   });
 
   it('Automatik bleibt bei flüssiger Bildrate, ohne Automatik und bei Pausen', () => {
