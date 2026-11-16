@@ -22,7 +22,8 @@ Brett (Natur-Look, Figuren, Popups, Regie), drei Minispiele mit Havok-Physik (AD
 | 1 Babylon + WebGPU | `?gpu=webgpu` am echten Brett (`scene/engineFactory.ts`), WebGL2-Rückfall | gebaut, Unit-Tests grün; WebGPU-Engine startet, Rendern scheitert nur an der Software-GPU (Gerät geht verloren – auch im Rohtest ohne Spielcode) |
 | 2 Bevy (Rust) → WebAssembly | `spikes/renderer-bevy`, Kulisse aus dem echten Brett exportiert (GLB), Instanzen, Figuren mit Idle | gebaut (WebGPU und WebGL2); WebGL2 rendert dieselbe Szene im Headless-Chromium ([Bild](../screenshots/chaos75-bevy-webgl2-swiftshader.jpg)); 35 MB Programm (≈ 8 MB gzip) |
 | 3 Bevy nativ | dasselbe Programm nativ (Metal/DX12/Vulkan) | gebaut; in der Cloud kein Fenster/Bild möglich |
-| 3 Swift/RealityKit, Unity, Godot | kein Prototyp | Recherche (unten) |
+| 3 Swift/RealityKit | `spikes/renderer-realitykit` (CHAOS-78, 16.11.): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ aus dem Brett-Export, GPU-Instancing | läuft nativ am Mac und im tvOS-/iPad-Simulator; vorläufige Mac-Werte in EXP-017, echte Apple TV offen |
+| 3 Unity, Godot | kein Prototyp | Recherche (unten) |
 
 ### Recherche-Stand (16.11.2026, Quellen in EXP-015)
 

@@ -1338,3 +1338,48 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 7. Die Bot-Profile sind Annahmen. Echte Reaktionszeiten (CHAOS-49) können die Fenster verschieben.
 
 **Für später:** Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) → CHAOS-79.
+
+---
+
+## EXP-017: Native RealityKit-App für macOS, tvOS (und iPhone/iPad als Benchmark) (2026-11-16, CHAOS-78)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben will das Spiel am Fernseher über eine Apple TV und wünscht sich native Apps („native Mac App, iPad App, iOS App und TV App“). Frage: Schafft RealityKit dieselbe Testszene wie EXP-015 flüssig auf Apple-Geräten, und wie groß ist der Bruch zum Babylon-Host? Erwartung: RealityKit hält 60 Hz auf der Apple TV, braucht aber einen zweiten Renderer und verliert Teile des Looks.
+
+**Rahmen:** Die Produktsäule bleibt unverändert: Server und Spiel laufen auf PC/Mac, iPhone/iPad sind Controller. Die iOS/iPadOS-Ziele der App sind **nur Renderer-Benchmark**. tvOS ist Kandidat für eine reine Host-Anzeige (ADR-016, Server-Variante 1); die Entscheidung über CHAOS-74 liegt bei Ruben.
+
+**Varianten:**
+
+| # | Variante | Prototyp |
+|---|---|---|
+| V6 | RealityKit `ARView` (vsync) auf macOS, iPadOS, tvOS | `spikes/renderer-realitykit`, ein xcodegen-Ziel für drei Plattformen, Deployment 26.0 |
+| V7 | RealityKit `RealityRenderer` offscreen (`--durchsatz=1`) | gleiche App, nur macOS gemessen |
+
+**Testszene:** wie EXP-015, aus dem GLB-Export mit Blender (`bpy==5.3.0`) nach USDZ umgewandelt (`convert/convert.sh`, ≈ 40 s, `usdchecker` grün). 64 246 Gras-/Blumen-Instanzen als echtes GPU-Instancing (`MeshInstancesComponent`, `LowLevelInstanceData`, ab 26.0 auf allen drei Plattformen), 4 Figuren mit Idle-Clip, Kamera/Sonne aus `brett.szene.json`, Himmel als Verlaufs-IBL.
+
+**Messgrößen:** Bildabstand Median/p95 (`SPIKE-ERGEBNIS`, gleiche Schlüssel wie Bevy), sichtbare Gleichheit zum Babylon-Bild, Aufwand.
+
+**Ergebnisse (16.11.2026, MacBook Pro M3 Max, 120 Hz; vorläufig, weil GeForce NOW parallel lief):**
+
+| Pfad | Auflösung | gras | Schatten | Median | p95 |
+|---|---|---|---|---|---|
+| ARView (vsync) | 1920×1080 | 1 | an | 8,30 ms | 17,0 ms |
+| offscreen, nacheinander | 1920×1080 | 1 | an | 16,8–21,3 ms | 23–40 ms |
+| offscreen | 1920×1080 | 0,25 | an | 15,6 ms | 31,7 ms |
+| offscreen | 1920×1080 | 1 | aus | 13,6 ms | 20,1 ms |
+
+- Die ARView hält im Median 120 Hz, das p95 zeigt einzelne verpasste Bilder; Reserve über 120 Hz unbekannt. Weitere ARView-Läufe waren ungültig, weil macOS das verdeckte Fenster auf ≈ 10 Hz drosselte.
+- Offscreen-Werte warten jedes Bild ab (kein Pipelining) und sind deshalb **nicht** mit Bevy `vsync=0` vergleichbar. Nur „Schatten aus“ hebt sich vom Rauschen ab.
+- Eine GPU-Zeit liefert RealityKit unter macOS nicht (`__frameTime()` = 0); dafür bleibt Instruments.
+- **Simulatoren (keine Messungen):** iPad (A16) 2360×1640 und Apple TV 4K (3. Gen., tvOS 27) 3840×2160 zeigen die volle Szene bei 60 Hz ([Mac](screenshots/chaos78-realitykit-macos.jpg), [iPad-Sim](screenshots/chaos78-realitykit-ipad-sim.jpg), [tvOS-Sim](screenshots/chaos78-realitykit-tvos-sim.jpg)).
+- **Echte Apple TV:** nicht gemessen (kein Gerät am Rechner, kein Signier-Team eingerichtet) → Gerätecheckliste §17, Messbogen R12.
+
+**Befunde unterwegs:**
+- RealityKit ignoriert Vertexfarben, solange ein Material gebunden ist (auch `UsdPrimvarReader`). Der Konverter backt die Materialfarbe in die Vertexfarbe und entfernt das Material: Farben stimmen, aber Rauheit, Clearcoat, Sheen und Leuchten (Gesichter der Figuren) fallen weg.
+- Himmelskuppeln und Dunst kommen aus dem Babylon-Export als schwarze Spiegelkugeln; ausgeblendet, Hintergrund aus `clearColor`.
+- tvOS-27-Simulator stürzt mit expliziter `bounds`-Hülle an `MeshInstancesComponent` ab (`bad_variant_access` im Occlusion-Culling); ohne Hülle stabil. Auf echter Hardware ungeprüft.
+- Host-Weg über das Protokoll: `HostClient.swift` meldet sich mit `host-hello` v4 an und bekommt `lobby` vom echten Server. Figuren nach `board` setzen ist eingebaut, aber ohne Partie mit Controllern ungeprüft.
+
+**Aufwand und Brüche bei einem echten tvOS-Host (Schätzung, nicht gemessen):** Brett-Regie (Kamerafahrten, Laufanimation, Popups, HUD) in Swift neu; Minispiel-Logik (ADR-012, läuft im Host) in Swift portieren oder per JavaScriptCore ohne Havok betreiben, Physik auf RealityKit umstellen; Podest und Effekte neu; Asset-Pfad GLB → USDZ mit den Materialverlusten oben; Signieren/Verteilen braucht ein Apple-Developer-Konto (ob ein kostenloser Account für eigene tvOS-Geräte reicht, ist ungeprüft; TestFlight/App Store kosten Geld → Rubens Freigabe). game-core, Protokoll und Controller bleiben, solange der Server auf PC/Mac läuft.
+
+**Entscheidung:** **iterate** – Der Prototyp zeigt, dass RealityKit die Szene mit allen Instanzen auf allen Apple-Plattformen rendert. Ob es auf der echten Apple TV flüssig ist, entscheiden R12/RK4. Danach ADR für den tvOS-Host als Entwurf; Rubens Entscheidung zu CHAOS-74 (Produktsäule) steht aus.
+

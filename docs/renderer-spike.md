@@ -76,7 +76,25 @@ cd spikes/renderer-bevy && cargo run --release -- --sekunden=30
 
 Weitere Parameter: `--breite=3840 --hoehe=2160` (4K), `--vsync=1`, `--schatten=0`, `--schattenkarte=1024`, `--gras=0.25` (Anteil), `--msaa=1`, `--bild=brett.png` (Bildschirmfoto). Der Erst-Build dauert 5–15 Minuten. Das Fenster schließt nach der Messung; die Zeile `SPIKE-ERGEBNIS {…}` steht im Terminal.
 
-**Apple TV:** Mit den Prototypen nicht messbar. Bevy läuft auf tvOS noch nicht (Fenster-Bibliothek winit 0.30 ohne tvOS, Bevy-Issue #13058 offen); ein RealityKit-Prototyp (tvOS 26) wäre ein eigener Bau in Xcode. Siehe ADR-016 „tvOS“.
+**Apple TV:** Bevy läuft auf tvOS noch nicht (Fenster-Bibliothek winit 0.30 ohne tvOS, Bevy-Issue #13058 offen). Dafür gibt es den RealityKit-Prototyp (§3b).
+
+## 3b. Kandidat 4: Swift/RealityKit nativ (macOS, tvOS; iPhone/iPad nur als Benchmark) – CHAOS-78
+
+Eine SwiftUI-App mit RealityKit für macOS, iOS/iPadOS und tvOS 26+, dieselbe Szene als USDZ, Gras als echtes GPU-Instancing (`MeshInstancesComponent`). Bauen, Parameter, Grenzen der Messung: [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md). iPhone und iPad sind dabei **nur Renderer-Benchmark**, kein Spiel-Host.
+
+```bash
+node scripts/spike-export-board.mjs && spikes/renderer-realitykit/convert/convert.sh
+```
+
+```bash
+cd spikes/renderer-realitykit && xcodegen generate && xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike -destination 'platform=macOS' -configuration Release -derivedDataPath build build
+```
+
+```bash
+build/Build/Products/Release/ChaosRenderSpike.app/Contents/MacOS/ChaosRenderSpike --sekunden=30
+```
+
+RealityKit rendert immer mit VSync: Liegt der Median beim Bildwechselintervall (8,33 ms bei 120 Hz), ist die Reserve unbekannt. `--durchsatz=1` misst offscreen ohne VSync, aber Bild für Bild nacheinander (obere Schranke, nicht mit Bevy `vsync=0` vergleichbar). **Wichtig:** Das Fenster muss sichtbar im Vordergrund bleiben, sonst drosselt macOS auf ≈ 10 Hz (Median ≈ 100 ms = ungültig). Auf der echten Apple TV braucht es ein Signier-Team in Xcode (siehe Gerätecheckliste §17).
 
 ## 4. Was die Szenen gleich haben – und was nicht
 
@@ -118,6 +136,8 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen.
 | R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | | | |
 | R10 | Mac | Bevy nativ | Metal | 1920×1080 | | | |
 | R11 | PC/Mac | wie R1/R2/R6 | | 3840×2160 | | | 4K am Fernseher |
-| R12 | Apple TV | – | – | – | – | – | nicht messbar (siehe §3) |
+| R12 | Apple TV 4K | RealityKit (§3b) | Metal | 1080p und 4K | | | Bildabstand vsync-gebunden (60 Hz); p95 und verpasste Bilder zählen |
+| R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 8,30 | 17,0 | 16.11., M3 Max 120 Hz, **vorläufig**: GeForce NOW lief mit; am 120-Hz-Deckel |
+| R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,8–21,3 | 23–40 | wie R13 vorläufig; nacheinander gemessen, nicht mit R10 vergleichbar |
 
 Außerdem: Sieht Bevy gleichwertig aus (ja/nein, Bildschirmfotos)? Spürbare Ladezeit (Bevy-WASM lädt ≈ 27 MB Szene plus das Programm)?

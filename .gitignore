@@ -27,3 +27,6 @@ spikes/renderer-bevy/target/
 spikes/renderer-bevy/assets/export/
 spikes/renderer-bevy/web/pkg-*/
 spikes/renderer-bevy/web/assets/
+spikes/renderer-realitykit/assets/export/
+spikes/renderer-realitykit/*.xcodeproj/
+spikes/renderer-realitykit/build/
