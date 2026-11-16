@@ -7,6 +7,7 @@
  * `index.ts` das Modul registrieren.
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
+import { KUCKUCKS_KLATSCHE_INFO } from './kuckucks-klatsche/info.ts';
 import { PUDDING_GERANGEL_INFO } from './pudding-gerangel/info.ts';
 import { PUMP_PARADE_INFO } from './pump-parade/info.ts';
 import { SOCKENREGEN_INFO } from './sockenregen/info.ts';
@@ -17,6 +18,7 @@ export const MINIGAME_INFOS: readonly MinigameInfo[] = [
   SOCKENREGEN_INFO,
   PUDDING_GERANGEL_INFO,
   WACKELTURM_INFO,
+  KUCKUCKS_KLATSCHE_INFO,
 ];
 
 /**
@@ -27,6 +29,7 @@ export const ROTATION: readonly string[] = [
   SOCKENREGEN_INFO.id,
   PUDDING_GERANGEL_INFO.id,
   WACKELTURM_INFO.id,
+  KUCKUCKS_KLATSCHE_INFO.id,
 ];
 
 export function getMinigameInfo(id: string): MinigameInfo | undefined {
