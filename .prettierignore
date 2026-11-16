@@ -5,6 +5,10 @@ node_modules/
 test-results/
 playwright-report/
 perf-results/
+spikes/renderer-bevy/target/
+spikes/renderer-bevy/web/pkg-*/
+spikes/renderer-bevy/web/assets/
+spikes/renderer-bevy/assets/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
 .claude/

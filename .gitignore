@@ -21,3 +21,9 @@ apps/host/public/lookdev-figures/
 __pycache__/
 .venv-blender/
 packages/assets/.cache/
+
+# Renderer-Spike (CHAOS-75): Rust-Build und erzeugte Testszene
+spikes/renderer-bevy/target/
+spikes/renderer-bevy/assets/export/
+spikes/renderer-bevy/web/pkg-*/
+spikes/renderer-bevy/web/assets/

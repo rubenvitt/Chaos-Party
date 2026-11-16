@@ -30,6 +30,11 @@ Die Audit-Abfrage braucht Netz zur npm-Registry; sie lief in dieser Umgebung üb
 
 Alle stehen auf der Positivliste in `scripts/check-licenses.mjs` (MIT, ISC, BSD, Apache-2.0, 0BSD, BlueOak, CC0, OFL-1.1). Keine Copyleft-Lizenz (GPL/LGPL/AGPL) im Spiel.
 
+### Renderer-Spike (CHAOS-75, nicht im Spiel)
+
+- `@babylonjs/serializers` 9.35.0 (Apache-2.0) als **Dev-Abhängigkeit** des Hosts, nur für die Export-Seite `apps/host/src/spike/` (nicht im Build).
+- `spikes/renderer-bevy`: Rust-Crate außerhalb des pnpm-Workspace mit Bevy 0.20.1 (MIT/Apache-2.0), `serde`/`serde_json` (MIT/Apache-2.0), `web-sys` (MIT/Apache-2.0); fest auf `Cargo.lock`. Wird nicht ausgeliefert; Build-Ausgaben und die exportierte Szene sind nicht eingecheckt.
+
 ### Lieferkette
 
 - `pnpm-workspace.yaml`: `minimumReleaseAge: 10080` (neue Paketversionen erst nach 7 Tagen), Install-Skripte nur für `esbuild` (`onlyBuiltDependencies`).

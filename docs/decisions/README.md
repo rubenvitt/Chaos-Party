@@ -28,3 +28,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-013](ADR-013-figuren-blender.md) | Figuren aus Blender-Skripten (bpy) statt aus dem Babylon-Generator | Angenommen | CHAOS-58 |
 | [ADR-014](ADR-014-natur-look.md) | Natur-Look im Spiel: PBR mit HDRI, Grafikstufen und Sparstufe für Software-Rendering | Angenommen | CHAOS-62 |
 | [ADR-015](ADR-015-vertical-slice.md) | Vertical Slice in M4: Charakterwahl, Rundenzahl, Pause/Ende, Gleichstandsregel, Revanche, Protokoll v4 | Angenommen | CHAOS-4 |
+| [ADR-016](ADR-016-renderer.md) | Renderer: bei Babylon.js bleiben, WebGPU als Option messen, tvOS getrennt entscheiden | Vorgeschlagen (Entwurf, wartet auf Messwerte) | CHAOS-75 |

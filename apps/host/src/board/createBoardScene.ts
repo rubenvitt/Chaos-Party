@@ -21,7 +21,7 @@
  * Keine Physik – das Brett braucht kein Havok. Deep-Imports statt Barrel.
  */
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
-import { Engine } from '@babylonjs/core/Engines/engine.js';
+import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
@@ -68,6 +68,7 @@ import {
 import { buildNatureBoard, TILE_TOP, type NatureBoardWorld } from './natureBoard.ts';
 import type { MessageTone } from './texts.ts';
 import type { BoardScene, BoardSceneOptions } from './types.ts';
+import { createWebGlEngine, rendererInfo, rendererName } from '../scene/engineFactory.ts';
 
 /** Feste Schrittweite im Testmodus (ms). */
 const TEST_STEP_MS = 1000 / 60;
@@ -156,13 +157,8 @@ export function createBoardScene(
 ): BoardScene {
   const { board, source } = options;
   const testMode = options.testMode ?? false;
-  const engine = new Engine(
-    canvas,
-    true,
-    { preserveDrawingBuffer: testMode, stencil: true },
-    // Im Test feste Auflösung (Gerätepixelverhältnis 1), sonst scharf auf HiDPI.
-    !testMode,
-  );
+  // WebGPU (`?gpu=webgpu`, CHAOS-75) kommt fertig gestartet von außen, sonst WebGL2 wie bisher.
+  const engine: AbstractEngine = options.engine ?? createWebGlEngine(canvas, testMode);
   const scene = new Scene(engine);
 
   scene.skipPointerMovePicking = true;
@@ -188,7 +184,7 @@ export function createBoardScene(
   const startView = source.getFrame().view;
   const startRound =
     startView && startView.rounds > 0 ? { round: startView.round, rounds: startView.rounds } : null;
-  const look = currentLookSettings(testMode, board.id, engine.getGlInfo().renderer, startRound);
+  const look = currentLookSettings(testMode, board.id, rendererName(engine), startRound);
   /** Stimmung, in die das Brett gerade überblendet bzw. die gilt. */
   let moodTarget: LightMoodId = look.mood.id;
   let moodSynced = false;
@@ -940,13 +936,8 @@ export function createBoardScene(
       return { from: t.from, to: t.to, progress: t.progress };
     },
     getRendererInfo(): RendererInfo {
-      const gl = engine.getGlInfo();
       return {
-        webgl: engine.webGLVersion,
-        renderer: gl.renderer,
-        vendor: gl.vendor,
-        width: engine.getRenderWidth(),
-        height: engine.getRenderHeight(),
+        ...rendererInfo(engine),
         ...(lighting ? { quality: `${lighting.quality}${look.automatic ? ' (auto)' : ''}` } : {}),
       };
     },

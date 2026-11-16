@@ -20,4 +20,10 @@ describe('rendererLine', () => {
       'WebGL2 ANGLE (Test GPU) 1920×1080 Grafik hoch (auto)',
     );
   });
+
+  it('nennt WebGPU statt der WebGL-Version (CHAOS-75)', () => {
+    expect(rendererLine({ ...base, webgl: 0, api: 'WebGPU', renderer: 'apple metal-3' })).toBe(
+      'WebGPU apple metal-3 1920×1080',
+    );
+  });
 });

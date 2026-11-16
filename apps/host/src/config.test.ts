@@ -43,6 +43,7 @@ describe('parseHostConfig', () => {
       mute: false,
       volume: 70,
       finale: null,
+      gpu: 'webgl',
     });
     expect(DEFAULT_CONFIG.debug).toBe(false);
     expect(parseHostConfig('?debug=true').debug).toBe(true);
@@ -73,6 +74,15 @@ describe('parseHostConfig', () => {
     expect(parseHostConfig('?rounds=99').rounds).toBe(20);
     expect(parseHostConfig('?rounds=viele').rounds).toBeNull();
     expect(parseHostConfig('?arena=ja').arena).toBe(false);
+  });
+});
+
+describe('gpu (CHAOS-75)', () => {
+  it('liest ?gpu=webgpu, sonst WebGL2', () => {
+    expect(parseHostConfig('').gpu).toBe('webgl');
+    expect(parseHostConfig('?gpu=webgpu').gpu).toBe('webgpu');
+    expect(parseHostConfig('?gpu=webgl').gpu).toBe('webgl');
+    expect(parseHostConfig('?gpu=vulkan').gpu).toBe('webgl');
   });
 });
 

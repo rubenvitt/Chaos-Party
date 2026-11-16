@@ -17,6 +17,11 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       'perf-results/**',
+      // Renderer-Spike (CHAOS-75): Rust-Build, wasm-bindgen-Ausgabe und exportierte Szene.
+      'spikes/renderer-bevy/target/**',
+      'spikes/renderer-bevy/web/pkg-*/**',
+      'spikes/renderer-bevy/web/assets/**',
+      'spikes/renderer-bevy/assets/**',
       // Blender als Python-Modul (ADR-013), lokal und nicht im Repository.
       '.venv-blender/**',
     ],

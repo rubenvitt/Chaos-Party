@@ -1,7 +1,8 @@
 /**
- * Öffentliche Typen der Brett-Szene (CHAOS-18/19). Ohne Babylon-Importe, damit React-,
+ * Öffentliche Typen der Brett-Szene (CHAOS-18/19). Nur Typ-Importe aus Babylon, damit React-,
  * Netzwerk- und Testcode die Szene ansprechen können, ohne die Engine zu laden.
  */
+import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import type { BoardDefinition } from '@chaos-party/game-core';
 import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import type { FrameSample, ResourceSample } from '../debug/perfTypes.ts';
@@ -31,6 +32,11 @@ export interface BoardSceneOptions {
    * Zeichenpuffer bleibt lesbar, Gerätepixelverhältnis 1 (wie die Arena, ADR-004).
    */
   readonly testMode?: boolean;
+  /**
+   * Bereits gestartete Engine (WebGPU, `?gpu=webgpu`, CHAOS-75). Ohne sie erzeugt die Szene
+   * selbst eine WebGL2-Engine. Die Szene übernimmt sie und entsorgt sie mit `dispose()`.
+   */
+  readonly engine?: AbstractEngine;
 }
 
 export interface BoardScene {

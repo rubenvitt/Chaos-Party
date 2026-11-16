@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Renderer-Spike (Bevy, WebAssembly)</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #d4e6f4;
+        font-family: system-ui, sans-serif;
+      }
+      #spike {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #ergebnis {
+        position: fixed;
+        left: 12px;
+        bottom: 10px;
+        max-width: calc(100% - 24px);
+        font:
+          12px/1.4 ui-monospace,
+          monospace;
+        background: rgb(255 255 255 / 0.85);
+        padding: 6px 8px;
+        border-radius: 6px;
+        user-select: all;
+      }
+      #ergebnis:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="spike"></canvas>
+    <div id="ergebnis"></div>
+    <script type="module">
+      // `?variante=webgl2` lädt die WebGL2-Fassung, sonst WebGPU (CHAOS-75).
+      const params = new URLSearchParams(location.search);
+      const variant = params.get('variante') === 'webgl2' ? 'webgl2' : 'webgpu';
+      if (variant === 'webgpu' && !('gpu' in navigator)) {
+        document.getElementById('ergebnis').textContent =
+          'Dieser Browser bietet kein WebGPU (navigator.gpu fehlt) – ?variante=webgl2 probieren.';
+      }
+      const { default: init } = await import(`./pkg-${variant}/chaos-renderer-spike.js`);
+      await init();
+    </script>
+  </body>
+</html>

@@ -330,6 +330,7 @@ export function App({ config }: AppProps) {
           onScene={onBoardScene}
           finaleSpeed={finaleSpeedOf(config)}
           onRematch={onRematch}
+          gpu={config.gpu}
         />
       ) : (
         <>

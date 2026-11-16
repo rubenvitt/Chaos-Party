@@ -1,0 +1,50 @@
+[package]
+name = "chaos-renderer-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "CHAOS-75: Renderer-Spike – dieselbe Testszene in Bevy (nativ und WebAssembly)."
+
+[dependencies]
+# Bevy 0.20.1 (2026-10-28, MIT/Apache-2.0). Ohne default_platform: kein gilrs/udev, kein Audio.
+bevy = { version = "=0.20.1", default-features = false, features = [
+  "std",
+  "default_app",
+  "multi_threaded",
+  "bevy_winit",
+  "x11",
+  "3d_bevy_render",
+  "scene",
+  "bevy_gltf",
+  "gltf_animation",
+  "bevy_animation",
+  "webp",
+  "png",
+  "hdr",
+  "tonemapping_luts",
+  "ui_api",
+  "ui_bevy_render",
+  "default_font",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window", "Location", "Performance", "console"] }
+
+[features]
+default = []
+# Browser: WebGPU (Standard für den Spike) oder WebGL2 als Gegenprobe.
+webgpu = ["bevy/webgpu"]
+webgl2 = ["bevy/webgl2"]
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 3
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+strip = "debuginfo"

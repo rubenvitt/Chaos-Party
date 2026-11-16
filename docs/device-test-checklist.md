@@ -353,3 +353,17 @@ Automatisch geprüft: Reihenfolge der Stimmungen je Rundenzahl und stetige Über
 | L5 | Bildrate in Runde 4 und 5 (`?debug=1`, bis zu 6 Lichter pro Material) | ≥ 50 fps bei `hoch`, sonst Stufe notieren; Vergleich zur Bildrate in Runde 1–2 | | |
 | L6 | Optional: 10 Runden | Stimmungen nie rückwärts, letzte Runde nachts | | |
 | L7 | Gesamteindruck „ein Tag pro Partie“ | passt der Verlauf? Zu schnell dunkel, zu lang hell? | | |
+
+## 15. Renderer-Spike: WebGPU, Bevy WebAssembly, Bevy nativ (für CHAOS-75)
+
+**Stand:** 2026-11-16 · **Aufgabe:** CHAOS-75 · **Entwurf:** [ADR-016](decisions/ADR-016-renderer.md) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
+
+Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, WebGPU überhaupt (die Software-GPU der Cloud verliert das Gerät beim ersten Bild), Bevy nativ mit Fenster, Apple TV.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| RS1 | Brett mit `&gpu=webgpu` in Chrome/Edge am PC und in Safari 26 am Mac | Messanzeige nennt „WebGPU …“, Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift) | | |
+| RS2 | Messbogen R1–R3, R7–R8 (Babylon WebGL2 vs. WebGPU) | Bildabstand je Variante; Vorteil von WebGPU in % | | |
+| RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
+| RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |
+| RS5 | Gesamteindruck | Sieht eine der Varianten deutlich flüssiger aus? Lohnt sich der Umbau? | | |
