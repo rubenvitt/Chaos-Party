@@ -2,6 +2,7 @@
  * Öffentliche Typen der Host-Szene. Bewusst ohne Babylon-Importe, damit
  * Netzwerk-, UI- und Testcode die Szene ansprechen können, ohne die Engine zu laden.
  */
+import type { FrameSample, ResourceSample } from '../debug/perfTypes.ts';
 
 /** Spielerplatz 1–4 (siehe VISION: 2–4 Personen). */
 export type PlayerSlot = 1 | 2 | 3 | 4;
@@ -89,10 +90,13 @@ export interface GameScene extends PlayerInputSink {
   /** Aktuelle Positionen aller Spielfiguren (Weltkoordinaten, y = oben). */
   getPlayerPositions(): PlayerPosition[];
   /**
-   * Meldet das Ende jedes gerenderten Frames (Render-Schleife und `stepFrames`), für die
-   * Debug-Messung (CHAOS-45). Liefert die Abmeldung.
+   * Meldet das Ende jedes gerenderten Frames (Render-Schleife und `stepFrames`) samt Draw
+   * Calls, aktiven Meshes und Render-Zeit, für die Debug-Messung (CHAOS-45, CHAOS-39).
+   * Liefert die Abmeldung.
    */
-  onFrameRendered(listener: () => void): () => void;
+  onFrameRendered(listener: (sample: FrameSample) => void): () => void;
+  /** Bestand der Szene für die Debug-Messung (CHAOS-39). */
+  getResourceStats(): ResourceSample;
   /** WebGL-Version, Grafikkarte und Auflösung (Debug-Anzeige, CHAOS-45). */
   getRendererInfo(): RendererInfo;
   dispose(): void;

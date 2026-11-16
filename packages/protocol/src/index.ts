@@ -5,6 +5,7 @@
  */
 export * from './version.ts';
 export * from './players.ts';
+export * from './characters.ts';
 export * from './schemas.ts';
 export type * from './types.ts';
 export * from './parse.ts';

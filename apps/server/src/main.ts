@@ -14,7 +14,7 @@ import { formatStartupLines, renderTerminalQr } from './startup.ts';
  * - `JOIN_CODE`: fester Join-Code für Demos/Tests (sonst zufällig)
  * - `PUBLIC_HOST`, `PUBLIC_PORT`: Adresse/Port im QR-Link erzwingen (ADR-007)
  * - `TERMINAL_QR=0`: keinen QR-Code im Terminal zeichnen
- * - `ROUNDS`: Runden des Brettspiels (Standard 5, M2), `SEED`: fester Seed (reproduzierbar)
+ * - `ROUNDS`: Runden des Brettspiels (Standard 10, EXP-011), `SEED`: fester Seed (reproduzierbar)
  */
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? '0.0.0.0';

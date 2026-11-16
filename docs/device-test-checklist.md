@@ -1,4 +1,4 @@
-# Gerätecheckliste (echte iPhones, iPad und PC): M1, ab Abschnitt 8 M2
+# Gerätecheckliste (echte iPhones, iPad und PC): M1, ab Abschnitt 8 M2, ab 9 M3, ab 11 M4, 13 Natur-Look
 
 **Stand:** 2026-11-14 · **Aufgabe:** CHAOS-15 · **Gate:** CHAOS-16 (M1-Abnahme, nur Ruben)
 
@@ -182,7 +182,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
 | P1 | Lobby mit 4 Spielern | Figur-Porträts mit Namen, klar unterscheidbar; jeder findet „seine“ Figur | | |
-| P1a | Porträts am iPhone/iPad (Safari, CHAOS-61) | Eigene Figur in der Lobby groß mit Namen, in der Plakette als Avatar mit Symbol-Marke; Akzent (Halsring/Halstuch/Bündchen) in Slot-Farbe, nicht als Fläche über dem Bild (CSS-Maske + `multiply` auf iOS) | | |
+| P1a | Porträts am iPhone/iPad (Safari, CHAOS-61) | Figurenkarten der Lobby (CHAOS-36) mit den Render-Porträts, vergebene Figuren mit Akzent in der Besitzerfarbe; gewählte Figur in der Plakette als Avatar mit Symbol-Marke und groß im Endstand; Akzent (Halsring/Halstuch/Bündchen) in Slot-Farbe, nicht als Fläche über dem Bild (CSS-Maske + `multiply` auf iOS) | | |
 | P2 | Brett mit Figuren (Fernseher, Sofa-Abstand) | Figuren erkennbar, laufen/jubeln/zucken passend; Sockel/Symbol zeigt den Slot | | |
 | P3 | Anleitung jedes Minispiels (7 s) | Alle haben vor dem Start verstanden, was zu tun ist (ohne Erklärung von außen) | | |
 | P4 | Sockenregen spielen | Socke, Goldsocke und Bügeleisen sofort unterscheidbar; Schleudergang spürbar; fühlt sich fair an | | |
@@ -205,11 +205,128 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | Lieblings- und schwächstes Minispiel, warum? | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
 
-## 11. Natur-Look am PC und Fernseher (für CHAOS-56/CHAOS-62)
+## 11. M4 – Performance (für CHAOS-43)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-39 · **Gate:** CHAOS-43 (nur Ruben) · **Hintergrund:** [performance.md](performance.md)
+
+Automatisch gemessen wird nur im Headless-Chromium mit Software-Rendering (SwiftShader, `pnpm perf`): Das taugt für Vorher/Nachher-Vergleiche, sagt aber **nichts** über Rubens PC, Fernseher oder iPhones. Diese Punkte liefern die echten Werte; daraus werden die Schwellen für echte Hardware (bis dahin: „offen, Messung durch Ruben“).
+
+**So geht’s:** Host mit `http://localhost:8787/host/?debug=1` öffnen, Controller-Links um `&debug=1` ergänzen. Die Host-Anzeige (unten rechts) misst je Szene (`lobby`, `brett`, `minispiel:<id>`, Anleitung/Ergebnis als `minispiel:<id>:intro`/`:results`, `finale`, `podest`); „Alle Szenen kopieren“ legt eine Zeile je Szene in die Zwischenablage. Der Controller zeigt die Rundlaufzeit und kopiert sie je Szene (`lobby`, `brett`, `minispiel`, `endstand`). Kopierten Text bitte vollständig in die Spalte „Ergebnis“ oder als Datei nach `docs/acceptance/m4-nachweise/` legen.
+
+| ID | Schritt | Erwartung / was notieren | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| PF0 | Testumgebung: PC (Betriebssystem, CPU, GPU), Browser + Version, Monitor/Fernseher (Auflösung, Bildwiederholrate), Fenster/Vollbild, Netz (WLAN/Kabel) | vollständig ausgefüllt; die Host-Zeile nennt GPU und Render-Auflösung | | |
+| PF1 | Ganze Partie mit 4 Spielern (`ROUNDS=3 pnpm start`, jedes Minispiel einmal), Host mit `?debug=1`; am Siegerbildschirm „Alle Szenen kopieren“ | Zeilen für `lobby`, `brett`, alle drei Minispiele, `finale`, `podest`; Text einfügen | | |
+| PF2 | Bildrate je Szene aus PF1: fps und Bildabstand p95 je Szene | Werte notieren; gefühlt flüssig (1–5) je Szene; Ruckler wann? | | |
+| PF3 | Eingabe→Frame im Minispiel und Brett→Frame auf dem Brett (aus PF1) | Median/p95 notieren (misst bis Ende des JS-Renderings, ohne GPU/Bildschirm, ADR-010) | | |
+| PF4 | WebGL-Kontexte und Render-Schleifen (aus PF1) | `finale` und `podest`: „Kontexte max 2“, „Schleifen max 1“ (Brett pausiert hinter dem Finale); jede andere Szene 1 Kontext, 1 Schleife | | |
+| PF5 | iPhone mit `&debug=1` eine ganze Partie spielen, am Endstand „Kopieren“ | RTT Median/p95 je Szene (`lobby`, `brett`, `minispiel`) notieren; Bewertung der gefühlten Reaktion 1–5 | | |
+| PF6 | Geteiltes iPad mit `&seats=2&debug=1` (falls verfügbar), wie PF5 | RTT je Szene; Unterschied zum iPhone? | | |
+| PF7 | Optional: Zeitlupenvideo (240 fps) von Daumen und Fernseher im Minispiel | Bilder zwischen Daumenbewegung und Figurbewegung → ms (Gesamtlatenz Finger → Bild, nicht automatisch messbar) | | |
+| PF8 | Zweimal „Nochmal spielen“ (3 Partien hintereinander), danach in der Lobby „Alle Szenen kopieren“ | `Heap max` der Lobby nach Partie 3 ungefähr wie nach Partie 1 (nur Chrome/Edge zeigen den Heap); keine spürbare Verlangsamung | | |
+| PF9 | Host-Tab mitten im Brett 30 s in den Hintergrund (anderer Tab/minimiert), dann zurück | „Pausen“ steigt um 1; Spiel läuft danach normal weiter, kein Nachruckeln | | |
+| PF10 | Optional: schwächster verfügbarer Rechner (z. B. Laptop mit integrierter Grafik), wie PF1 | Werte wie PF2; ab welcher Szene wird es unflüssig? | | |
+
+### Schwellen auf echter Hardware (offen, Messung durch Ruben)
+
+| Kennzahl | Schwelle | Herkunft |
+|---|---|---|
+| Bildabstand p95 je Szene am Host-PC | offen | aus PF1/PF2; Vorschlag nach der Messung: Messwert von Rubens PC + 25 % als Regressionsgrenze |
+| Eingabe→Frame p95 im Minispiel | offen | aus PF3 |
+| RTT p95 Controller ↔ Server je Szene | offen | aus PF5/PF6 (M1-P3 wurde nicht gemeldet) |
+| WebGL-Kontexte/Render-Schleifen je Szene | strukturell, schon gesetzt | `tests/perf/baseline.json`: Finale/Podest höchstens 2 Kontexte und 1 Schleife, sonst 1/1 |
+
+## 12. M4 – Vollständiger Slice (für CHAOS-43)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-41 · **Gate:** CHAOS-43 (M4-Abnahme, nur Ruben) · **Ablauf:** [m4-demo.md](m4-demo.md)
+
+Automatisch geprüft (Chromium-Emulation, synthetische CDP-Touches, echter Server, beschleunigtes Test-Pacing): `tests/e2e/m4-gesamtablauf.spec.ts` spielt zwei komplette Partien über die echte Controller-UI – zwei iPhones mit 2 Runden und gemischt 2 iPhones + iPad mit 2 Zonen – inklusive Figurenwahl, Rundenwahl und Start am PC, Pause/Weiter, Neuladen eines Controllers (Brett bzw. Minispiel), Trophäenzählung, Siegerbildschirm, Endstand auf jedem Controller (gleicher Platz wie am PC) und „Nochmal spielen“. Dazu Reconnect je Phase und Host-Verlust in der Server-Integration (`reconnect.integration.test.ts`, `hostLoss.integration.test.ts`). **Nichts davon ersetzt echte Geräte, echtes WLAN, echte Hände und echten Spaß.** Diese Liste ist für Rubens Durchgang; Claude trägt keine Ergebnisse ein.
+
+Vorher erledigen bzw. mitprüfen: iPad-Nachtest aus Abschnitt 4 (I1–I9, CHAOS-47) Performance aus Abschnitt 11 (PF0–PF10, gleiche Partie mit `?debug=1` möglich) und Natur-Look aus Abschnitt 13 (N1–N7, CHAOS-62). Start: `pnpm build && pnpm start`, Host `http://localhost:8787/host/`.
+
+Ergebnis je Punkt wie oben: `ok` · `fehlerhaft` (mit Beschreibung) · `nicht unterstützt` · `nicht geprüft`.
+
+### 12.1 Komplette Partie ohne Entwicklerhilfe
+
+| ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V1 | Vier Personen, die das Spiel nicht kennen, spielen eine komplette Partie (Standard 10 Runden). Ruben startet nur den Server und öffnet den Host; danach **keine** Erklärung und kein Eingriff | Beitritt per QR, Figurenwahl, Bereit, Start, alle Runden, Finale und Siegerbildschirm ohne Rückfrage; notieren, wo jemand fragen musste | | | |
+| V2 | Partiedauer mit Stoppuhr messen (von „Los geht’s!“ bis Siegerbildschirm), Zahl der Spieler notieren | Dauer: ___ min bei ___ Spielern und 10 Runden (Vorhersage EXP-011: ≈ 14–16 min mit 3–4 Spielern) | | | |
+| V3 | Rundenwahl in der Lobby: 10 / 16 / 20 antippen bzw. anklicken, Zeitangabe lesen | Auswahl sofort sichtbar, auch auf allen Controllern („10 Runden“); geschätzte Dauer verständlich | | | |
+| V4 | Lesbarkeit am Fernseher aus Sofa-Abstand: Lobby mit Figuren, Brett-HUD, Minispiel-Anleitung, Ergebnis, Trophäenzählung, Siegerbildschirm | Namen, Figuren, Zahlen und Ansagen lesbar; jeder findet sich selbst über Farbe + Symbol + Figur | | | |
+| V5 | Ton über Fernseher/Lautsprecher während der ganzen Partie (Brett, Minispiele, Trophäenzählung, Siegerbildschirm) | Klänge passen, nichts nervt nach 10 Runden, Lautstärke angemessen; `?volume=`/`?mute=1` wirken | | | |
+| V6 | Trophäenzählung am Ende in normalem Tempo ansehen (kein Überspringen) | Spannung kommt auf; Aufdecken vom letzten Platz an ist verständlich; bei Gleichstand wird erklärt, was entscheidet | | | |
+| V7 | Siegerbildschirm: Podest, Endstand, Bonus-Titel; Controller zeigen den eigenen Endstand | Gewinner sofort klar; Platz am Controller stimmt mit dem PC überein (auch geteilte Plätze) | | | |
+| V8 | „Nochmal spielen“ am PC (Klick oder Enter) | Alle Controller landen in der Lobby, jede Person behält ihre Figur, „Bereit!“ erscheint wieder; Rundenzahl bleibt | | | |
+| V9 | Revanche direkt spielen (zweite Partie, gern kürzer) | Zweite Partie startet ohne Neuladen von Host oder Controllern; nichts aus Partie 1 hängt nach | | | |
+
+### 12.2 Vier iPhones
+
+| ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V10 | Vier iPhones treten per QR bei und wählen gleichzeitig Figuren, zwei Personen bewusst dieselbe | Wer zuerst kommt, bekommt sie; die andere Person sieht „Die Figur hat sich gerade jemand anderes geschnappt.“ und die Karte als vergeben (mit Farbe des Besitzers) | | | |
+| V11 | Nach „Bereit!“ noch einmal umwählen | „Bereit“ wird zurückgesetzt, Host zeigt es sofort; erneut „Bereit!“ nötig | | | |
+| V12 | Ganze Runde mit vier iPhones: Prompts, Reaktionsfenster, Minispiel | Nur wer dran ist, bekommt Knöpfe; die anderen sehen, wer dran ist; Minispiel mit vier Daumen gleichzeitig ohne Übersprechen | | | |
+
+### 12.3 Geteiltes iPad mit 4 Zonen
+
+| ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V13 | iPad mit `&seats=4` beitreten (Host-Lobby: „iPad“, Link anpassen oder Code-Eingabe), vier Personen am iPad | Vier Zonen in vier Farben; Host zeigt vier Spieler | | | |
+| V14 | Figurenwahl mit **vier Fingern gleichzeitig** (jede Person tippt ihre Figur zur selben Zeit) | Jede Wahl landet in der richtigen Zone; keine Zone wählt für eine andere | | | |
+| V15 | Zwei Zonen tippen gleichzeitig dieselbe Figur | Eine bekommt sie; in der **anderen Zone** erscheint der Hinweis „Figur weggeschnappt“ (gedreht wie die Zone), nicht in einer fremden | | | |
+| V16 | Lesbarkeit der gedrehten Zonen (gegenübersitzende Personen): Lobby, Prompts, Minispiel-Anleitung, Ergebnis, Pause, Endstand | Jede Person liest ihre Zone ohne Kopfverrenken; nichts abgeschnitten | | | |
+| V17 | Komplette Partie (gern 3 Runden) nur mit dem iPad | Brett-Entscheidungen, Reaktionen und Minispiele mit mehreren Fingern zuverlässig; Systemgesten stören nicht (sonst „Geführter Zugriff“, [ipad-zonen.md](ipad-zonen.md)) | | | |
+
+### 12.4 Gemischt: 2 iPhones + iPad mit 2 Zonen
+
+| ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V18 | Zwei iPhones per QR, iPad über den iPad-Link (2 Plätze) | Vier Spieler; die iPad-Zonen sehen die Figuren der iPhones als vergeben (mit deren Farbe) und umgekehrt | | | |
+| V19 | Partie über mindestens 3 Runden | Alle vier gleich gut bedienbar; Minispiel mit iPhones und iPad-Zonen gleichzeitig ohne Übersprechen | | | |
+
+### 12.5 Verbindung und Wiederkehr je Phase
+
+Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten Phase: Seite neu laden, Sperrbildschirm 10–20 s, App-Wechsel 30 s. Erwartung überall: gleicher Platz, gleiche Figur, richtiger Bildschirm der aktuellen Phase, Partie läuft ohne Abbruch weiter; der Host zeigt dazwischen „getrennt“.
+
+| ID | Phase | Erwartung zusätzlich | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V20 | Lobby (Figur gewählt, bereit) | Figur bleibt; „bereit“ bleibt oder ist klar zurückgesetzt | | | |
+| V21 | Eigener Zug (Würfeln/Weg/Trophäe offen) | Innerhalb ~15 s zurück: derselbe Prompt; später: Spiel hat automatisch gewählt, aktueller Stand | | | |
+| V22 | Reaktionsfenster (Münzklau gegen diese Person) | Nach Rückkehr: Fenster noch offen oder Ergebnis sichtbar; nichts hängt | | | |
+| V23 | Minispiel (Spiel läuft) | Nach Rückkehr wieder Joystick/Knöpfe, Eingaben wirken sofort; iPad: beide Zonen zurück | | | |
+| V24 | Pause | Nach Rückkehr Pause-Bildschirm; nach „Weiter“ am PC normal weiter | | | |
+| V25 | Endstand | Eigener Endstand (Platz, Figur, Trophäen, Münzen) wieder da; „Nochmal spielen“ am PC holt das Gerät in die Lobby | | | |
+| V26 | Host-Tab am PC neu laden mitten im Brett und mitten im Minispiel | Partie pausiert automatisch (Controller zeigen Pause), nach dem Laden geht es weiter; Minispiel startet mit Restzeit | | | |
+
+### 12.6 Pause und Ende am PC
+
+| ID | Schritt | Erwartung | Ergebnis | Datum / Gerät | Nachweis |
+|---|---|---|---|---|---|
+| V27 | Mitten im Zug „Pause“ (Knopf oder Taste P/Esc) | PC zeigt Pause mit „Weiter“ und „Partie beenden“; alle Controller zeigen „Pause – Der PC hat angehalten.“ ohne Knöpfe; Countdowns stehen | | | |
+| V28 | Pause mitten im Minispiel, nach 20 s „Weiter“ | Minispiel steht still und läuft mit derselben Restzeit weiter | | | |
+| V29 | „Partie beenden“ → Rückfrage → bestätigen | Finale mit Hinweis „vorzeitig beendet“; Controller zeigen den Endstand mit diesem Hinweis | | | |
+
+### Gesamturteil M4 (für CHAOS-43)
+
+| Frage | Antwort |
+|---|---|
+| Hat die Gruppe eine ganze Partie ohne Entwicklerhilfe geschafft (V1)? | |
+| Ist die Steuerung angenehm (iPhone, iPad-Zonen, gemischt)? | |
+| Sind die Regeln verständlich (Würfeln, Trophäen, Items, Minispiele, Wertung)? | |
+| Wollte die Gruppe direkt noch eine Runde spielen? | |
+| Echte Partiedauer bei 10 Runden (V2) – passt 10 als Standard, oder lieber kürzer/länger? | |
+| Hatte der Führende zur Halbzeit einen uneinholbaren Vorsprung, oder blieb es spannend? | |
+| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? | |
+| Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
+| Lieblingsmoment und größtes Ärgernis | |
+| Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
+
+## 13. Natur-Look am PC und Fernseher (für CHAOS-56/CHAOS-62)
 
 **Stand:** 2026-11-15 · **Aufgabe:** CHAOS-62 · **ADR:** [ADR-014](decisions/ADR-014-natur-look.md) · Belege der Automatik: `docs/screenshots/chaos62-*.jpg` (volle Stufe, Software-Rendering, nur Optik, keine Bildrate)
 
-Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“).
+Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|

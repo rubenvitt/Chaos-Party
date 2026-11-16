@@ -15,6 +15,7 @@ import type {
   ItemKind,
   MinigameState,
   PlayerState,
+  PlayerStats,
   Prompt,
   RankingEntry,
   RuleSet,
@@ -64,8 +65,11 @@ export interface Internal {
   minigameLast: string | null;
 }
 
-export type MutablePlayer = { -readonly [K in keyof PlayerState]: PlayerState[K] } & {
+export type MutablePlayer = {
+  -readonly [K in Exclude<keyof PlayerState, 'items' | 'stats'>]: PlayerState[K];
+} & {
   items: ItemKind[];
+  stats: { -readonly [K in keyof PlayerStats]: PlayerStats[K] };
 };
 
 export interface Draft {
@@ -82,6 +86,9 @@ export interface Draft {
   resumeAt: number | null;
   now: number;
   ranking: readonly RankingEntry[] | null;
+  paused: boolean;
+  pausedAt: number | null;
+  endedEarly: boolean;
   minigame: MinigameState | null;
   config: GameState['config'];
   internal: Internal;
@@ -120,13 +127,16 @@ export function openDraft(state: GameState): Ctx {
     rounds: state.rounds,
     turnOrder: [...state.turnOrder],
     activeSlot: state.activeSlot,
-    players: state.players.map((p) => ({ ...p, items: [...p.items] })),
+    players: state.players.map((p) => ({ ...p, items: [...p.items], stats: { ...p.stats } })),
     trophySpaces: [...state.trophySpaces],
     traps: state.traps.map((t) => ({ ...t })),
     prompt: state.prompt,
     resumeAt: state.resumeAt,
     now: state.now,
     ranking: state.ranking,
+    paused: state.paused,
+    pausedAt: state.pausedAt,
+    endedEarly: state.endedEarly,
     minigame: state.minigame,
     config: state.config,
     internal: {
@@ -162,6 +172,9 @@ export function closeDraft(ctx: Ctx): GameState {
     resumeAt: d.resumeAt,
     now: d.now,
     ranking: d.ranking,
+    paused: d.paused,
+    pausedAt: d.pausedAt,
+    endedEarly: d.endedEarly,
     minigame: d.minigame,
     config: d.config,
     internal: internal as unknown as Readonly<Record<string, unknown>>,

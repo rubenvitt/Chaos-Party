@@ -46,6 +46,7 @@ import {
   startMinigamePlay,
 } from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
+import { tallyStats } from './stats.ts';
 import { enterSpaceEvent } from './spaces.ts';
 
 /** Schutz gegen Endlosschleifen bei fehlerhafter Konfiguration (z. B. Brett ohne Ziel). */
@@ -144,6 +145,8 @@ export function createGame(config: GameConfig): GameState {
       trophies: 0,
       items: [],
       connected: true,
+      minigameWins: 0,
+      stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
     })),
     trophySpaces,
     traps: [],
@@ -151,6 +154,9 @@ export function createGame(config: GameConfig): GameState {
     resumeAt: null,
     now: 0,
     ranking: null,
+    paused: false,
+    pausedAt: null,
+    endedEarly: false,
     minigame: null,
     config: { rules, seed, minigames: (config.minigames ?? []).map((spec) => ({ ...spec })) },
     internal: internal as unknown as Readonly<Record<string, unknown>>,
@@ -214,7 +220,11 @@ function afterTurn(ctx: Ctx, t: number): void {
   enterMinigame(ctx, t);
 }
 
-function finishGame(ctx: Ctx): void {
+/**
+ * Endstand. `endedEarly` (Befehl `end`, M4): mitten in der Partie aus dem aktuellen Stand;
+ * ein laufendes Minispiel verfällt ohne Münzen, eine Pause endet.
+ */
+function finishGame(ctx: Ctx, endedEarly = false): void {
   const { d } = ctx;
   const ranking = rankPlayers(d.players);
   d.ranking = ranking;
@@ -223,7 +233,31 @@ function finishGame(ctx: Ctx): void {
   d.prompt = null;
   d.resumeAt = null;
   d.internal.promptBaseDeadline = null;
-  ctx.events.push({ type: 'game-ended', ranking });
+  d.internal.move = null;
+  d.internal.reaction = null;
+  d.paused = false;
+  d.pausedAt = null;
+  d.endedEarly = endedEarly;
+  if (endedEarly) d.minigame = null;
+  ctx.events.push({ type: 'game-ended', ranking, endedEarly });
+}
+
+/**
+ * Pause vorbei (M4): Alle absoluten Fristen rücken um die Pausendauer nach hinten, damit
+ * niemand durch die Pause Zeit verliert (Prompt-Frist, automatische Phase, Minispiel-Beginn
+ * und damit Spielzeit + Schonfrist).
+ */
+function shiftDeadlines(ctx: Ctx, delta: number): void {
+  const { d } = ctx;
+  if (delta <= 0) return;
+  if (d.resumeAt !== null) d.resumeAt += delta;
+  if (d.prompt && d.prompt.deadline !== null) {
+    d.prompt = { ...d.prompt, deadline: d.prompt.deadline + delta };
+  }
+  if (d.internal.promptBaseDeadline !== null) d.internal.promptBaseDeadline += delta;
+  if (d.minigame && d.minigame.playStartedAt !== null) {
+    d.minigame = { ...d.minigame, playStartedAt: d.minigame.playStartedAt + delta };
+  }
 }
 
 /** Geplanter Zeitpunkt `t` einer automatischen Phase ist erreicht. */
@@ -384,10 +418,37 @@ export function step(state: GameState, command: GameCommand): StepResult {
   }
   const ctx = openDraft(state);
   const { d } = ctx;
-  advance(ctx, at);
+  // Pausiert: Fristen laufen nicht ab, nur `now` rückt vor (Befehle bleiben monoton).
+  const run = () => {
+    if (d.paused) d.now = Math.max(d.now, at);
+    else advance(ctx, at);
+  };
+  run();
+  /** Zeitpunkt, zu dem ein Befehl wirkt: in der Pause der Pausenbeginn (wird später verschoben). */
+  const effectiveAt = d.paused ? (d.pausedAt ?? at) : at;
 
   switch (command.type) {
     case 'tick':
+      break;
+    case 'pause':
+      if (d.phase === 'setup' || d.phase === 'game-results') {
+        return fail(state, 'wrong-phase', `Pause nur während der Partie (Phase ${d.phase})`);
+      }
+      if (d.paused) return fail(state, 'paused', 'Partie ist bereits pausiert');
+      d.paused = true;
+      d.pausedAt = at;
+      break;
+    case 'resume':
+      if (!d.paused) return fail(state, 'not-paused', 'Partie ist nicht pausiert');
+      shiftDeadlines(ctx, at - (d.pausedAt ?? at));
+      d.paused = false;
+      d.pausedAt = null;
+      break;
+    case 'end':
+      if (d.phase === 'setup' || d.phase === 'game-results') {
+        return fail(state, 'wrong-phase', `Beenden nur während der Partie (Phase ${d.phase})`);
+      }
+      finishGame(ctx, true);
       break;
     case 'start':
       if (d.phase !== 'setup') {
@@ -399,12 +460,13 @@ export function step(state: GameState, command: GameCommand): StepResult {
       if (!d.players.some((p) => p.slot === command.slot)) {
         return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
       }
-      setConnection(ctx, command.slot, command.connected, at);
+      setConnection(ctx, command.slot, command.connected, effectiveAt);
       break;
     case 'choose': {
       if (!d.players.some((p) => p.slot === command.slot)) {
         return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
       }
+      if (d.paused) return fail(state, 'paused', 'Partie ist pausiert');
       const prompt = d.prompt;
       if (prompt?.id !== command.promptId) {
         // Schon vergebene (inzwischen aufgelöste) Prompt-ID = verspätete Wahl.
@@ -432,11 +494,12 @@ export function step(state: GameState, command: GameCommand): StepResult {
           check.message,
         );
       }
-      finishMinigame(ctx, command.placements, command.highlights ?? [], at);
+      finishMinigame(ctx, command.placements, command.highlights ?? [], effectiveAt);
       break;
     }
   }
 
-  advance(ctx, at);
+  run();
+  tallyStats(ctx);
   return { ok: true, state: closeDraft(ctx), events: ctx.events };
 }

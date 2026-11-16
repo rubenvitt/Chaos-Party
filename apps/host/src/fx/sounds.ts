@@ -19,6 +19,8 @@ export const BOARD_SOUND_IDS = [
   'trophy',
   'turn',
   'minigame-start',
+  'pause',
+  'resume',
 ] as const;
 export type BoardSoundId = (typeof BOARD_SOUND_IDS)[number];
 
@@ -344,6 +346,15 @@ export const SOUNDS: Readonly<Record<SoundName, SoundDescription>> = {
       note(784, 0.3, 0.14, 0.18),
       note(1046, 0.4, 0.45, 0.2),
     ],
+  },
+  // M4 (CHAOS-40): hörbare Rückmeldung, dass die Partie anhält bzw. weiterläuft.
+  pause: {
+    description: 'Pause: zwei sanfte, absteigende Töne',
+    recipe: [note(660, 0, 0.18, 0.18, 'sine'), note(440, 0.12, 0.35, 0.18, 'sine')],
+  },
+  resume: {
+    description: 'Weiter: zwei sanfte, aufsteigende Töne',
+    recipe: [note(440, 0, 0.16, 0.18, 'sine'), note(660, 0.1, 0.3, 0.2, 'sine')],
   },
 };
 

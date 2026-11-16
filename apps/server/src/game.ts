@@ -13,6 +13,7 @@ import {
   DEFAULT_RULES,
   getBoard,
   step,
+  viewClock,
   type GameCommand,
   type GameError,
   type GameEvent,
@@ -26,6 +27,7 @@ import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
   type BoardEvent,
+  type CharacterId,
   type BoardMessage,
   type BoardView,
   type ControllerBoardInfo,
@@ -47,9 +49,25 @@ export interface BoardGameSettings {
    * (`@chaos-party/minigames/catalog`); leer = M2-Platzhalter ohne Host-Logik.
    */
   readonly minigames: readonly MinigameSpec[];
+  /**
+   * Vorschläge für die Rundenzahl in der Lobby (`lobby.settings.roundPresets`, aufsteigend).
+   * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
+   */
+  readonly roundPresets: readonly number[];
 }
 
-export const DEFAULT_ROUNDS = 5;
+/**
+ * Standard-Rundenzahl (EXP-011/012, CHAOS-40): ≈ 14–16 Minuten mit 3–4 Spielern, alle drei
+ * Minispiele kommen drei- bis viermal dran, und in 63–81 % der Partien entscheiden die
+ * Trophäen (bei 5 Runden nur 49–76 %, ein Drittel der Spieler ohne Trophäe).
+ */
+export const DEFAULT_ROUNDS = 10;
+/**
+ * Vorschläge kurz/mittel/lang (EXP-011, Bot-Simulation mit gemütlichem Entscheidungstempo,
+ * Minispiel-Rotation und Finale; 3–4 Spieler): 10 ≈ 14–16 min, 16 ≈ 22–25 min,
+ * 20 ≈ 27–31 min. 40 Minuten bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20).
+ */
+export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
 
 /** Spezifikationen der Katalog-Rotation für game-core. */
 export function catalogMinigames(): MinigameSpec[] {
@@ -65,6 +83,7 @@ export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
   rules: DEFAULT_RULES,
   boardId: DEFAULT_BOARD.id,
   minigames: catalogMinigames(),
+  roundPresets: DEFAULT_ROUND_PRESETS,
 };
 
 /** Welche Eingaben ein Minispiel am Controller anbietet. */
@@ -73,6 +92,8 @@ export type MinigameAction = 'move' | 'button-a' | 'button-b';
 export interface BoardGamePlayer {
   readonly slot: Slot;
   readonly name: string;
+  /** Gewählte bzw. beim Start zugewiesene Figur (nur Darstellung, ADR-015). */
+  readonly character: CharacterId;
 }
 
 /** Entfernt `readonly` rekursiv (game-core-Typen sind unveränderlich, zod-Typen nicht). */
@@ -103,11 +124,14 @@ export class BoardGame {
   private lastViewKey = '';
 
   readonly seed: number;
+  /** Figur je Slot (kosmetisch, nicht Teil der Regeln). */
+  private readonly characters: ReadonlyMap<Slot, CharacterId>;
 
   constructor(players: readonly BoardGamePlayer[], settings: BoardGameSettings, seed: number) {
     const board = getBoard(settings.boardId);
     if (!board) throw new Error(`Unbekanntes Brett: ${settings.boardId}`);
     this.seed = seed;
+    this.characters = new Map(players.map((player) => [player.slot, player.character]));
     this.stateValue = createGame({
       board,
       rules: settings.rules,
@@ -136,6 +160,22 @@ export class BoardGame {
 
   hasSlot(slot: Slot): boolean {
     return this.stateValue.players.some((player) => player.slot === slot);
+  }
+
+  get paused(): boolean {
+    return this.stateValue.paused;
+  }
+
+  /** Endstand erreicht (regulär oder per `end`); dann ist `rematch` möglich. */
+  get finished(): boolean {
+    return this.stateValue.phase === 'game-results';
+  }
+
+  /** Figur eines Slots dieser Partie. */
+  characterOf(slot: Slot): CharacterId {
+    const character = this.characters.get(slot);
+    if (!character) throw new Error(`Slot ${String(slot)} hat keine Figur`);
+    return character;
   }
 
   /**
@@ -167,8 +207,10 @@ export class BoardGame {
     return { view: this.view(now), events: [], eventSeq: this.pendingSeq };
   }
 
-  view(now: number): BoardView {
+  view(time: number): BoardView {
     const state = this.stateValue;
+    // In der Pause stehen alle Restzeiten auf dem Stand des Pausenbeginns.
+    const now = viewClock(state, time);
     return {
       boardId: state.boardId,
       gamePhase: state.phase,
@@ -184,6 +226,9 @@ export class BoardGame {
         trophies: player.trophies,
         items: [...player.items],
         connected: player.connected,
+        character: this.characterOf(player.slot),
+        minigameWins: player.minigameWins,
+        stats: { ...player.stats },
       })),
       trophySpaces: [...state.trophySpaces],
       trophyPrice: state.config.rules.trophy.price,
@@ -207,8 +252,13 @@ export class BoardGame {
               : null,
             highlights: [...state.minigame.highlights],
             aborted: state.minigame.aborted,
+            rewards: state.minigame.rewards
+              ? state.minigame.rewards.map((reward) => ({ slot: reward.slot, coins: reward.coins }))
+              : null,
           }
         : null,
+      paused: state.paused,
+      endedEarly: state.endedEarly,
     };
   }
 
@@ -231,6 +281,10 @@ export class BoardGame {
     const info = getMinigameInfo(minigame.id);
     if (!stage || !info) return undefined;
     const own = minigame.placements?.find((entry) => entry.slot === slot);
+    const tied =
+      own !== undefined &&
+      (minigame.placements ?? []).some((entry) => entry.slot !== slot && entry.place === own.place);
+    const reward = minigame.rewards?.find((entry) => entry.slot === slot)?.coins;
     return {
       id: info.id,
       title: info.title,
@@ -239,14 +293,18 @@ export class BoardGame {
       controls: controlsOf(info.controls),
       stage,
       scoreUnit: info.scoreUnit,
+      tied,
+      aborted: minigame.aborted,
       ...(own ? { place: own.place, score: own.score } : {}),
+      ...(reward === undefined ? {} : { reward }),
     };
   }
 
   /** Eingaben, die gerade (Minispiel läuft) angeboten werden; sonst leer. */
   minigameActions(): MinigameAction[] {
     const state = this.stateValue;
-    if (state.phase !== 'minigame-play' || !state.minigame) return [];
+    // Pause (ADR-015): keine Eingaben, der Server leitet nichts an den Host weiter.
+    if (state.phase !== 'minigame-play' || !state.minigame || state.paused) return [];
     const info = getMinigameInfo(state.minigame.id);
     if (!info) return [];
     const actions: MinigameAction[] = [];
@@ -260,7 +318,7 @@ export class BoardGame {
   promptFor(slot: Slot, now: number): PromptInfo | undefined {
     const prompt = this.stateValue.prompt;
     if (prompt?.slot !== slot) return undefined;
-    return wirePrompt(prompt, now);
+    return wirePrompt(prompt, viewClock(this.stateValue, now));
   }
 
   /** Eigener Stand für die Controller-Kopfzeile. */
@@ -268,7 +326,7 @@ export class BoardGame {
     const state = this.stateValue;
     const player = state.players.find((candidate) => candidate.slot === slot);
     if (!player) return undefined;
-    const place = state.ranking?.find((entry) => entry.slot === slot)?.place;
+    const entry = state.ranking?.find((candidate) => candidate.slot === slot);
     return {
       gamePhase: state.phase,
       round: state.round,
@@ -277,7 +335,16 @@ export class BoardGame {
       trophies: player.trophies,
       items: [...player.items],
       activeSlot: state.activeSlot,
-      ...(place === undefined ? {} : { place }),
+      paused: state.paused,
+      character: this.characterOf(slot),
+      minigameWins: player.minigameWins,
+      ...(entry === undefined
+        ? {}
+        : {
+            place: entry.place,
+            tied: entry.decidedBy === 'shared',
+            endedEarly: state.endedEarly,
+          }),
     };
   }
 }

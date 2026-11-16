@@ -6,15 +6,16 @@ import robotAccent from '@chaos-party/assets/textures/portraits/robot-akzent.web
 import robotImage from '@chaos-party/assets/textures/portraits/robot.webp?url';
 import sockAccent from '@chaos-party/assets/textures/portraits/sock-akzent.webp?url';
 import sockImage from '@chaos-party/assets/textures/portraits/sock.webp?url';
-import { CHARACTER_NAMES, defaultCharacterFor, type CharacterId } from '@chaos-party/minigame-sdk';
-import type { SlotNumber } from '@chaos-party/protocol';
+import { CHARACTER_NAMES, type CharacterId } from '@chaos-party/minigame-sdk';
 import type { CSSProperties } from 'react';
 
 /**
- * Porträt der eigenen Figur (CHAOS-61), dieselben Dateien und dieselbe Darstellung wie in der
- * Lobby am PC (`apps/host/src/lobby/CharacterPortrait.tsx`): Render mit weißem Akzent, darüber
- * die Slot-Farbe (`--player`) per Akzent-Maske und `multiply`. Die Figur folgt dem Slot
- * (`defaultCharacterFor`) wie am PC, bis es eine Figurenwahl gibt.
+ * Figuren-Porträt (CHAOS-61), dieselben Dateien und dieselbe Darstellung wie in der Lobby am
+ * PC (`apps/host/src/lobby/CharacterPortrait.tsx`): Render mit weißem Akzent, darüber eine
+ * Farbfläche per Akzent-Maske und `multiply`. Die Farbe ist `--portrait-color` (Figurenkarten:
+ * Besitzer oder Grau), sonst die eigene Slot-Farbe `--player`. Welche Figur gezeigt wird,
+ * entscheidet der Aufrufer: Figurenkarten der Lobby (CHAOS-36), Endstand (CHAOS-37) und die
+ * Plakette mit der eigenen Figur (`ownCharacter` in `state/character.ts`).
  */
 const PORTRAITS: Readonly<Record<CharacterId, { image: string; accent: string }>> = {
   robot: { image: robotImage, accent: robotAccent },
@@ -24,14 +25,17 @@ const PORTRAITS: Readonly<Record<CharacterId, { image: string; accent: string }>
 };
 
 interface CharacterPortraitProps {
-  readonly slot: SlotNumber;
+  readonly character: CharacterId;
   readonly className?: string;
   /** Nur Schmuck (Name steht daneben): ohne eigene Beschriftung für Screenreader. */
   readonly decorative?: boolean;
 }
 
-export function CharacterPortrait({ slot, className, decorative = false }: CharacterPortraitProps) {
-  const character = defaultCharacterFor(slot);
+export function CharacterPortrait({
+  character,
+  className,
+  decorative = false,
+}: CharacterPortraitProps) {
   const { image, accent } = PORTRAITS[character];
   const mask = { '--portrait-accent': `url("${accent}")` } as CSSProperties;
   return (

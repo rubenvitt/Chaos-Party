@@ -1,4 +1,4 @@
-import type { GamePhaseName } from '@chaos-party/protocol';
+import type { CharacterId, GamePhaseName } from '@chaos-party/protocol';
 import type { PlayerPosition, PlayerSlot } from './scene/types.ts';
 
 /**
@@ -25,6 +25,8 @@ export interface ChaosBoardTestHook {
   advance(ms: number): void;
   /** Feld je Slot, wie gerade gezeigt (beim Hüpfen: Absprungfeld). */
   getPawnSpaces(): Partial<Record<PlayerSlot, string>>;
+  /** Figur je Slot in der Brett-Szene (gewählte Figur aus `BoardPlayer.character`, v4). */
+  getPawnCharacters(): Partial<Record<PlayerSlot, CharacterId>>;
   /** Kurzfassung des HUD: übernommene Phase, wer dran ist, sichtbare Meldungen. */
   getHud(): { gamePhase: GamePhaseName | null; activeSlot: PlayerSlot | null; messages: string[] };
   /**

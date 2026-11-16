@@ -459,7 +459,14 @@ describe('komplette Partien bis game-results', () => {
       state = chain(state, (s) => choose(s, s.prompt?.options[0]?.id ?? 'roll'), settle).state;
     }
     expect(state.ranking).toEqual([
-      { slot: 1, place: 1, trophies: state.players[0]?.trophies, coins: state.players[0]?.coins },
+      {
+        slot: 1,
+        place: 1,
+        trophies: state.players[0]?.trophies,
+        coins: state.players[0]?.coins,
+        minigameWins: 2,
+        decidedBy: 'trophies',
+      },
     ]);
   });
 });

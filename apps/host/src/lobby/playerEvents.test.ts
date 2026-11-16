@@ -9,6 +9,7 @@ const blue: HostPlayer = {
   symbol: '●',
   connected: true,
   ready: false,
+  character: null,
 };
 const orange: HostPlayer = {
   slot: 2,
@@ -17,6 +18,7 @@ const orange: HostPlayer = {
   symbol: '▲',
   connected: true,
   ready: true,
+  character: 'cactus',
 };
 const off = (player: HostPlayer): HostPlayer => ({ ...player, connected: false });
 

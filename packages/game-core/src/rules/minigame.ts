@@ -13,7 +13,7 @@ import { checkResult } from '@chaos-party/minigame-sdk';
 import { shuffled } from '../rng.ts';
 import type { MinigamePlacement, MinigameSpec } from '../types.ts';
 import { changeCoins } from './economy.ts';
-import { schedule, type Ctx } from './internal.ts';
+import { playerOf, schedule, type Ctx } from './internal.ts';
 
 export const PLACEHOLDER_MINIGAME = 'placeholder';
 export const DEFAULT_MINIGAME_RESULT_GRACE_MS = 15_000;
@@ -57,6 +57,7 @@ export function enterMinigame(ctx: Ctx, t: number): void {
     placements: null,
     highlights: [],
     aborted: false,
+    rewards: null,
   };
   ctx.events.push({ type: 'minigame-started', minigame: d.minigame.id });
   schedule(ctx, 'minigame-intro', t, ctx.rules.pacing.minigameIntroMs);
@@ -93,7 +94,7 @@ export function expireMinigame(ctx: Ctx, t: number): void {
     );
     return;
   }
-  ctx.d.minigame = { ...minigame, placements: [], aborted: true };
+  ctx.d.minigame = { ...minigame, placements: [], aborted: true, rewards: [] };
   ctx.events.push({ type: 'minigame-results', ranking: [], placements: [], aborted: true });
   schedule(ctx, 'minigame-results', t, ctx.rules.pacing.minigameResultsMs);
 }
@@ -150,16 +151,24 @@ export function finishMinigame(
   const sorted = [...placements]
     .map((entry) => ({ slot: entry.slot, place: entry.place, score: entry.score }))
     .sort((a, b) => a.place - b.place || a.slot - b.slot);
-  d.minigame = { ...minigame, placements: sorted, highlights: [...highlights], aborted: false };
   ctx.events.push({
     type: 'minigame-results',
     ranking: sorted.map((entry) => entry.slot),
     placements: sorted,
     aborted: false,
   });
-  for (const entry of sorted) {
+  const rewards = sorted.map((entry) => {
     const reward = ctx.rules.economy.minigameRewards[entry.place - 1] ?? 0;
-    changeCoins(ctx, entry.slot, reward, 'minigame');
-  }
+    // Siege zählen sofort (drittes Wertungskriterium, CHAOS-37); Gleichstand auf 1 für alle.
+    if (entry.place === 1) playerOf(ctx, entry.slot).minigameWins += 1;
+    return { slot: entry.slot, coins: changeCoins(ctx, entry.slot, reward, 'minigame') };
+  });
+  d.minigame = {
+    ...minigame,
+    placements: sorted,
+    highlights: [...highlights],
+    aborted: false,
+    rewards,
+  };
   schedule(ctx, 'minigame-results', t, ctx.rules.pacing.minigameResultsMs);
 }

@@ -105,7 +105,8 @@ test('zwei Zonen über eine Verbindung: Lobby je Zone, dann Spiel-Layout', async
   else expect(box1.x + box1.width).toBeLessThan(box2.x);
   for (const slot of [1, 2]) {
     const ready = await zone(page, slot).getByTestId('ready-button').boundingBox();
-    expect(ready?.height).toBeGreaterThanOrEqual(96);
+    // Unter den Figurenkarten (CHAOS-36): immer noch weit über 44 pt.
+    expect(ready?.height).toBeGreaterThanOrEqual(72);
   }
 
   // Beide gleichzeitig auf „Bereit!“: zwei Finger, zwei Zonen.

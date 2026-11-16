@@ -28,13 +28,22 @@
  *    (`instant`) wählen schon beim Aufsetzen. Gesperrte Knöpfe (`inert`) treffen nie; ein
  *    Finger auf einem Knopf, der gesperrt wird oder zu einem alten Prompt gehört, wird
  *    stillgelegt (Prompt-ID steckt in der Kennung des Knopfs).
+ * 8. Figurenkarten der Lobby (v4, CHAOS-36, `pick:<figur>`) wählen wie Wahlknöpfe beim
+ *    Abheben auf der Karte. Vergebene und die eigene Figur sind `inert`; wird eine Karte
+ *    vergeben, während ein Finger darauf liegt, wird er stillgelegt.
  */
-import type { Button, SlotNumber } from '@chaos-party/protocol';
+import {
+  isCharacterId,
+  type Button,
+  type CharacterId,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import { knobOffset, stickFromOffset, ZERO_STICK, type Stick } from '../input/joystick.ts';
 import {
   controlAt,
   deltaToLocal,
   parseChoiceControl,
+  parsePickControl,
   rectContains,
   sameFrame,
   toLocal,
@@ -55,7 +64,8 @@ export type ZoneEffect =
       readonly slot: SlotNumber;
       readonly promptId: number;
       readonly option: string;
-    };
+    }
+  | { readonly type: 'pick'; readonly slot: SlotNumber; readonly character: CharacterId };
 
 /** Wem eine Berührung gehört. `control: null` = Zone ohne Wirkung (oder stillgelegt). */
 export interface TouchOwner {
@@ -72,6 +82,8 @@ export interface ZoneView {
   readonly readyHeld: boolean;
   /** Wahlknöpfe (Kennung `choice:…`), auf denen gerade ein Finger liegt. */
   readonly choicesHeld: readonly ControlKind[];
+  /** Figurenkarten (Kennung `pick:…`), auf denen gerade ein Finger liegt. */
+  readonly picksHeld: readonly ControlKind[];
 }
 
 interface Binding {
@@ -144,6 +156,10 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
     const choice = parseChoiceControl(control);
     if (choice !== null && completed && !binding.instant && stillOn(binding)) {
       return [{ type: 'choose', slot, ...choice }];
+    }
+    const character = parsePickControl(control);
+    if (character !== null && isCharacterId(character) && completed && stillOn(binding)) {
+      return [{ type: 'pick', slot, character }];
     }
     return [];
   }
@@ -256,6 +272,7 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
       const pressed: Button[] = [];
       let readyHeld = false;
       const choicesHeld: ControlKind[] = [];
+      const picksHeld: ControlKind[] = [];
       for (const b of bindings.values()) {
         if (b.slot !== slot) continue;
         const button = buttonOf(b.control);
@@ -263,6 +280,7 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
         if (b.control === 'ready') readyHeld = true;
         if (parseChoiceControl(b.control) !== null && b.control !== null)
           choicesHeld.push(b.control);
+        if (parsePickControl(b.control) !== null && b.control !== null) picksHeld.push(b.control);
         if (b.control === 'stick' && zone) {
           const d = deltaToLocal(zone.rotation, b.last.x - b.origin.x, b.last.y - b.origin.y);
           stick = {
@@ -272,7 +290,7 @@ export function createZoneTracker(initialZones: readonly ZoneGeometry[] = []): Z
         }
       }
       pressed.sort();
-      return { stick, pressed, readyHeld, choicesHeld };
+      return { stick, pressed, readyHeld, choicesHeld, picksHeld };
     },
   };
 }

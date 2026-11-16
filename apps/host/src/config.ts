@@ -50,6 +50,19 @@ export interface HostConfig {
   readonly mute: boolean;
   /** Gesamtlautstärke 0–100 (`?volume=`), Standard 70. */
   readonly volume: number;
+  /**
+   * Tempo der Trophäenzählung im Finale (`?finale=normal|fast|skip|manual`, CHAOS-37);
+   * `null` = Standard (`normal`, im Testmodus `skip`). `manual`: Uhr nur über den Testhaken.
+   */
+  readonly finale: FinaleSpeed | null;
+}
+
+export type FinaleSpeed = 'normal' | 'fast' | 'skip' | 'manual';
+const FINALE_SPEEDS: readonly FinaleSpeed[] = ['normal', 'fast', 'skip', 'manual'];
+
+/** Wirksames Finale-Tempo: Einstellung oder Standard (Testmodus überspringt). */
+export function finaleSpeedOf(config: Pick<HostConfig, 'finale' | 'test'>): FinaleSpeed {
+  return config.finale ?? (config.test ? 'skip' : 'normal');
 }
 
 export const DEFAULT_CONFIG: HostConfig = {
@@ -67,6 +80,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   flow: false,
   mute: false,
   volume: 70,
+  finale: null,
 };
 
 /** Höchstzahl Runden (gleich `MAX_ROUNDS` im Protokoll). */
@@ -103,6 +117,7 @@ export function parseHostConfig(search: string): HostConfig {
     flow: flag(params.get('flow')),
     mute: flag(params.get('mute')),
     volume: Number.isInteger(volume) ? Math.min(100, Math.max(0, volume)) : DEFAULT_CONFIG.volume,
+    finale: FINALE_SPEEDS.find((speed) => speed === params.get('finale')) ?? null,
   };
 }
 

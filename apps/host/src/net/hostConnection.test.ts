@@ -1,10 +1,17 @@
-import { createMessage, encode, parseServerToHostMessage } from '@chaos-party/protocol';
+import {
+  createMessage,
+  encode,
+  parseHostMessage,
+  parseServerToHostMessage,
+} from '@chaos-party/protocol';
 import { createDemoMessages } from '../board/demo.ts';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CLOSE_HOST_TAKEN,
   connectHost,
+  createHostCommandMessage,
   createStartMessage,
+  type HostCommand,
   type ConnectionStatus,
   type HostConnectionHandlers,
   type SocketLike,
@@ -46,7 +53,10 @@ const LOBBY = createMessage('lobby', {
   joinCode: 'AB12',
   joinUrl: 'http://192.168.0.2:8787/?code=AB12',
   phase: 'lobby',
-  players: [{ slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false }],
+  players: [
+    { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
+  ],
+  settings: { rounds: 5, roundPresets: [3, 5, 8] },
 });
 
 function setup(handlers: HostConnectionHandlers = {}) {
@@ -152,7 +162,7 @@ describe('connectHost', () => {
     const onInput = vi.fn();
     const t = setup({ onInput });
     t.last().open();
-    t.last().receive('{"v":3,"type":"input","intent":{"type":"move","slot":9}}');
+    t.last().receive('{"v":4,"type":"input","intent":{"type":"move","slot":9}}');
     t.last().receive(new ArrayBuffer(4));
     t.last().receive(encode(createMessage('feedback', { slot: 1, kind: 'hit' })));
     expect(onInput).not.toHaveBeenCalled();
@@ -214,7 +224,7 @@ describe('connectHost', () => {
     t.last().receive(encode(LOBBY));
     expect(t.connection.sendMinigameResult(result)).toBe(true);
     const sent: unknown = JSON.parse(t.last().sent.at(-1) ?? '');
-    expect(sent).toEqual({ v: 3, type: 'minigame-result', ...result });
+    expect(sent).toEqual({ v: 4, type: 'minigame-result', ...result });
     t.last().drop();
     expect(t.connection.sendMinigameResult(result)).toBe(false);
   });
@@ -224,14 +234,53 @@ describe('connectHost', () => {
     t.last().open();
     t.last().receive(encode(LOBBY));
     expect(t.connection.sendStart({ mode: 'arena' })).toBe(true);
-    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({ v: 3, type: 'start', mode: 'arena' });
+    expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({ v: 4, type: 'start', mode: 'arena' });
     expect(t.connection.sendStart({ mode: 'board', rounds: 3 })).toBe(true);
     expect(JSON.parse(t.last().sent.at(-1) ?? '')).toEqual({
-      v: 3,
+      v: 4,
       type: 'start',
       mode: 'board',
       rounds: 3,
     });
+  });
+
+  it('sendet Steuerbefehle (v4) nur, wenn verbunden, protokollgültig', () => {
+    const t = setup();
+    expect(t.connection.sendCommand({ type: 'pause' })).toBe(false);
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    const commands: HostCommand[] = [
+      { type: 'configure', rounds: 8 },
+      { type: 'pause' },
+      { type: 'resume' },
+      { type: 'end-game' },
+      { type: 'rematch' },
+    ];
+    for (const command of commands) {
+      expect(t.connection.sendCommand(command)).toBe(true);
+      const raw = t.last().sent.at(-1) ?? '';
+      expect(JSON.parse(raw)).toEqual({ v: 4, ...command });
+      expect(parseHostMessage(raw).ok).toBe(true);
+    }
+    expect(createHostCommandMessage({ type: 'configure', rounds: 3 })).toEqual(
+      createMessage('configure', { rounds: 3 }),
+    );
+    t.last().drop();
+    expect(t.connection.sendCommand({ type: 'resume' })).toBe(false);
+  });
+
+  it('reicht minigame-result-ack weiter (CHAOS-55)', () => {
+    const onResultAck = vi.fn();
+    const t = setup({ onResultAck });
+    t.last().open();
+    const ack = createMessage('minigame-result-ack', {
+      minigameId: 'pump-parade',
+      round: 2,
+      accepted: false,
+      code: 'invalid-result',
+    });
+    t.last().receive(encode(ack));
+    expect(onResultAck).toHaveBeenCalledWith(ack);
   });
 
   it('createStartMessage lässt fehlende Optionen weg und bleibt protokollgültig', () => {
@@ -296,7 +345,7 @@ describe('connectHost', () => {
     expect(t.timers.map((timer) => timer.ms)).toEqual([2000]);
   });
 
-  it('gilt nach 15 s ohne Server-Nachricht als getrennt und verbindet neu (CHAOS-12)', () => {
+  it('gilt nach 15 s ohne Server-Nachricht und unbeantworteter Probe als getrennt und verbindet neu (CHAOS-12, CHAOS-41)', () => {
     const t = setup();
     t.last().open();
     t.last().receive(encode(LOBBY));
@@ -305,6 +354,10 @@ describe('connectHost', () => {
     expect(t.timers.filter((timer) => timer.ms === 15_000)).toHaveLength(1);
     const dead = t.last();
     t.fire(15_000);
+    // Erst eine Probe (2 s), noch verbunden.
+    expect(dead.closedWith).toBeUndefined();
+    expect(t.connection.status).toBe('connected');
+    t.fire(2000);
     expect(dead.closedWith).toBe(1000);
     expect(t.connection.status).toBe('disconnected');
     expect(t.warnings.at(-1)).toContain('antwortet nicht');
@@ -316,6 +369,26 @@ describe('connectHost', () => {
     t.last().open();
     t.last().receive(encode(LOBBY));
     expect(t.statuses).toEqual(['connected', 'disconnected', 'connected']);
+  });
+
+  it('eigener Stillstand: nach 15 s Stille erst Probe; wartende Antwort hält die Verbindung', () => {
+    const t = setup();
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    const live = t.last();
+    // Hauptthread stand still: Der Wachhund feuert, die Antworten des Servers liegen noch
+    // ungelesen in der Warteschlange.
+    t.fire(15_000);
+    expect(live.closedWith).toBeUndefined();
+    expect(t.connection.status).toBe('connected');
+    expect(live.sent.at(-1)).toBe(encode(createMessage('heartbeat', { t: 42 })));
+    expect(t.timers.filter((timer) => timer.ms === 2000)).toHaveLength(1);
+    // Die wartende Nachricht kommt an: Verbindung lebt, normaler Wachhund wieder scharf.
+    live.receive(encode(createMessage('heartbeat-ack', { t: 42 })));
+    expect(t.timers.filter((timer) => timer.ms === 2000)).toHaveLength(0);
+    expect(t.timers.filter((timer) => timer.ms === 15_000)).toHaveLength(1);
+    expect(t.sockets).toHaveLength(1);
+    expect(t.warnings).toEqual([]);
   });
 
   it('Seite wieder sichtbar: Probe-Herzschlag; ohne Antwort nach 2 s neu verbinden', () => {

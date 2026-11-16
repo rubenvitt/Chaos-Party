@@ -146,6 +146,9 @@ Wiese. Pump-Parade (Rückfall): Wiese.
   sichtbaren Akzents. Lobby und Controller legen die Slot-Farbe per CSS-Maske mit
   `mix-blend-mode: multiply` darüber (Licht und Schatten bleiben). Das Slot-Symbol steht immer
   daneben (Lobby: Marke am Porträt, Controller: Marke am Avatar in der Plakette).
+  In den Figurenkarten der Controller-Lobby (M4, CHAOS-36) nimmt der Akzent die Farbe des
+  Besitzers an (`--portrait-color`), vergebene Figuren ohne bekannten Besitzer grau; Plakette
+  und Endstand zeigen die gewählte Figur.
   Renders sind nicht byte-gleich reproduzierbar (Entrauschen), darum prüft `check:assets` Format,
   Maße, Alpha und das Paar Bild/Maske statt eines Byte-Vergleichs.
 - **Importiert:** nur mit Lizenz auf der Positivliste (Eigenwerk, CC0-1.0, CC-BY-4.0, OFL-1.1,

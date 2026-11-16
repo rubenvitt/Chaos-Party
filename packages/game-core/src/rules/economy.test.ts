@@ -11,40 +11,72 @@ describe('rankPlayers', () => {
         { slot: 3, trophies: 1, coins: 60 },
       ]),
     ).toEqual([
-      { slot: 2, place: 1, trophies: 2, coins: 0 },
-      { slot: 3, place: 2, trophies: 1, coins: 60 },
-      { slot: 1, place: 3, trophies: 1, coins: 50 },
+      { slot: 2, place: 1, trophies: 2, coins: 0, minigameWins: 0, decidedBy: 'trophies' },
+      { slot: 3, place: 2, trophies: 1, coins: 60, minigameWins: 0, decidedBy: 'coins' },
+      { slot: 1, place: 3, trophies: 1, coins: 50, minigameWins: 0, decidedBy: 'coins' },
     ]);
   });
 
-  it('Gleichstand in Trophäen und Münzen = gleicher Platz, danach wird übersprungen', () => {
+  it('Gleichstand in Trophäen, Münzen und Siegen = gleicher Platz, danach wird übersprungen', () => {
     expect(
       rankPlayers([
-        { slot: 4, trophies: 1, coins: 10 },
-        { slot: 1, trophies: 1, coins: 10 },
-        { slot: 2, trophies: 3, coins: 0 },
-        { slot: 3, trophies: 0, coins: 99 },
-      ]).map((r) => [r.slot, r.place]),
+        { slot: 4, trophies: 1, coins: 10, minigameWins: 1 },
+        { slot: 1, trophies: 1, coins: 10, minigameWins: 1 },
+        { slot: 2, trophies: 3, coins: 0, minigameWins: 0 },
+        { slot: 3, trophies: 0, coins: 99, minigameWins: 3 },
+      ]).map((r) => [r.slot, r.place, r.decidedBy]),
     ).toEqual([
-      [2, 1],
-      [1, 2],
-      [4, 2],
-      [3, 4],
+      [2, 1, 'trophies'],
+      [1, 2, 'shared'],
+      [4, 2, 'shared'],
+      [3, 4, 'trophies'],
     ]);
   });
 
-  it('alle gleich = alle auf Platz 1', () => {
+  it('Minispiel-Siege entscheiden bei Gleichstand in Trophäen und Münzen (CHAOS-37)', () => {
+    expect(
+      rankPlayers([
+        { slot: 1, trophies: 2, coins: 7, minigameWins: 1 },
+        { slot: 2, trophies: 2, coins: 7, minigameWins: 3 },
+        { slot: 3, trophies: 2, coins: 9, minigameWins: 0 },
+        { slot: 4, trophies: 0, coins: 40, minigameWins: 4 },
+      ]),
+    ).toEqual([
+      { slot: 3, place: 1, trophies: 2, coins: 9, minigameWins: 0, decidedBy: 'coins' },
+      { slot: 2, place: 2, trophies: 2, coins: 7, minigameWins: 3, decidedBy: 'minigame-wins' },
+      { slot: 1, place: 3, trophies: 2, coins: 7, minigameWins: 1, decidedBy: 'minigame-wins' },
+      { slot: 4, place: 4, trophies: 0, coins: 40, minigameWins: 4, decidedBy: 'trophies' },
+    ]);
+  });
+
+  it('jede Stufe einzeln: Trophäen schlagen Münzen, Münzen schlagen Siege', () => {
+    const [first, second] = rankPlayers([
+      { slot: 1, trophies: 0, coins: 99, minigameWins: 9 },
+      { slot: 2, trophies: 1, coins: 0, minigameWins: 0 },
+    ]);
+    expect([first?.slot, second?.slot]).toEqual([2, 1]);
+    const [a, b] = rankPlayers([
+      { slot: 1, trophies: 1, coins: 3, minigameWins: 9 },
+      { slot: 2, trophies: 1, coins: 4, minigameWins: 0 },
+    ]);
+    expect([a?.slot, a?.decidedBy, b?.slot, b?.decidedBy]).toEqual([2, 'coins', 1, 'coins']);
+  });
+
+  it('alle gleich = alle auf Platz 1, geteilt', () => {
     const ranking = rankPlayers([
       { slot: 2, trophies: 0, coins: 5 },
       { slot: 1, trophies: 0, coins: 5 },
     ]);
-    expect(ranking.map((r) => [r.slot, r.place])).toEqual([
-      [1, 1],
-      [2, 1],
+    expect(ranking.map((r) => [r.slot, r.place, r.decidedBy])).toEqual([
+      [1, 1, 'shared'],
+      [2, 1, 'shared'],
     ]);
   });
 
-  it('leere Liste → leere Rangfolge', () => {
+  it('ein Spieler: Platz 1 durch Trophäen; leere Liste → leere Rangfolge', () => {
+    expect(rankPlayers([{ slot: 3, trophies: 0, coins: 0 }])).toEqual([
+      { slot: 3, place: 1, trophies: 0, coins: 0, minigameWins: 0, decidedBy: 'trophies' },
+    ]);
     expect(rankPlayers([])).toEqual([]);
   });
 });

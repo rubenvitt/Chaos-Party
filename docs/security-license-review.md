@@ -1,0 +1,87 @@
+# Sicherheits- und Lizenzprüfung (Release Candidate M4)
+
+**Stand:** 2026-11-15 · **Aufgabe:** CHAOS-42 · **Geprüfter Stand:** Branch mit Commit `85f9fbc` (Basis `f5307ef`, Performance-Pass M4) · **Umgebung:** Linux x64, Node 22.23.4, pnpm 10.28.0
+
+Kurz: **Keine Secrets im Repository, keine bekannten Schwachstellen in Laufzeit-Abhängigkeiten, alle Lizenzen auf der Positivliste.** Ein Befund wurde behoben: Die Controller-Schrift Inter fehlte im Asset-Manifest. Offen bleiben eine mittlere Schwachstelle in einem Entwicklungswerkzeug (`minimatch` über ESLint, nicht im Spiel) und Hinweise für den Fall, dass jemand einen fertigen Build weitergibt.
+
+## 1. Befehle und Ergebnisse
+
+| Befehl | Ergebnis | Bewertung |
+|---|---|---|
+| `pnpm install --frozen-lockfile` | ok, 195 Pakete aus dem Lockfile (frischer Klon, leerer Store) | Lockfile ist vollständig und unverändert |
+| `pnpm check:licenses` | „Lizenzen ok: 13 Laufzeit-Pakete, alle auf der Positivliste“ | ok, Liste unten |
+| `pnpm check:assets` | „Assets ok: 23 Manifest-Einträge geprüft“ (vorher 22, siehe Befund B1) | ok |
+| `pnpm audit --prod` | „No known vulnerabilities found“ | ok |
+| `pnpm audit` (inkl. Entwicklung) | 1 × moderate: `minimatch` 10.2.6 über `eslint` ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) | nur Entwicklungswerkzeug, siehe O1 |
+| Secret-Suche über alle 591 versionierten Dateien (`git ls-files`, Muster siehe Abschnitt 3) | keine Treffer | ok |
+| Laufzeit-Netzwerkprüfung (Playwright/Chromium, Host und Controller, Abschnitt 4) | keine Anfrage an fremde Hosts, keine Seitenfehler | ok, siehe O2 |
+
+Die Audit-Abfrage braucht Netz zur npm-Registry; sie lief in dieser Umgebung über den Proxy.
+
+## 2. Abhängigkeiten
+
+### Laufzeit-Pakete (`pnpm -r licenses list --prod`)
+
+| Lizenz | Pakete |
+|---|---|
+| Apache-2.0 | `@babylonjs/core` 9.35.0, `@babylonjs/loaders` 9.35.0, `babylonjs-gltf2interface` 9.35.0 |
+| MIT | `@babylonjs/havok` 1.3.14, `@types/emscripten` 1.41.6, `react` 19.3.1, `react-dom` 19.3.1, `scheduler` 0.28.0, `uqr` 0.1.3, `ws` 8.22.1, `zod` 4.6.7 |
+| OFL-1.1 | `@fontsource-variable/nunito` 5.3.0 (Host), `@fontsource-variable/inter` 5.3.0 (Controller) |
+
+Alle stehen auf der Positivliste in `scripts/check-licenses.mjs` (MIT, ISC, BSD, Apache-2.0, 0BSD, BlueOak, CC0, OFL-1.1). Keine Copyleft-Lizenz (GPL/LGPL/AGPL) im Spiel.
+
+### Lieferkette
+
+- `pnpm-workspace.yaml`: `minimumReleaseAge: 10080` (neue Paketversionen erst nach 7 Tagen), Install-Skripte nur für `esbuild` (`onlyBuiltDependencies`).
+- CI und `pnpm play` installieren mit `--frozen-lockfile`: Es kommt nur, was im Lockfile steht.
+- Der Server hat zwei npm-Laufzeit-Abhängigkeiten (`ws`, `uqr`), gebündelt mit esbuild; die optionalen nativen Beschleuniger von `ws` werden nicht installiert.
+
+## 3. Secrets und Dateien im Repository
+
+Geprüft mit `git ls-files` (591 Dateien):
+
+- **Dateinamen:** keine `.env*`, `.pem`, `.key`, `.p12`, `.pfx`, `.crt`, `.keystore`, `id_rsa`/`id_ed25519`, `.npmrc` oder Dateien mit „secret“/„credential“ im Namen. `.gitignore` schließt `.env` und `.env.*` aus.
+- **Inhalte:** keine privaten Schlüssel (`-----BEGIN … PRIVATE KEY-----`), keine Token-Formate (AWS `AKIA…`, GitHub `ghp_`/`gho_`/`github_pat_`, Slack `xox…`, Anthropic/OpenAI `sk-…`, Google `AIza…`, GitLab `glpat-`, npm `npm_…`), keine Zuweisungen der Form `password|secret|api_key|token = "…"`, keine URLs mit Zugangsdaten (`https://user:pass@…`).
+- **Binärdateien:** 109 PNG/JPG (eigene Screenshots unter `docs/screenshots/` und Screenshot-Baselines unter `tests/e2e/__screenshots__/`, größte 1,0 MB) und 4 GLB-Figuren unter `packages/assets/models/` (alle im Manifest, 110–323 KiB). Keine Archive, Programme, Schriften oder WASM-Dateien im Repo; Schriften und Havok-WASM kommen aus npm-Paketen.
+- Der Server erzeugt Join-Code und Sitzungs-Tokens zur Laufzeit (`node:crypto`), nichts davon wird gespeichert.
+
+## 4. Laufzeit: Netz und Angriffsfläche
+
+**Keine Netzwerkdienste außer dem lokalen Server.** Ein Playwright-Lauf gegen den Production-Server (`pnpm play`, Port 8840) hat geöffnet: Host-Lobby (`/host/`), Arena, Brett-Demo mit 4 Spielern, alle vier Minispiele (Sockenregen, Pudding-Gerangel, Wackelturm, Pump-Parade), Controller als iPhone und als iPad mit 2 Zonen, je 9 s. Ergebnis: **0 Anfragen an andere Hosts als den Server**, 0 Seitenfehler. Das Bundle enthält zwar Babylon-Adressen (`cdn.babylonjs.com` für KTX2, `assets.babylonjs.com` für OpenPBR-Rauschtextur, `unpkg.com/fflate` für EXR, `snippet.babylonjs.com`), aber für Funktionen, die das Spiel nicht nutzt. Ohne Internet läuft das Spiel vollständig.
+
+**Server** (`apps/server`), Vertrauensmodell „Spielrunde im eigenen WLAN“:
+
+- Bindet standardmäßig auf `0.0.0.0:8787`, also für alle Geräte im selben Netz erreichbar. Nur `GET`/`HEAD`; statische Dateien mit Schutz gegen Pfad-Ausbruch (`403`).
+- WebSocket: höchstens 64 Verbindungen, 16 KiB je Nachricht, zod-Validierung jeder Nachricht, Ratenbegrenzung je Slot, Missbrauch → Verbindung wird geschlossen (ADR-005).
+- Der Join-Code (4 Zeichen) und die Sitzungs-Tokens schützen vor Verwechslung, nicht vor Angreifern im selben WLAN. Wer im Netz ist, kann `/host/` öffnen, sobald kein Host verbunden ist. Für eine Party im Heimnetz ist das gewollt. **Empfehlung: nicht in offenen/öffentlichen Netzen spielen**, sondern im Heim-WLAN oder im eigenen Hotspot, wie es [network-setup.md](network-setup.md#gäste-wlan-und-client-isolation) ohnehin rät.
+- Keine Anmeldung, keine Speicherung personenbezogener Daten, keine Telemetrie.
+
+## 5. Assets und Lizenzen
+
+Quelle: `packages/assets/manifest.json`, geprüft von `pnpm check:assets` (Datei vorhanden, Budget, Lizenz gegen `package.json` des npm-Pakets, Figuren-Vertrag).
+
+| Gruppe | Einträge | Herkunft | Lizenz |
+|---|---|---|---|
+| Figuren (GLB) | 4 (Schraubi, Kalle Kaktus, Wusel, Socke Sigi) | eigene Blender-Skripte (`packages/assets/blender`, CHAOS-58) | `LicenseRef-ChaosParty-Eigenwerk` |
+| Porträts (SVG) | 4 | eigener Generator | Eigenwerk |
+| Prozedurale Geometrie | 10 (Brett, Marker, Fallen, Sockel, Abzeichen, Arena, 4 Minispiele) | Code | Eigenwerk |
+| Klänge, Partikel | 3 | prozedural im Code (WebAudio, Babylon-Partikel) | Eigenwerk |
+| Schriften | 2: Nunito (Host), Inter (Controller) | npm `@fontsource-variable/*` | OFL-1.1 |
+
+Keine fremden Bilder, Texturen, Modelle oder Klänge im Spiel. Die Look-Dev-Assets von Poly Haven (CC0, `scripts/fetch-lookdev-assets.mjs`, CHAOS-56/57) sind nicht eingecheckt und für das Spiel nicht nötig; siehe O3.
+
+## 6. Befunde
+
+| Nr. | Befund | Schwere | Status |
+|---|---|---|---|
+| B1 | Controller-Schrift **Inter** (`@fontsource-variable/inter`, OFL-1.1, seit CHAOS-59) wird ausgeliefert, stand aber nicht im Asset-Manifest; der Nunito-Eintrag nannte noch „Controller“. Lizenzrechtlich unkritisch (Lizenz-Check grün), aber Attribution unvollständig. | gering | **behoben**: Eintrag `schrift-inter` ergänzt, Nunito-Beschreibung korrigiert |
+
+## 7. Offene Punkte
+
+| Nr. | Punkt | Bewertung / Vorschlag |
+|---|---|---|
+| O1 | `minimatch` 10.2.6 (moderate, Denial of Service über Glob-Muster) über `eslint` und `typescript-eslint` | Nur Entwicklungsrechner/CI beim Lint; verarbeitet nur eigene Konfigurationsmuster. Behoben ab `minimatch` 11.0.1; ein Override wäre ein Major-Sprung unter ESLint. Abwarten, bis ESLint/typescript-eslint aktualisieren, dann `pnpm update`. |
+| O2 | Kein automatischer Wächter gegen Anfragen an fremde Hosts | Heute 0 Anfragen (Abschnitt 4). Vorschlag: In die E2E-Fixture ein `page.route` einbauen, das fremde Hosts blockiert und den Test scheitern lässt. |
+| O3 | Look-Dev-Assets landen im Build, falls ein Entwickler sie lokal geladen hat (`apps/host/public/lookdev-assets/`, Vite kopiert `public/`) | CC0, also lizenzrechtlich frei; nur unnötige Größe. Auf einem frischen PC nicht vorhanden. Vor einer Weitergabe von Builds Ordner löschen oder aus `public/` herausnehmen. |
+| O4 | Weitergabe eines fertigen Builds (`dist/`) | Heute wird nur der Quellcode geklont und lokal gebaut; die Lizenztexte liegen dann in `node_modules`. Wer `dist/` weitergibt, muss Lizenzhinweise beilegen (Apache-2.0 für Babylon, OFL-1.1 für die Schriften: Copyright und Lizenztext). Dann `THIRD-PARTY-NOTICES` erzeugen. Weitergabe/Veröffentlichung braucht ohnehin Rubens Freigabe (CLAUDE.md). |
+| O5 | Lizenz des eigenen Codes und der Eigenwerk-Assets (`LicenseRef-ChaosParty-Eigenwerk`) | Im Repo steht keine `LICENSE`-Datei. Für ein privates Projekt unkritisch; vor einer Veröffentlichung entscheidet Ruben die Lizenz. |

@@ -112,9 +112,14 @@ export function intentToMinigameInput(
   }
 }
 
-/** Figurenname eines Slots (Standardfigur bis zur Charakterwahl in M4). */
-export function characterName(slot: SlotNumber): string {
-  return CHARACTER_NAMES[defaultCharacterFor(slot)].name;
+/**
+ * Figurenname eines Slots aus dem Brett-Stand (gewählte Figur, v4/CHAOS-36). Fehlt der Slot im
+ * Stand, die Standardfigur als Rückfall.
+ */
+export function characterName(view: Pick<BoardView, 'players'>, slot: SlotNumber): string {
+  const character =
+    view.players.find((player) => player.slot === slot)?.character ?? defaultCharacterFor(slot);
+  return CHARACTER_NAMES[character].name;
 }
 
 /** Teilnehmer eines Minispiels aus dem Brett-Stand (nach Slot sortiert). */
@@ -126,6 +131,6 @@ export function playersFromView(view: BoardView): MinigamePlayer[] {
       name: player.name,
       color: PLAYER_SLOTS[player.slot].color,
       symbol: PLAYER_SLOTS[player.slot].symbol,
-      character: defaultCharacterFor(player.slot),
+      character: player.character,
     }));
 }

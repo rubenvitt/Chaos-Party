@@ -6,6 +6,8 @@ import type {
   GamePhase,
   ItemKind,
   MinigamePlacement,
+  MinigameReward,
+  PlayerStats,
   PromptKind,
   PromptOption,
   RankingEntry,
@@ -31,6 +33,8 @@ export interface PublicPlayer {
   readonly trophies: number;
   readonly items: readonly ItemKind[];
   readonly connected: boolean;
+  readonly minigameWins: number;
+  readonly stats: PlayerStats;
 }
 
 export interface PublicGameView {
@@ -50,6 +54,8 @@ export interface PublicGameView {
   readonly stepMs: number;
   readonly ranking: readonly RankingEntry[] | null;
   readonly minigame: PublicMinigame | null;
+  readonly paused: boolean;
+  readonly endedEarly: boolean;
 }
 
 /** Minispiel der Runde für den Host (M3): Kennung, Seed, gelaufene Spielzeit, Ergebnis. */
@@ -63,14 +69,24 @@ export interface PublicMinigame {
   readonly placements: readonly MinigamePlacement[] | null;
   readonly highlights: readonly string[];
   readonly aborted: boolean;
+  readonly rewards: readonly MinigameReward[] | null;
 }
 
 function remaining(until: number | null, at: number): number | null {
   return until === null ? null : Math.max(0, Math.ceil(until - at));
 }
 
+/**
+ * Uhr für Restzeiten: In der Pause steht sie auf dem Pausenbeginn (M4), damit Countdowns
+ * und Minispiel-Spielzeit stehen bleiben, statt scheinbar abzulaufen.
+ */
+export function viewClock(state: GameState, at: number): number {
+  return state.paused && state.pausedAt !== null ? state.pausedAt : at;
+}
+
 /** Öffentliche Sicht zum Zeitpunkt `at` (Standard: `state.now`). */
-export function toPublicView(state: GameState, at: number = state.now): PublicGameView {
+export function toPublicView(state: GameState, now: number = state.now): PublicGameView {
+  const at = viewClock(state, now);
   const prompt = state.prompt;
   return {
     boardId: state.boardId,
@@ -87,6 +103,8 @@ export function toPublicView(state: GameState, at: number = state.now): PublicGa
       trophies: p.trophies,
       items: [...p.items],
       connected: p.connected,
+      minigameWins: p.minigameWins,
+      stats: { ...p.stats },
     })),
     trophySpaces: [...state.trophySpaces],
     trophyPrice: state.config.rules.trophy.price,
@@ -119,7 +137,10 @@ export function toPublicView(state: GameState, at: number = state.now): PublicGa
             : null,
           highlights: [...state.minigame.highlights],
           aborted: state.minigame.aborted,
+          rewards: state.minigame.rewards ? state.minigame.rewards.map((r) => ({ ...r })) : null,
         }
       : null,
+    paused: state.paused,
+    endedEarly: state.endedEarly,
   };
 }

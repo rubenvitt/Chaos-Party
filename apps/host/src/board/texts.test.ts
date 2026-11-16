@@ -195,6 +195,8 @@ describe('Status, Banner, Countdown', () => {
           place,
           trophies: 1,
           coins: 3,
+          minigameWins: 0,
+          decidedBy: 'shared' as const,
         })),
       }) satisfies BoardView;
     expect(winnerText(ranking([1, 2, 3, 4]))).toBe('Blau gewinnt!');

@@ -12,5 +12,8 @@
   },
   "dependencies": {
     "@chaos-party/minigame-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@chaos-party/minigames": "workspace:*"
   }
 }

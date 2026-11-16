@@ -12,6 +12,9 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'heartbeat',
     'host-hello',
     'start',
+    // v4 (CHAOS-36): Figurenwahl (Controller) und Rundenzahl (Host).
+    'pick-character',
+    'configure',
   ]),
   play: new Set<ClientMessageType>([
     'reconnect',
@@ -33,6 +36,11 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'heartbeat',
     'host-hello',
     'minigame-result',
+    // v4 (CHAOS-36/37): Pause, vorzeitiges Ende, Revanche (nur in `game-results`, prüft die Session).
+    'pause',
+    'resume',
+    'end-game',
+    'rematch',
   ]),
 };
 

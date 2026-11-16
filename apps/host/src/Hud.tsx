@@ -7,6 +7,8 @@ export type PhysicsStatus = 'loading' | 'ready' | 'error';
 
 interface HudProps {
   readonly players: readonly HostPlayer[];
+  /** Untertitel unter „Chaos Party“ (Arena bzw. Brettspiel-Lobby). */
+  readonly subtitle: string;
   readonly physics: PhysicsStatus;
   readonly showKeyHints: boolean;
   /** Spieler-Chips unten zeigen (lokal immer, mit Server nur im Spiel). */
@@ -54,13 +56,20 @@ function keyHint(player: HostPlayer): string {
 }
 
 /** DOM-Overlay über dem Canvas. Liest nur Zustand, steuert die Szene nicht (C5). */
-export function Hud({ players, physics, showKeyHints, showPlayers, connection }: HudProps) {
+export function Hud({
+  players,
+  subtitle,
+  physics,
+  showKeyHints,
+  showPlayers,
+  connection,
+}: HudProps) {
   return (
     <div className="hud">
       <header className="hud-top">
         <div className="hud-title">
           <h1>Chaos Party</h1>
-          <p>Schubs-Arena</p>
+          <p data-testid="hud-subtitle">{subtitle}</p>
         </div>
         {connection !== null && (
           <div className="hud-connection" data-testid="connection" data-status={connection}>

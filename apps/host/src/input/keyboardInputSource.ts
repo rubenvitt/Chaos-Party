@@ -85,6 +85,18 @@ export class KeyboardState {
   }
 }
 
+/**
+ * Liegt der Fokus auf einem Bedienelement (Knopf, Auswahl, Eingabefeld)? Dann gehören Enter und
+ * Leertaste der Oberfläche (Lobby per Tastatur, CHAOS-36), nicht den Tastatur-Spielern.
+ */
+export function isUiTarget(target: EventTarget | null): boolean {
+  const element = target as { closest?: (selector: string) => unknown } | null;
+  return (
+    typeof element?.closest === 'function' &&
+    element.closest('button, input, select, textarea, a[href]') !== null
+  );
+}
+
 /** Tastatur als `InputSource`: hört auf `keydown`/`keyup` am übergebenen Fenster. */
 export function createKeyboardInputSource(target: Window = window): InputSource {
   return {
@@ -97,6 +109,8 @@ export function createKeyboardInputSource(target: Window = window): InputSource 
       };
       const onKey = (event: KeyboardEvent) => {
         if (!state.handles(event.code)) return;
+        // Taste auf einem fokussierten Knopf: gehört der Oberfläche (keyup trotzdem, damit nichts klemmt).
+        if (event.type === 'keydown' && isUiTarget(event.target)) return;
         // Pfeiltasten/Leertaste sollen die Seite nicht scrollen.
         event.preventDefault();
         if (event.repeat) return;

@@ -7,7 +7,9 @@
  */
 import type {
   Action,
+  CharacterId,
   ControllerBoardInfo,
+  ControllerLobbyInfo,
   ControllerMinigameInfo,
   FeedbackKind,
   Layout,
@@ -34,6 +36,11 @@ export interface SlotContext {
    * Ergebnis (`results`). Fehlt beim Platzhalter-Minispiel und außerhalb von Minispielen.
    */
   readonly minigame?: ControllerMinigameInfo;
+  /**
+   * Lobby (v4, CHAOS-36): eigene Figur, von anderen gewählte Figuren, Rundenzahl.
+   * Fehlt bei einem Server ohne Charakterwahl (dann nur „Bereit!“).
+   */
+  readonly lobby?: ControllerLobbyInfo;
 }
 
 /** Gesendete, noch unbeantwortete Wahl eines Slots: sperrt die Knöpfe dieses Prompts. */
@@ -46,6 +53,11 @@ export interface PendingChoice {
 export interface Notice {
   readonly code: UiErrorCode;
   readonly id: number;
+  /**
+   * Betroffener Platz, wenn eindeutig (z. B. `character-taken` bei genau einer vorgemerkten
+   * Figurenwahl): Das geteilte iPad zeigt den Hinweis dann gedreht in dieser Zone (CHAOS-40).
+   */
+  readonly slot?: SlotNumber;
 }
 
 /** Rückmeldung an einen Slot; `id` startet die Animation neu. */
@@ -70,6 +82,17 @@ export interface ControllerState {
    * Prompt, durch `invalid-choice` oder durch Verbindungsverlust (die Wahl kam evtl. nie an).
    */
   readonly choices: Readonly<Partial<Record<SlotNumber, PendingChoice>>>;
+  /**
+   * Gesendete, noch nicht bestätigte Figurenwahl je Slot (CHAOS-36): wird sofort hervorgehoben.
+   * Gelöst, sobald ein Kontext sie bestätigt (eigene Figur) oder überholt (Figur vergeben,
+   * Lobby vorbei), durch jeden Fehler auf der Verbindung oder durch Verbindungsverlust.
+   */
+  readonly picks: Readonly<Partial<Record<SlotNumber, CharacterId>>>;
+  /**
+   * `seq` der zuletzt gesendeten Figurenwahlen mit Slot (höchstens {@link PICK_SEQ_MEMORY}):
+   * ordnet ein `character-taken` (trägt die `seq`) der richtigen iPad-Zone zu (CHAOS-40).
+   */
+  readonly pickSeqs: readonly { readonly seq: number; readonly slot: SlotNumber }[];
   /** Fehler, der den ganzen Bildschirm bestimmt (Code-Eingabe oder Fehlerseite). */
   readonly fatal: UiErrorCode | null;
   readonly notice: Notice | null;
@@ -106,7 +129,18 @@ export type ControllerEvent =
       readonly slot: SlotNumber;
       readonly promptId: number;
       readonly option: string;
+    }
+  /** Eine Figurenwahl wurde gesendet (CHAOS-36): bis zur Antwort als gewählt zeigen. */
+  | {
+      readonly type: 'pick-sent';
+      readonly slot: SlotNumber;
+      readonly character: CharacterId;
+      /** Vergebene `seq` der Nachricht (für die Zuordnung einer Ablehnung). */
+      readonly seq?: number | null;
     };
+
+/** So viele gesendete Figurenwahlen merkt sich der Zustand für die Fehler-Zuordnung. */
+export const PICK_SEQ_MEMORY = 8;
 
 export function createInitialState(joinCode: string | null = null): ControllerState {
   return {
@@ -118,6 +152,8 @@ export function createInitialState(joinCode: string | null = null): ControllerSt
     contexts: {},
     feedback: {},
     choices: {},
+    picks: {},
+    pickSeqs: [],
     fatal: null,
     notice: null,
     rttMs: null,
@@ -148,7 +184,14 @@ export function reduce(state: ControllerState, event: ControllerEvent): Controll
       // Gesendete Wahlen entsperren: Ob sie ankamen, ist offen; der neue Kontext klärt es.
       return state.connection === 'closed' && !state.welcomed
         ? state
-        : { ...state, connection: 'closed', welcomed: false, choices: {} };
+        : {
+            ...state,
+            connection: 'closed',
+            welcomed: false,
+            choices: {},
+            picks: {},
+            pickSeqs: [],
+          };
     case 'reconnect-scheduled':
       return state.attempt === event.attempt ? state : { ...state, attempt: event.attempt };
     case 'gave-up':
@@ -166,9 +209,30 @@ export function reduce(state: ControllerState, event: ControllerEvent): Controll
         },
       };
     }
+    case 'pick-sent': {
+      if (typeof event.seq === 'number') {
+        const entry = { seq: event.seq, slot: event.slot };
+        state = { ...state, pickSeqs: [...state.pickSeqs, entry].slice(-PICK_SEQ_MEMORY) };
+      }
+      // Nur in der Lobby mit Charakterwahl; eine vergebene oder schon eigene Figur nicht vormerken.
+      const lobby = state.contexts[event.slot]?.lobby;
+      if (lobby === undefined || lobby.character === event.character) {
+        return state.picks[event.slot] === undefined
+          ? state
+          : { ...state, picks: without(state.picks, event.slot) };
+      }
+      return { ...state, picks: { ...state.picks, [event.slot]: event.character } };
+    }
     case 'server':
       return reduceServerMessage(state, event.message, event.receivedAt);
   }
+}
+
+/** Ist eine vorgemerkte Figurenwahl durch diesen Kontext erledigt (bestätigt oder überholt)? */
+function pickSettled(pick: CharacterId, context: SlotContext): boolean {
+  const lobby = context.lobby;
+  if (context.phase !== 'lobby' || lobby === undefined) return true;
+  return lobby.character === pick || lobby.takenCharacters.includes(pick);
 }
 
 function reduceServerMessage(
@@ -193,6 +257,8 @@ function reduceServerMessage(
         contexts: keep(state.contexts),
         feedback: keep(state.feedback),
         choices: {},
+        picks: {},
+        pickSeqs: [],
         fatal: null,
         attempt: 0,
       };
@@ -211,14 +277,20 @@ function reduceServerMessage(
         ...(prompt !== undefined && { prompt }),
         ...(message.board !== undefined && { board: message.board }),
         ...(message.minigame !== undefined && { minigame: message.minigame }),
+        ...(message.lobby !== undefined && { lobby: message.lobby }),
       };
       const pending = state.choices[message.slot];
       const keepLock = pending !== undefined && prompt?.info.id === pending.promptId;
+      const pick = state.picks[message.slot];
       return {
         ...state,
         contexts: { ...state.contexts, [message.slot]: context },
         choices:
           keepLock || pending === undefined ? state.choices : without(state.choices, message.slot),
+        picks:
+          pick !== undefined && pickSettled(pick, context)
+            ? without(state.picks, message.slot)
+            : state.picks,
       };
     }
     case 'feedback': {
@@ -231,12 +303,26 @@ function reduceServerMessage(
     }
     case 'error': {
       const severity = errorSeverity(message.code);
+      // Figur weg: Zone der Wahl mit dieser `seq`, sonst der einzigen vorgemerkten Wahl.
+      const pickSlots = Object.keys(state.picks).map((key) => Number(key) as SlotNumber);
+      const noticeSlot =
+        message.code !== 'character-taken'
+          ? undefined
+          : (state.pickSeqs.find((entry) => entry.seq === message.seq)?.slot ??
+            (pickSlots.length === 1 ? pickSlots[0] : undefined));
+      // Jede Ablehnung (auch stille wie `stale-seq`) kann eine Figurenwahl betreffen:
+      // Vormerkung lösen, der nächste Kontext zeigt den echten Stand (CHAOS-36).
+      if (pickSlots.length > 0) state = { ...state, picks: {} };
       if (severity === 'silent') return state;
       if (severity === 'toast') {
         const id = state.counter + 1;
         // Wahl abgelehnt (zu spät, veraltet): Sperre lösen, damit neu gewählt werden kann.
         const choices = message.code === 'invalid-choice' ? {} : state.choices;
-        return { ...state, counter: id, notice: { code: message.code, id }, choices };
+        const notice: Notice =
+          noticeSlot === undefined
+            ? { code: message.code, id }
+            : { code: message.code, id, slot: noticeSlot };
+        return { ...state, counter: id, notice, choices };
       }
       if (severity === 'code') {
         return {

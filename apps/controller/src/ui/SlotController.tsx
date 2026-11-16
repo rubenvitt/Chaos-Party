@@ -1,15 +1,21 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { CHARACTER_NAMES, defaultCharacterFor } from '@chaos-party/minigame-sdk';
-import { PLAYER_SLOTS, type PlayerInfo } from '@chaos-party/protocol';
+import { CHARACTER_NAMES } from '@chaos-party/minigame-sdk';
+import { PLAYER_SLOTS, type CharacterId, type PlayerInfo } from '@chaos-party/protocol';
 import { createMoveSender } from '../input/moveSender.ts';
+import { describeLobby } from '../lobby/view.ts';
 import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
+import { ownCharacter } from '../state/character.ts';
 import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
+import { describeSlotScreen } from '../state/screen.ts';
 import { ActionButton } from './ActionButton.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
+import { StatusBar } from './board.tsx';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor } from './color.ts';
+import { FinalCard, PauseCard } from './final.tsx';
 import { Joystick } from './Joystick.tsx';
+import { CharacterLobby } from './lobby.tsx';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
 
 export interface SlotControllerProps {
@@ -19,6 +25,8 @@ export interface SlotControllerProps {
   feedback: FeedbackPulse | undefined;
   /** Gesendete, noch unbeantwortete Wahl dieses Slots (Brettphase, CHAOS-22). */
   pending?: PendingChoice | undefined;
+  /** Gesendete, noch unbestätigte Figurenwahl (Lobby, CHAOS-36). */
+  pick?: CharacterId | undefined;
   /** Alle eigenen Spieler aus `welcome` (Namen in der Brettphase); Standard: nur `player`. */
   players?: readonly PlayerInfo[];
   /** Sendet eine Eingabe für **diesen** Slot (Slot setzt die Komponente selbst). */
@@ -26,15 +34,16 @@ export interface SlotControllerProps {
 }
 
 /**
- * Bedienfläche eines Spielerplatzes. Der iPhone-Modus zeigt genau eine; der
- * iPad-Modus (CHAOS-13) kann mehrere in Zonen anordnen. Alles, was angezeigt
- * wird, folgt dem Server-Kontext (`layout`, `actions`).
+ * Bedienfläche eines Spielerplatzes am iPhone. Welcher Bildschirm erscheint, entscheidet
+ * `describeSlotScreen` allein aus dem Server-Kontext (Lobby mit Charakterwahl, Spiel,
+ * Minispiel, Brett, Pause, Endstand) – auch direkt nach Neuladen oder Wiederverbinden.
  */
 export function SlotController({
   player,
   context,
   feedback,
   pending,
+  pick,
   players,
   send,
 }: SlotControllerProps) {
@@ -45,20 +54,26 @@ export function SlotController({
   } as CSSProperties;
   const layout = context?.layout ?? 'wait';
   const minigame = context?.minigame;
-  const minigameCard = layout === 'board' && minigame !== undefined;
+  const screen = describeSlotScreen(context);
+  const lobby = screen === 'lobby' ? describeLobby(context, pick) : null;
 
   return (
     <section
-      className={`slot layout-${layout}${minigame ? ` minigame-${minigame.stage}` : ''}`}
+      className={`slot layout-${layout} screen-${screen}${minigame ? ` minigame-${minigame.stage}` : ''}`}
       style={cssVars}
       data-testid={`slot-${player.slot}`}
       data-layout={layout}
+      data-screen={screen}
       data-phase={context?.phase ?? 'none'}
       data-minigame-stage={minigame?.stage ?? 'none'}
     >
       <header className="player-badge" data-testid="player-badge">
         <span className="badge-avatar">
-          <CharacterPortrait slot={player.slot} className="badge-portrait" decorative />
+          <CharacterPortrait
+            character={ownCharacter(player.slot, context)}
+            className="badge-portrait"
+            decorative
+          />
           <span className="player-symbol" aria-hidden="true">
             {style.symbol}
           </span>
@@ -66,19 +81,38 @@ export function SlotController({
         <span className="player-label ui-text">{player.label}</span>
       </header>
 
-      {layout === 'lobby' && context && (
+      {lobby && context && (
+        <CharacterLobby
+          slot={player.slot}
+          view={lobby}
+          contextKey={contextKey(context)}
+          send={send}
+        />
+      )}
+      {screen === 'lobby-basic' && context && (
         <LobbyPanel key={contextKey(context)} context={context} send={send} slot={player.slot} />
       )}
-      {layout === 'wait' && <WaitPanel />}
-      {layout === 'joystick-buttons' && context && (
+      {screen === 'wait' && <WaitPanel />}
+      {screen === 'play' && context && (
         <PlayPanel context={context} send={send} slot={player.slot} />
       )}
-      {minigameCard && (
+      {screen === 'minigame' && minigame && (
         <div className="panel minigame-panel" data-testid="minigame-panel">
           <MinigameCard minigame={minigame} />
         </div>
       )}
-      {layout === 'board' && context && !minigameCard && (
+      {screen === 'pause' && (
+        <div className="panel pause-panel-wrap">
+          {context?.board && <StatusBar board={context.board} />}
+          <PauseCard />
+        </div>
+      )}
+      {screen === 'final' && context?.board && (
+        <div className="panel final-panel">
+          <FinalCard board={context.board} />
+        </div>
+      )}
+      {screen === 'board' && context && (
         <BoardPanel
           slot={player.slot}
           players={players ?? [player]}
@@ -112,13 +146,14 @@ interface PanelProps {
 function LobbyPanel({ context, slot, send }: PanelProps) {
   const [sent, setSent] = useState(false);
   const canReady = context.actions.includes('ready') && !sent;
+  const character = ownCharacter(slot, context);
 
   return (
     <div className="panel lobby-panel">
       <figure className="lobby-figure" data-testid="lobby-figure">
-        <CharacterPortrait slot={slot} className="lobby-portrait" decorative />
+        <CharacterPortrait character={character} className="lobby-portrait" decorative />
         <figcaption className="lobby-figure-name ui-text">
-          {CHARACTER_NAMES[defaultCharacterFor(slot)].name}
+          {CHARACTER_NAMES[character].name}
         </figcaption>
       </figure>
       {canReady ? (

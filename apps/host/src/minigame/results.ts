@@ -18,7 +18,10 @@ export interface ResultRow {
   readonly character: string;
   readonly color: string;
   readonly symbol: string;
-  /** Gewonnene Münzen laut Server-Ereignis oder `null`, wenn unbekannt (z. B. nach Neuladen). */
+  /**
+   * Gewonnene Münzen: aus `view.minigame.rewards` (v4, CHAOS-55 – vollständig auch nach dem
+   * Neuladen), sonst aus den Server-Ereignissen; `null`, wenn unbekannt.
+   */
   readonly coins: number | null;
   /** Teilt sich den Platz mit mindestens einem anderen Spieler. */
   readonly tied: boolean;
@@ -53,6 +56,11 @@ export function resultsDisplay(
   const minigame = view.minigame;
   const placements = minigame?.placements ?? [];
   const aborted = minigame?.aborted === true || placements.length === 0;
+  const viewRewards = minigame?.rewards ?? null;
+  const coinsOf = (slot: SlotNumber): number | null =>
+    viewRewards !== null
+      ? (viewRewards.find((entry) => entry.slot === slot)?.coins ?? 0)
+      : (rewards?.[slot] ?? null);
   const rows: ResultRow[] = [...placements]
     .sort((a, b) => a.place - b.place || a.slot - b.slot)
     .map((entry) => ({
@@ -61,10 +69,10 @@ export function resultsDisplay(
       score: entry.score,
       scoreText: scoreText(entry.score, info.scoreUnit),
       name: playerName(view, entry.slot),
-      character: characterName(entry.slot),
+      character: characterName(view, entry.slot),
       color: PLAYER_SLOTS[entry.slot].color,
       symbol: PLAYER_SLOTS[entry.slot].symbol,
-      coins: rewards?.[entry.slot] ?? null,
+      coins: coinsOf(entry.slot),
       tied: placements.some((other) => other.slot !== entry.slot && other.place === entry.place),
     }));
   const winners = rows.filter((row) => row.place === 1).map((row) => row.name);

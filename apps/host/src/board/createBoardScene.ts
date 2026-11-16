@@ -8,8 +8,9 @@
  * nach der Lichtstimmung (`../lighting/moods.ts`, zunächst fest je Brett, `?stimmung=`).
  * Grafikstufe nach `?qualitaet=` bzw. automatisch nach Bildrate; im Testmodus Stufe `test`.
  *
- * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (Slot n → Figur n,
- * `defaultCharacterFor`) auf einem Spielstein-Sockel in Slot-Farbe, darüber das Slot-Symbol.
+ * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (gewählte Figur aus
+ * `BoardPlayer.character`, CHAOS-36) auf einem Spielstein-Sockel in Slot-Farbe, darüber das
+ * Slot-Symbol.
  * Laufen spielt `run`, Trophäenkauf `cheer`, Münzverlust/Falle/Klau `hit`, Münzgewinn `jump`;
  * im Stand drehen sich die Figuren zur Kamera, beim Hüpfen in Laufrichtung.
  *
@@ -33,14 +34,14 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import type { BoardSpace } from '@chaos-party/game-core';
-import { defaultCharacterFor } from '@chaos-party/minigame-sdk';
 import type { CharacterAnimation } from '@chaos-party/minigame-sdk/babylon';
-import { PLAYER_SLOTS, type SlotNumber } from '@chaos-party/protocol';
+import { PLAYER_SLOTS, type CharacterId, type SlotNumber } from '@chaos-party/protocol';
 import {
   loadCharacters,
   type CharacterLibrary,
   type HostCharacterHandle,
 } from '../characters/index.ts';
+import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import { applyNatureLook, type NatureLook } from '../nature/lighting.ts';
 import { NatureMaterials } from '../nature/materials.ts';
 import { createAdaptiveQuality, QUALITY } from '../nature/quality.ts';
@@ -251,15 +252,49 @@ export function createBoardScene(
     if (testMode) {
       scene.render();
     } else {
-      engine.runRenderLoop(() => {
-        const dt = engine.getDeltaTime();
-        const next = adaptive.frame(dt);
-        if (next) lighting?.setQuality(next);
-        update(Math.min(look.software ? MAX_STEP_SOFTWARE_MS : MAX_STEP_MS, dt));
-        scene.render();
-      });
+      startLoop();
     }
   })();
+
+  // ---------------------------------------------------------------------------
+  // Render-Schleife und Pause hinter dem Finale (CHAOS-39)
+  // ---------------------------------------------------------------------------
+
+  /** Brett verdeckt (Finale): kein Rendern, nur die Regie läuft weiter. */
+  let renderPaused = false;
+  /** rAF-Kennung der Regie-Schleife während der Pause. */
+  let directorFrame: number | null = null;
+  /** Größter Zeitschritt der Regie (Software-Rendering: größer, CHAOS-62). */
+  const maxStepMs = look.software ? MAX_STEP_SOFTWARE_MS : MAX_STEP_MS;
+
+  function startLoop(): void {
+    if (renderPaused) {
+      // Nur die Regie weiterlaufen lassen (Stand, HUD), ohne WebGL-Arbeit. Die automatische
+      // Grafikstufe misst hier nichts: ohne Rendern sagt die Bildrate nichts über die GPU.
+      let last = performance.now();
+      const tick = (now: number): void => {
+        update(Math.min(maxStepMs, Math.max(0, now - last)));
+        last = now;
+        directorFrame = requestAnimationFrame(tick);
+      };
+      directorFrame = requestAnimationFrame(tick);
+      return;
+    }
+    engine.runRenderLoop(() => {
+      const dt = engine.getDeltaTime();
+      // Lange Lücken (z. B. das erste Bild nach der Pause) verwirft die Automatik selbst.
+      const next = adaptive.frame(dt);
+      if (next) lighting?.setQuality(next);
+      update(Math.min(maxStepMs, dt));
+      scene.render();
+    });
+  }
+
+  function stopLoop(): void {
+    engine.stopRenderLoop();
+    if (directorFrame !== null) cancelAnimationFrame(directorFrame);
+    directorFrame = null;
+  }
 
   // ---------------------------------------------------------------------------
   // Grundlagen
@@ -457,7 +492,7 @@ export function createBoardScene(
     }
   }
 
-  function createPawn(slot: SlotNumber, library: CharacterLibrary): Pawn {
+  function createPawn(slot: SlotNumber, characterId: CharacterId, library: CharacterLibrary): Pawn {
     const style = PLAYER_SLOTS[slot];
     const root = new TransformNode(`figur-${slot}`, scene);
     const white = material('#ffffff', 0.35);
@@ -501,7 +536,7 @@ export function createBoardScene(
       name: style.label,
       color: style.color,
       symbol: style.symbol,
-      character: defaultCharacterFor(slot),
+      character: characterId,
     });
     character.root.parent = facing;
 
@@ -594,8 +629,14 @@ export function createBoardScene(
     const offsets = spreadPawns(standing);
     for (const fp of framePawns) {
       let pawn = pawns.get(fp.slot);
+      if (pawn && pawn.character.id !== fp.character) {
+        // Andere Figur im Slot (neue Partie nach der Revanche): Spielstein neu bauen.
+        disposePawn(pawn);
+        pawns.delete(fp.slot);
+        pawn = undefined;
+      }
       if (!pawn) {
-        pawn = createPawn(fp.slot, library);
+        pawn = createPawn(fp.slot, fp.character, library);
         pawns.set(fp.slot, pawn);
       }
       applyConnected(pawn, fp.connected);
@@ -838,13 +879,16 @@ export function createBoardScene(
         .map((p) => ({ slot: p.slot, x: p.position.x, y: p.position.y, z: p.position.z }))
         .sort((a, b) => a.slot - b.slot);
     },
+    getPawnCharacters() {
+      const result: Partial<Record<SlotNumber, CharacterId>> = {};
+      for (const pawn of pawns.values()) result[pawn.slot] = pawn.character.id;
+      return result;
+    },
     onFrameRendered(listener) {
-      const observer = scene.onAfterRenderObservable.add(() => {
-        listener();
-      });
-      return () => {
-        scene.onAfterRenderObservable.remove(observer);
-      };
+      return observeFrames(scene, listener);
+    },
+    getResourceStats() {
+      return resourceStats(scene);
     },
     getRendererInfo(): RendererInfo {
       const gl = engine.getGlInfo();
@@ -857,11 +901,19 @@ export function createBoardScene(
         ...(lighting ? { quality: `${lighting.quality}${look.automatic ? ' (auto)' : ''}` } : {}),
       };
     },
+    setRenderPaused(paused) {
+      if (paused === renderPaused) return;
+      renderPaused = paused;
+      // Im Testmodus treibt nur `stepFrames` die Szene; vor dem Aufbau startet `ready` die Schleife.
+      if (testMode || !built || disposed) return;
+      stopLoop();
+      startLoop();
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
       window.removeEventListener('resize', onResize);
-      engine.stopRenderLoop();
+      stopLoop();
       for (const pawn of pawns.values()) pawn.character.dispose();
       pawns.clear();
       characters?.dispose();

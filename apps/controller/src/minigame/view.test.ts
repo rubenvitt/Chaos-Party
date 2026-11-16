@@ -9,6 +9,7 @@ import {
   formatScore,
   minigameIn,
   offeredActions,
+  rewardText,
 } from './view.ts';
 import type { SlotContext } from '../state/reducer.ts';
 
@@ -23,6 +24,8 @@ function info(extra: Partial<ControllerMinigameInfo> = {}): ControllerMinigameIn
     controls: { joystick: 'Laufen', a: 'Springen', b: null },
     stage: 'play',
     scoreUnit: 'Sekunden',
+    tied: false,
+    aborted: false,
     ...extra,
   };
 }
@@ -116,18 +119,36 @@ describe('describeResult', () => {
     expect(describeResult(info({ stage: 'results', place: 1, score: 42 }))).toEqual({
       kind: 'placed',
       place: 1,
+      tied: false,
       headline: 'Platz 1!',
       cheer: 'Gewonnen!',
       score: '42 Sekunden',
+      reward: null,
     });
     const fourth = describeResult(info({ stage: 'results', place: 4, score: 0 }));
     expect(fourth).toMatchObject({ headline: 'Platz 4!', score: '0 Sekunden' });
   });
 
-  it('Gleichstand: gleicher Platz ergibt dieselbe Anzeige', () => {
-    const a = describeResult(info({ stage: 'results', place: 1, score: 30 }));
-    const b = describeResult(info({ stage: 'results', place: 1, score: 30 }));
-    expect(a).toEqual(b);
+  it('Gleichstand (CHAOS-55): ausdrücklich „Geteilter Platz“, auf Platz 1 gemeinsam gewonnen', () => {
+    expect(describeResult(info({ stage: 'results', place: 1, tied: true }))).toMatchObject({
+      kind: 'placed',
+      tied: true,
+      headline: 'Geteilter Platz 1!',
+      cheer: 'Gemeinsam gewonnen!',
+    });
+    expect(describeResult(info({ stage: 'results', place: 3, tied: true }))).toMatchObject({
+      headline: 'Geteilter Platz 3!',
+      cheer: 'Gut gemacht!',
+    });
+  });
+
+  it('Münzen aus `reward`: „+5 Münzen“, Einzahl, „Keine Münzen“', () => {
+    expect(describeResult(info({ stage: 'results', place: 1, reward: 5 }))).toMatchObject({
+      reward: '+5 Münzen',
+    });
+    expect(rewardText(1)).toBe('+1 Münze');
+    expect(rewardText(0)).toBe('Keine Münzen');
+    expect(rewardText(undefined)).toBeNull();
   });
 
   it('Platz ohne Punkte: keine Punktzeile', () => {
@@ -142,6 +163,12 @@ describe('describeResult', () => {
       kind: 'aborted',
       headline: ABORTED_HEADLINE,
     });
+  });
+
+  it('Abbruch (`aborted`, CHAOS-55) schlägt einen mitgeschickten Platz', () => {
+    expect(
+      describeResult(info({ stage: 'results', place: 1, aborted: true, reward: 3 })),
+    ).toMatchObject({ kind: 'aborted', headline: 'Minispiel abgebrochen' });
   });
 });
 

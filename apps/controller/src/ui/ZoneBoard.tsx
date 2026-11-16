@@ -9,19 +9,31 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from 'react';
-import { PLAYER_SLOTS, type Button, type PlayerInfo, type SlotNumber } from '@chaos-party/protocol';
+import {
+  isCharacterId,
+  PLAYER_SLOTS,
+  type Button,
+  type CharacterId,
+  type PlayerInfo,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
 import { describeWaiting } from '../board/status.ts';
 import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
+import { describeLobby, HINT_READY, type SiblingCharacter } from '../lobby/view.ts';
 import { describePlay } from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
-import type { FeedbackPulse, PendingChoice, SlotContext } from '../state/reducer.ts';
+import { ownCharacter } from '../state/character.ts';
+import type { FeedbackPulse, Notice, PendingChoice, SlotContext } from '../state/reducer.ts';
+import { describeSlotScreen } from '../state/screen.ts';
 import {
   BADGE_STRIP,
   boardZoneFrames,
   buildZones,
+  lobbyZoneFrames,
   MAX_ZONES,
   parseChoiceControl,
+  parsePickControl,
   rectCenter,
   ZONE_PADDING,
   type ControlGeometry,
@@ -34,7 +46,11 @@ import { createZoneTracker, type ZoneEffect, type ZoneTracker } from '../zones/z
 import { ChoiceFace, CountdownBar, ReactionBuzz, StatusBar, WaitingCard } from './board.tsx';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { readableTextColor, slotColorVars } from './color.ts';
+import { FinalCard, PauseCard } from './final.tsx';
+import { CharacterFace, LobbyHead, ReadyBadge } from './lobby.tsx';
+import { cardData, ownerStyle } from './lobbyCard.ts';
 import { MinigameCard, MinigameHeader } from './minigame.tsx';
+import { Toast } from './screens.tsx';
 import { useInterruption } from './useInterruption.ts';
 
 export interface ZoneBoardProps {
@@ -43,10 +59,17 @@ export interface ZoneBoardProps {
   feedback: Readonly<Partial<Record<SlotNumber, FeedbackPulse>>>;
   /** Gesendete, noch unbeantwortete Wahlen je Slot (Brettphase, CHAOS-22). */
   choices?: Readonly<Partial<Record<SlotNumber, PendingChoice>>>;
+  /** Gesendete, noch unbestätigte Figurenwahl je Slot (Lobby, CHAOS-36). */
+  picks?: Readonly<Partial<Record<SlotNumber, CharacterId>>>;
+  /** Hinweis für genau eine Zone (`notice.slot`), gedreht in dieser Zone (CHAOS-40). */
+  notice?: Notice | null;
+  onDismissNotice?: (id: number) => void;
   send: (intent: SlotIntent) => void;
 }
 
 const NO_CHOICES: Readonly<Partial<Record<SlotNumber, PendingChoice>>> = {};
+const NO_PICKS: Readonly<Partial<Record<SlotNumber, CharacterId>>> = {};
+const NO_DISMISS = () => undefined;
 
 /* ---------------------------------------------------------------------------
  * Größe der Spielfläche (= Layout-Viewport; die Fläche ist `position: fixed`).
@@ -69,6 +92,23 @@ function viewportSnapshot(): string {
 function parseSize(key: string): Size {
   const [width = 0, height = 0] = key.split('x').map(Number);
   return { width, height };
+}
+
+/** „Bereit gesendet“ gilt nur für genau den Kontext, in dem gesendet wurde. */
+function sentKey(sentIn: SlotContext | undefined, current: SlotContext | undefined) {
+  return sentIn !== undefined && sentIn === current ? contextKey(current) : undefined;
+}
+
+/** Gegenstück zu `siblingKey` in {@link ZoneBoard}: „1=robot,2=“ → Figuren je Platz. */
+function parseSiblings(key: string): SiblingCharacter[] {
+  if (key === '') return [];
+  return key.split(',').map((entry) => {
+    const [slot = '0', character = ''] = entry.split('=');
+    return {
+      slot: Number(slot) as SlotNumber,
+      character: isCharacterId(character) ? character : null,
+    };
+  });
 }
 
 /* ---------------------------------------------------------------------------
@@ -110,6 +150,10 @@ function syncView(board: HTMLElement | null, tracker: ZoneTracker) {
       const held = view.choicesHeld.some((kind) => kind === choiceEl.dataset.control);
       choiceEl.dataset.pressed = held ? 'true' : 'false';
     }
+    for (const pickEl of zoneEl.querySelectorAll<HTMLElement>('[data-role="pick"]')) {
+      const held = view.picksHeld.some((kind) => kind === pickEl.dataset.control);
+      pickEl.dataset.pressed = held ? 'true' : 'false';
+    }
   }
 }
 
@@ -127,24 +171,47 @@ export function ZoneBoard({
   contexts,
   feedback,
   choices = NO_CHOICES,
+  picks = NO_PICKS,
+  notice = null,
+  onDismissNotice = NO_DISMISS,
   send,
 }: ZoneBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const sizeKey = useSyncExternalStore(subscribeViewport, viewportSnapshot);
   const viewport = useMemo(() => parseSize(sizeKey), [sizeKey]);
   const [tracker] = useState(createZoneTracker);
-  /** Kontext, in dem die Zone `ready` gesendet hat (blendet den Knopf aus). */
-  const [readySent, setReadySent] = useState<Partial<Record<SlotNumber, string>>>({});
+  /**
+   * Kontext, in dem die Zone `ready` gesendet hat (blendet den Knopf aus). Gilt nur, solange
+   * genau dieser Kontext angezeigt wird: Nach Umwählen (setzt bereit zurück, CHAOS-36) oder
+   * einer Revanche kommt ein neuer Kontext und der Knopf erscheint wieder.
+   */
+  const [readySent, setReadySent] = useState<Partial<Record<SlotNumber, SlotContext>>>({});
 
   const seated = useMemo(() => players.slice(0, MAX_ZONES), [players]);
+  /** Figuren aller Plätze dieses Geräts: Vergebene zeigen die Farbe des Nachbarn (CHAOS-38). */
+  const siblingKey = seated
+    .map(({ slot }) => `${String(slot)}=${contexts[slot]?.lobby?.character ?? ''}`)
+    .join(',');
+  // Nur bei geänderten Figuren neu (stabile Referenz für die memoisierten Zonen).
+  const siblings = useMemo(() => parseSiblings(siblingKey), [siblingKey]);
   const zones = useMemo(
     () =>
       buildZones(
         seated.map((p) => p.slot),
         viewport,
-        (slot) => zoneControlsInput(contexts[slot], readySent[slot], slot, choices[slot]),
+        (slot) =>
+          zoneControlsInput(
+            contexts[slot],
+            sentKey(readySent[slot], contexts[slot]),
+            slot,
+            choices[slot],
+            {
+              pick: picks[slot],
+              siblings: siblings.filter((s) => s.slot !== slot),
+            },
+          ),
       ),
-    [seated, viewport, contexts, readySent, choices],
+    [seated, viewport, contexts, readySent, choices, picks, siblings],
   );
 
   const movers = useMemo(() => {
@@ -187,8 +254,13 @@ export function ZoneBoard({
             const context = ctxs[effect.slot];
             if (!context?.actions.includes('ready')) break;
             sendIntent({ type: 'ready', slot: effect.slot });
-            const key = contextKey(context);
-            setReadySent((prev) => ({ ...prev, [effect.slot]: key }));
+            setReadySent((prev) => ({ ...prev, [effect.slot]: context }));
+            break;
+          }
+          case 'pick': {
+            // Nur in der Lobby mit Charakterwahl; vergebene Karten sind ohnehin `inert`.
+            if (!ctxs[effect.slot]?.actions.includes('pick-character')) break;
+            sendIntent({ type: 'pick-character', slot: effect.slot, character: effect.character });
             break;
           }
           case 'choose': {
@@ -259,6 +331,10 @@ export function ZoneBoard({
             context={contexts[zone.slot]}
             feedback={feedback[zone.slot]}
             pending={choices[zone.slot]}
+            pick={picks[zone.slot]}
+            siblings={siblings}
+            notice={notice?.slot === zone.slot ? notice : null}
+            onDismissNotice={onDismissNotice}
           />
         );
       })}
@@ -273,14 +349,32 @@ interface ZoneProps {
   context: SlotContext | undefined;
   feedback: FeedbackPulse | undefined;
   pending: PendingChoice | undefined;
+  pick: CharacterId | undefined;
+  /** Figuren aller Plätze dieses Geräts (auch der eigene; wird hier herausgefiltert). */
+  siblings: readonly SiblingCharacter[];
+  /** Hinweis nur für diese Zone (gedreht mit der Zone). */
+  notice: Notice | null;
+  onDismissNotice: (id: number) => void;
 }
 
 function rectStyle(rect: { x: number; y: number; width: number; height: number }): CSSProperties {
   return { left: rect.x, top: rect.y, width: rect.width, height: rect.height };
 }
 
-const Zone = memo(function Zone({ zone, player, players, context, feedback, pending }: ZoneProps) {
+const Zone = memo(function Zone({
+  zone,
+  player,
+  players,
+  context,
+  feedback,
+  pending,
+  pick,
+  siblings,
+  notice,
+  onDismissNotice,
+}: ZoneProps) {
   const layout = context?.layout ?? 'wait';
+  const screen = describeSlotScreen(context);
   const style = {
     ...rectStyle(zone.rect),
     '--player': player.color,
@@ -301,10 +395,22 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
     const label = play?.buttons.find((entry) => entry.button === button)?.label ?? null;
     return geometry ? [{ button, geometry, label }] : [];
   });
+  const lobby =
+    screen === 'lobby'
+      ? describeLobby(
+          context,
+          pick,
+          siblings.filter((s) => s.slot !== player.slot),
+        )
+      : null;
   const badge = (
     <header className="player-badge zone-badge" data-testid="player-badge">
       <span className="badge-avatar">
-        <CharacterPortrait slot={player.slot} className="badge-portrait" decorative />
+        <CharacterPortrait
+          character={ownCharacter(player.slot, context)}
+          className="badge-portrait"
+          decorative
+        />
         <span className="player-symbol" aria-hidden="true">
           {PLAYER_SLOTS[player.slot].symbol}
         </span>
@@ -315,11 +421,12 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
 
   return (
     <section
-      className={`zone layout-${layout}${minigame ? ` minigame-${minigame.stage}` : ''}`}
+      className={`zone layout-${layout} screen-${screen}${minigame ? ` minigame-${minigame.stage}` : ''}`}
       style={style}
       data-testid={`zone-${String(zone.slot)}`}
       data-zone-slot={zone.slot}
       data-layout={layout}
+      data-screen={screen}
       data-phase={context?.phase ?? 'none'}
       data-minigame-stage={minigame?.stage ?? 'none'}
       data-rotation={zone.rotation}
@@ -335,7 +442,9 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
           badge
         )}
 
-        {layout === 'lobby' &&
+        {lobby && <ZoneLobby zone={zone} view={lobby} />}
+
+        {screen === 'lobby-basic' &&
           (ready ? (
             <div
               className="ready-button zone-ready"
@@ -354,7 +463,7 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
             </div>
           ))}
 
-        {layout === 'wait' && (
+        {screen === 'wait' && (
           <div className="zone-message" data-testid="wait-panel">
             <span className="wait-dots" aria-hidden="true">
               <i />
@@ -409,7 +518,26 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
             </div>
           ))}
 
-        {layout === 'board' && context && (
+        {screen === 'pause' && (
+          <div className="zone-board-phase" data-testid="board-panel" data-game-phase="paused">
+            {context?.board && (
+              <div className="zone-status" style={rectStyle(boardZoneFrames(zone.local).status)}>
+                <StatusBar board={context.board} compact />
+              </div>
+            )}
+            <div className="zone-waiting" style={rectStyle(boardZoneFrames(zone.local).body)}>
+              <PauseCard compact />
+            </div>
+          </div>
+        )}
+
+        {screen === 'final' && context?.board && (
+          <div className="zone-final" style={rectStyle(belowBadge(zone))}>
+            <FinalCard board={context.board} compact />
+          </div>
+        )}
+
+        {(screen === 'board' || screen === 'minigame') && context && (
           <ZoneBoardContent zone={zone} players={players} context={context} pending={pending} />
         )}
 
@@ -420,10 +548,95 @@ const Zone = memo(function Zone({ zone, player, players, context, feedback, pend
             data-testid="feedback"
           />
         )}
+
+        {notice && <Toast key={notice.id} notice={notice} onDismiss={onDismissNotice} zone />}
       </div>
     </section>
   );
 });
+
+/** Fläche unter der Plakette (Minispiel-Karten, Endstand). */
+function belowBadge(zone: ZoneGeometry) {
+  return {
+    x: ZONE_PADDING,
+    y: BADGE_STRIP,
+    width: Math.max(0, zone.local.width - 2 * ZONE_PADDING),
+    height: Math.max(0, zone.local.height - BADGE_STRIP - ZONE_PADDING),
+  };
+}
+
+/**
+ * Lobby mit Charakterwahl in einer Zone (CHAOS-36/38): Kopf mit Rundenzahl, Figurenkarten
+ * und „Bereit!“ an genau den Rechtecken, die der Zonen-Tracker prüft (`zone.controls`).
+ * Gewählt wird beim Abheben auf einer freien Karte.
+ */
+function ZoneLobby({
+  zone,
+  view,
+}: {
+  zone: ZoneGeometry;
+  view: NonNullable<ReturnType<typeof describeLobby>>;
+}) {
+  const frames = lobbyZoneFrames(zone.local);
+  const ready = zone.controls.find((c) => c.kind === 'ready');
+  const cards = zone.controls.flatMap((control) => {
+    const id = parsePickControl(control.kind);
+    const card = view.cards.find((c) => c.id === id);
+    return card ? [{ control, card }] : [];
+  });
+  return (
+    <div
+      className="zone-lobby"
+      data-testid="lobby-panel"
+      data-ready={view.ready ? 'true' : 'false'}
+      data-character={view.character ?? ''}
+    >
+      <div className="zone-lobby-head" style={rectStyle(frames.head)}>
+        <LobbyHead view={view} />
+      </div>
+      {cards.map(({ control, card }) => (
+        <div
+          key={control.kind}
+          className="character-card zone-character"
+          {...cardData(card)}
+          data-role="pick"
+          data-control={control.kind}
+          data-pressed="false"
+          style={{ ...rectStyle(control.rect), ...ownerStyle(card) }}
+        >
+          <CharacterFace card={card} />
+        </div>
+      ))}
+      {ready ? (
+        <div
+          className="ready-button zone-ready lobby-ready"
+          data-testid="ready-button"
+          data-role="ready"
+          style={rectStyle(ready.rect)}
+        >
+          <span className="ui-text">Bereit!</span>
+        </div>
+      ) : (
+        <div className="zone-lobby-foot" style={rectStyle(frames.foot)}>
+          {view.ready ? (
+            <>
+              <ReadyBadge compact />
+              <p className="zone-lobby-hint ui-text" data-testid="lobby-hint">
+                {HINT_READY}
+              </p>
+            </>
+          ) : (
+            view.canReady && (
+              <p className="lobby-sending ui-text" data-testid="ready-sending" role="status">
+                Gesendet …
+              </p>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ZoneBoardContentProps {
   zone: ZoneGeometry;
@@ -439,12 +652,7 @@ interface ZoneBoardContentProps {
 function ZoneBoardContent({ zone, players, context, pending }: ZoneBoardContentProps) {
   if (context.minigame) {
     // Minispiel-Intro/-Ergebnis (CHAOS-33): ganze Fläche unter der Plakette, ohne Stand.
-    const body = {
-      x: ZONE_PADDING,
-      y: BADGE_STRIP,
-      width: Math.max(0, zone.local.width - 2 * ZONE_PADDING),
-      height: Math.max(0, zone.local.height - BADGE_STRIP - ZONE_PADDING),
-    };
+    const body = belowBadge(zone);
     return (
       <div
         className="zone-board-phase"

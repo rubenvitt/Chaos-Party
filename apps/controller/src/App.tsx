@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import type { LatencyMeter } from './debug/latencyMeter.ts';
+import { controllerScene } from './debug/sceneLabel.ts';
 import type { SlotIntent } from './net/client.ts';
 import type { ControllerSession } from './net/session.ts';
 import { selectCodeEntryError, selectScreen } from './state/reducer.ts';
@@ -43,6 +44,9 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
   );
 
   const player = state.players[0];
+  const shared = state.players.length > 1;
+  // Geteiltes iPad: Hinweis mit Zone erscheint gedreht in dieser Zone (CHAOS-40), sonst mittig.
+  const zoneNotice = shared && state.notice?.slot !== undefined ? state.notice : null;
 
   return (
     <div className="app" data-screen={screen}>
@@ -59,12 +63,15 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
         <ErrorScreen code={state.fatal} onRetry={session.retry} />
       )}
       {screen === 'controller' &&
-        (state.players.length > 1 ? (
+        (shared ? (
           <ZoneBoard
             players={state.players}
             contexts={state.contexts}
             feedback={state.feedback}
             choices={state.choices}
+            picks={state.picks}
+            notice={zoneNotice}
+            onDismissNotice={dismiss}
             send={send}
           />
         ) : player ? (
@@ -73,6 +80,7 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
             context={state.contexts[player.slot]}
             feedback={state.feedback[player.slot]}
             pending={state.choices[player.slot]}
+            pick={state.picks[player.slot]}
             players={state.players}
             send={send}
           />
@@ -80,8 +88,15 @@ export function App({ session, onCodeSubmit, seats, onSeatsChange, debug }: AppP
           <ConnectingScreen />
         ))}
       <ConnectionStatus session={session} />
-      {debug && <DebugOverlay meter={debug.meter} seats={seats} heartbeatMs={debug.heartbeatMs} />}
-      {state.notice !== null && screen === 'controller' && (
+      {debug && (
+        <DebugOverlay
+          meter={debug.meter}
+          seats={seats}
+          heartbeatMs={debug.heartbeatMs}
+          scene={controllerScene(player ? state.contexts[player.slot] : undefined)}
+        />
+      )}
+      {state.notice !== null && zoneNotice === null && screen === 'controller' && (
         <Toast key={state.notice.id} notice={state.notice} onDismiss={dismiss} />
       )}
     </div>

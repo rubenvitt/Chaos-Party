@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { formatMs, shortUserAgent } from './format.ts';
+import { formatBytes, formatMs, shortUserAgent } from './format.ts';
+
+describe('formatBytes', () => {
+  it('zeigt „–“ ohne Messwert, darunter kB, ab 1 MiB MB', () => {
+    expect(formatBytes(null)).toBe('–');
+    expect(formatBytes(Number.NaN)).toBe('–');
+    expect(formatBytes(0)).toBe('0 kB');
+    expect(formatBytes(512 * 1024)).toBe('512 kB');
+    expect(formatBytes(85.25 * 1024 * 1024)).toBe('85.3 MB');
+  });
+});
 
 describe('formatMs', () => {
   it('zeigt „–“ ohne Messwert', () => {

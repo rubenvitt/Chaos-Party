@@ -261,7 +261,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     const jumps = await page.evaluate(() => window.__chaos?.board?.jumps ?? 0);
     const view = await demoView(page, 3);
     await feed(page, {
-      v: 3,
+      v: 4,
       type: 'board',
       view,
       events: [{ type: 'moved', slot: 3, path: ['s38', 's39', 's40'] }],
@@ -284,7 +284,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     const players = base.players as { slot: number; coins: number }[];
 
     await feed(page, {
-      v: 3,
+      v: 4,
       type: 'board',
       view: {
         ...base,
@@ -302,7 +302,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(minigame).toContainText('noch 3 s');
 
     await feed(page, {
-      v: 3,
+      v: 4,
       type: 'board',
       view: { ...base, gamePhase: 'minigame-results', activeSlot: null, prompt: null },
       events: [
@@ -327,7 +327,7 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     await expect(minigame).toContainText('+10 Münzen');
 
     await feed(page, {
-      v: 3,
+      v: 4,
       type: 'board',
       view: {
         ...base,
@@ -335,13 +335,20 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
         activeSlot: null,
         prompt: null,
         ranking: [
-          { slot: 3, place: 1, trophies: 2, coins: 4 },
-          { slot: 1, place: 2, trophies: 1, coins: players[0]?.coins ?? 0 },
-          { slot: 2, place: 3, trophies: 0, coins: 9 },
-          { slot: 4, place: 3, trophies: 0, coins: 9 },
+          { slot: 3, place: 1, trophies: 2, coins: 4, minigameWins: 0, decidedBy: 'trophies' },
+          {
+            slot: 1,
+            place: 2,
+            trophies: 1,
+            coins: players[0]?.coins ?? 0,
+            minigameWins: 0,
+            decidedBy: 'trophies',
+          },
+          { slot: 2, place: 3, trophies: 0, coins: 9, minigameWins: 0, decidedBy: 'shared' },
+          { slot: 4, place: 3, trophies: 0, coins: 9, minigameWins: 0, decidedBy: 'shared' },
         ],
       },
-      events: [{ type: 'game-ended', ranking: [] }],
+      events: [{ type: 'game-ended', ranking: [], endedEarly: false }],
       eventSeq: 3,
     });
     await playUntilIdle(page);

@@ -23,12 +23,40 @@ import {
   type GameMode,
   type InputIntent,
   type LobbyMessage,
+  type MinigameResultAckMessage,
   type MinigameResultMessage,
   type StartMessage,
 } from '@chaos-party/protocol';
 
 /** Inhalt einer `minigame-result`-Nachricht (ohne Umschlag). */
 export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
+
+/**
+ * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl in der Lobby (`configure`),
+ * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
+ */
+export type HostCommand =
+  | { readonly type: 'configure'; readonly rounds: number }
+  | { readonly type: 'pause' }
+  | { readonly type: 'resume' }
+  | { readonly type: 'end-game' }
+  | { readonly type: 'rematch' };
+
+/** Baut die Protokoll-Nachricht zu einem Steuerbefehl. */
+export function createHostCommandMessage(command: HostCommand) {
+  switch (command.type) {
+    case 'configure':
+      return createMessage('configure', { rounds: command.rounds });
+    case 'pause':
+      return createMessage('pause', {});
+    case 'resume':
+      return createMessage('resume', {});
+    case 'end-game':
+      return createMessage('end-game', {});
+    case 'rematch':
+      return createMessage('rematch', {});
+  }
+}
 
 /**
  * - `connecting`: erster Verbindungsversuch läuft
@@ -43,9 +71,12 @@ export const CLOSE_HOST_TAKEN = 4002;
 export const DEFAULT_RETRY_MS = 2000;
 /** Herzschlag des Hosts (CHAOS-12). */
 export const HOST_HEARTBEAT_MS = 5000;
-/** Ohne Server-Nachricht so lange → Verbindung gilt als tot. */
+/** Ohne Server-Nachricht so lange → Probe-Herzschlag; bleibt auch der unbeantwortet, gilt die Verbindung als tot. */
 export const HOST_DEAD_AFTER_MS = 15_000;
-/** Nach dem Aufwachen muss die Antwort auf den Probe-Herzschlag so schnell kommen. */
+/**
+ * Nach dem Aufwachen und nach 15 s Stille muss die Antwort auf den Probe-Herzschlag so schnell
+ * kommen.
+ */
 export const HOST_PROBE_TIMEOUT_MS = 2000;
 
 /** Abonniert „Seite wieder sichtbar/Netz zurück“; liefert die Abmeldung. */
@@ -85,6 +116,8 @@ export interface HostConnectionHandlers {
   onBoard?(board: BoardMessage): void;
   onInput?(intent: InputIntent, at: number): void;
   onServerError?(error: ErrorMessage): void;
+  /** Antwort auf ein gesendetes Minispiel-Ergebnis (v4, CHAOS-55). */
+  onResultAck?(ack: MinigameResultAckMessage): void;
 }
 
 export interface HostConnectionOptions {
@@ -126,6 +159,8 @@ export interface HostConnection {
    * besteht. Wiederholung und Einmaligkeit regelt `createResultSender`.
    */
   sendMinigameResult(result: MinigameResultPayload): boolean;
+  /** Sendet einen Steuerbefehl (v4); `false`, wenn gerade keine Verbindung besteht. */
+  sendCommand(command: HostCommand): boolean;
   /** Trennt endgültig (kein neuer Versuch). */
   close(): void;
 }
@@ -184,12 +219,24 @@ export function connectHost(
     }, heartbeatMs);
   };
 
-  /** Ohne Server-Nachricht innerhalb von `ms` gilt die Verbindung als tot. */
-  const armWatchdog = (current: SocketLike, ms: number) => {
+  /**
+   * Ohne Server-Nachricht innerhalb von `ms` wird geprüft: erst ein Probe-Herzschlag, und erst
+   * wenn auch darauf binnen `probeTimeoutMs` nichts kommt, gilt die Verbindung als tot
+   * (`probe`). Grund (CHAOS-41): Stand der Hauptthread der Seite selbst still (Shader-Übersetzung
+   * bei Software-Rendering, gemessen bis 14 s am Stück), liegen die Antworten des Servers schon
+   * ungelesen in der Warteschlange, wenn der Wachhund feuert. Ohne Probe riss der Host eine
+   * lebende Verbindung ab, und ein gerade geklickter Befehl („Nochmal spielen“) ging verloren.
+   */
+  const armWatchdog = (current: SocketLike, ms: number, probe = false) => {
     if (watchdogTimer !== undefined) clearTimer(watchdogTimer);
     watchdogTimer = setTimer(() => {
       watchdogTimer = undefined;
       if (socket !== current) return;
+      if (!probe) {
+        sendHeartbeat(current);
+        armWatchdog(current, probeTimeoutMs, true);
+        return;
+      }
       warn('Server antwortet nicht mehr – verbinde neu');
       // Wie ein Close behandeln; den alten Socket abkoppeln, damit sein spätes `onclose` nichts tut.
       socket = undefined;
@@ -270,6 +317,9 @@ export function connectHost(
         case 'error':
           handlers.onServerError?.(message);
           break;
+        case 'minigame-result-ack':
+          handlers.onResultAck?.(message);
+          break;
         case 'heartbeat-ack':
           break;
       }
@@ -289,7 +339,7 @@ export function connectHost(
     if (closed) return;
     if (socket?.readyState === OPEN) {
       sendHeartbeat(socket);
-      armWatchdog(socket, probeTimeoutMs);
+      armWatchdog(socket, probeTimeoutMs, true);
       return;
     }
     if (socket === undefined && retryTimer !== undefined) {
@@ -315,6 +365,11 @@ export function connectHost(
     sendMinigameResult(result) {
       if (socket?.readyState !== OPEN || status !== 'connected') return false;
       socket.send(encode(createMessage('minigame-result', result)));
+      return true;
+    },
+    sendCommand(command) {
+      if (socket?.readyState !== OPEN || status !== 'connected') return false;
+      socket.send(encode(createHostCommandMessage(command)));
       return true;
     },
     close() {

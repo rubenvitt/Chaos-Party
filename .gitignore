@@ -9,6 +9,7 @@ coverage/
 .env.*
 test-results/
 playwright-report/
+perf-results/
 
 # Git-Worktrees der Subagenten (Claude Code)
 .claude/worktrees/

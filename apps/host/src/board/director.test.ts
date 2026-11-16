@@ -117,6 +117,32 @@ describe('createBoardDirector', () => {
     expect(director.stats).toMatchObject({ nextEventSeq: 8, jumps: 2 });
   });
 
+  it('neue Partie nach dem Endstand (eventSeq wieder 0) springt statt „veraltet“ (CHAOS-39)', () => {
+    const director = started();
+    const ended: BoardView = { ...DEMO_VIEW, gamePhase: 'game-results', round: 5 };
+    director.receive(msg(ended, [{ type: 'turn-ended', slot: 1 }], 40));
+    director.advance(5000);
+    expect(director.getHud().view?.gamePhase).toBe('game-results');
+    const fresh: BoardView = { ...DEMO_VIEW, round: 1 };
+    director.receive(
+      msg(
+        fresh,
+        [
+          { type: 'turn-started', slot: 1, round: 1 },
+          { type: 'turn-ended', slot: 1 },
+        ],
+        0,
+      ),
+    );
+    director.advance(10);
+    expect(director.getHud().view?.gamePhase).toBe(DEMO_VIEW.gamePhase);
+    expect(director.getHud().view?.round).toBe(1);
+    expect(director.stats.nextEventSeq).toBe(2);
+    // Mitten in einer Partie bleibt eine Nachricht mit eventSeq 0 veraltet.
+    director.receive(msg({ ...DEMO_VIEW, round: 4 }, [{ type: 'turn-ended', slot: 1 }], 0));
+    expect(director.getHud().view?.round).toBe(1);
+  });
+
   it('übernimmt Nachrichten ohne Ereignisse sofort', () => {
     const director = started();
     director.receive(msg({ ...DEMO_VIEW, gamePhase: 'turn-start' }, [], 0));
@@ -191,6 +217,56 @@ describe('createBoardDirector', () => {
     expect(director.getHud().promptSeconds).toBe(1);
     director.advance(5000);
     expect(director.getHud().promptSeconds).toBe(0);
+  });
+
+  it('Pause (v4): Countdown steht still, solange der Stand pausiert ist', () => {
+    const director = started();
+    const view: BoardView = {
+      ...DEMO_VIEW,
+      gamePhase: 'reaction-window',
+      paused: true,
+      prompt: {
+        id: 9,
+        slot: 4,
+        kind: 'reaction',
+        title: 'Achtung!',
+        options: [{ id: 'brace', label: 'Festhalten!' }],
+        remainingMs: 2400,
+      },
+    };
+    director.receive(msg(view, [], 0));
+    director.advance(10_000);
+    expect(director.getHud().promptSeconds).toBe(3);
+    // Fortsetzen: neuer Stand, Restzeit läuft ab Empfang.
+    director.receive(msg({ ...view, paused: false }, [], 0));
+    director.advance(1000);
+    expect(director.getHud().promptSeconds).toBe(2);
+  });
+
+  it('Figuren je Slot aus dem Stand (gewählte Figur, v4)', () => {
+    const director = createBoardDirector();
+    director.receive(
+      msg(
+        {
+          ...DEMO_VIEW,
+          players: DEMO_VIEW.players.map((p) =>
+            p.slot === 1
+              ? { ...p, character: 'sock' }
+              : p.slot === 4
+                ? { ...p, character: 'robot' }
+                : p,
+          ),
+        },
+        [],
+        0,
+      ),
+    );
+    expect(director.getFrame().pawns.map((p) => p.character)).toEqual([
+      'sock',
+      'cactus',
+      'raccoon',
+      'robot',
+    ]);
   });
 
   it('meldet HUD-Änderungen, aber nicht bei jedem Frame', () => {

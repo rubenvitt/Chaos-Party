@@ -341,6 +341,14 @@ export function createControllerSession(options: ControllerSessionOptions): Cont
           option: intent.option,
         });
       }
+      if (sent && intent.type === 'pick-character') {
+        dispatch({
+          type: 'pick-sent',
+          slot: intent.slot,
+          character: intent.character,
+          seq: client?.lastSeq ?? null,
+        });
+      }
       return sent;
     },
     dismissNotice(id) {

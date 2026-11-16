@@ -27,3 +27,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-012](ADR-012-minispiele.md) | Minispiele in M3: Logik im PC-Host, Server als Schiedsrichter, fester 1/60-Takt, Protokoll v3 | Angenommen | CHAOS-3 |
 | [ADR-013](ADR-013-figuren-blender.md) | Figuren aus Blender-Skripten (bpy) statt aus dem Babylon-Generator | Angenommen | CHAOS-58 |
 | [ADR-014](ADR-014-natur-look.md) | Natur-Look im Spiel: PBR mit HDRI, Grafikstufen und Sparstufe für Software-Rendering | Angenommen | CHAOS-62 |
+| [ADR-015](ADR-015-vertical-slice.md) | Vertical Slice in M4: Charakterwahl, Rundenzahl, Pause/Ende, Gleichstandsregel, Revanche, Protokoll v4 | Angenommen | CHAOS-4 |

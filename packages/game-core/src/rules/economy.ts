@@ -3,7 +3,7 @@
  * tatsächliche Delta. Deltas von 0 erzeugen kein `coins-changed`.
  */
 import { pickOne } from '../rng.ts';
-import type { CoinReason, PlayerState, RankingEntry, Slot } from '../types.ts';
+import type { CoinReason, PlayerState, RankingCriterion, RankingEntry, Slot } from '../types.ts';
 import { playerOf, type Ctx } from './internal.ts';
 
 /** Münzen ändern (nie unter 0). Liefert das tatsächliche Delta. */
@@ -76,24 +76,57 @@ export function canAffordTrophy(ctx: Ctx, slot: Slot): boolean {
   return playerOf(ctx, slot).coins >= ctx.rules.trophy.price;
 }
 
+type Rankable = Pick<PlayerState, 'slot' | 'trophies' | 'coins'> & {
+  /** Fehlt = 0 (ältere Aufrufer ohne Minispiel-Zähler). */
+  readonly minigameWins?: number;
+};
+
+const CRITERIA: readonly RankingCriterion[] = ['trophies', 'coins', 'minigame-wins', 'shared'];
+
+/** Schlüssel der Wertung in Reihenfolge (höher = besser). */
+function keys(p: Rankable): readonly [number, number, number] {
+  return [p.trophies, p.coins, p.minigameWins ?? 0];
+}
+
+/** Vergleich nach Wertung: < 0 = `a` besser. */
+function compare(a: Rankable, b: Rankable): number {
+  const ka = keys(a);
+  const kb = keys(b);
+  for (let i = 0; i < ka.length; i++) {
+    const diff = (kb[i] ?? 0) - (ka[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+/** Erstes Kriterium, in dem sich `a` und `b` unterscheiden (Index in `CRITERIA`). */
+function separatingLevel(a: Rankable, b: Rankable): number {
+  const ka = keys(a);
+  const kb = keys(b);
+  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return i;
+  return ka.length;
+}
+
 /**
- * Endstand: Trophäen absteigend, dann Münzen absteigend. Gleichstand in beidem = gleicher
- * Platz (Platz = 1 + Zahl der echt Besseren). Bei Gleichstand nach Slot sortiert.
+ * Endstand (M4, ADR-015): Trophäen absteigend, dann Münzen, dann Minispiel-Siege (Anzahl
+ * 1. Plätze). Gleichstand in allen drei = gleicher, geteilter Platz (Platz = 1 + Zahl der echt
+ * Besseren); innerhalb eines Gleichstands nach Slot sortiert. `decidedBy` nennt das tiefste
+ * Kriterium, das diesen Spieler von allen anderen trennt (für die Inszenierung am PC).
  */
-export function rankPlayers(
-  players: readonly Pick<PlayerState, 'slot' | 'trophies' | 'coins'>[],
-): RankingEntry[] {
-  const sorted = [...players].sort(
-    (a, b) => b.trophies - a.trophies || b.coins - a.coins || a.slot - b.slot,
-  );
-  return sorted.map((p) => ({
-    slot: p.slot,
-    place:
-      1 +
-      players.filter(
-        (o) => o.trophies > p.trophies || (o.trophies === p.trophies && o.coins > p.coins),
-      ).length,
-    trophies: p.trophies,
-    coins: p.coins,
-  }));
+export function rankPlayers(players: readonly Rankable[]): RankingEntry[] {
+  const sorted = [...players].sort((a, b) => compare(a, b) || a.slot - b.slot);
+  return sorted.map((p) => {
+    let level = 0;
+    for (const other of players) {
+      if (other.slot !== p.slot) level = Math.max(level, separatingLevel(p, other));
+    }
+    return {
+      slot: p.slot,
+      place: 1 + players.filter((o) => compare(o, p) < 0).length,
+      trophies: p.trophies,
+      coins: p.coins,
+      minigameWins: p.minigameWins ?? 0,
+      decidedBy: CRITERIA[level] ?? 'shared',
+    };
+  });
 }

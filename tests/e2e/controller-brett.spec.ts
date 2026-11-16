@@ -340,14 +340,14 @@ test('Spielende: eigener Platz groß', async ({ page }, testInfo) => {
   const place = page.getByTestId('final-place');
   await expect(place).toHaveAttribute('data-place', '2');
   await expect(place).toHaveText('Platz 2');
-  await expect(page.getByTestId('board-waiting')).toContainText('Gut gespielt!');
+  await expect(page.getByTestId('final-headline')).toHaveText('Gut gespielt!');
   const box = await place.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(80);
   await beleg(page, 'endstand', testInfo.project.name);
 
   fake.sendBoard(1, boardInfo({ gamePhase: 'game-results', activeSlot: null, place: 1 }));
   await expect(place).toHaveText('Platz 1');
-  await expect(page.getByTestId('board-waiting')).toContainText('Du hast gewonnen!');
+  await expect(page.getByTestId('final-headline')).toHaveText('Du hast gewonnen!');
 });
 
 test('Wiederverbinden mitten in der Wahl: Sperre gelöst, Prompt wieder da', async ({ page }) => {

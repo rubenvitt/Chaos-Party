@@ -16,12 +16,18 @@ export interface ControllerInfo {
 
 export function controllerSummaryLine(snapshot: LatencySnapshot, info: ControllerInfo): string {
   const { rtt } = snapshot;
+  const byScene = snapshot.byScene.map(
+    (entry) =>
+      `${entry.scene} ${formatMs(entry.rtt?.median ?? null)}/${formatMs(entry.rtt?.p95 ?? null)} n=${String(entry.rtt?.count ?? 0)}`,
+  );
   return [
     `Controller ${info.seats > 1 ? `iPad(${String(info.seats)})` : 'iPhone'}`,
     `RTT ms Median ${formatMs(rtt?.median ?? null)} p95 ${formatMs(rtt?.p95 ?? null)} max ${formatMs(rtt?.max ?? null)} letzte ${formatMs(snapshot.lastRtt)} n=${String(rtt?.count ?? 0)}`,
     `ohne Antwort ${String(snapshot.lost)}`,
     `Eingaben/s ${String(snapshot.inputsPerSecond)}`,
     `Herzschlag ${String(info.heartbeatMs)} ms`,
+    // CHAOS-39: RTT Median/p95 je Szene, damit eine Zeile Lobby, Brett und Minispiel trennt.
+    ...(byScene.length > 0 ? [`RTT je Szene ms (Median/p95) ${byScene.join('; ')}`] : []),
     info.device,
   ].join(' | ');
 }
