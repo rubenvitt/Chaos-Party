@@ -90,6 +90,7 @@ export function LocalMinigameFlow({ id, players, seed, test }: LocalMinigameFlow
         onResult={onResult}
         onReady={setReady}
         onNext={toPlay}
+        lightByRound={false}
       />
     </main>
   );

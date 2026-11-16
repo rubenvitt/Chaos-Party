@@ -66,6 +66,11 @@ export interface MinigameScreenProps {
   readonly onNext?: () => void;
   /** Letzte Ergebnis-Bestätigung des Servers (v4); Ablehnung wird dezent angezeigt. */
   readonly resultAck?: MinigameResultAckMessage | null;
+  /**
+   * Licht nach Runde (CHAOS-63, Standard `true`): Das Minispiel erbt die Stimmung der Runde.
+   * Der lokale Ablauf (keine echte Partie) nutzt die feste Brett-Stimmung.
+   */
+  readonly lightByRound?: boolean;
 }
 
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
@@ -102,6 +107,10 @@ export function MinigameScreen(props: MinigameScreenProps) {
     players: playersFromView(view),
     seed: minigame?.seed ?? 0,
     round: minigame?.round ?? view.round,
+    lightRound:
+      (props.lightByRound ?? true) && view.rounds > 0
+        ? { round: minigame?.round ?? view.round, rounds: view.rounds }
+        : null,
     plan: planPlay(view, receivedAt, performance.now()),
   }));
   const { plan } = setup;
@@ -135,6 +144,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
       players: setup.players,
       seed: setup.seed,
       timeLimitMs: plan.kind === 'play' ? plan.timeLimitMs : module.info.durationMs,
+      lightRound: setup.lightRound,
       testMode: test,
       sound: soundEngine(),
       onResult: (result) => {

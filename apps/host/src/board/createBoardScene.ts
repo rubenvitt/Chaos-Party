@@ -5,7 +5,9 @@
  *
  * Look „Stilisierte Natur“ (CHAOS-62, EXP-009): Insel, Baumscheiben-Felder, Bäume, Teich und
  * Gras aus `./natureBoard.ts`, Licht, Himmel und Nachbearbeitung aus `../nature/lighting.ts`
- * nach der Lichtstimmung (`../lighting/moods.ts`, zunächst fest je Brett, `?stimmung=`).
+ * nach der Lichtstimmung (`../lighting/moods.ts`). Lichtverlauf je Runde (CHAOS-63): Die
+ * Szene startet in der Stimmung der Runde, lädt die der nächsten Runde vorab und blendet beim
+ * Rundenwechsel über (`?stimmung=` setzt eine feste Stimmung).
  * Grafikstufe nach `?qualitaet=` bzw. automatisch nach Bildrate; im Testmodus Stufe `test`.
  *
  * Spielfiguren (CHAOS-28): die GLB-Figuren aus `../characters` (gewählte Figur aus
@@ -42,12 +44,18 @@ import {
   type HostCharacterHandle,
 } from '../characters/index.ts';
 import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
+import {
+  LIGHT_MOODS,
+  moodForRound,
+  moodsForBoardRound,
+  type LightMoodId,
+} from '../lighting/moods.ts';
 import { applyNatureLook, type NatureLook } from '../nature/lighting.ts';
 import { NatureMaterials } from '../nature/materials.ts';
 import { createAdaptiveQuality, QUALITY } from '../nature/quality.ts';
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
-import type { FramePawn, FramePopup } from './director.ts';
+import type { BoardFrame, FramePawn, FramePopup } from './director.ts';
 import {
   approach,
   boardBounds,
@@ -175,7 +183,21 @@ export function createBoardScene(
   const focus = { x: bounds.center.x, z: bounds.center.z };
   placeCamera();
 
-  const look = currentLookSettings(testMode, board.id, engine.getGlInfo().renderer);
+  // Runde beim Aufbau (BoardStage hat die Regie vorher eingeholt): Stimmung dieser Runde,
+  // die der nächsten wird vorab geladen (CHAOS-63).
+  const startView = source.getFrame().view;
+  const startRound =
+    startView && startView.rounds > 0 ? { round: startView.round, rounds: startView.rounds } : null;
+  const look = currentLookSettings(testMode, board.id, engine.getGlInfo().renderer, startRound);
+  /** Stimmung, in die das Brett gerade überblendet bzw. die gilt. */
+  let moodTarget: LightMoodId = look.mood.id;
+  let moodSynced = false;
+  const upcoming =
+    look.fixedMood || !startRound
+      ? []
+      : moodsForBoardRound(startRound.round, startRound.rounds)
+          .filter((id) => id !== look.mood.id)
+          .map((id) => LIGHT_MOODS[id]);
   applyRenderScale(engine, look);
   // Ohne Umgebungslicht (Sparstufe) spiegelt Metall nichts und würde schwarz.
   const mats = new NatureMaterials(scene, {
@@ -236,7 +258,11 @@ export function createBoardScene(
     characters = library;
     const lit = await applyNatureLook(scene, camera, {
       mood: look.mood,
+      upcoming,
       quality: look.quality,
+      tileGlow: (fraction) => {
+        builtWorld.setTileGlow(fraction);
+      },
       // Schärfe auf dem Brett, nur Rand und Horizont werden weich (Lesbarkeit zuerst).
       focus: { distance: CAMERA_OFFSET.length(), fStop: 11 },
       viewDistance: CAMERA_OFFSET.length(),
@@ -847,6 +873,18 @@ export function createBoardScene(
     placeCamera();
   }
 
+  /** Lichtverlauf: Rundenwechsel im übernommenen Stand startet die Überblendung. */
+  function syncMood(view: BoardFrame['view']): void {
+    if (look.fixedMood || !view || view.rounds <= 0 || !lighting) return;
+    const next = moodForRound(view.round, view.rounds);
+    // Ohne Stand beim Aufbau: der erste Stand setzt die Stimmung sofort (kein Rundenwechsel).
+    const first = !moodSynced && !startRound;
+    moodSynced = true;
+    if (next === moodTarget) return;
+    moodTarget = next;
+    lighting.setMood(LIGHT_MOODS[next], first ? 0 : undefined);
+  }
+
   function update(dtMs: number): void {
     if (!built || disposed) return;
     simMs += dtMs;
@@ -859,6 +897,7 @@ export function createBoardScene(
     syncActive(view?.activeSlot ?? null);
     syncPopups(frame.popups);
     updateCamera(dtMs, view?.activeSlot ?? null);
+    syncMood(view);
     lighting?.update(simMs / 1000);
     world?.trees.forEach((tree, i) => {
       tree.rotation.z = 0.035 * Math.sin(simMs / 700 + i * 1.7);
@@ -894,6 +933,11 @@ export function createBoardScene(
     },
     getResourceStats() {
       return resourceStats(scene);
+    },
+    getLightMood() {
+      if (!lighting) return null;
+      const t = lighting.transition;
+      return { from: t.from, to: t.to, progress: t.progress };
     },
     getRendererInfo(): RendererInfo {
       const gl = engine.getGlInfo();

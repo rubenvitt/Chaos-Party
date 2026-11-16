@@ -50,3 +50,5 @@ Zwei Randbedingungen:
 ## Überprüfung
 
 Nach Rubens Messung am Ziel-PC (Gerätecheckliste N1–N4): Liegt `hoch` dort unter 50 fps, Stufenwerte anpassen oder mit `mittel` starten. Neu bewerten, wenn CHAOS-63 mehrere HDRIs gleichzeitig vorlädt (Speicher) oder wenn weitere Bretter dazukommen.
+
+**Nachtrag CHAOS-63 (2026-11-16):** Das Brett lädt je Aufbau höchstens zwei Himmel (Stimmung der Runde und der nächsten, `moodsForBoardRound`), je Himmel eine Umgebungs-Cubemap in Stufengröße und einen 256²-Hintergrund; das Brett wird nach jedem Minispiel neu gebaut, der alte Himmel mit der Szene entsorgt. Überblendet wird ohne Nachladen und ohne Shaderwechsel (beide Himmelsmaterialien und das Laternenglas werden beim Aufbau übersetzt).

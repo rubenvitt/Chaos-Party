@@ -6,7 +6,15 @@ import type { BoardDefinition } from '@chaos-party/game-core';
 import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import type { FrameSample, ResourceSample } from '../debug/perfTypes.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
+import type { LightMoodId } from '../lighting/moods.ts';
 import type { BoardFrame } from './director.ts';
+
+export interface LightMoodStatus {
+  readonly from: LightMoodId;
+  readonly to: LightMoodId;
+  /** 0…1, 1 = Übergang abgeschlossen. */
+  readonly progress: number;
+}
 
 /** Quelle des Darstellungszustands: die Regie (`createBoardDirector`). */
 export interface BoardFrameSource {
@@ -39,6 +47,11 @@ export interface BoardScene {
   /** Bestand der Szene (Debug-Messung, CHAOS-39). */
   getResourceStats(): ResourceSample;
   getRendererInfo(): RendererInfo;
+  /**
+   * Lichtverlauf (CHAOS-63): Stimmung, von der und in die gerade überblendet wird, und der
+   * Fortschritt (1 = kein Übergang). `null`, solange das Licht noch nicht steht.
+   */
+  getLightMood(): LightMoodStatus | null;
   /**
    * Brett verdeckt (Finale, CHAOS-39): `true` hält das Rendern an – die Leinwand behält das
    * letzte Bild, die Regie läuft weiter (Stand und HUD bleiben aktuell); `false` rendert wieder.

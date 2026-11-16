@@ -128,8 +128,18 @@ Wiese. Pump-Parade (Rückfall): Wiese.
 | niedrig | 25 % | – | – | – | – | PCF 1024² | ja (128²) | ja |
 | minimal | 8 % | – | – | – | – | PCF 1024² | – | – |
 
-`minimal` gilt im Testmodus und bei Software-Rendering. Stimmung zum Ansehen: `?stimmung=<id>`
-(Morgen, Mittag, Wolken, Abend, Dämmerung, Nacht); Standard bis CHAOS-63: Goldene Stunde.
+`minimal` gilt im Testmodus und bei Software-Rendering.
+
+**Lichtverlauf je Runde (CHAOS-63, Rubens Wahl „C“, EXP-010):** Jede Partie ist ein Tag. Bei
+5 Runden: Morgen, Mittag, Goldene Stunde, Dämmerung, Nacht; bei mehr Runden teilen sich Runden
+eine Stimmung, nie rückwärts (`moodForRound`). Beim Rundenwechsel blendet das Brett in 4 s weich
+über (Himmel als zweiter Würfel, Licht, Dunst und Farbabstimmung gemischt, Umgebungslicht wechselt
+zur Hälfte); Laternen, Schein, Glühwürmchen und leuchtende Felder gibt es nur in Dämmerung und
+Nacht. Minispiele erben die Stimmung der Runde. In Dämmerung und Nacht wird die Unterzeile des
+HUD hell. Lobby und Siegerehrung bekommen feste Stimmungen (`SCENE_MOODS`: Goldene Stunde bzw.
+Nacht), sobald sie den Natur-Look haben. Ohne bekannte Runde (Vorschau, lokaler Minispiel-Ablauf)
+gilt die Brett-Stimmung (Goldene Stunde). Fest zum Ansehen: `?stimmung=<id>` (Morgen, Mittag,
+Wolken, Abend, Dämmerung, Nacht). Bilder: `docs/screenshots/chaos63-lichtverlauf.jpg`.
 
 ## Pipeline (hybrid)
 

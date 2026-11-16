@@ -1,8 +1,9 @@
 /**
  * Welche Stimmung und welche Grafikstufe eine Natur-Szene bekommt (CHAOS-62).
  *
- * - Stimmung: zunächst fest je Brett (`moodForBoard`); der Lichtverlauf je Runde folgt in
- *   CHAOS-63. `?stimmung=<id>` überschreibt sie (Ansehen, Lesbarkeit prüfen, Screenshots).
+ * - Stimmung: nach Runde (`moodForRound`, Lichtverlauf CHAOS-63), ohne bekannte Runde fest je
+ *   Brett (`moodForBoard`). `?stimmung=<id>` setzt sie fest, auch über Rundenwechsel hinweg
+ *   (Ansehen, Lesbarkeit prüfen, Screenshots).
  * - Grafikstufe: `?qualitaet=hoch|mittel|niedrig|minimal` fest; ohne Angabe `hoch` (bzw. die
  *   in dieser Sitzung schon erreichte Stufe) mit Automatik (stuft bei niedriger Bildrate ab).
  *   Im Testmodus immer `minimal`, bei Software-Rendering ohne Angabe ebenfalls
@@ -12,6 +13,7 @@ import {
   LIGHT_MOOD_IDS,
   LIGHT_MOODS,
   moodForBoard,
+  moodForRound,
   type LightMood,
   type LightMoodId,
 } from '../lighting/moods.ts';
@@ -26,6 +28,8 @@ import {
 
 export interface LookSettings {
   readonly mood: LightMood;
+  /** Stimmung per `?stimmung=` festgelegt: kein Lichtverlauf je Runde. */
+  readonly fixedMood: boolean;
   readonly quality: QualityLevel;
   /** Automatisch abstufen, wenn die Bildrate nicht reicht. */
   readonly automatic: boolean;
@@ -37,11 +41,31 @@ export interface LookSettings {
   readonly software: boolean;
 }
 
+/**
+ * Stimmung für eine Szene: `?stimmung=` fest, sonst nach Runde, ohne Runde fest je Brett.
+ * Auch der HUD liest sie (helle Schrift in Dämmerung und Nacht).
+ */
+export function lookMood(
+  search: string,
+  boardId: string,
+  round: { readonly round: number; readonly rounds: number } | null | undefined,
+): { readonly mood: LightMood; readonly fixed: boolean } {
+  const moodParam = new URLSearchParams(search).get('stimmung') ?? '';
+  if ((LIGHT_MOOD_IDS as readonly string[]).includes(moodParam)) {
+    return { mood: LIGHT_MOODS[moodParam as LightMoodId], fixed: true };
+  }
+  const id =
+    round && round.rounds > 0 ? moodForRound(round.round, round.rounds) : moodForBoard(boardId);
+  return { mood: LIGHT_MOODS[id], fixed: false };
+}
+
 export function parseLookSettings(
   search: string,
   context: {
     readonly testMode: boolean;
     readonly boardId: string;
+    /** Runde (1-basiert) und Rundenzahl der Partie, falls bekannt (Lichtverlauf). */
+    readonly round?: { readonly round: number; readonly rounds: number } | null;
     /** WebGL-Renderer (`engine.getGlInfo().renderer`), erkennt Software-Rendering. */
     readonly renderer?: string;
     /** Von der Automatik in dieser Sitzung erreichte Stufe (Startwert statt `hoch`). */
@@ -49,17 +73,14 @@ export function parseLookSettings(
   },
 ): LookSettings {
   const params = new URLSearchParams(search);
-  const moodParam = params.get('stimmung') ?? '';
-  const moodId: LightMoodId = (LIGHT_MOOD_IDS as readonly string[]).includes(moodParam)
-    ? (moodParam as LightMoodId)
-    : moodForBoard(context.boardId);
-  const mood = LIGHT_MOODS[moodId];
-  if (context.testMode) return { mood, quality: 'minimal', automatic: false, software: false };
+  const chosen = lookMood(search, context.boardId, context.round);
+  const base = { mood: chosen.mood, fixedMood: chosen.fixed };
+  if (context.testMode) return { ...base, quality: 'minimal', automatic: false, software: false };
   const software = isSoftwareRenderer(context.renderer ?? '');
   const fixed = parseQualityLevel(params.get('qualitaet'));
-  if (fixed) return { mood, quality: fixed, automatic: false, software };
-  if (software) return { mood, quality: 'minimal', automatic: false, software };
-  return { mood, quality: context.sessionQuality ?? 'hoch', automatic: true, software };
+  if (fixed) return { ...base, quality: fixed, automatic: false, software };
+  if (software) return { ...base, quality: 'minimal', automatic: false, software };
+  return { ...base, quality: context.sessionQuality ?? 'hoch', automatic: true, software };
 }
 
 /** Einstellungen aus der aktuellen Seiten-URL. */
@@ -67,10 +88,12 @@ export function currentLookSettings(
   testMode: boolean,
   boardId: string,
   renderer: string,
+  round: { readonly round: number; readonly rounds: number } | null = null,
 ): LookSettings {
   return parseLookSettings(typeof location === 'undefined' ? '' : location.search, {
     testMode,
     boardId,
+    round,
     renderer,
     sessionQuality: sessionQuality(),
   });
