@@ -3,7 +3,11 @@
  * 3D-Podest (`podiumStage.ts`), Endstand, Bonus-Titeln und „Nochmal spielen“ (`rematch`).
  *
  * Der Ablauf ist eine reine Zeitfunktion (`finalePlan.ts`); diese Komponente lässt nur die Uhr
- * laufen, spielt Klänge und zeichnet. Tempo per URL (`?finale=normal|fast|skip|manual`), im
+ * laufen, spielt Klänge und zeichnet.
+ *
+ * Das Podest entsteht schon zu Beginn der Trophäenzählung auf einer unsichtbaren Leinwand
+ * (CHAOS-71): Aufbau und Shader brauchen ohne schnelle Grafikkarte Sekunden. Der
+ * Siegerbildschirm hängt die fertige Leinwand nur noch ein und startet die Render-Schleife. Tempo per URL (`?finale=normal|fast|skip|manual`), im
  * Testmodus standardmäßig `skip`. Testhaken: `window.__chaosFinale` (nur `?test=1`).
  */
 import {
@@ -14,7 +18,15 @@ import {
   type RankingEntryInfo,
   type SlotNumber,
 } from '@chaos-party/protocol';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { CoinIcon, TrophyIcon } from '../board/icons.tsx';
 import type { FinaleSpeed } from '../config.ts';
 import { attachPerf } from '../debug/perf.ts';
@@ -30,7 +42,7 @@ import {
   type FinaleCard,
   type FinaleState,
 } from './finalePlan.ts';
-import { createPodiumStage } from './podiumStage.ts';
+import { createPodiumStage, type PodiumEntry, type PodiumStage } from './podiumStage.ts';
 import { CRITERION_BADGE, tiebreakText, winnerReason } from './texts.ts';
 import type { ChaosFinaleTestHook } from './testHook.ts';
 import './finale.css';
@@ -56,6 +68,59 @@ function characterOf(view: BoardView, slot: SlotNumber) {
   return view.players.find((p) => p.slot === slot)?.character ?? 'robot';
 }
 
+/** Podest samt Leinwand: das Finale baut es, der Siegerbildschirm zeigt es. */
+interface PreparedPodium {
+  readonly stage: PodiumStage;
+  readonly canvas: HTMLCanvasElement;
+}
+
+/** Ablage für das vorbereitete Podest (externer Speicher für `useSyncExternalStore`). */
+interface PodiumBox {
+  readonly get: () => PreparedPodium | null;
+  readonly set: (podium: PreparedPodium | null) => void;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
+function createPodiumBox(): PodiumBox {
+  let current: PreparedPodium | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (podium) => {
+      current = podium;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+/** Podest nur neu bauen, wenn sich Plätze, Namen oder Figuren ändern (nicht bei jedem Stand). */
+function usePodiumEntries(
+  view: BoardView,
+  ranking: readonly RankingEntryInfo[],
+): readonly PodiumEntry[] {
+  const entriesKey = JSON.stringify(
+    ranking.map((entry) => [
+      entry.slot,
+      entry.place,
+      playerName(view, entry.slot),
+      characterOf(view, entry.slot),
+    ]),
+  );
+  return useMemo(
+    () =>
+      (JSON.parse(entriesKey) as [SlotNumber, number, string, CharacterId][]).map(
+        ([slot, place, name, character]) => ({ slot, place, name, character }),
+      ),
+    [entriesKey],
+  );
+}
+
 export function Finale({ view, ranking, speed, test, onRematch }: FinaleProps) {
   const plan = useMemo(() => buildFinalePlan(ranking, view.endedEarly), [ranking, view.endedEarly]);
   const [elapsed, setElapsed] = useState(speed === 'skip' ? Number.POSITIVE_INFINITY : 0);
@@ -63,6 +128,28 @@ export function Finale({ view, ranking, speed, test, onRematch }: FinaleProps) {
   const previous = useRef<FinaleState | null>(null);
   const [podiumReady, setPodiumReady] = useState(false);
   const podiumRef = useRef<{ step: (frames: number) => void } | null>(null);
+  const entries = usePodiumEntries(view, ranking);
+  const parkingRef = useRef<HTMLDivElement>(null);
+  const [podiumBox] = useState(createPodiumBox);
+
+  // Podest vorbereiten, sobald das Finale beginnt (unsichtbar, ohne Render-Schleife).
+  useEffect(() => {
+    const parking = parkingRef.current;
+    if (!parking) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'game-canvas';
+    canvas.setAttribute('aria-label', 'Siegerpodest');
+    parking.appendChild(canvas);
+    const stage = createPodiumStage({ canvas, entries, testMode: test });
+    podiumRef.current = stage;
+    podiumBox.set({ stage, canvas });
+    return () => {
+      podiumBox.set(null);
+      podiumRef.current = null;
+      stage.dispose();
+      canvas.remove();
+    };
+  }, [entries, test, podiumBox]);
 
   // Uhr: läuft selbst (normal/fast), steht bei `manual` (nur Testhaken) und `skip`.
   useEffect(() => {
@@ -127,23 +214,31 @@ export function Finale({ view, ranking, speed, test, onRematch }: FinaleProps) {
     };
   }, [test, plan]);
 
-  return state.done ? (
-    <WinnerScreen
-      view={view}
-      ranking={ranking}
-      test={test}
-      onRematch={onRematch}
-      podiumRef={podiumRef}
-      onPodiumReady={setPodiumReady}
-    />
-  ) : (
-    <Tally
-      view={view}
-      state={state}
-      onSkip={() => {
-        setElapsed(Number.POSITIVE_INFINITY);
-      }}
-    />
+  return (
+    <>
+      {/* Parkplatz der Podest-Leinwand während der Zählung: gleiche Größe, unsichtbar. */}
+      <div className="finale-parking" aria-hidden="true">
+        <div className="finale-podium" ref={parkingRef} />
+      </div>
+      {state.done ? (
+        <WinnerScreen
+          view={view}
+          ranking={ranking}
+          podiumBox={podiumBox}
+          parkingRef={parkingRef}
+          onRematch={onRematch}
+          onPodiumReady={setPodiumReady}
+        />
+      ) : (
+        <Tally
+          view={view}
+          state={state}
+          onSkip={() => {
+            setElapsed(Number.POSITIVE_INFINITY);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -249,16 +344,16 @@ function TallyCard({ view, card }: { readonly view: BoardView; readonly card: Fi
 function WinnerScreen({
   view,
   ranking,
-  test,
+  podiumBox,
+  parkingRef,
   onRematch,
-  podiumRef,
   onPodiumReady,
 }: {
   readonly view: BoardView;
   readonly ranking: readonly RankingEntryInfo[];
-  readonly test: boolean;
+  readonly podiumBox: PodiumBox;
+  readonly parkingRef: RefObject<HTMLDivElement | null>;
   readonly onRematch: (() => void) | null;
-  readonly podiumRef: RefObject<{ step: (frames: number) => void } | null>;
   readonly onPodiumReady: (ready: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -266,55 +361,46 @@ function WinnerScreen({
   const criterion = winningCriterion(ranking);
   const awards = bonusAwards(view.players).slice(0, 3);
   const rows = [...ranking].sort((a, b) => a.place - b.place || a.slot - b.slot);
-  const [podiumState, setPodiumState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const podium = useSyncExternalStore(podiumBox.subscribe, podiumBox.get);
+  const [readyStage, setReadyStage] = useState<PodiumStage | null>(null);
+  const [failedStage, setFailedStage] = useState<PodiumStage | null>(null);
+  const shownStage = podium?.stage ?? null;
+  const podiumState =
+    shownStage !== null && readyStage === shownStage
+      ? 'ready'
+      : shownStage !== null && failedStage === shownStage
+        ? 'error'
+        : 'loading';
 
-  // Podest nur neu bauen, wenn sich Plätze, Namen oder Figuren ändern (nicht bei jedem Stand).
-  const entriesKey = JSON.stringify(
-    ranking.map((entry) => [
-      entry.slot,
-      entry.place,
-      playerName(view, entry.slot),
-      characterOf(view, entry.slot),
-    ]),
-  );
-  const entries = useMemo(
-    () =>
-      (JSON.parse(entriesKey) as [SlotNumber, number, string, CharacterId][]).map(
-        ([slot, place, name, character]) => ({ slot, place, name, character }),
-      ),
-    [entriesKey],
-  );
-
+  // Vorbereitete Leinwand einhängen und zeigen; beim Verlassen zurück auf den Parkplatz.
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
-    const canvas = document.createElement('canvas');
-    canvas.className = 'game-canvas';
-    canvas.setAttribute('aria-label', 'Siegerpodest');
+    const parking = parkingRef.current;
+    if (!container || !podium) return;
+    const { stage, canvas } = podium;
     container.appendChild(canvas);
-    const stage = createPodiumStage({ canvas, entries, testMode: test });
-    podiumRef.current = stage;
+    stage.show();
     const stopPerf = attachPerf('podest', stage);
     let active = true;
     stage.ready.then(
       () => {
         if (!active) return;
-        setPodiumState('ready');
+        setReadyStage(stage);
         onPodiumReady(true);
       },
       () => {
-        if (active) setPodiumState('error');
+        if (active) setFailedStage(stage);
       },
     );
     return () => {
       active = false;
       stopPerf();
-      stage.dispose();
-      canvas.remove();
-      podiumRef.current = null;
+      stage.hide();
+      // Nur ein noch lebendes Podest parken (das Finale entsorgt es sonst selbst).
+      if (podiumBox.get() === podium) parking?.appendChild(canvas);
       onPodiumReady(false);
     };
-  }, [entries, test, podiumRef, onPodiumReady]);
+  }, [podium, podiumBox, parkingRef, onPodiumReady]);
 
   // Fokus auf „Nochmal spielen“, sobald der Knopf benutzbar ist (auch nach einer Trennung).
   const canRematch = onRematch !== null;

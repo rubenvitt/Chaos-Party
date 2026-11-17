@@ -10,6 +10,12 @@
  * die Felder am Brett, ein warmer Spot von vorn oben hebt Figuren und Platzziffern hervor.
  * Grafikstufen und Automatik wie Brett und Minispiele (CHAOS-71: Sparstufe ohne HDRI).
  *
+ * Vorbereitung ohne Standbild (CHAOS-71): Das Finale baut die Bühne schon während der
+ * Trophäenzählung auf einer unsichtbaren Leinwand. Zwischen den Aufbauschritten und beim
+ * Übersetzen der Shader (Mesh für Mesh, `prepareSceneGradually`) darf der Browser zeichnen; das
+ * erste Bild entsteht vorab. Eine Render-Schleife läuft erst nach `show()`, wenn die Leinwand im
+ * Siegerbildschirm hängt.
+ *
  * Testmodus: keine Render-Schleife, keine Partikel; `step(n)` rendert n Bilder mit festem
  * Animationsschritt (stabile Screenshots).
  */
@@ -38,6 +44,7 @@ import type { NatureLook } from '../nature/lighting.ts';
 import { createAdaptiveQuality } from '../nature/quality.ts';
 import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
 import { createStageLook } from '../nature/stageLook.ts';
+import { afterNextPaint, prepareSceneGradually } from '../scene/prepareGradually.ts';
 
 const INK = '#1b1530';
 const FONT = '"Nunito Variable", ui-rounded, system-ui, sans-serif';
@@ -47,6 +54,8 @@ const CHARACTER_SCALE = 1.5;
 const FACE_CAMERA = Math.PI;
 /** Alle so viele ms jubelt der Sieger erneut und es regnet Konfetti (nicht im Test). */
 const CHEER_EVERY_MS = 2600;
+/** Längster Zeitschritt für Glühwürmchen und Jubel-Takt (erstes Bild nach langer Vorbereitung). */
+const MAX_STEP_MS = 100;
 
 export interface PodiumEntry {
   readonly slot: SlotNumber;
@@ -62,8 +71,18 @@ export interface PodiumStageOptions {
 }
 
 export interface PodiumStage extends PerfSource {
-  /** Erfüllt, sobald Figuren und Podest stehen und das erste Bild gerendert ist. */
+  /**
+   * Erfüllt, sobald Figuren und Podest stehen, alle Shader übersetzt sind und das erste Bild
+   * gerendert ist (auch auf einer noch unsichtbaren Leinwand).
+   */
   readonly ready: Promise<void>;
+  /**
+   * Leinwand ist sichtbar: Größe neu lesen, Jubel neu starten und (außer im Testmodus) die
+   * Render-Schleife starten, sobald `ready` erfüllt ist. Vorher läuft keine Schleife.
+   */
+  show(): void;
+  /** Leinwand wieder verborgen: Render-Schleife anhalten. */
+  hide(): void;
   /** Nur Testmodus: `frames` Schritte mit festem Animationsschritt, gezeichnet wird das letzte. */
   step(frames: number): void;
   dispose(): void;
@@ -133,6 +152,9 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   const textures: DynamicTexture[] = [];
   const particles: ParticleFx | null = testMode ? null : createParticleFx(scene);
   let cheerTimer = 0;
+  let shown = false;
+  let prepared = false;
+  let looping = false;
 
   const resize = () => {
     // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
@@ -273,6 +295,37 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
     look.update(seconds);
   });
 
+  function startLoop(): void {
+    if (testMode || looping || !shown || !prepared || isDisposed()) return;
+    looping = true;
+    // Die Zeit seit dem vorab gezeichneten Bild zählt nicht als Bildabstand.
+    let first = true;
+    engine.runRenderLoop(() => {
+      const raw = engine.getDeltaTime();
+      const dt = first ? 0 : raw;
+      first = false;
+      const next = adaptive.frame(dt);
+      if (next) {
+        lighting?.setQuality(next);
+        applyRenderScale(engine, settings, next);
+      }
+      const step = Math.min(dt, MAX_STEP_MS);
+      seconds += step / 1000;
+      cheerTimer += step;
+      if (cheerTimer >= CHEER_EVERY_MS) {
+        cheerTimer = 0;
+        celebrate();
+      }
+      scene.render();
+    });
+  }
+
+  /** Nach jedem schweren Aufbauschritt ein Bild Pause (Trophäenzählung läuft weiter). */
+  async function breathe(): Promise<boolean> {
+    await afterNextPaint();
+    return !isDisposed();
+  }
+
   const ready = (async () => {
     try {
       await document.fonts.load(`900 64px ${FONT}`);
@@ -286,7 +339,9 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
       return;
     }
     library = loaded;
+    if (!(await breathe())) return;
     buildStage();
+    if (!(await breathe())) return;
     entries.forEach((entry, index) => {
       const top = buildBlock(entry, xs[index] ?? 0);
       const handle = loaded.create(scene, {
@@ -303,27 +358,15 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
       handles.push({ entry, handle, top });
     });
     celebrate();
+    if (!(await breathe())) return;
     lighting = await look.finish(camera);
-    if (isDisposed()) return;
-    await scene.whenReadyAsync(true);
-    if (isDisposed()) return;
+    if (!(await breathe())) return;
+    if (!(await prepareSceneGradually(scene, { isCancelled: isDisposed }))) return;
+    if (!(await breathe())) return;
+    // Erstes Bild vorab: Schattenkarte, Nachbearbeitung und Render-Ziele entstehen hier.
     scene.render();
-    if (testMode) return;
-    engine.runRenderLoop(() => {
-      const dt = engine.getDeltaTime();
-      const next = adaptive.frame(dt);
-      if (next) {
-        lighting?.setQuality(next);
-        applyRenderScale(engine, settings, next);
-      }
-      seconds += dt / 1000;
-      cheerTimer += dt;
-      if (cheerTimer >= CHEER_EVERY_MS) {
-        cheerTimer = 0;
-        celebrate();
-      }
-      scene.render();
-    });
+    prepared = true;
+    startLoop();
   })();
   ready.catch((error: unknown) => {
     if (!life.disposed) console.error('Siegerpodest konnte nicht aufgebaut werden', error);
@@ -331,6 +374,25 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
 
   return {
     ready,
+    show() {
+      if (isDisposed() || shown) return;
+      shown = true;
+      // Die Leinwand hängt jetzt im Siegerbildschirm (Größe kann sich geändert haben).
+      resize();
+      if (prepared && !testMode) {
+        cheerTimer = 0;
+        celebrate();
+      }
+      startLoop();
+    },
+    hide() {
+      if (!shown || isDisposed()) return;
+      shown = false;
+      if (looping) {
+        engine.stopRenderLoop();
+        looping = false;
+      }
+    },
     step(frames) {
       if (life.disposed || !scene.activeCamera) return;
       // Alle Schritte animieren, nur das letzte Bild zeichnen (Software-GPU, wie das Brett).

@@ -366,7 +366,7 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 |---|---|---|---|---|
 | LS1 | Lobby öffnen, zwei Controller beitreten lassen | Goldene Stunde: warmes, tiefes Licht, lange Schatten, Lichtung mit Baumstämmen; QR-Code und Panel gut lesbar; Unterzeile oben links hell und lesbar | | |
 | LS2 | In der Lobby mit den Figuren herumlaufen und schubsen | Bewegung und Banden wie vorher, Figuren und Slot-Farben gut erkennbar; flüssig (Debug-Zeile: Stufe und fps notieren) | | |
-| LS3 | Übergang Trophäenzählung → Siegerbildschirm | kein Standbild > 1 s (CHAOS-71); falls doch: Dauer und Stufe notieren | | |
+| LS3 | Übergang Trophäenzählung → Siegerbildschirm, einmal mit voller Zählung und einmal sofort „Überspringen“ | kein Standbild > 1 s (CHAOS-71: Podest entsteht schon während der Zählung); ruckelt die Zählung selbst kurz? Falls Standbild: Dauer, Stufe und Variante notieren | | |
 | LS4 | Siegerbildschirm aus 3 m | Nacht mit Spot, Laternen und Glühwürmchen; Platzziffern, Figuren und leuchtende Slot-Deckel sofort erkennbar; Endstand rechts gut lesbar | | |
 | LS5 | Gesamteindruck | Passen Lobby und Siegerehrung zum Look des Bretts? Zu dunkel, zu bunt, zu blass? | | |
 

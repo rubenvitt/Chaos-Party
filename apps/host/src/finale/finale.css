@@ -228,6 +228,14 @@
     linear-gradient(180deg, #2c3a70 0%, #1e2742 60%, #10141f 100%);
 }
 
+/* Podest-Leinwand während der Trophäenzählung (CHAOS-71): gleiche Größe, unsichtbar. */
+.finale-parking {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .finale-podium {
   position: absolute;
   top: 0;
