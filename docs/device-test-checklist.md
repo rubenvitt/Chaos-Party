@@ -428,3 +428,17 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 | WT1 | Partie, bis jemand auf ein Ereignisfeld (lila) kommt und „Windböe!“ erscheint | Figur wirbelt in weißen Windringen davon und landet 1–2 Felder weiter; kein Sprung ohne Bewegung | | |
 | WT2 | Ereignis „Tausch!“ | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat | | |
 | WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil | | |
+
+## 20. Apple-TV-App über TestFlight (für CHAOS-119)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119 · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
+
+Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Testszene (Look-Dev-Texturen, Brett-Export, USDZ mit bpy) unter Linux erzeugt. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| TV1 | App Store Connect: neue App, Plattform **tvOS**, Bundle-ID `dev.rubeen.chaosparty.tv`, Name z. B. „Chaos Party TV“ (die Bundle-ID erscheint erst, wenn sie im Developer-Portal existiert: dort vorher anlegen oder einmal den Workflow laufen lassen) | App-Eintrag existiert | | |
+| TV2 | GitHub: Actions → „TestFlight (Apple TV)“ → Run workflow auf `main` | Lauf grün, Log endet mit „Hochgeladen: Build …“; der Schritt „Testszene mit RealityKit prüfen“ darf gelb sein (Ergebnis notieren) | | Link zum Lauf |
+| TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
+| TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
+| TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |

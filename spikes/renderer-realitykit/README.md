@@ -48,6 +48,22 @@ xcrun devicectl device process launch --device <ID> --console --terminate-existi
 
 Für die Apple TV dasselbe mit `generic/platform=tvOS` und `Release-appletvos`. Vorher die Apple TV mit Xcode koppeln (Apple TV: Einstellungen → Fernbedienungen und Geräte → Remote-App und Geräte; Mac: Xcode → Window → Devices and Simulators).
 
+### TestFlight (Apple TV, CHAOS-119)
+
+Bis der native Host steht ([ADR-019](../../docs/decisions/ADR-019-nativer-apple-host.md)), ist dieser Spike die Apple-TV-App in TestFlight: Name „Chaos Party“, Bundle-ID `dev.rubeen.chaosparty.tv`, Team wie bei der Controller-App. `project.yml` signiert weiterhin nur lokal; [`scripts/testflight.sh`](scripts/testflight.sh) überschreibt Bundle-ID, Anzeigenamen, Team und Signatur auf der Kommandozeile und baut nur für tvOS (Gerät).
+
+- **CI:** [`.github/workflows/testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) läuft bei jedem Push auf `main`, der diesen Ordner ändert (ohne `*.md`), und lässt sich manuell starten (Actions → „TestFlight (Apple TV)“ → Run workflow). Der Job erzeugt die Testszene selbst (Look-Dev-Texturen, `spike-export-board.mjs`, `convert.sh`, zusammen ca. 10 Minuten) und nutzt dieselben Secrets wie die Controller-App (`APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`).
+- **Voraussetzung:** Der App-Eintrag für `dev.rubeen.chaosparty.tv` (Plattform tvOS) existiert in App Store Connect. Die App-ID legt Xcode beim ersten Archivieren über den API-Key selbst an (`-allowProvisioningUpdates`).
+- **Lokal** mit dem in Xcode angemeldeten Account, Testszene vorher erzeugen:
+
+  ```bash
+  XCODE_ACCOUNT=1 spikes/renderer-realitykit/scripts/testflight.sh
+  XCODE_ACCOUNT=1 UPLOAD=0 spikes/renderer-realitykit/scripts/testflight.sh   # nur .ipa, kein Upload
+  ```
+
+- **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I scripts/tv-icons.py` aus dem Icon der Controller-App.
+- **Grenze:** Aus TestFlight startet die App ohne Startparameter, also mit den Standardwerten (ARView in nativer Auflösung, bei 4K ca. 20 fps, CHAOS-114). Messreihen mit Parametern laufen weiter über Xcode bzw. `devicectl`.
+
 ### Parameter
 
 Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` an.

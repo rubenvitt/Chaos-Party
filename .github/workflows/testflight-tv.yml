@@ -1,0 +1,95 @@
+name: TestFlight (Apple TV)
+
+# Archiviert, signiert automatisch und lädt die Apple-TV-App zu TestFlight hoch (CHAOS-119):
+# bei jedem Push auf main, der spikes/renderer-realitykit ändert, dazu manuell.
+# Bis der native Host steht (ADR-019), ist das der RealityKit-Spike mit der Testszene
+# (Bundle-ID dev.rubeen.chaosparty.tv). Signatur und Secrets wie bei der Controller-App
+# (testflight.yml, CHAOS-115); eigener Workflow, damit jede App nur bei ihren Änderungen läuft.
+# Der App-Eintrag für dev.rubeen.chaosparty.tv muss in App Store Connect existieren.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'spikes/renderer-realitykit/**'
+      - '!spikes/renderer-realitykit/**/*.md'
+      - '.github/workflows/testflight-tv.yml'
+
+# Ein Upload nach dem anderen; ein neuer Push wartet, statt einen laufenden abzubrechen.
+concurrency:
+  group: testflight-tv
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Apple TV zu TestFlight
+    # macos-latest: App Store Connect verlangt ein aktuelles SDK.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Werkzeuge
+        run: |
+          brew install xcodegen uv
+          pnpm exec playwright install chromium
+          xcodebuild -version
+
+      # CC0-Texturen von Poly Haven für das Brett; nur neu laden, wenn sich die Liste ändert.
+      - uses: actions/cache@v4
+        with:
+          path: apps/host/public/lookdev-assets
+          key: lookdev-${{ hashFiles('apps/host/src/lookdev/polyhaven.json') }}
+
+      # Testszene wie im README (Abschnitt „Assets“): Brett aus dem Web-Host als GLB, dann USDZ.
+      - name: Testszene erzeugen
+        env:
+          SPIKE_TIMEOUT: '600000'
+          RK_CHECK: '0'
+        run: |
+          node scripts/fetch-lookdev-assets.mjs
+          node scripts/spike-export-board.mjs
+          spikes/renderer-realitykit/convert/convert.sh
+
+      # Lädt die USDZ mit RealityKit. Ob der Runner dafür Metal hat, ist ungeprüft; deshalb
+      # blockiert ein Fehler hier den Upload nicht (das Ergebnis steht im Log).
+      - name: Testszene mit RealityKit prüfen
+        continue-on-error: true
+        run: swift spikes/renderer-realitykit/convert/check.swift spikes/renderer-realitykit/assets/export
+
+      - name: API-Key ablegen
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          for name in APPLE_API_KEY APPLE_API_KEY_P8 APPLE_API_ISSUER; do
+            [ -n "${!name}" ] || { echo "::error::Secret $name fehlt"; exit 1; }
+          done
+          # Das Secret enthält die .p8 im Klartext (wie bei lichtung und zunder), nicht base64.
+          key="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
+          (umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$key")
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Archivieren und hochladen
+        env:
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+        run: spikes/renderer-realitykit/scripts/testflight.sh
+
+      - name: API-Key löschen
+        if: always()
+        run: rm -f "$ASC_KEY_PATH"
