@@ -844,7 +844,15 @@ const slotField = { slot: SlotSchema };
 /** Spiegel von `GameEvent` in `@chaos-party/game-core`. */
 export const BoardEventSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('game-started'), order: z.array(SlotSchema).max(MAX_PLAYERS) }),
-  z.strictObject({ type: z.literal('round-started'), round: CountSchema }),
+  z.strictObject({
+    type: z.literal('round-started'),
+    round: CountSchema,
+    /**
+     * v4-Nachtrag (CHAOS-120, additiv): nur in Runden, in denen die Sabotage wächst – die neuen
+     * Münzwerte für Klau und Falle. Der Host kündigt sie an.
+     */
+    sabotage: z.strictObject({ steal: CountSchema, trap: CountSchema }).optional(),
+  }),
   z.strictObject({ type: z.literal('turn-started'), ...slotField, round: CountSchema }),
   z.strictObject({
     type: z.literal('item-used'),

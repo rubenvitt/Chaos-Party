@@ -4,6 +4,7 @@ import { DEMO_VIEW } from './demo.ts';
 import {
   bannerText,
   countdownText,
+  eventNotice,
   eventText,
   playerName,
   promptDetail,
@@ -35,6 +36,22 @@ function withPrompt(
     },
   };
 }
+
+describe('eventNotice (CHAOS-120)', () => {
+  it('kündigt wachsende Sabotage mit den neuen Werten an', () => {
+    expect(
+      eventNotice({ type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5 } }),
+    ).toEqual({
+      title: 'Sabotage wird stärker!',
+      detail: 'Klau: 6 Münzen · Falle: 5 Münzen',
+    });
+  });
+
+  it('sonst keine Einblendung', () => {
+    expect(eventNotice({ type: 'round-started', round: 7 })).toBeNull();
+    expect(eventNotice({ type: 'turn-started', slot: 1, round: 6 })).toBeNull();
+  });
+});
 
 describe('eventText', () => {
   it('meldet Münzklau und Falle wie im Konzept', () => {

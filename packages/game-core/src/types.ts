@@ -521,9 +521,23 @@ export type CoinReason = 'space' | 'event' | 'trophy' | 'steal' | 'trap' | 'mini
 /** Zufällige Ereignisse auf `event`-Feldern (Auswahl per RNG; Liste bestimmt game-core). */
 export type BoardEventKind = 'coin-rain' | 'gust' | 'swap' | 'trophy-shuffle' | 'lucky-find';
 
+/** Sabotage-Stärke einer Runde (CHAOS-67/120): Münzen je Klau bzw. Falle. */
+export interface SabotageLevel {
+  readonly steal: number;
+  readonly trap: number;
+}
+
 export type GameEvent =
   | { readonly type: 'game-started'; readonly order: readonly Slot[] }
-  | { readonly type: 'round-started'; readonly round: number }
+  | {
+      readonly type: 'round-started';
+      readonly round: number;
+      /**
+       * Nur in Runden, in denen die Sabotage wächst (CHAOS-120, `items.sabotageGrowthRounds`):
+       * die neuen Werte für Klau und Falle. Der Host kündigt sie an.
+       */
+      readonly sabotage?: SabotageLevel;
+    }
   | { readonly type: 'turn-started'; readonly slot: Slot; readonly round: number }
   | {
       readonly type: 'item-used';

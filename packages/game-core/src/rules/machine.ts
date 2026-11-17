@@ -17,7 +17,7 @@ import type {
   Slot,
   StepResult,
 } from '../types.ts';
-import { applyTailwind, rankPlayers } from './economy.ts';
+import { applyTailwind, rankPlayers, sabotageGrows, sabotageLevel } from './economy.ts';
 import {
   closeDraft,
   openDraft,
@@ -195,7 +195,15 @@ function startRound(ctx: Ctx, t: number): void {
   d.round += 1;
   d.internal.turnIndex = 0;
   d.minigame = null;
-  ctx.events.push({ type: 'round-started', round: d.round });
+  ctx.events.push(
+    sabotageGrows(ctx.rules.items, d.round)
+      ? {
+          type: 'round-started',
+          round: d.round,
+          sabotage: sabotageLevel(ctx.rules.items, d.round),
+        }
+      : { type: 'round-started', round: d.round },
+  );
   startTurn(ctx, t);
 }
 
