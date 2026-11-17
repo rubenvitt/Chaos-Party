@@ -1,0 +1,5 @@
+app/gamecore.js
+app/HavokPhysics.wasm
+app/havok_umd.js
+*.xcodeproj/
+build/
