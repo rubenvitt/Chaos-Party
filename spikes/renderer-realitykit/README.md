@@ -62,7 +62,9 @@ Bis der native Host steht ([ADR-019](../../docs/decisions/ADR-019-nativer-apple-
   ```
 
 - **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I scripts/tv-icons.py` aus dem Icon der Controller-App.
-- **Grenze:** Aus TestFlight startet die App ohne Startparameter, also mit den Standardwerten (ARView in nativer Auflösung, bei 4K ca. 20 fps, CHAOS-114). Messreihen mit Parametern laufen weiter über Xcode bzw. `devicectl`.
+- **Messvariante ohne Mac (CHAOS-147):** Aus TestFlight startet die App ohne Startparameter. Auf der Apple TV öffnet **Play/Pause** (oder ein Klick auf das Touchpad) ein Menü mit den Varianten aus `messreihe-atv.sh`: nativ (ARView), hochskaliert ×0,5 und ×0,667, jeweils mit MetalFX oder bilinear. Die Wahl startet Szene und Messung neu und bleibt in `UserDefaults` gespeichert; die erste HUD-Zeile zeigt die aktive Variante und woher sie kommt (Standard, gespeichert, Menü, Startparameter). Standard bleibt die ARView, bis EXP-020 gemessen ist.
+- **Vorrang:** Ist beim Start auch nur ein `--`-Parameter gesetzt (Xcode, `devicectl`, `messreihe-atv.sh`), gilt die gespeicherte Wahl nicht; die Messreihe läuft also unverändert. Eine Wahl im Menü ersetzt nur `hochskalieren`, `skala` und `skalierer`, übrige Startparameter bleiben.
+- **Prüfung der Logik:** `swiftc app/Settings.swift app/Variants.swift tests/main.swift -o build/variants-check && build/variants-check` (läuft auch in der CI).
 
 ### Parameter
 
