@@ -136,3 +136,13 @@ Gesucht ist ein Weg, auf dem die Apple TV allein hostet, der Mac dasselbe kann u
 - **Nach dem Spike (Schritt 2):** Läuft die Babylon-`NullEngine` nicht in JavaScriptCore oder reicht die Leistung nicht, die Entkopplung der Minispiele von Babylon prüfen, bevor W1 in Frage kommt.
 - **Wenn der hochskalierte Pfad 30 fps bei 4K nicht erreicht:** Grafikstufe oder Szene für die Apple TV anpassen.
 - **Wenn Babylon Native, Bevy oder Godot tvOS offiziell unterstützen:** einen gemeinsamen Renderer mit dem PC prüfen.
+
+## Nachtrag 1 (2026-11-17): Eine Variante, alle Minispiele auf jedem Host
+
+Ruben (Chat, CHAOS-137): „ich habe nur DIE EINE Variante, deshalb alle Minispiele in allen Versionen verfügbar“.
+
+- Es gibt **keine abgespeckte Apple-Variante**. Eine Rotation je Host oder eine erste Version mit weniger Minispielen ist verworfen. Am PC, auf dem Mac und auf der Apple TV laufen dieselben Minispiele.
+- **Folge für Entscheidung 3:** Eine eigene Swift-Darstellung je Minispiel skaliert nicht auf den geplanten Katalog (CHAOS-80, ~200 Spiele). Die Darstellung im nativen Host läuft deshalb über die **Rollen-Kennzeichnung** (`markVisual`/`visualOf` aus `packages/minigame-sdk`, CHAOS-149). Swift hält eine Bibliothek von Darstellungen je Rolle, die Minispiele derselben Familie teilen. Eigener Swift-Code je Minispiel nur, wo eine Rolle nicht reicht.
+- **Folge für die Minispiel-Fabrik:** Ein Minispiel ist erst fertig, wenn es auch im Apple-Host mit echter Grafik läuft (Definition of Done je Minispiel, [`docs/minigames/README.md` §5.3](../minigames/README.md)).
+- Der Nachweis bleibt der Gesamtlauf mit allen Minispielen der Rotation (CHAOS-146).
+

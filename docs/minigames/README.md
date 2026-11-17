@@ -88,6 +88,7 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 4. Läuft am geteilten iPad (Zone) bedienbar, sonst als „nur iPhone“ markiert und von der Rotation bei iPad-Zonen ausgeschlossen.
 5. Screenshot-Baseline, kurzer Eintrag im Katalog (Status, Zahlen).
 6. Grafikstufe `niedrig` hält auf dem Ziel-PC mindestens die Bildrate der bestehenden Spiele.
+7. Läuft auch im nativen Apple-Host (Mac, Apple TV) mit echter Grafik: Bewegliche Objekte sind per `markVisual` mit einer Rolle gekennzeichnet, und für jede Rolle gibt es eine RealityKit-Darstellung. Es gibt nur eine Variante des Spiels (Ruben, 2026-11-17, ADR-019 Nachtrag 1); kein Minispiel kommt nur auf einen Host. Gilt, sobald der Apple-Host Minispiele darstellen kann (CHAOS-144).
 
 ### 5.4 Trichter (Status im Katalog)
 
