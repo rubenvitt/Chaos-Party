@@ -7,7 +7,7 @@
 | Schweregrad | Anzahl | Bedeutung |
 |---|---|---|
 | kritisch | **0** | Partie bricht ab, Daten gehen verloren, Spiel startet nicht |
-| mittel | 6 | Spürbar für Spielende oder ungeprüftes Risiko; Workaround vorhanden |
+| mittel | 5 | Spürbar für Spielende oder ungeprüftes Risiko; Workaround vorhanden |
 | gering | 19 | Randfall, Kosmetik oder Entwicklerwerkzeug |
 
 Ein Workaround „–“ heißt: Für Spielende gibt es nichts zu tun.
@@ -25,7 +25,6 @@ Keine.
 | KI-3 | **Führung zählt stark:** Der alleinige Halbzeit-Führende gewinnt bei 10 Runden 59–73 % der Partien (fair wären 33–50 %), mit vier Spielern 56–62 % (fair 25 %). Es gibt keine Aufholhilfe. | Wer zur Halbzeit hinten liegt, holt selten noch auf; nur etwa jede dritte bis vierte Partie dreht sich. | – (Playtest abwarten; Idee „Trophäe wandert vor die Hintersten“ liegt im Backlog) | EXP-012, CHAOS-44 |
 | KI-4 | **Keine 40-Minuten-Partie:** Höchstens 20 Runden (`MAX_ROUNDS`, Protokoll v4) ≈ 25–31 min. Die Vorschläge sind 10/16/20 Runden ≈ 15/25/30 min. | Wer einen langen Spieleabend erwartet, spielt zwei Partien hintereinander (Revanche). | „Nochmal spielen“ startet sofort die nächste Partie mit denselben Figuren. | EXP-011, ADR-015 Nachtrag 2 (offene Frage an Ruben) |
 | KI-5 | **`pnpm play` nur unter Linux real getestet.** Windows und macOS sind im Skript berücksichtigt (Browser öffnen per `start`/`open`, pnpm ohne Shell), aber nicht auf echten Rechnern ausprobiert. Unter Windows fragt die Konsole nach Strg+C eventuell „Batchvorgang abbrechen (J/N)?“ (pnpm startet Skripte über `cmd`). | Erster Start auf Rubens PC kann an einer Kleinigkeit hängen. | Fallback wie bisher: `pnpm install`, `pnpm build`, `pnpm start`. Nach Strg+C mit `J` bestätigen. | CHAOS-42, [README](../README.md#so-wird-gespielt) |
-| KI-6 | **Zeit läuft sofort nach Host-Rückkehr:** Lädt der PC-Tab neu (oder kommt nach Absturz zurück), setzt der Server die automatische Pause sofort fort, auch wenn die Seite noch Figuren und Szene lädt. | Nach einem Neuladen des PC-Tabs fehlen in einer laufenden Wahl oder einem Minispiel ein paar Sekunden. Ein Minispiel startet mit der Restzeit neu (unter 3 s Rest: Abbruch ohne Münzen). | Vor dem Neuladen am PC **Pause** drücken; die bleibt über das Neuladen bestehen, bis jemand „Weiter“ drückt. | ADR-015 Nachtrag 1, [m3-demo.md](m3-demo.md) |
 
 ## Gering
 
@@ -54,4 +53,4 @@ Keine.
 
 ## Nicht mehr aktuell (in M4 behoben)
 
-Zur Einordnung älterer Berichte: Kein Weg zurück in die Lobby nach dem Endstand (M2/M3) → „Nochmal spielen“ (CHAOS-37). Feste Figur je Slot (M3) → Charakterwahl (CHAOS-36). Partie lief ohne Host weiter (M3) → automatische Pause bei Host-Verlust (CHAOS-38). Knöpfe nur „A“/„B“ (M1) → Kontext-Beschriftung je Minispiel (M3). Brett rendert hinter dem Finale weiter → pausiert (CHAOS-39). „Nochmal spielen“ zeigte den alten Endstand → behoben (CHAOS-39). Brett-Gras überstrahlte (gemessen RGB 176, 252, 125 statt `#8fd16a`) → Natur-Look mit PBR-Gras, Licht nach Lichtstimmung (CHAOS-62, ADR-014; im Screenshot `host-brett` jetzt im Mittel etwa RGB 151, 138, 65, keine Überstrahlung).
+Zur Einordnung älterer Berichte: Kein Weg zurück in die Lobby nach dem Endstand (M2/M3) → „Nochmal spielen“ (CHAOS-37). Feste Figur je Slot (M3) → Charakterwahl (CHAOS-36). Partie lief ohne Host weiter (M3) → automatische Pause bei Host-Verlust (CHAOS-38). KI-6 „Zeit läuft sofort nach Host-Rückkehr“ → Auto-Pause endet erst, wenn die Host-Bühne samt Figuren geladen ist (`host-ready`, CHAOS-68, ADR-015 Nachtrag 3). Knöpfe nur „A“/„B“ (M1) → Kontext-Beschriftung je Minispiel (M3). Brett rendert hinter dem Finale weiter → pausiert (CHAOS-39). „Nochmal spielen“ zeigte den alten Endstand → behoben (CHAOS-39). Brett-Gras überstrahlte (gemessen RGB 176, 252, 125 statt `#8fd16a`) → Natur-Look mit PBR-Gras, Licht nach Lichtstimmung (CHAOS-62, ADR-014; im Screenshot `host-brett` jetzt im Mittel etwa RGB 151, 138, 65, keine Überstrahlung).

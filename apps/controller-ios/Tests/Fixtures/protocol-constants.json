@@ -1,0 +1,111 @@
+{
+  "version": 4,
+  "limits": {
+    "maxMessageLength": 4096,
+    "maxServerMessageLength": 65536,
+    "maxNameLength": 16,
+    "maxErrorMessageLength": 200,
+    "maxPlayers": 4,
+    "stickEpsilon": 0.001
+  },
+  "enums": {
+    "phases": [
+      "lobby",
+      "play",
+      "board"
+    ],
+    "layouts": [
+      "wait",
+      "lobby",
+      "joystick-buttons",
+      "board"
+    ],
+    "actions": [
+      "ready",
+      "move",
+      "button-a",
+      "button-b",
+      "gesture",
+      "reaction",
+      "choose",
+      "pick-character"
+    ],
+    "feedbackKinds": [
+      "confirm",
+      "hit",
+      "miss",
+      "win",
+      "lose"
+    ],
+    "errorCodes": [
+      "bad-message",
+      "too-large",
+      "version-mismatch",
+      "not-joined",
+      "bad-join-code",
+      "session-full",
+      "bad-token",
+      "host-taken",
+      "not-your-slot",
+      "out-of-phase",
+      "stale-seq",
+      "rate-limited",
+      "invalid-choice",
+      "invalid-result",
+      "character-taken",
+      "paused",
+      "internal"
+    ],
+    "gamePhases": [
+      "setup",
+      "turn-start",
+      "roll",
+      "choose-target",
+      "move",
+      "choose-path",
+      "trophy-offer",
+      "space-event",
+      "reaction-window",
+      "turn-end",
+      "minigame-intro",
+      "minigame-play",
+      "minigame-results",
+      "round-end",
+      "game-results"
+    ],
+    "itemKinds": [
+      "double-dice",
+      "coin-steal",
+      "trap",
+      "shield"
+    ],
+    "promptKinds": [
+      "roll",
+      "target",
+      "path",
+      "trophy",
+      "reaction"
+    ],
+    "characterIds": [
+      "robot",
+      "cactus",
+      "raccoon",
+      "sock"
+    ],
+    "minigameStages": [
+      "intro",
+      "play",
+      "results"
+    ],
+    "buttons": [
+      "a",
+      "b"
+    ],
+    "gestureKinds": [
+      "swipe-up",
+      "swipe-down",
+      "swipe-left",
+      "swipe-right"
+    ]
+  }
+}

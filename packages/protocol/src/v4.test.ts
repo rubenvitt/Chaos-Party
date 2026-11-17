@@ -141,6 +141,7 @@ describe('Host → Server (v4)', () => {
     createMessage('end-game', {}),
     createMessage('rematch', {}),
     createMessage('start', { rounds: 3 }),
+    createMessage('host-ready', {}),
   ])('nimmt %j an', (message) => {
     expect(parseHostMessage(encode(message))).toEqual({ ok: true, message });
     expect(parseClientMessage(encode(message)).ok).toBe(true);
@@ -156,6 +157,7 @@ describe('Host → Server (v4)', () => {
     ['resume mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'resume', slot: 1 }],
     ['end-game mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'end-game', winner: 1 }],
     ['rematch mit Seed', { v: PROTOCOL_VERSION, type: 'rematch', seed: 7 }],
+    ['host-ready mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'host-ready', scene: 'board' }],
   ])('lehnt ab: %s', (_name, raw) => {
     expect(parseHostMessage(JSON.stringify(raw)).ok).toBe(false);
   });

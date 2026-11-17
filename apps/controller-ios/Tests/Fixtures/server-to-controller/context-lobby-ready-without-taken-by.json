@@ -1,0 +1,18 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "lobby",
+  "layout": "wait",
+  "actions": [
+    "pick-character"
+  ],
+  "lobby": {
+    "character": "cactus",
+    "takenCharacters": [
+      "robot",
+      "sock"
+    ],
+    "rounds": 8
+  }
+}

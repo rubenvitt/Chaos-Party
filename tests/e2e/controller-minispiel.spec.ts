@@ -9,6 +9,7 @@ import {
 import { expect, test } from './fixtures/test.ts';
 import { boardInfo, FakeSession, VALID_CODE } from './fixtures/fakeSession.ts';
 import { centerOf, TouchScreen } from './fixtures/touch.ts';
+import { expectStableWrapping } from './fixtures/wrapping.ts';
 
 /**
  * Minispiele am Controller (M3, CHAOS-33) gegen den Production-Build mit nachgebautem
@@ -64,13 +65,20 @@ async function attach(page: Page): Promise<FakeSession> {
 
 type Info = Omit<ControllerMinigameInfo, 'stage' | 'place' | 'score' | 'tied' | 'aborted'>;
 
+/*
+ * Die Texte sind Testdaten mit Abstand zu jeder Umbruchkante (CHAOS-72): Jeder Satz und jede
+ * Reihe Bedien-Pillen passt deutlich in eine Zeile oder bricht deutlich um, in allen Formaten.
+ * `expectStableWrapping` vor jedem Screenshot hält das fest; wer Texte ändert, sieht dort, ob ein
+ * neuer Text an einer Kante liegt.
+ */
+
 /** Joystick + A, kein B. */
 const HUEPFEN: Info = {
   id: 'kartoffel-hupf',
   title: 'Kartoffel-Hüpfen',
-  tagline: 'Hüpf über die rollenden Kartoffeln!',
+  tagline: 'Hüpf über die Kartoffeln!',
   instructions: [
-    'Lauf mit dem Joystick hin und her.',
+    'Lauf mit dem Joystick nach links und nach rechts.',
     'Spring mit A über die Kartoffeln.',
     'Wer am längsten steht, gewinnt.',
   ],
@@ -92,9 +100,9 @@ const PUMPEN: Info = {
 const SCHUBSEN: Info = {
   id: 'schubs-arena',
   title: 'Schubs-Arena',
-  tagline: 'Schubs alle von der Eisscholle!',
+  tagline: 'Schubs alle anderen von der Eisscholle!',
   instructions: ['Lenke mit dem Joystick.', 'A schubst, B bremst.'],
-  controls: { joystick: 'Lenken', a: 'Schubsen', b: 'Bremsen' },
+  controls: { joystick: 'Schlittern', a: 'Schubsen', b: 'Bremsen' },
   scoreUnit: 'Punkte',
 };
 
@@ -210,9 +218,7 @@ test('Intro: Titel, Untertitel, Anleitung und Bedienlegende nur der angebotenen 
   await expect(slot(page)).toHaveAttribute('data-layout', 'board');
   const intro = page.getByTestId('minigame-intro');
   await expect(page.getByTestId('minigame-title')).toHaveText('Kartoffel-Hüpfen');
-  await expect(page.getByTestId('minigame-tagline')).toHaveText(
-    'Hüpf über die rollenden Kartoffeln!',
-  );
+  await expect(page.getByTestId('minigame-tagline')).toHaveText('Hüpf über die Kartoffeln!');
   await expect(page.getByTestId('minigame-steps').locator('li')).toHaveText(HUEPFEN.instructions);
   await expect(page.getByTestId('legend-stick')).toContainText('Laufen');
   await expect(page.getByTestId('legend-a')).toContainText('Springen');
@@ -226,6 +232,7 @@ test('Intro: Titel, Untertitel, Anleitung und Bedienlegende nur der angebotenen 
   await expectInside(intro, viewportBox(page));
   await expectNoScrollOrZoom(page);
   if (testInfo.project.name === 'iphone-hoch') await beleg(page, 'controller-intro');
+  await expectStableWrapping(page.locator('body'));
   await expect(page).toHaveScreenshot('minispiel-intro.png', { mask: screenshotMask(page) });
 
   // Nur Knöpfe: Legende zeigt genau A.
@@ -264,6 +271,7 @@ test('Spiel: beschriftete Knöpfe, Joystick nach Steckbrief, Eingaben an den Ser
     expect(box.y + box.height).toBeLessThanOrEqual(view.height + 0.5);
   }
   if (testInfo.project.name === 'iphone-hoch') await beleg(page, 'controller-spiel');
+  await expectStableWrapping(page.locator('body'));
   await expect(page).toHaveScreenshot('minispiel-spiel.png', { mask: screenshotMask(page) });
 
   const touch = await TouchScreen.create(page);
@@ -318,6 +326,7 @@ test('Wechsel Spiel → Ergebnis lässt gehaltenen Knopf und Joystick los; Platz
   await expect(page.getByTestId('result-score')).toHaveText('42 Sekunden');
   await expectInside(result, viewportBox(page));
   if (testInfo.project.name === 'iphone-hoch') await beleg(page, 'controller-ergebnis');
+  await expectStableWrapping(page.locator('body'));
   await expect(page).toHaveScreenshot('minispiel-ergebnis.png', { mask: screenshotMask(page) });
 
   // Nach dem Ergebnis: normale Brettanzeige.
@@ -346,6 +355,7 @@ test('Nur Knöpfe (Pump-Parade): kein Joystick, ein großer Knopf; Ergebnis und 
   const view = viewportBox(page);
   expect(box.x + box.width / 2).toBeGreaterThan(view.width / 3);
   expect(box.x + box.width / 2).toBeLessThan((view.width * 2) / 3);
+  await expectStableWrapping(page.locator('body'));
   await expect(page).toHaveScreenshot('minispiel-nur-knopf.png', { mask: screenshotMask(page) });
 
   // Schnelles Tippen: jedes Tippen ein press + release.
@@ -421,6 +431,7 @@ test('iPad-Zonen: Intro, Spiel mit Beschriftung und Ergebnis je Zone', async ({
       await expect(intro.getByTestId('legend-b')).toContainText('Bremsen');
       await expectInside(intro, await boxOf(zone(s)));
     }
+    await expectStableWrapping(page.locator('body'));
     await expect(page).toHaveScreenshot(`${name}-minispiel-intro.png`, {
       mask: screenshotMask(page),
     });
@@ -432,7 +443,7 @@ test('iPad-Zonen: Intro, Spiel mit Beschriftung und Ergebnis je Zone', async ({
       await expect(zone(s).getByTestId('minigame-header')).toHaveText('Schubs-Arena');
       await expect(zone(s).getByTestId('button-a-label')).toHaveText('Schubsen');
       await expect(zone(s).getByTestId('button-b-label')).toHaveText('Bremsen');
-      await expect(zone(s).getByTestId('joystick-hint')).toHaveText('Ziehen: Lenken');
+      await expect(zone(s).getByTestId('joystick-hint')).toHaveText('Ziehen: Schlittern');
       const zoneBox = await boxOf(zone(s));
       for (const id of ['button-a', 'button-b', 'minigame-header', 'player-badge']) {
         const box = await boxOf(zone(s).getByTestId(id));
@@ -443,6 +454,7 @@ test('iPad-Zonen: Intro, Spiel mit Beschriftung und Ergebnis je Zone', async ({
       }
     }
     if (landscape) await beleg(page, 'ipad-minispiel');
+    await expectStableWrapping(page.locator('body'));
     await expect(page).toHaveScreenshot(`${name}-minispiel-spiel.png`, {
       mask: screenshotMask(page),
     });
@@ -494,6 +506,7 @@ test('iPad-Zonen: Intro, Spiel mit Beschriftung und Ergebnis je Zone', async ({
       await expectInside(result, await boxOf(zone(s)));
     }
     await expect(zone(2).getByTestId('result-place')).toHaveText('Platz 1!');
+    await expectStableWrapping(page.locator('body'));
     await expect(page).toHaveScreenshot(`${name}-minispiel-ergebnis.png`, {
       mask: screenshotMask(page),
     });

@@ -47,7 +47,7 @@ Am PC `http://localhost:8787/host/` öffnen; Handys und iPad treten wie in M1 ü
 
 - Grafik ist vorläufig (prozedurale Formen, keine Charaktermodelle, kein Ton).
 - Das Minispiel ist ein Platzhalter, echte Minispiele folgen in M3.
-- Nach dem Endstand führt kein Weg zurück in die Lobby. Für eine neue Partie den Server neu starten (`Strg+C`, `pnpm start`).
+- Nach dem Endstand führt kein Weg zurück in die Lobby. Für eine neue Partie den Server neu starten (`Strg+C`, `pnpm start`). *Seit M4 behoben: „Nochmal spielen“ im Siegerbildschirm führt ohne Neustart zurück in die Lobby (CHAOS-37, CHAOS-50; siehe [`m4-demo.md`](m4-demo.md)).*
 - Wer erst nach dem Start beitritt, spielt nicht mit (Beitritt nur in der Lobby).
 - 5 Runden dauern ohne echte Minispiele nur etwa 2–3 Minuten Brettzeit (EXP-001). Für einen längeren Test `ROUNDS=8 pnpm start` oder `/host/?rounds=8`.
 - Alle Zahlen (Preise, Münzen, Items, Reaktionsfenster) stammen aus Simulationen ([experiments.md](experiments.md), EXP-001 bis EXP-004). Ob es Spaß macht, entscheidet erst der Test mit Menschen.

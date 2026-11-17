@@ -1,0 +1,4 @@
+# Von xcodegen erzeugt (project.yml ist die Quelle).
+*.xcodeproj/
+Sources/Info.plist
+build/
