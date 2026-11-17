@@ -1,0 +1,7 @@
+{
+  "v": 4,
+  "type": "error",
+  "code": "character-taken",
+  "message": "Figur vergeben",
+  "seq": 4
+}
