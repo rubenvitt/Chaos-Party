@@ -124,6 +124,7 @@ describe('describeResult', () => {
       cheer: 'Gewonnen!',
       score: '42 Sekunden',
       reward: null,
+      prizes: [],
     });
     const fourth = describeResult(info({ stage: 'results', place: 4, score: 0 }));
     expect(fourth).toMatchObject({ headline: 'Platz 4!', score: '0 Sekunden' });
@@ -140,6 +141,12 @@ describe('describeResult', () => {
       headline: 'Geteilter Platz 3!',
       cheer: 'Gut gemacht!',
     });
+  });
+
+  it('Trostpreis aus `prizes` (CHAOS-51)', () => {
+    expect(
+      describeResult(info({ stage: 'results', place: 2, reward: 5, prizes: ['trap'] })),
+    ).toMatchObject({ reward: '+5 Münzen', prizes: ['trap'] });
   });
 
   it('Münzen aus `reward`: „+5 Münzen“, Einzahl, „Keine Münzen“', () => {

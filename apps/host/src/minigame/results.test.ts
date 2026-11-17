@@ -75,6 +75,20 @@ describe('resultsDisplay', () => {
     expect(resultsDisplay(view, INFO, { 1: 99 }).rows[0]?.coins).toBe(10);
   });
 
+  it('Trostpreis (CHAOS-51): Items aus view.minigame.rewards je Zeile, sonst leer', () => {
+    const view = minigameView('minigame-results', {
+      placements: [
+        { slot: 1, place: 1, score: 9 },
+        { slot: 2, place: 2, score: 4 },
+      ],
+      rewards: [
+        { slot: 1, coins: 10 },
+        { slot: 2, coins: 5, items: ['shield'] },
+      ],
+    });
+    expect(resultsDisplay(view, INFO, null).rows.map((row) => row.items)).toEqual([[], ['shield']]);
+  });
+
   it('alle gleich: „alle auf Platz 1“', () => {
     const view = minigameView(
       'minigame-results',

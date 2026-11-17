@@ -11,9 +11,10 @@
  */
 import { checkResult } from '@chaos-party/minigame-sdk';
 import { shuffled } from '../rng.ts';
-import type { MinigamePlacement, MinigameSpec } from '../types.ts';
+import type { ItemKind, MinigamePlacement, MinigameSpec } from '../types.ts';
 import { changeCoins } from './economy.ts';
 import { playerOf, schedule, type Ctx } from './internal.ts';
+import { gainRandomItem } from './items.ts';
 
 export const PLACEHOLDER_MINIGAME = 'placeholder';
 export const DEFAULT_MINIGAME_RESULT_GRACE_MS = 15_000;
@@ -163,12 +164,27 @@ export function finishMinigame(
     if (entry.place === 1) playerOf(ctx, entry.slot).minigameWins += 1;
     return { slot: entry.slot, coins: changeCoins(ctx, entry.slot, reward, 'minigame') };
   });
+  // CHAOS-51 (EXP-018): optional Items für den Sieg bzw. als Trostpreis für den letzten Platz
+  // (geteilt: alle; sind alle gleichauf, gibt es keinen letzten Platz).
+  const lastPlace = Math.max(...sorted.map((entry) => entry.place));
+  const withItems = rewards.map((reward, index) => {
+    const entry = sorted[index];
+    if (!entry) return reward;
+    let count = entry.place === 1 ? (ctx.rules.items.minigameWinItems ?? 0) : 0;
+    if (entry.place === lastPlace && lastPlace > 1) count += ctx.rules.items.minigameLastItems ?? 0;
+    const items: ItemKind[] = [];
+    for (let i = 0; i < count; i++) {
+      const item = gainRandomItem(ctx, entry.slot);
+      if (item) items.push(item);
+    }
+    return items.length > 0 ? { ...reward, items } : reward;
+  });
   d.minigame = {
     ...minigame,
     placements: sorted,
     highlights: [...highlights],
     aborted: false,
-    rewards,
+    rewards: withItems,
   };
   schedule(ctx, 'minigame-results', t, ctx.rules.pacing.minigameResultsMs);
 }

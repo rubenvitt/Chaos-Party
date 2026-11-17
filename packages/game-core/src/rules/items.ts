@@ -55,18 +55,22 @@ export function useCoinSteal(ctx: Ctx, target: Slot, t: number): void {
   openReaction(ctx, player.slot, target, 'coin-steal', t);
 }
 
-/** Gewichteter Item-Zug auf einem `item`-Feld; bei voller Kapazität gibt es nichts. */
-export function gainRandomItem(ctx: Ctx, slot: Slot): void {
+/**
+ * Gewichteter Item-Zug (z. B. auf einem `item`-Feld); bei voller Kapazität gibt es nichts.
+ * Liefert das Item oder `null`.
+ */
+export function gainRandomItem(ctx: Ctx, slot: Slot): ItemKind | null {
   const player = playerOf(ctx, slot);
   const { capacity, weights } = ctx.rules.items;
-  if (player.items.length >= capacity) return;
+  if (player.items.length >= capacity) return null;
   const item = pickWeighted(
     ctx.rng,
     ITEM_KINDS.map((kind) => [kind, weights[kind]] as const),
   );
-  if (item === null) return;
+  if (item === null) return null;
   player.items.push(item);
   ctx.events.push({ type: 'item-gained', slot, item });
+  return item;
 }
 
 /** Liegt auf `spaceId` eine Falle, die `slot` auslösen würde (fremde Besitzerin)? */
@@ -85,6 +89,20 @@ export function triggerTrap(ctx: Ctx): void {
   const trap = d.traps[index];
   if (!trap) return;
   d.traps.splice(index, 1);
+  const shield = player.items.indexOf('shield');
+  if (ctx.rules.items.shieldBlocksTrap === true && shield >= 0) {
+    // CHAOS-51 (EXP-018): Der Schild fängt die Falle ab, ohne Reaktionsfenster.
+    player.items.splice(shield, 1);
+    ctx.events.push({
+      type: 'trap-triggered',
+      slot: player.slot,
+      owner: trap.owner,
+      spaceId: trap.spaceId,
+      amount: 0,
+    });
+    ctx.events.push({ type: 'item-used', slot: player.slot, item: 'shield' });
+    return;
+  }
   const amount = Math.min(ctx.rules.items.trapAmount, player.coins);
   ctx.events.push({
     type: 'trap-triggered',

@@ -6,13 +6,13 @@
  * EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experiments.test.ts --silent=false
  * ```
  *
- * Anders als EXP-001 … EXP-004 bauen die Varianten auf den **aktuellen** `DEFAULT_RULES` auf
- * (der M4-Stand ist die Basis). Die Minispiele sind Bots mit gleichverteilten Punkten (plus
+ * Anders als EXP-001 … EXP-004 bauen die Varianten auf dem M4-Stand auf (`M4_RULES`: die
+ * `DEFAULT_RULES` vor EXP-018). Die Minispiele sind Bots mit gleichverteilten Punkten (plus
  * optionalem Können); ihre Dauer ist die echte Spielzeit aus dem Katalog. Näherungen, kein
  * Spaß-Beweis.
  */
 import { WACKELWALD } from '../board/wackelwald.ts';
-import type { MinigameSpec } from '../types.ts';
+import type { MinigameSpec, RuleSet } from '../types.ts';
 import { DEFAULT_RULES, withRules, type RuleOverrides } from './defaults.ts';
 import {
   economyMetrics,
@@ -62,19 +62,26 @@ export const FINALE_MS = 20_000;
 /** M4-Setup: Seeds 1–200, 2/3/4 Spieler; Rundenzahl je Tabelle. */
 export const M4_SETUP: ExperimentSetup = { seeds: seedRange(200), players: [2, 3, 4], rounds: 10 };
 
-/** Aktuelle Standardregeln mit echter Minispiel-Rotation. */
+/**
+ * Standardregeln zum Stand von M4 (CHAOS-40): `DEFAULT_RULES` ohne den Trostpreis aus EXP-018
+ * (CHAOS-51). So bleiben EXP-011 … EXP-013 wiederholbar, und EXP-018 vergleicht gegen denselben
+ * Stand.
+ */
+export const M4_RULES: RuleSet = withRules({ items: { minigameLastItems: 0 } }, DEFAULT_RULES);
+
+/** M4-Standardregeln mit echter Minispiel-Rotation. */
 export function m4Defaults(id = 'M4', label = 'Standard + Rotation'): Variant {
-  return { id, label, rules: DEFAULT_RULES, board: WACKELWALD, minigames: ROTATION_SPECS };
+  return { id, label, rules: M4_RULES, board: WACKELWALD, minigames: ROTATION_SPECS };
 }
 
-/** Variante aus Abweichungen von `DEFAULT_RULES` (nicht `START_RULES`). */
+/** Variante aus Abweichungen von `M4_RULES` (nicht `START_RULES`). */
 export function m4Variant(
   id: string,
   label: string,
   overrides: RuleOverrides = {},
   extra: Omit<Variant, 'id' | 'label' | 'rules'> = {},
 ): Variant {
-  return { ...m4Defaults(id, label), rules: withRules(overrides, DEFAULT_RULES), ...extra };
+  return { ...m4Defaults(id, label), rules: withRules(overrides, M4_RULES), ...extra };
 }
 
 // ---------------------------------------------------------------------------

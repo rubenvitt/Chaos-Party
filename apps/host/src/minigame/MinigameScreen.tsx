@@ -25,7 +25,8 @@ import {
   type SlotNumber,
 } from '@chaos-party/protocol';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { CoinIcon } from '../board/icons.tsx';
+import { CoinIcon, ItemIcon } from '../board/icons.tsx';
+import { ITEM_NAMES } from '../board/texts.ts';
 import { attachPerf } from '../debug/perf.ts';
 import { soundEngine } from '../fx/audio.ts';
 import type { IntentHub } from '../input/webSocketInputSource.ts';
@@ -603,6 +604,21 @@ function ResultsCard({
                     </>
                   )}
                 </span>
+                {row.items.length > 0 && (
+                  <span
+                    className="minigame-rank-prize"
+                    data-testid={`minigame-prize-${row.slot}`}
+                    data-items={row.items.join(' ')}
+                  >
+                    <span className="minigame-rank-prize-label">Trostpreis</span>
+                    {row.items.map((item, i) => (
+                      <span key={`${item}-${String(i)}`} className="minigame-rank-prize-item">
+                        <ItemIcon item={item} size={26} />
+                        {ITEM_NAMES[item]}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </li>
             ))}
           </ol>

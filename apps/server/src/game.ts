@@ -253,7 +253,11 @@ export class BoardGame {
             highlights: [...state.minigame.highlights],
             aborted: state.minigame.aborted,
             rewards: state.minigame.rewards
-              ? state.minigame.rewards.map((reward) => ({ slot: reward.slot, coins: reward.coins }))
+              ? state.minigame.rewards.map((reward) => ({
+                  slot: reward.slot,
+                  coins: reward.coins,
+                  ...(reward.items ? { items: [...reward.items] } : {}),
+                }))
               : null,
           }
         : null,
@@ -284,7 +288,9 @@ export class BoardGame {
     const tied =
       own !== undefined &&
       (minigame.placements ?? []).some((entry) => entry.slot !== slot && entry.place === own.place);
-    const reward = minigame.rewards?.find((entry) => entry.slot === slot)?.coins;
+    const ownReward = minigame.rewards?.find((entry) => entry.slot === slot);
+    const reward = ownReward?.coins;
+    const prizes = ownReward?.items;
     return {
       id: info.id,
       title: info.title,
@@ -297,6 +303,7 @@ export class BoardGame {
       aborted: minigame.aborted,
       ...(own ? { place: own.place, score: own.score } : {}),
       ...(reward === undefined ? {} : { reward }),
+      ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
     };
   }
 

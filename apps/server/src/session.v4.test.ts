@@ -385,6 +385,43 @@ describe('Reconnect in den neuen Zuständen (ADR-009/014)', () => {
   });
 });
 
+describe('Trostpreis nach dem Minispiel (CHAOS-51, EXP-018)', () => {
+  it('Letzte(r) bekommt ein Item: im Stand (rewards.items) und im eigenen Kontext (prizes)', () => {
+    const id = rotationInfos()[0]?.id ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);
+    h.runUntil((x) => x.gamePhase === 'minigame-play');
+    const minigame = h.boards.at(-1)?.view.minigame;
+    if (!minigame) throw new Error('kein Minispiel');
+    const info = getMinigameInfo(minigame.id);
+    h.send(
+      HOST,
+      createMessage('minigame-result', {
+        minigameId: minigame.id,
+        round: minigame.round,
+        placements: rankByScore(
+          [
+            { slot: 1, score: 9 },
+            { slot: 2, score: 1 },
+          ],
+          info?.scoring,
+        ),
+      }),
+    );
+    const view = h.boards.at(-1)?.view;
+    const rewards = view?.minigame?.rewards ?? [];
+    const loser = rewards.find((r) => r.slot !== rewards[0]?.slot);
+    const winner = rewards[0];
+    expect(winner?.items).toBeUndefined();
+    expect(loser?.items).toHaveLength(1);
+    const prize = loser?.items?.[0];
+    if (!loser || !prize) throw new Error('kein Trostpreis');
+    expect(view?.players.find((p) => p.slot === loser.slot)?.items).toContain(prize);
+    expect(context(h, loser.slot).minigame).toMatchObject({ stage: 'results', prizes: [prize] });
+    expect(context(h, winner?.slot ?? 1).minigame?.prizes).toBeUndefined();
+    expect(h.errors).toEqual([]);
+  });
+});
+
 describe('Minispiel-Bestätigung und Kontext (CHAOS-55)', () => {
   it('bestätigt angenommene und abgelehnte Ergebnisse; im Kontext tied/aborted/reward', () => {
     const id = rotationInfos()[0]?.id ?? 'pump-parade';

@@ -54,6 +54,7 @@ Host → Server `rematch`, nur wenn das Brettspiel im Endstand ist (sonst `out-o
 
 - `BoardView.minigame.rewards: { slot, coins }[] | null` – tatsächlich ausgezahlte Münzen, `null` vor dem Ergebnis, leer bei Abbruch. Nach einem Host-Neuladen ist die Ergebnisanzeige damit vollständig.
 - Controller-Minispiel-Kontext: `tied`, `aborted` (Pflicht), `reward?` (eigene Münzen im Ergebnis).
+- Seit Nachtrag 3: `rewards[].items?` und Controller-`prizes?` für Items aus dem Ergebnis (Trostpreis).
 - Server → Host **`minigame-result-ack { minigameId, round, accepted, code? }`** auf jedes `minigame-result`. Bei Ablehnung kommt zusätzlich wie bisher `error` (`invalid-result` bzw. `out-of-phase`); der Host kann am `ack` (Runde/ID) erkennen, ob er erneut senden muss.
 
 ### 7. Reconnect
@@ -133,3 +134,13 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 **Betrachtete Alternative:** `takenCharacters` durch `takenBy` ersetzen (Protokoll v5). Verworfen: Bruch für alle Nutzer und Fixtures ohne Gewinn, das Feld ist klein.
 
 **Konsequenzen.** Tests: `packages/protocol/src/v4.test.ts`, `apps/server/src/session.v4.test.ts`, `apps/server/src/mixedSetup.integration.test.ts` (iPhone sieht Besitzer auf dem iPad), `apps/controller/src/lobby/view.test.ts`, `apps/controller/src/state/reducer.m4.test.ts`, E2E `controller-m4.spec.ts` und `ipad-m4.spec.ts` („Figur weggeschnappt“).
+
+## Nachtrag 3 (2026-11-17, CHAOS-51): Trostpreis im Minispiel-Ergebnis
+
+EXP-018 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.minigameLastItems: 1`). Damit PC und Controller das zeigen können, auch nach einem Neuladen, trägt der Stand die Items:
+
+- `BoardView.minigame.rewards[].items?: ItemKind[]` (1–4, fehlt ohne Item).
+- Controller-Minispiel-Kontext `prizes?: ItemKind[]` (eigene Items aus dem Ergebnis, nur in `results`).
+
+Beide Felder sind optional; die Protokollversion bleibt 4, weil Host, Server und Controller immer aus demselben Build kommen. Die Items kommen zusätzlich wie jedes gezogene Item als `item-gained` nach `minigame-results`.
+

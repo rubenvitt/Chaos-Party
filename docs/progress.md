@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; 2026-11-17 CHAOS-51: Trostpreis-Item für den letzten Minispiel-Platz als neuer Standard, EXP-018) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -85,6 +85,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-73 | Ruckeln auf echter GPU: PCSS-Filterstufe `LOW`, Auflösungsgrenze je Grafikstufe, Automatik merkt sich die Stufe ([EXP-014](experiments.md)) | im PR, Messung an Rubens PC/Fernseher offen |
 | CHAOS-75 (Backlog CHAOS-44) | Renderer-Spike: `?gpu=webgpu` am Brett, Bevy-Prototyp (WebAssembly + nativ) mit exportierter Brett-Szene, Recherche tvOS ([EXP-015](experiments.md), [ADR-016](decisions/ADR-016-renderer.md) Entwurf, [`renderer-spike.md`](renderer-spike.md)) | im PR, Messbogen R1–R11 durch Ruben offen |
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | im PR, echte Apple TV (R12) und saubere Mac-Messung (R13/R14) offen |
+| CHAOS-51 (Backlog CHAOS-44) | Zurückgestellte Balance-Ideen per Bot-Simulation ([EXP-018](experiments.md)): **Trostpreis** (1 Item für den letzten Minispiel-Platz) neuer Standard, am PC und Handy angezeigt; Stellschrauben `trophy.placement`, `items.minigameWinItems`, `items.shieldBlocksTrap` bleiben aus | im PR, Playtest offen |
 
 ### Messwerte Performance (CHAOS-39)
 
@@ -117,6 +118,7 @@ Render-Pause hinter dem Finale und Messung je Szene funktionieren mit dem Natur-
 | Server-Integration (Reconnect, Host-Verlust, gemischt, Determinismus, Fuzz) | siehe [`testing.md`](testing.md) (u. a. `INTEGRATION_SEEDS`, 424242, 99, Fuzz 1/2/3/2026) |
 | Experimente EXP-011 … EXP-013 | Seeds 1–200 je Spielerzahl (`EXPERIMENTS=m4 …`) |
 | Experiment EXP-016 (Kuckucks-Klatsche, CHAOS-54) | Seeds 1–300 je Zeile (`EXPERIMENTS=1 … experimentKuckuck`) |
+| Experiment EXP-018 (Balance-Ideen, CHAOS-51) | Seeds 1–200 je Zeile (`EXPERIMENTS=balance … experimentsBalance`) |
 | `pnpm perf` | 2026 |
 
 ### Seeds (M3)
@@ -154,6 +156,7 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `cd spikes/renderer-bevy && cargo build --release` / `./build-web.sh` | ok (2026-11-16, CHAOS-75, Rust 1.100, Bevy 0.20.1) – Erst-Build ≈ 10 min nativ, ≈ 8 min je WebAssembly-Variante; Messung nur auf echter Hardware ([`renderer-spike.md`](renderer-spike.md)) |
 | `spikes/renderer-realitykit/convert/convert.sh`, `xcodegen generate`, `xcodebuild … -destination 'platform=macOS' / 'generic/platform=iOS Simulator' / 'generic/platform=tvOS Simulator'` | ok (2026-11-16, CHAOS-78, Xcode 27, bpy 5.3.0 mit Python 3.13 über uv) – siehe [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md) |
 | `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-011 … EXP-013 |
+| `EXPERIMENTS=balance pnpm exec vitest run packages/game-core/src/rules/experimentsBalance.test.ts --silent=false` | Tabellen für EXP-018, ~8 s |
 | `pnpm install --frozen-lockfile` | ok |
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
 | `pnpm test:e2e --trace off` | ok – 108 Tests in 15 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~3,5 min |

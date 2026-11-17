@@ -26,6 +26,10 @@ export const DEFAULT_RULES: RuleSet = {
     stealAmount: 5,
     trapAmount: 4,
     trapTrigger: 'pass',
+    // EXP-018 (CHAOS-51): Trostpreis – wer im Minispiel Letzte(r) wird, bekommt ein Item.
+    // Verdoppelt die Sabotage (zu zweit etwa alle 2–3 statt alle 6 Runden) und dämpft den
+    // Vorsprung guter Minispieler, statt ihn wie ein Sieg-Item zu verstärken.
+    minigameLastItems: 1,
   },
   pacing: {
     turnStartMs: 1200,

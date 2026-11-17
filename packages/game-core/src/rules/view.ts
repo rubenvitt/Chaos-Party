@@ -137,7 +137,11 @@ export function toPublicView(state: GameState, now: number = state.now): PublicG
             : null,
           highlights: [...state.minigame.highlights],
           aborted: state.minigame.aborted,
-          rewards: state.minigame.rewards ? state.minigame.rewards.map((r) => ({ ...r })) : null,
+          rewards: state.minigame.rewards
+            ? state.minigame.rewards.map((r) =>
+                r.items ? { ...r, items: [...r.items] } : { ...r },
+              )
+            : null,
         }
       : null,
     paused: state.paused,

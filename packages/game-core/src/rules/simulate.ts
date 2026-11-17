@@ -72,6 +72,13 @@ export interface BotPolicy {
    */
   readonly trophyPathChance: number;
   /**
+   * Sichtbare Fallen (CHAOS-51, EXP-018): Wahrscheinlichkeit, an einer Verzweigung Wege zu
+   * meiden, auf denen in den nächsten `TRAP_LOOKAHEAD` Feldern eine fremde Falle liegt (nur
+   * wenn ein Weg ohne Falle bleibt). Wird vor der Trophäen-Wahl geprüft. 0 = Fallen sind
+   * egal bzw. unsichtbar (bisheriges Verhalten).
+   */
+  readonly avoidTrapChance: number;
+  /**
    * Echte Minispiele (M3/M4): So lange nach Ende der Spielzeit meldet der „Host“ das Ergebnis
    * (Abschlussbild, Netz). Nur mit `SimulationOptions.minigames`.
    */
@@ -93,6 +100,7 @@ export const DEFAULT_BOT_POLICY: BotPolicy = {
   reactionDelayMs: [600, 3600],
   decisionMs: [800, 2500],
   trophyPathChance: 0,
+  avoidTrapChance: 0,
   minigameResultDelayMs: 500,
   // Gleichstand auf Platz 1 bei 4 Spielern ≈ 4 %, wie die echten Minispiele (EXP-005 … 007).
   minigameScoreSpread: 40,
@@ -164,6 +172,8 @@ export interface SimulationResult {
   readonly coinsStolen: number;
   readonly trapsPlaced: number;
   readonly trapsTriggered: number;
+  /** Fallen, die ein Schild abgefangen hat (`shieldBlocksTrap`); zählen nicht als ausgelöst. */
+  readonly trapsBlocked: number;
   readonly coinsLostToTraps: number;
   readonly reactions: Readonly<Record<'shield' | 'brace' | 'timeout', number>>;
   /** Reaktionen, die nach der Frist kamen (`stale-prompt`). */
@@ -224,13 +234,23 @@ function distanceTo(board: BoardDefinition, from: string, targets: readonly stri
   return Infinity;
 }
 
+/** So weit (Felder) schaut ein Bot an einer Verzweigung nach sichtbaren Fallen. */
+export const TRAP_LOOKAHEAD = 6;
+
 function choosePath(
-  ids: readonly string[],
+  candidates: readonly string[],
   state: GameState,
   board: BoardDefinition,
   policy: BotPolicy,
   rng: Rng,
 ): string {
+  let ids = candidates;
+  if (policy.avoidTrapChance > 0 && rng.next() < policy.avoidTrapChance) {
+    const slot = state.prompt?.slot;
+    const traps = state.traps.filter((trap) => trap.owner !== slot).map((trap) => trap.spaceId);
+    const safe = ids.filter((id) => distanceTo(board, id, traps) >= TRAP_LOOKAHEAD);
+    if (traps.length > 0 && safe.length > 0) ids = safe;
+  }
   if (policy.trophyPathChance > 0 && rng.next() < policy.trophyPathChance) {
     const distances = ids.map((id) => distanceTo(board, id, state.trophySpaces));
     const best = Math.min(...distances);
@@ -301,6 +321,9 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   let coinsStolen = 0;
   let trapsPlaced = 0;
   let trapsTriggered = 0;
+  let trapsBlocked = 0;
+  /** Letztes Ereignis war eine Falle ohne Verlust: ein folgender Schild hat sie abgefangen. */
+  let trapWithoutLoss = false;
   let coinsLostToTraps = 0;
   let lateReactions = 0;
   const reactionWaits: number[] = [];
@@ -312,6 +335,14 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
 
   const record = (event: GameEvent, at: number): void => {
     eventCount += 1;
+    const blockedTrap = trapWithoutLoss && event.type === 'item-used' && event.item === 'shield';
+    trapWithoutLoss = event.type === 'trap-triggered' && event.amount === 0;
+    if (blockedTrap) {
+      // CHAOS-51: Schild gegen Falle – keine Sabotage, kein Verlust-Eintrag.
+      trapsTriggered -= 1;
+      trapsBlocked += 1;
+      sabotageLosses.pop();
+    }
     switch (event.type) {
       case 'turn-started':
         turnStart = at;
@@ -516,6 +547,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     coinsStolen,
     trapsPlaced,
     trapsTriggered,
+    trapsBlocked,
     coinsLostToTraps,
     reactions,
     lateReactions,

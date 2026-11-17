@@ -79,6 +79,9 @@ export interface Pacing {
   readonly disconnectGraceMs: number;
 }
 
+/** Ziel einer wandernden Trophäe (`RuleSet.trophy.placement`). */
+export type TrophyPlacement = 'random' | 'ahead' | 'ahead-of-last';
+
 export interface RuleSet {
   /** Würfelseiten; jede gleich wahrscheinlich (Verteilung per Experiment). */
   readonly diceFaces: readonly number[];
@@ -102,6 +105,13 @@ export interface RuleSet {
      * Nach einem Kauf wandert genau die gekaufte Trophäe zu einem gerade freien Feld.
      */
     readonly activeCount: number;
+    /**
+     * Nur bei `wandering`: wohin eine Trophäe wandert (CHAOS-51, EXP-018). `random` (fehlt =
+     * `random`): gleichverteilt auf ein freies Feld. `ahead`: bevorzugt vor die Spieler, also
+     * auf die nähere Hälfte der freien Felder, gemessen am kürzesten Weg vorwärts von irgendeiner
+     * Figur. `ahead-of-last`: wie `ahead`, gemessen nur von den Letztplatzierten (Aufholhilfe).
+     */
+    readonly placement?: TrophyPlacement;
   };
   readonly items: {
     /** Höchstzahl gleichzeitig gehaltener Items. */
@@ -119,6 +129,23 @@ export interface RuleSet {
      * Darüberlaufen (die Bewegung hält kurz an, dann geht sie weiter).
      */
     readonly trapTrigger: 'land' | 'pass';
+    /**
+     * So viele zufällige Items bekommt, wer ein Minispiel gewinnt (geteilter 1. Platz: alle);
+     * Kapazität wie auf `item`-Feldern. Fehlt = 0 (CHAOS-51, EXP-018).
+     */
+    readonly minigameWinItems?: number;
+    /**
+     * So viele zufällige Items bekommt, wer im Minispiel Letzte(r) wird (geteilter letzter
+     * Platz: alle; nicht, wenn alle gleichauf sind). Trostpreis und Aufholhilfe. Fehlt = 0
+     * (CHAOS-51, EXP-018).
+     */
+    readonly minigameLastItems?: number;
+    /**
+     * Schild wehrt auch eine fremde Falle ab: Wer einen Schild hält, verliert ihn statt der
+     * Münzen; die Falle ist danach weg. Automatisch, ohne Reaktionsfenster. Fehlt = `false`
+     * (CHAOS-51, EXP-018).
+     */
+    readonly shieldBlocksTrap?: boolean;
   };
   readonly pacing: Pacing;
 }
@@ -186,6 +213,11 @@ export interface MinigameState {
 export interface MinigameReward {
   readonly slot: Slot;
   readonly coins: number;
+  /**
+   * Items aus dem Ergebnis (Trostpreis bzw. Sieg-Item, CHAOS-51/EXP-018); fehlt, wenn keine.
+   * Bei voller Item-Kapazität gibt es nichts.
+   */
+  readonly items?: readonly ItemKind[];
 }
 
 // ---------------------------------------------------------------------------

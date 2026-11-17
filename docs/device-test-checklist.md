@@ -307,6 +307,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | V27 | Mitten im Zug „Pause“ (Knopf oder Taste P/Esc) | PC zeigt Pause mit „Weiter“ und „Partie beenden“; alle Controller zeigen „Pause – Der PC hat angehalten.“ ohne Knöpfe; Countdowns stehen | | | |
 | V28 | Pause mitten im Minispiel, nach 20 s „Weiter“ | Minispiel steht still und läuft mit derselben Restzeit weiter | | | |
 | V29 | „Partie beenden“ → Rückfrage → bestätigen | Finale mit Hinweis „vorzeitig beendet“; Controller zeigen den Endstand mit diesem Hinweis | | | |
+| V30 | Nach einem Minispiel mit klarem letzten Platz (CHAOS-51, EXP-018) | PC-Ergebniskarte zeigt beim letzten Platz „Trostpreis“ mit Item, in den 6 s lesbar; nur das Handy dieser Person zeigt „Trostpreis: …“; das Item ist danach im Brett-HUD und beim nächsten Würfeln wählbar | | | |
 
 ### Gesamturteil M4 (für CHAOS-43)
 
