@@ -13,7 +13,12 @@ globalThis.ChaosHost = {
     let phase = 'lobby';
     let started = 0;
     let now = 0;
-    env.log('StubHost aktiv, ' + env.havokWasm.length + ' Byte Havok, Zufall ' + env.randomBytes(4).join(','));
+    env.log(
+      'StubHost aktiv, ' +
+        env.havokWasm.length +
+        ' Byte Havok, Zufall ' +
+        env.randomBytes(4).join(','),
+    );
     const seconds = () => (now - started) / 1000;
     return {
       open(id) {
@@ -41,26 +46,73 @@ globalThis.ChaosHost = {
       renderState() {
         const s = seconds();
         const players = conns.map((id, i) => ({
-          slot: i + 1, name: 'Verbindung ' + id, color: colors[i % 4], connected: true, ready: false, character: 'robot',
+          slot: i + 1,
+          name: 'Verbindung ' + id,
+          color: colors[i % 4],
+          connected: true,
+          ready: false,
+          character: 'robot',
         }));
         const pawns = [1, 2].map((slot) => {
           const space = spaces[(Math.floor(s) + slot * 3) % 16];
           return { slot, spaceId: space.id, x: space.x, z: space.z, character: 'robot' };
         });
-        const bodies = [{ id: 'floor', shape: 'box', pos: [0, -0.5, 0], rot: [0, 0, 0, 1], size: [16, 1, 10], color: '#475569' }];
+        const bodies = [
+          {
+            id: 'floor',
+            shape: 'box',
+            pos: [0, -0.5, 0],
+            rot: [0, 0, 0, 1],
+            size: [16, 1, 10],
+            color: '#475569',
+          },
+        ];
         for (let i = 0; i < 12; i++) {
           bodies.push({
-            id: 'b' + i, shape: i % 3 === 0 ? 'box' : 'sphere',
-            pos: [(i % 6) * 2 - 5, Math.abs(Math.sin(s * 3 + i)) * 3 + 0.5, Math.floor(i / 6) * 3 - 1.5],
-            rot: [0, Math.sin(s + i), 0, Math.cos(s + i)], size: [1, 1, 1], color: colors[i % 4],
+            id: 'b' + i,
+            shape: i % 3 === 0 ? 'box' : 'sphere',
+            pos: [
+              (i % 6) * 2 - 5,
+              Math.abs(Math.sin(s * 3 + i)) * 3 + 0.5,
+              Math.floor(i / 6) * 3 - 1.5,
+            ],
+            rot: [0, Math.sin(s + i), 0, Math.cos(s + i)],
+            size: [1, 1, 1],
+            color: colors[i % 4],
           });
         }
-        bodies.push({ id: 'spinner', shape: 'cylinder', pos: [0, 0.25, 0], rot: [0, Math.sin(s), 0, Math.cos(s)], size: [8, 0.5, 0.4], color: '#f97316' });
+        bodies.push({
+          id: 'spinner',
+          shape: 'cylinder',
+          pos: [0, 0.25, 0],
+          rot: [0, Math.sin(s), 0, Math.cos(s)],
+          size: [8, 0.5, 0.4],
+          color: '#f97316',
+        });
         return JSON.stringify({
           phase,
           lobby: { joinUrl: env.joinUrl, joinCode: env.joinCode, players },
-          board: phase === 'lobby' ? null : { round: 1 + Math.floor(s / 20), rounds: 5, activeSlot: 1 + (Math.floor(s) % 2), spaces, pawns, messages: ['Stub: Brett ' + s.toFixed(0) + ' s'] },
-          minigame: phase === 'minigame' ? { id: 'stub-gerangel', stage: 'play', elapsedMs: (s % 10) * 1000, bodies, hud: 'Stub-Minispiel' } : null,
+          board:
+            phase === 'lobby'
+              ? null
+              : {
+                  round: 1 + Math.floor(s / 20),
+                  rounds: 5,
+                  activeSlot: 1 + (Math.floor(s) % 2),
+                  spaces,
+                  pawns,
+                  messages: ['Stub: Brett ' + s.toFixed(0) + ' s'],
+                },
+          minigame:
+            phase === 'minigame'
+              ? {
+                  id: 'stub-gerangel',
+                  stage: 'play',
+                  elapsedMs: (s % 10) * 1000,
+                  bodies,
+                  hud: 'Stub-Minispiel',
+                }
+              : null,
         });
       },
     };
