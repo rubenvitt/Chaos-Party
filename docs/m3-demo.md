@@ -21,7 +21,7 @@ Am PC `http://localhost:8787/host/` öffnen, **einmal in die Seite klicken** (Br
 | `/host/?local=1&minigame=<id>&players=4` | ein Minispiel ohne Server mit der Tastatur |
 | `/host/?local=1&minigame=<id>&flow=1` | dasselbe mit Anleitung → Spiel → Ergebnis |
 
-Tastatur in der Vorschau: Blau WASD + Leertaste (A) + E (B), Orange Pfeiltasten + Enter (A) + Shift rechts (B). IDs: `sockenregen`, `pudding-gerangel`, `wackelturm`, seit CHAOS-54 auch `kuckucks-klatsche` (dann `ROUNDS=4` für jedes Minispiel einmal).
+Tastatur in der Vorschau: Blau WASD + Leertaste (A) + E (B), Orange Pfeiltasten + Enter (A) + Shift rechts (B). IDs: `sockenregen`, `pudding-gerangel`, `wackelturm`, seit CHAOS-54 auch `kuckucks-klatsche`, seit CHAOS-79 `kruemel-kehraus` (dann `ROUNDS=5` für jedes Minispiel einmal).
 
 ## Was neu ist
 
@@ -34,6 +34,7 @@ Tastatur in der Vorschau: Blau WASD + Leertaste (A) + E (B), Orange Pfeiltasten 
 | **Pudding-Gerangel** (30 s) | Physik | Joystick laufen, A rempeln | Auf dem Kirschfleck stehen (Punkte je Sekunde). Der Pudding kippt zur Menge, ein Rührlöffel kreist, wer führt, trägt die Wackelkrone und fliegt leichter. Runtergefallen? Nach 1,5 s wieder da. |
 | **Wackelturm** (35 s) | Hybrid | Joystick laufen, A greifen, B rempeln | Törtchen auf den Kopf stapeln und ins eigene Eck-Nest tragen. Ab 6 Stück doppelt, aber der Turm wackelt. Mit leeren Händen B: fremden Turm klauen. |
 | **Kuckucks-Klatsche** (30 s, nach M4: CHAOS-54) | Arcade | nur A klatschen | Jede Person hat eine Tür im Kuckuckshaus. Kuckuck raus → schnell A (2 Punkte). Nach dem Gong (weißer Ring) darf jeder klauen (1 Punkt). Ente, Socke, Blume: Finger weg (−1). Ins Leere klatschen macht 1 s benommen. Letzte 8 s Mitternacht. |
+| **Krümel-Kehraus** (30 s, nach M4: CHAOS-79) | Physik | Joystick laufen, A rempeln | Kekskrümel über das Holzblech in das eigene Mauseloch schieben (Torbogen in deiner Farbe, in deiner Ecke; bei drei Personen liegt das dritte Loch als Kerbe hinten in der Mitte). Goldkrümel zählt 3. Krümel passen unter den Bogen, Figuren nicht. Getroffene Krümel fallen woanders neu herein. Letzte 8 s zerbröselt ein Riesenkeks in der Mitte. |
 
 - **Ton und Effekte:** prozedural erzeugt (keine Dateien), am Brett (Würfel, Münzen, Klau, Falle, Trophäe …) und in den Minispielen.
 - **Controller:** zeigt die Anleitung, im Spiel beschriftete Knöpfe (nur die nötigen), danach den eigenen Platz.
