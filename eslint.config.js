@@ -19,6 +19,9 @@ export default defineConfig(
       'perf-results/**',
       // Wegwerf-Probe für die Apple TV (CHAOS-135): Einstieg nur für den esbuild-Bündel.
       'spikes/apple-host-probe/**',
+      // Apple-TV-Host-Spike (CHAOS-138): Xcode-Build und kopierte Bündel.
+      'spikes/apple-host/build/**',
+      'spikes/apple-host/payload/**',
       // Renderer-Spike (CHAOS-75): Rust-Build, wasm-bindgen-Ausgabe und exportierte Szene.
       'spikes/renderer-bevy/target/**',
       'spikes/renderer-bevy/web/pkg-*/**',

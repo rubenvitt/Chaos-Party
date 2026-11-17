@@ -2,6 +2,7 @@
 # CHAOS-78: Testszene des Bevy-Spikes (GLB) → USDZ für RealityKit.
 # Voraussetzung: node scripts/spike-export-board.mjs (erzeugt spikes/renderer-bevy/assets/export/).
 # bpy 5.3.0 braucht Python 3.13; das System-python3 ist neuer, daher uv.
+# Umgebung: RK_CHECK=0 lässt die Prüfung mit RealityKit (check.swift) weg.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
@@ -22,4 +23,8 @@ done
 cp "$src/brett.szene.json" "$src/brett.instanzen.json" "$out/"
 
 for f in "$out/brett.usdz" "$out"/figuren/*.usdz; do xcrun usdchecker "$f" | tail -1; done
-swift "$here/check.swift" "$out"
+# RK_CHECK=0 überspringt die RealityKit-Prüfung (CI für TestFlight prüft in einem eigenen Schritt,
+# weil unklar ist, ob die macOS-Runner Metal für RealityKit bereitstellen).
+if [ "${RK_CHECK:-1}" != 0 ]; then
+  swift "$here/check.swift" "$out"
+fi

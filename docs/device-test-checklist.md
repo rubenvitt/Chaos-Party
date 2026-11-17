@@ -395,12 +395,12 @@ Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Sz
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RK1 | Mac: `ChaosRenderSpike --sekunden=30` mit sichtbarem Fenster, sonst nichts laufen lassen (kein GeForce NOW, kein Vollbild-Spiel) | `SPIKE-ERGEBNIS` mit Median ≈ 8,3 ms (120 Hz); p95 eintragen (R13) | | |
-| RK2 | Mac: dasselbe mit `--durchsatz=1` (R14) und `--breite=3840 --hoehe=2160` | Offscreen-Bildzeit 1080p und 4K | | |
+| RK1 | Mac: `ChaosRenderSpike --sekunden=30` mit sichtbarem Fenster, sonst nichts laufen lassen (kein GeForce NOW, kein Vollbild-Spiel) | `SPIKE-ERGEBNIS` mit Median ≈ 8,3 ms (120 Hz); p95 eintragen (R13) | ok (17.11., 60-Hz-Monitor): 60 fps am Deckel, GPU 6,3 ms (1080p) / 7,3 ms (4K) | EXP-017 |
+| RK2 | Mac: dasselbe mit `--durchsatz=1` (R14) und `--breite=3840 --hoehe=2160` | Offscreen-Bildzeit 1080p und 4K | ok (17.11.): 16,6 ms / 49,6 ms | EXP-017 |
 | RK3 | Xcode: Team eintragen (ob ein kostenloser Apple-Account für tvOS-Geräte reicht, prüfen; Profile gelten dann 7 Tage), App auf die Apple TV spielen | App startet, Brett mit Gras, Figuren, Schatten | ok (17.11., bezahltes Team, Apple TV per Xcode gekoppelt, Build mit `-destination id=<UDID> -allowProvisioningDeviceRegistration`) | `devicectl` install/launch, `SPIKE-ERGEBNIS` |
 | RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p entfällt: Ruben bleibt bei 4K-Ausgabe (17.11.) | EXP-017 |
-| RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | | |
-| RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | | |
+| RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | entfällt: ADR-019 wählt W2 (Apple TV hostet allein); der Protokollweg ist dort auf der echten Apple TV gezeigt (CHAOS-138, Partie bis ins Minispiel) | EXP-024 |
+| RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | verschoben: Der Look wird mit der echten Brett-Grafik im Apple-Host beurteilt (CHAOS-148, Figuren direkt als USDZ aus bpy, ADR-019 §5) | |
 
 ## 18. Apple TV bei 4K: interne Auflösung und Hochskalierung (für CHAOS-114)
 
@@ -428,3 +428,17 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 | WT1 | Partie, bis jemand auf ein Ereignisfeld (lila) kommt und „Windböe!“ erscheint | Figur wirbelt in weißen Windringen davon und landet 1–2 Felder weiter; kein Sprung ohne Bewegung | | |
 | WT2 | Ereignis „Tausch!“ | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat | | |
 | WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil | | |
+
+## 20. Apple-TV-App über TestFlight (für CHAOS-119)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119 · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
+
+Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Testszene (Look-Dev-Texturen, Brett-Export, USDZ mit bpy) unter Linux erzeugt. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| TV1 | App Store Connect: neue App, Plattform **tvOS**, Bundle-ID `dev.rubeen.chaosparty.tv`, Name z. B. „Chaos Party TV“ (die Bundle-ID erscheint erst, wenn sie im Developer-Portal existiert: dort vorher anlegen oder einmal den Workflow laufen lassen) | App-Eintrag existiert | | |
+| TV2 | GitHub: Actions → „TestFlight (Apple TV)“ → Run workflow auf `main` | Lauf grün, Log endet mit „Hochgeladen: Build …“; der Schritt „Testszene mit RealityKit prüfen“ darf gelb sein (Ergebnis notieren) | | Link zum Lauf |
+| TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
+| TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
+| TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |
