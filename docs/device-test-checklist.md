@@ -323,7 +323,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | Wollte die Gruppe direkt noch eine Runde spielen? | |
 | Echte Partiedauer bei 10 Runden (V2) – passt 10 als Standard, oder lieber kürzer/länger? | |
 | Hatte der Führende zur Halbzeit einen uneinholbaren Vorsprung, oder blieb es spannend? | |
-| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8): Fällt das auf, wird das Ende spannender oder gemeiner? | |
+| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8), seit CHAOS-120 mit Ansage am PC („Sabotage wird stärker!“, Abschnitt 24): Fällt das auf, wird das Ende spannender oder gemeiner? | |
 | Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
 | Lieblingsmoment und größtes Ärgernis | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
@@ -339,7 +339,7 @@ Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `min
 | N1 | Brett 2 min laufen lassen (2–4 Spieler), Messzeile kopieren | ≥ 50 fps bei `hoch`; bleibt die Stufe auf „hoch (auto)“ oder stuft die Automatik ab? Wert und GPU notieren | | |
 | N2 | Jedes Minispiel einmal mit `?debug=1` | flüssig (≥ 50 fps); Stufe aus der Debug-Zeile beim nächsten Brett notieren (die Minispiel-Bühne zeigt keine eigene, die Stufe gilt für die Sitzung) | | |
 | N3 | Zum Vergleich `?qualitaet=mittel` und `?qualitaet=niedrig` | fps je Stufe; sieht man den Unterschied aus 3 m? | | |
-| N4 | Ruckeln beim Wechsel Brett → Minispiel → Brett | kein langes Standbild beim Laden (Himmel, Texturen) | | |
+| N4 | Ruckeln beim Wechsel Brett → Minispiel → Brett; dabei auf die Anleitungskarte achten (läuft der Countdown gleichmäßig?) | kein langes Standbild beim Laden (Himmel, Texturen); seit CHAOS-132 übersetzt der Host Shader schrittweise. Falls Standbild: ungefähre Dauer, Grafikstufe (`?debug=1`) und Richtung (zum Minispiel oder zurück zum Brett) notieren (für CHAOS-152) | | |
 | N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
 | N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Lichtverlauf je Runde: Abschnitt 14) | | |
 | N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |
@@ -377,7 +377,7 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 
 ## 16. Renderer-Spike: WebGPU, Bevy WebAssembly, Bevy nativ (für CHAOS-75)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75, PC-Zeilen: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75; PC-Teile entfallen (CHAOS-131: kein PC, nur am Mac messen) · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
 Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, das Aussehen unter WebGPU (die Software-GPU der Cloud verliert das Gerät beim ersten Bild; den Aufbau des Bretts unter WebGPU prüft seit CHAOS-117 nur ein Test-Skript mit Ersatz-Canvas, siehe EXP-015), Bevy nativ mit Fenster, Apple TV.
 
@@ -475,7 +475,34 @@ Automatisch geprüft: JS-Kern im nackten `node:vm`-Kontext (ganze Partie mit Bot
 | AH5 | Bis zum ersten Minispiel weiterspielen | Minispiel als Grundkörper sichtbar, Stick/Knopf am iPhone wirken, danach zurück aufs Brett | | |
 | AH6 | Log nach 2–3 Minuten ansehen | keine `JS-FEHLER`- oder `FEHLER`-Zeilen; `HOST-MESSUNG` mit `js_ms_p95` notieren | | Log-Auszug |
 
-## 23. Notarisierte Mac-App auf einem fremden Mac (für CHAOS-118)
+## 23. „Mehr Zeit zum Reagieren“ (für CHAOS-124)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-124 · **Doku:** [ADR-015, Nachtrag 5](decisions/ADR-015-vertical-slice.md)
+
+Automatisch geprüft: Schalter in der PC-Lobby per Maus und Tastatur (Enter, Leertaste), Server übernimmt die Einstellung, die Partie läuft mit 5000 ms statt 3000 ms, eine Reaktion nach 4 s zählt nur mit Option, die Revanche behält die Einstellung (`host-lobby-figuren.spec.ts`, `apps/server/src/reactionTime.integration.test.ts`). **Nicht** automatisch prüfbar: ob 5 s für Kinder, ältere Mitspielende oder Menschen mit motorischen Einschränkungen reichen und ob sich das Fenster für die anderen zu lang anfühlt.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| RT1 | PC-Lobby: „Mehr Zeit zum Reagieren“ einschalten, Partie starten, bis jemandem Münzen geklaut werden | Countdown am iPhone startet bei 5 s statt 3 s, Reaktion ist in Ruhe schaffbar | | |
+| RT2 | Gleiche Situation ohne Option | Countdown startet bei 3 s (wie bisher) | | |
+| RT3 | Mit Option eine ganze Partie mit einer langsamer reagierenden Person | Sie schafft die Reaktion meistens; die anderen empfinden das Warten nicht als Bremse | | |
+| RT4 | Nach dem Endstand „Nochmal spielen“ | Schalter in der Lobby ist noch an | | |
+
+## 24. Ansage „Sabotage wird stärker!“ (für CHAOS-120)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-120 · **Bild:** [Ansage am PC](screenshots/chaos120-sabotage-ansage.png)
+
+Automatisch geprüft: Ansage nur in Wachstumsrunden (Spielkern-Test, bei `sabotageGrowthRounds: 0` nie), Einblendung am Host mit den neuen Werten, kurze Pause vor „… ist dran!“, nach 4 s wieder weg (`host-brett.spec.ts`, Screenshot `host-brett-sabotage`); Fallen-Text „Kostet andere ab 4 Münzen“, solange die Falle bis zum Partieende noch mehr bringen kann. **Nicht** automatisch prüfbar: ob man die Ansage vom Sofa aus bemerkt und versteht, ob der Klang passt.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| SA1 | Partie mit 10 Runden bis Runde 6 spielen | Zu Beginn von Runde 6 erscheint oben mittig „Sabotage wird stärker!“ mit „Klau: 6 Münzen · Falle: 5 Münzen“, dazu ein tiefer Fallen-Klang; danach „… ist dran!“ | | Foto |
+| SA2 | Runde 2–5 und 7–10 | Keine Ansage, nur „Runde n beginnt!“ in der Meldungsleiste | | |
+| SA3 | Falle im Würfel-Menü am iPhone/iPad, Runde 1–5 | Zusatzzeile „Kostet andere ab 4 Münzen“; in Runde 6–10 (letzte Stufe bei 10 Runden) „Kostet andere 5 Münzen“ | | Foto |
+| SA4 | Gefühl in der Gruppe | Hat jemand die Ansage bemerkt und verstanden? Zu laut, zu leise, zu lang? | | Notiz |
+| SA5 | Nativer Apple-Host (Mac, Abschnitt 22) bis Runde 6 | Meldungsleiste zeigt „Sabotage wird stärker! Klau: 6 Münzen · Falle: 5 Münzen“ (noch ohne große Einblendung und Klang) | | |
+
+## 25. Notarisierte Mac-App auf einem fremden Mac (für CHAOS-118)
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-118 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „Release“
 

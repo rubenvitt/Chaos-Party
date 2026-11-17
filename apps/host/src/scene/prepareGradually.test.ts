@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { runInRounds, runInSlices } from './prepareGradually.ts';
+import {
+  preloadShaderSources,
+  runInRounds,
+  runInSlices,
+  shaderSourceLoaders,
+} from './prepareGradually.ts';
 
 /** Uhr, die nur die Arbeit vorrückt (jeder Eintrag kostet so viele ms wie angegeben). */
 function fakeClock() {
@@ -130,5 +135,73 @@ describe('runInRounds (CHAOS-71)', () => {
       },
     );
     expect(pauses).toBe(1);
+  });
+});
+
+/** Nachbau von Babylons `_ShaderImportLoader`: lädt einmal, danach kein Rückruf mehr. */
+function fakeLoader() {
+  const calls: number[] = [];
+  let loaded = false;
+  return {
+    calls,
+    getLoadCallback(language: number) {
+      if (loaded) return undefined;
+      return () => {
+        calls.push(language);
+        loaded = true;
+        return Promise.resolve();
+      };
+    },
+  };
+}
+
+describe('shaderSourceLoaders / preloadShaderSources (CHAOS-132)', () => {
+  const base = fakeLoader();
+  const standard = fakeLoader();
+  // Wie Babylon-Materialien: Lader statisch an der Klasse, Name am Objekt.
+  class BaseMaterial {
+    static _ShaderLoader = base;
+    name = 'basis';
+  }
+  class DerivedMaterial extends BaseMaterial {}
+  class StandardLike {
+    static _ShaderLoader = standard;
+    name = 'standard';
+  }
+  class PlainMaterial {
+    name = 'ohne Lader';
+  }
+
+  it('findet je Klasse einen Lader, auch aus der Oberklasse, ohne Doppelte', () => {
+    const loaders = shaderSourceLoaders([
+      new DerivedMaterial(),
+      new BaseMaterial(),
+      new StandardLike(),
+      new StandardLike(),
+      new PlainMaterial(),
+    ]);
+    expect(loaders).toHaveLength(2);
+    expect(loaders).toContain(base);
+    expect(loaders).toContain(standard);
+  });
+
+  it('lädt jede Quelle einmal in der verlangten Sprache, danach nicht mehr', async () => {
+    const one = fakeLoader();
+    class A {
+      static _ShaderLoader = one;
+      name = 'a';
+    }
+    await preloadShaderSources([new A(), new A()], 0);
+    await preloadShaderSources([new A()], 0);
+    expect(one.calls).toEqual([0]);
+  });
+
+  it('übergeht Materialien ohne gültigen Lader', async () => {
+    class Broken {
+      static _ShaderLoader = { getLoadCallback: 'nein' };
+      name = 'kaputt';
+    }
+    expect(shaderSourceLoaders([new Broken(), new PlainMaterial()])).toEqual([]);
+    await expect(preloadShaderSources([new Broken()], 0)).resolves.toBeUndefined();
   });
 });

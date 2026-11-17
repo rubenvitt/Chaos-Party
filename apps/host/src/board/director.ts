@@ -27,7 +27,7 @@ import type {
   SlotNumber,
 } from '@chaos-party/protocol';
 import { hopAt, planEvent, POPUP_MS, type MoveStyle, type PopupSpec } from './animation.ts';
-import { eventText, type EventText } from './texts.ts';
+import { eventNotice, eventText, type EventText, type NoticeText } from './texts.ts';
 
 export interface FrameHop {
   readonly from: string;
@@ -66,6 +66,11 @@ export interface HudMessage extends EventText {
   readonly id: number;
 }
 
+/** Große Einblendung in der Bildmitte (CHAOS-120). */
+export interface HudNotice extends NoticeText {
+  readonly id: number;
+}
+
 export interface MinigameSummary {
   /** Platzierung des Minispiels (Index 0 = Platz 1); leer, solange es läuft. */
   readonly ranking: readonly SlotNumber[];
@@ -79,6 +84,8 @@ export interface HudSnapshot {
   readonly view: BoardView | null;
   /** Letzte Meldungen, älteste zuerst. */
   readonly messages: readonly HudMessage[];
+  /** Laufende Einblendung (z. B. „Sabotage wird stärker!“) oder `null`. */
+  readonly notice: HudNotice | null;
   /** Ganze Restsekunden des offenen Prompts (z. B. Reaktionsfenster) oder `null`. */
   readonly promptSeconds: number | null;
   /** Ganze Restsekunden der laufenden automatischen Phase (z. B. Minispiel) oder `null`. */
@@ -129,6 +136,8 @@ export interface DirectorOptions {
 
 /** So lange steht eine Meldung im Ticker. */
 export const MESSAGE_MS = 5000;
+/** So lange steht eine Einblendung in der Bildmitte. */
+export const NOTICE_MS = 4000;
 /** Höchstens so viele Meldungen gleichzeitig. */
 export const MAX_MESSAGES = 4;
 export const CATCH_UP_MS = 2500;
@@ -228,6 +237,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   const coinOverride = new Map<SlotNumber, number>();
   let popups: ActivePopup[] = [];
   let messages: TimedMessage[] = [];
+  let notice: (HudNotice & { readonly createdAt: number }) | null = null;
   let minigame: MinigameSummary | null = null;
   let nextId = 1;
   let received = 0;
@@ -239,6 +249,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   let hud: HudSnapshot = {
     view: null,
     messages: [],
+    notice: null,
     promptSeconds: null,
     phaseSeconds: null,
     minigame: null,
@@ -269,6 +280,11 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     if (text) {
       messages.push({ ...text, id: nextId++, createdAt: now });
       if (messages.length > MAX_MESSAGES) messages = messages.slice(-MAX_MESSAGES);
+      version++;
+    }
+    const big = eventNotice(event);
+    if (big) {
+      notice = { ...big, id: nextId++, createdAt: now };
       version++;
     }
     for (const listener of [...eventListeners]) listener(event);
@@ -389,6 +405,10 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       messages = keepMessages;
       version++;
     }
+    if (notice && now - notice.createdAt >= NOTICE_MS) {
+      notice = null;
+      version++;
+    }
   }
 
   function secondsLeft(
@@ -436,6 +456,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     hud = {
       view,
       messages: messages.map((m) => ({ id: m.id, text: m.text, slot: m.slot, tone: m.tone })),
+      notice: notice && { id: notice.id, title: notice.title, detail: notice.detail },
       promptSeconds,
       phaseSeconds,
       minigame,

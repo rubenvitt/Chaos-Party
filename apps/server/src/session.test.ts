@@ -255,7 +255,7 @@ describe('Session: Host', () => {
       joinCode: CODE,
       phase: 'lobby',
       players: [],
-      settings: { rounds: 10, roundPresets: [10, 16, 20] },
+      settings: { rounds: 10, roundPresets: [10, 16, 20], moreReactionTime: false },
     });
     expect(lastLobby(t.join(1)).players).toEqual([
       { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },

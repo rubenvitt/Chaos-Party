@@ -238,6 +238,60 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     expectNoProblems(problems);
   });
 
+  test('Wachsende Sabotage: Ansage nur in der Wachstumsrunde (CHAOS-120)', async ({ page }) => {
+    const problems = collectProblems(page);
+    await openBoard(page);
+    const base = await demoView(page, 0);
+    const notice = page.getByTestId('board-notice');
+    const roundStart = async (
+      round: number,
+      eventSeq: number,
+      sabotage?: { steal: number; trap: number },
+    ) => {
+      await feed(page, {
+        v: 4,
+        type: 'board',
+        view: { ...base, round, gamePhase: 'turn-start', prompt: null },
+        events: [
+          sabotage ? { type: 'round-started', round, sabotage } : { type: 'round-started', round },
+          { type: 'turn-started', slot: 1, round },
+        ],
+        eventSeq,
+      });
+    };
+
+    // Gewöhnlicher Rundenstart: keine Einblendung.
+    await roundStart(3, 0);
+    await expect(page.getByTestId('board-messages')).toContainText('Runde 3 beginnt!');
+    await expect(notice).toHaveCount(0);
+    await playUntilIdle(page);
+
+    // Wachstumsrunde: Einblendung mit den neuen Werten, Zugbeginn erst nach kurzer Pause.
+    await roundStart(4, 2, { steal: 6, trap: 5 });
+    await expect(notice).toContainText('Sabotage wird stärker!');
+    await expect(notice).toContainText('Klau: 6 Münzen · Falle: 5 Münzen');
+    expect(await page.evaluate(() => window.__chaos?.board?.animating)).toBe(true);
+    await playUntilIdle(page);
+    await expect(page.getByTestId('board-banner')).toHaveText('Blau ist dran!');
+    await expect(notice).toBeVisible();
+    await stepFrames(page, 2);
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos120-sabotage-ansage.png' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-sabotage.png', {
+      mask: [
+        ...hudMask(page),
+        page.locator('.board-notice-title, .board-notice-detail, .board-banner'),
+      ],
+    });
+
+    // Nach 4 s Regie-Zeit ist sie wieder weg.
+    await page.evaluate(() => window.__chaos?.board?.advance(4000));
+    await expect(notice).toHaveCount(0);
+    expectNoProblems(problems);
+  });
+
   test('Figur hüpft Feld für Feld, Item landet in der Leiste', async ({ page }) => {
     const problems = collectProblems(page);
     await openBoard(page);
