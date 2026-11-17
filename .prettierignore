@@ -20,6 +20,8 @@ apps/controller-ios/Tests/Fixtures/
 *.xcassets/
 # Lokale Xcode-Build-Ordner der Controller-App.
 apps/controller-ios/build/
-# Apple-TV-Host-Spike (CHAOS-138): Xcode-Build und kopierte Bündel.
-spikes/apple-host/build/
-spikes/apple-host/payload/
+# Nativer Apple-Host (CHAOS-139): Xcode-Build, kopierte Bündel und generierte Beispielnachrichten
+# (scripts/export-apple-host-fixtures.mjs).
+apps/apple-host/build/
+apps/apple-host/payload/
+apps/apple-host/harness/Fixtures/
