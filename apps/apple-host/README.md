@@ -89,6 +89,23 @@ curl -s -o /dev/null -w '%{http_code}\n' --path-as-is 'http://<ip>:<port>/../../
 
 Danach im Browser `http://<ip>:<port>/?code=<CODE>` öffnen (zweiter Spieler in einem privaten Fenster), Figur wählen, „Bereit!“, in der App „Partie starten“. Gerätetest: [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §22.
 
+## TestFlight (Apple TV, CHAOS-151)
+
+Die App kommt als „Chaos Party“ mit der Bundle-ID `dev.rubeen.chaosparty.tv` über TestFlight auf die Apple TV (vorher stand dort der RealityKit-Spike, CHAOS-119). `project.yml` signiert weiterhin nur lokal; [`scripts/testflight.sh`](scripts/testflight.sh) setzt Bundle-ID, Team und Signatur auf der Kommandozeile, baut nur für tvOS (Gerät) und prüft vorher und im Archiv, dass die Nutzlast (JS-Kern, Havok, Controller) drinsteckt.
+
+- **CI:** [`.github/workflows/testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) läuft bei jedem Push auf `main`, der diesen Ordner oder etwas aus der Nutzlast ändert (`apps/server/src`, `apps/host/src`, `apps/controller`, `packages/*`, Lockfile; ohne `*.md` und Tests), und lässt sich manuell starten (Actions → „TestFlight (Apple TV)“ → Run workflow). Secrets wie bei der Controller-App (`APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`).
+- **Mac-App zum Ausprobieren:** Derselbe Lauf baut die Mac-App ad hoc signiert und legt sie als Artefakt `chaos-host-macos` ab (14 Tage). Ohne Notarisierung (die kommt mit CHAOS-118) nach dem Entpacken einmal `xattr -dr com.apple.quarantine ChaosHost.app`, dann starten.
+- **Lokal** mit dem in Xcode angemeldeten Account (ruft `prepare.sh` selbst auf):
+
+  ```bash
+  XCODE_ACCOUNT=1 apps/apple-host/scripts/testflight.sh
+  XCODE_ACCOUNT=1 UPLOAD=0 apps/apple-host/scripts/testflight.sh   # nur .ipa, kein Upload
+  ```
+
+- **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I apps/apple-host/scripts/tv-icons.py` aus dem Icon der Controller-App.
+- **Nicht übernommen:** die Messvarianten-Auswahl des Spikes (CHAOS-147). Der Host hat den hochskalierten 4K-Pfad noch nicht; er kommt mit CHAOS-142. Die USDZ-Assets aus CHAOS-140 kommen in die Nutzlast, sobald die App sie lädt; `prepare.sh` ist dafür die einzige Stelle, TestFlight übernimmt sie dann ohne eigene Änderung.
+- **Gerätetest:** [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §20, Schritte TH1–TH5.
+
 ## Harness (nur macOS)
 
 ```sh
@@ -105,5 +122,6 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 
 - Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full`, Beispielnachrichten aktuell.
 - macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur).
+- Workflow „TestFlight (Apple TV)“: tvOS-Archiv zu TestFlight, Mac-App als Artefakt (Abschnitt „TestFlight“).
 
-Signierte Mac-App mit Notarisierung: CHAOS-118. TestFlight für tvOS: CHAOS-119 (stellt später vom RealityKit-Spike auf diese App um).
+Signierte Mac-App mit Notarisierung: CHAOS-118.

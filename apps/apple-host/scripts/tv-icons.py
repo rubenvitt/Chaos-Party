@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""tvOS-Icons und Top-Shelf-Bilder für die Apple-TV-App (CHAOS-119).
+"""tvOS-Icons und Top-Shelf-Bilder für die Apple-TV-App (CHAOS-119, seit CHAOS-151 im Apple-Host).
 
 Erzeugt `app-tv/Assets.xcassets/App Icon & Top Shelf Image.brandassets` aus dem Icon der
 Controller-App (apps/controller-ios, CHAOS-115). Die PNGs sind eingecheckt; das Skript ist nur
 nötig, wenn sich das Motiv ändert:
 
-    python3 -I spikes/renderer-realitykit/scripts/tv-icons.py [--font=<ttf/otf>]
+    python3 -I apps/apple-host/scripts/tv-icons.py [--font=<ttf/otf>]
 
 Braucht Pillow. tvOS verlangt für App-Icons einen Bildstapel mit mindestens zwei Ebenen
 (Parallaxe); die hinterste Ebene muss deckend sein:
