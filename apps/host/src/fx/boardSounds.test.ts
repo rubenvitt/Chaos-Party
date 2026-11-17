@@ -14,6 +14,10 @@ describe('boardEventSound', () => {
     expect(name({ type: 'coins-changed', slot: 1, delta: -3, balance: 7, reason: 'space' })).toBe(
       'coin-loss',
     );
+    // CHAOS-125: Rückenwind klingt wie jeder Münzgewinn.
+    expect(name({ type: 'coins-changed', slot: 2, delta: 4, balance: 9, reason: 'tailwind' })).toBe(
+      'coin-gain',
+    );
     expect(name({ type: 'coins-stolen', from: 1, to: 2, amount: 5 })).toBe('steal');
     expect(name({ type: 'trap-triggered', slot: 1, owner: 2, spaceId: 's03', amount: 4 })).toBe(
       'trap',

@@ -503,6 +503,97 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     expectNoProblems(problems);
   });
 
+  test('Rückenwind: Karte im Rundenende, Ticker, danach weg (CHAOS-125)', async ({ page }) => {
+    const problems = collectProblems(page);
+    await openBoard(page);
+    const base = await demoView(page, 0);
+    const players = base.players as { slot: number; coins: number; trophies: number }[];
+    const coinsOf = (slot: number) => players.find((p) => p.slot === slot)?.coins ?? 0;
+    const minigame = {
+      id: 'placeholder',
+      round: 2,
+      seed: 7,
+      playMs: 3000,
+      elapsedMs: 3000,
+      placements: null,
+      highlights: [],
+      aborted: false,
+      rewards: [],
+      tailwind: [
+        { slot: 1, coins: 2 },
+        { slot: 4, coins: 6 },
+      ],
+    };
+    await feed(page, {
+      v: 4,
+      type: 'board',
+      view: {
+        ...base,
+        gamePhase: 'round-end',
+        activeSlot: null,
+        prompt: null,
+        remainingMs: 5000,
+        minigame,
+        players: players.map((p) =>
+          p.slot === 1
+            ? { ...p, coins: coinsOf(1) + 2 }
+            : p.slot === 4
+              ? { ...p, coins: coinsOf(4) + 6 }
+              : p,
+        ),
+      },
+      events: [
+        {
+          type: 'coins-changed',
+          slot: 1,
+          delta: 2,
+          balance: coinsOf(1) + 2,
+          reason: 'tailwind',
+        },
+        {
+          type: 'coins-changed',
+          slot: 4,
+          delta: 6,
+          balance: coinsOf(4) + 6,
+          reason: 'tailwind',
+        },
+        { type: 'round-ended', round: 2 },
+      ],
+      eventSeq: 0,
+    });
+    await playUntilIdle(page);
+    const card = page.getByTestId('board-tailwind');
+    await expect(card).toContainText('Rückenwind!');
+    await expect(card).toContainText('Wer bei den Trophäen hinten liegt');
+    // Die meisten Münzen zuerst.
+    await expect(card.locator('.board-tailwind-row').first()).toContainText('Rosa');
+    await expect(page.getByTestId('board-tailwind-4')).toContainText('+6 Münzen');
+    await expect(page.getByTestId('board-tailwind-1')).toContainText('+2 Münzen');
+    await expect(page.getByTestId('board-coins-4')).toHaveText(String(coinsOf(4) + 6));
+    await expect(page.getByTestId('board-messages')).toContainText('Rückenwind: Rosa +6 Münzen');
+    await settleGpu(page);
+    await expect(page).toHaveScreenshot('host-brett-rueckenwind.png', {
+      mask: [
+        ...hudMask(page),
+        page.locator('.board-tailwind-name, .board-tailwind-value, .board-tailwind-lead'),
+      ],
+    });
+
+    await feed(page, {
+      v: 4,
+      type: 'board',
+      view: { ...base, gamePhase: 'turn-start', activeSlot: 1, prompt: null, round: 3 },
+      events: [
+        { type: 'round-started', round: 3 },
+        { type: 'turn-started', slot: 1, round: 3 },
+      ],
+      eventSeq: 3,
+    });
+    await playUntilIdle(page);
+    await expect(card).toHaveCount(0);
+    expectNoProblems(problems);
+  });
+
   test('?gpu=webgpu ohne WebGPU im Browser fällt auf WebGL2 zurück (CHAOS-75)', async ({
     page,
   }) => {

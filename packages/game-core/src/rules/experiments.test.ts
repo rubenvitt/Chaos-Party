@@ -51,7 +51,7 @@ describe('Experimente: Grundlagen', () => {
   it('die gewählten Werte sind genau die Standardregeln und das Standardbrett', () => {
     // M3 verlängert nur Anleitung und Ergebnisanzeige der Minispiele (Lesezeit, kein Balance-Wert);
     // EXP-019 (CHAOS-51) ergänzt den Trostpreis nach dem Minispiel (gibt es in M2 nicht);
-    // CHAOS-66 die kurze Anleitung bei Wiederholung.
+    // CHAOS-66 die kurze Anleitung bei Wiederholung; CHAOS-125 die Rückenwind-Ansage.
     expect({
       ...CHOICE_RULES,
       items: { ...CHOICE_RULES.items, minigameLastItems: 1 },
@@ -60,6 +60,7 @@ describe('Experimente: Grundlagen', () => {
         minigameIntroMs: 7000,
         minigameRepeatIntroMs: 3000,
         minigameResultsMs: 6000,
+        tailwindMs: 3500,
       },
       // CHAOS-65 (EXP-022): Aufholhilfe, kein Teil der Experimente EXP-001 … EXP-004.
       trophy: { ...CHOICE_RULES.trophy, placement: 'nearest-to-last' },

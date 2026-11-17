@@ -107,6 +107,7 @@ Der Server wählt automatisch (Regeln in [ADR-007](decisions/ADR-007-lan-join.md
 | `PUBLIC_PORT` | wie `PORT` | Port im QR-Link |
 | `JOIN_CODE` | zufällig (4 Zeichen) | Fester Join-Code (4–8 Zeichen `A–Z`, `0–9`), z. B. für Demos |
 | `TERMINAL_QR` | an | `0` = keinen QR-Code im Terminal zeichnen |
+| `RUECKENWIND` | aus | `1` = Rückenwind-Münzen für Zurückliegende nach dem Minispiel, mit Ansage (CHAOS-125, Playtest) |
 
 ## Entwicklung (Vite-Dev-Server)
 

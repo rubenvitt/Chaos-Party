@@ -10,8 +10,11 @@ import {
   promptStatus,
   roundText,
   signedAmount,
+  tailwindAmount,
+  tailwindRows,
   winnerText,
 } from './texts.ts';
+import { minigameView } from '../minigame/testViews.ts';
 
 const text = (event: BoardEvent, view: BoardView | null = DEMO_VIEW) =>
   eventText(event, view, (id) => (id === 's30' ? 'Pilzpfad' : undefined))?.text ?? null;
@@ -60,6 +63,9 @@ describe('eventText', () => {
     expect(
       text({ type: 'coins-changed', slot: 3, delta: 10, balance: 28, reason: 'minigame' }),
     ).toBe('Grün gewinnt 10 Münzen im Minispiel');
+    expect(text({ type: 'coins-changed', slot: 2, delta: 4, balance: 9, reason: 'tailwind' })).toBe(
+      'Rückenwind: Orange +4 Münzen',
+    );
     expect(text({ type: 'path-chosen', slot: 4, spaceId: 's30' })).toBe('Rosa nimmt: Pilzpfad');
     expect(text({ type: 'path-chosen', slot: 4, spaceId: 's35' })).toBe('Rosa wählt einen Weg');
   });
@@ -203,5 +209,29 @@ describe('Status, Banner, Countdown', () => {
     expect(winnerText(ranking([1, 1, 3, 4]))).toBe('Blau und Orange gewinnen!');
     expect(winnerText(ranking([1, 1, 1, 4]))).toBe('Blau, Orange und Grün gewinnen!');
     expect(winnerText(DEMO_VIEW)).toBeNull();
+  });
+});
+
+describe('Rückenwind-Ansage (CHAOS-125)', () => {
+  const tailwind = [
+    { slot: 2 as const, coins: 2 },
+    { slot: 3 as const, coins: 6 },
+    { slot: 4 as const, coins: 2 },
+  ];
+
+  it('nur im Rundenende mit Rückenwind; die meisten Münzen zuerst, Namen aus dem Stand', () => {
+    expect(tailwindRows(minigameView('round-end', { tailwind }))).toEqual([
+      { slot: 3, name: 'Grün', coins: 6 },
+      { slot: 2, name: 'Orange', coins: 2 },
+      { slot: 4, name: 'Rosa', coins: 2 },
+    ]);
+    expect(tailwindRows(minigameView('minigame-results', { tailwind }))).toBeNull();
+    expect(tailwindRows(minigameView('round-end'))).toBeNull();
+    expect(tailwindRows(null)).toBeNull();
+  });
+
+  it('Betrag mit Einzahl und Mehrzahl', () => {
+    expect(tailwindAmount(1)).toBe('+1 Münze');
+    expect(tailwindAmount(4)).toBe('+4 Münzen');
   });
 });
