@@ -109,7 +109,7 @@ Offscreen kostet ein Bild nacheinander gemessen 14–21 ms. Der Grundwert streut
 | offscreen, MSAA aus | 1920×1080 | 34,3 ms | 84,0 ms | 22,7 | – |
 | offscreen, MSAA 4× | 1280×720 | 33,2 ms | 33,8 ms | 30,3 | – |
 
-Die ARView zeigt 20 fps, weil 34,7 ms GPU-Zeit knapp über 33,3 ms liegen (vsync rastet auf 60/3 ein). Gras und Schatten ändern nichts, die Auflösung sehr viel (offscreen 4K ≈ 2,8× 1080p): Die Apple TV ist bei 4K **pixelgebunden**. Mit 1080p-Ausgabe (Apple TV: Einstellungen → Video und Audio → Format) ist ein deutlich besseres Ergebnis zu erwarten, gemessen ist es noch nicht. `contentScaleFactor` an der ARView zu senken hatte keine messbare Wirkung und ist wieder entfernt.
+Die ARView zeigt 20 fps, weil 34,7 ms GPU-Zeit knapp über 33,3 ms liegen (vsync rastet auf 60/3 ein). Gras und Schatten ändern nichts, die Auflösung sehr viel (offscreen 4K ≈ 2,8× 1080p): Die Apple TV ist bei 4K **pixelgebunden**. Ruben bleibt bei 4K-Ausgabe (17.11.); ein Host muss also bei 4K-Ausgabe flüssig sein, etwa durch geringere interne Auflösung mit Hochskalierung. `contentScaleFactor` an der ARView zu senken hatte keine messbare Wirkung und ist wieder entfernt.
 
 **Echtes iPhone 16 Pro** (nur Benchmark, kein Host), 2622×1206, volle Szene: Median 16,68 ms, p95 17,4 ms, max 20,6 ms, 60,0 fps. Die ARView bleibt bei 60 Hz, auch mit `--bildrate=120` und `CADisableMinimumFrameDurationOnPhone` (getestet, wieder entfernt).
 

@@ -136,7 +136,7 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen.
 | R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | | | |
 | R10 | Mac | Bevy nativ | Metal | 1920×1080 | | | |
 | R11 | PC/Mac | wie R1/R2/R6 | | 3840×2160 | | | 4K am Fernseher |
-| R12 | Apple TV 4K (3. Gen., A15) | RealityKit (§3b) ARView | Metal | 3840×2160 | 51,1 | 59,4 | 17.11., echtes Gerät: **20 fps**; GPU je Bild 34,7 ms (Metal-HUD), knapp über der 30-fps-Grenze (33,3 ms); unabhängig von Gras und Schatten. 1080p-Ausgabe noch offen |
+| R12 | Apple TV 4K (3. Gen., A15) | RealityKit (§3b) ARView | Metal | 3840×2160 | 51,1 | 59,4 | 17.11., echtes Gerät: **20 fps**; GPU je Bild 34,7 ms (Metal-HUD), knapp über der 30-fps-Grenze (33,3 ms); unabhängig von Gras und Schatten. 1080p-Ausgabe entfällt: Ruben bleibt bei 4K (17.11.) |
 | R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 8,30 | 17,0 | 16.11., M3 Max 120 Hz, **vorläufig**: GeForce NOW lief mit; am 120-Hz-Deckel |
 | R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,8–21,3 | 23–40 | wie R13 vorläufig; nacheinander gemessen, nicht mit R10 vergleichbar |
 | R15 | iPhone 16 Pro (nur Benchmark) | RealityKit (§3b) ARView | Metal | 2622×1206 | 16,68 | 17,4 | 16.11., echtes Gerät, volle Szene; ARView bleibt bei 60 Hz (auch mit `--bildrate=120`), max 20,6 ms |
