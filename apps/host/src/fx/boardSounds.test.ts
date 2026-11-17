@@ -32,6 +32,9 @@ describe('boardEventSound', () => {
     );
     // Minispiel-Klänge spielt die Bühne.
     expect(name({ type: 'minigame-started', minigame: 'pump-parade' })).toBeNull();
+    expect(name({ type: 'round-started', round: 2 })).toBeNull();
+    // Wachsende Sabotage (CHAOS-120) bekommt einen Klang.
+    expect(name({ type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5 } })).toBe('trap');
     expect(name({ type: 'moved', slot: 1, path: ['s01', 's02'] })).toBeNull();
   });
 

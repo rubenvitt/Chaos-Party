@@ -90,11 +90,14 @@ export function rollOptions(ctx: Ctx): PromptOption[] {
     if (item === 'coin-steal' && d.players.length < 2) continue;
     if (item === 'trap' && d.traps.some((trap) => trap.spaceId === player.spaceId)) continue;
     const amount =
-      item === 'trap' || item === 'coin-steal' ? sabotageAmount(rules.items, item, ctx.d.round) : 0;
+      item === 'trap' || item === 'coin-steal' ? sabotageAmount(rules.items, item, d.round) : 0;
+    // Eine Falle zahlt den Wert der Runde, in der sie auslöst (CHAOS-120): Wächst die Sabotage
+    // vor dem Partieende noch, heißt es „ab“.
+    const grows = item === 'trap' && sabotageAmount(rules.items, item, d.rounds) > amount;
     options.push({
       id: itemOption(item),
       label: ITEM_LABELS[item],
-      detail: itemDetail(item, amount),
+      detail: itemDetail(item, amount, grows),
     });
   }
   return options;

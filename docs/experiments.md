@@ -1587,6 +1587,8 @@ EXPERIMENTS=growth pnpm exec vitest run packages/game-core/src/rules/experiments
 
 Die Aufgabe sah „nach Playtest-Feedback“ vor. Die Sabotage-Frage aus der M4-Abnahme (CHAOS-43, Frage 4) blieb unbeantwortet, weil die Partie auf Rubens Hardware ruckelte. Die Entscheidung beruht deshalb nur auf der Simulation. Sie ist klein, lässt sich mit einem Wert zurücknehmen und gehört in den nächsten Playtest.
 
+**Nachtrag 2026-11-17 (CHAOS-120):** Das Wachstum wird jetzt angesagt. In jeder Wachstumsrunde trägt `round-started` die neuen Werte (`sabotage: { steal, trap }`, Protokoll v4-Nachtrag), der Host blendet „Sabotage wird stärker!“ mit Klau- und Fallenwert ein (1,2 s Pause vor dem Zugbeginn, tiefer Fallen-Klang). Der Fallen-Text am Controller heißt „Kostet andere ab 4 Münzen“, solange die Falle bis zum Partieende noch mehr bringen kann. Die Regeln selbst ändern sich nicht; die Simulationswerte oben gelten weiter. Gerätetest: Checkliste Abschnitt 24.
+
 **Offen für Playtest:** Fühlt sich das Ende mit 6–8 Münzen Klau spannender an oder gemeiner? Fällt das Wachsen überhaupt auf? Der Host kündigt es bisher nicht an, nur der Controller zeigt den höheren Wert (Idee: CHAOS-120 im Backlog CHAOS-44). Die Falle zahlt den Wert der Runde, in der sie auslöst; wer sie in Runde 5 legt, sieht dort noch „Kostet andere 4 Münzen“, auch wenn sie erst in Runde 6 fünf Münzen bringt.
 
 ---

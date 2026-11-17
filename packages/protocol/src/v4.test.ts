@@ -292,6 +292,23 @@ describe('Server → Host (v4)', () => {
     ).toBe(false);
   });
 
+  it('round-started mit wachsender Sabotage (Nachtrag CHAOS-120, optional)', () => {
+    const raw = JSON.parse(
+      encode(createMessage('board', { view: view(), events: [], eventSeq: 0 })),
+    ) as Record<string, unknown>;
+    const parse = (event: Record<string, unknown>) =>
+      parseServerToHostMessage(JSON.stringify({ ...raw, events: [event] })).ok;
+    expect(parse({ type: 'round-started', round: 6 })).toBe(true);
+    expect(parse({ type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5 } })).toBe(true);
+    expect(parse({ type: 'round-started', round: 6, sabotage: { steal: 6 } })).toBe(false);
+    expect(parse({ type: 'round-started', round: 6, sabotage: { steal: -1, trap: 5 } })).toBe(
+      false,
+    );
+    expect(
+      parse({ type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5, shield: 1 } }),
+    ).toBe(false);
+  });
+
   it('game-ended ohne endedEarly ist ungültig', () => {
     const message = createMessage('board', { view: view(), events: [], eventSeq: 0 });
     const raw = JSON.parse(encode(message)) as Record<string, unknown>;
