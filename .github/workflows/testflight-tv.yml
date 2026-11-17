@@ -56,6 +56,8 @@ jobs:
 
       # Testszene wie im README (Abschnitt „Assets“): Brett aus dem Web-Host als GLB, dann USDZ.
       - name: Testszene erzeugen
+        # lokal ca. 4 min (Texturen, Brett-Export, USDZ); hängt etwas, früh abbrechen
+        timeout-minutes: 25
         env:
           SPIKE_TIMEOUT: '600000'
           RK_CHECK: '0'

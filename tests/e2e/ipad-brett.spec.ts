@@ -165,6 +165,10 @@ test('Reaktion in Zone 2 wählt sofort, während Zone 1 einen Knopf hält', asyn
   );
   await expect(zone(page, 2).getByTestId('prompt')).toHaveAttribute('data-kind', 'reaction');
   await expect(zone(page, 2).getByTestId('countdown')).toBeVisible();
+  // Hinweiston gilt allen am iPad – der Rahmen der angegriffenen Zone zeigt, wer (CHAOS-122).
+  await expect(zone(page, 2)).toHaveAttribute('data-alert', 'reaction');
+  await expect(zone(page, 2)).toHaveCSS('animation-name', 'zone-alert');
+  await expect(zone(page, 1)).toHaveAttribute('data-alert', 'none');
   const touch = await TouchScreen.create(page);
 
   await touch.down(1, await centerOf(choiceIn(page, 1, 's12')));
@@ -176,6 +180,10 @@ test('Reaktion in Zone 2 wählt sofort, während Zone 1 einen Knopf hält', asyn
   await touch.upAll();
   await expect.poll(() => chooses().length).toBe(2);
   expect(chooses()[1]).toMatchObject({ slot: 1, promptId: 21, option: 's12' });
+
+  // Reaktionsfenster vorbei: Rahmen wieder normal.
+  fake.sendBoard(2, boardInfo({ gamePhase: 'move', activeSlot: 1 }));
+  await expect(zone(page, 2)).toHaveAttribute('data-alert', 'none');
 });
 
 test('Warten und Endstand je Zone; neuer Prompt löst die Sperre der Zone', async ({ page }) => {

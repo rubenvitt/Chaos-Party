@@ -120,6 +120,8 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entsch
 | B2 | Würfeln, Weg wählen, Trophäe kaufen auf dem iPhone | Knöpfe groß, sofort verständlich, keine versehentlichen Doppeltipps | | |
 | B3 | Münzklau gegen eine Person: Reaktionsfenster | Countdown und pulsierender Knopf fallen auf; Reaktion per Daumen in der Zeit schaffbar; fühlt sich fair an | | |
 | B4 | Vibration bei Reaktion | iOS-Safari unterstützt `navigator.vibrate` nicht: **keine** Vibration erwartet; prüfen, ob das stört | | |
+| B4a | Hinweiston bei Reaktion (CHAOS-122), echtes iPhone: einmal irgendwo tippen (Code, „Bereit“), dann Münzklau gegen diese Person; einmal **laut**, einmal mit Stumm-Schalter (bzw. Kontrollzentrum „Stumm“) | Laut: kurzes „ding-ding“ nur am Handy der angegriffenen Person, nicht bei den anderen; stumm: **kein** Ton; laufende Musik einer anderen App wird nicht unterbrochen; Ton kommt nicht doppelt | | |
+| B4b | Hinweiston am geteilten iPad (CHAOS-122) | „ding-ding“ ertönt, der Rahmen der angegriffenen Zone blinkt gelb, die anderen Zonen bleiben ruhig; klar, wer reagieren muss | | |
 | B5 | Lange Optionstexte (Wegweiser, Namen) auf kleinem iPhone hoch/quer | Lesbar, Silbentrennung sinnvoll, nichts abgeschnitten | | |
 | B6 | Geteiltes iPad, 2 Zonen: zwei Personen wählen **gleichzeitig** (z. B. eine reagiert, eine wählt einen Weg) | Jede Wahl landet beim richtigen Spieler; Finger in Zone 1 löst nichts in Zone 2 aus | | |
 | B7 | Geteiltes iPad, 4 Zonen: Brett-Knöpfe | Groß genug, lesbar aus jeder Sitzposition | | |
@@ -377,11 +379,11 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75, PC-Zeilen: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
-Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, WebGPU überhaupt (die Software-GPU der Cloud verliert das Gerät beim ersten Bild), Bevy nativ mit Fenster, Apple TV.
+Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, das Aussehen unter WebGPU (die Software-GPU der Cloud verliert das Gerät beim ersten Bild; den Aufbau des Bretts unter WebGPU prüft seit CHAOS-117 nur ein Test-Skript mit Ersatz-Canvas, siehe EXP-015), Bevy nativ mit Fenster, Apple TV.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RS1 | Brett mit `&gpu=webgpu` in Chrome/Edge am PC und in Safari 26 am Mac | Messanzeige nennt „WebGPU …“, Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift) | | |
+| RS1 | Brett mit `&gpu=webgpu&qualitaet=hoch` in Chrome/Edge am PC und in Safari 26 am Mac (nach CHAOS-117 neu prüfen) | Messanzeige nennt „WebGPU …“ und nach einigen Sekunden „Schleifen 1“, Frames steigen; Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift, SSAO) | Chromium 153 am Mac: ok (17.11., Claude), sieht aus wie WebGL2. Safari 26 und PC offen | `screenshots/chaos117-brett-webgpu-mac.jpg` |
 | RS2 | Messbogen R1–R3, R7–R8 (Babylon WebGL2 vs. WebGPU) | Bildabstand je Variante; Vorteil von WebGPU in % | | |
 | RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
 | RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |
@@ -447,3 +449,14 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV7 | „Hochskaliert ×0,5, MetalFX“ wählen | Brett erscheint neu, HUD-Zeile 1 „Variante: Hochskaliert ×0,5, MetalFX (Menü)“; nach ca. 23 s Ergebnis mit `"spike":"CHAOS-114"`, fps notieren (unter tvOS < 27.2 steht dort `bilinear`) | | Foto, fps |
 | TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
 | TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
+
+## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-127 · **Bild:** [`chaos127-iphone-minigameConsolation.jpg`](screenshots/chaos127-iphone-minigameConsolation.jpg) (Beispielzustand im Simulator, aus CI)
+
+Automatisch geprüft (CI „Native Apps“, Simulator): Die App dekodiert `minigame.prizes` aus der Fixture, die Texte stimmen mit dem Browser-Controller überein („Trostpreis: Falle“), der Beispielzustand `-sample minigameConsolation` wird fotografiert. **Nicht** automatisch geprüft: das echte Ergebnis einer Partie auf einem iPhone mit der TestFlight-App.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| NT1 | Partie mit der nativen App auf einem iPhone, dort im Minispiel klar Letzte(r) werden | Ergebnis zeigt unter den Münzen das Item-Symbol und „Trostpreis: …“ mit dem Item-Namen; die anderen Controller zeigen keinen Trostpreis | | Foto |
+| NT2 | VoiceOver an, Ergebnis vorlesen lassen | „Trostpreis: …“ wird als eine Zeile vorgelesen, das Symbol nicht extra | | |

@@ -452,6 +452,20 @@ extension ControllerState {
                 board: board(.minigameResults, activeSlot: nil), minigame: minigame))
     }()
 
+    /// Last place with consolation prize (CHAOS-51, CHAOS-127).
+    static let minigameConsolationSample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.stage = .results
+        minigame.place = 4
+        minigame.score = 17
+        minigame.reward = 0
+        minigame.prizes = [.trap]
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [],
+                board: board(.minigameResults, activeSlot: nil), minigame: minigame))
+    }()
+
     static let minigameAbortedSample: ControllerState = {
         var minigame = sampleMinigame
         minigame.stage = .results
