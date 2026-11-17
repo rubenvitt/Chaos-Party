@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
+import { createBrowserAlertTone, installAlertUnlock } from './board/alertTone.ts';
 import { parseLaunchParams, withJoinCode, withSeats } from './config.ts';
 import { createLatencyMeter } from './debug/latencyMeter.ts';
 import { controllerSocketUrl } from './net/client.ts';
@@ -11,6 +12,7 @@ import {
 } from './net/session.ts';
 import { createBrowserTokenStore } from './net/tokenStore.ts';
 import { scopeTokenStore } from './tokenScope.ts';
+import { AlertToneContext } from './ui/alertToneContext.ts';
 import { installIosGuards } from './ui/iosGuards.ts';
 // Mitgelieferte Schrift (OFL-1.1): gleiche Optik auf allen Geräten und stabile Screenshots.
 import '@fontsource-variable/inter/wght.css';
@@ -23,6 +25,9 @@ if (!root) {
 }
 
 installIosGuards();
+// Hinweiston beim Angriff (CHAOS-122): Audio erst mit der ersten Berührung freischalten.
+const alertTone = createBrowserAlertTone();
+installAlertUnlock(alertTone, window);
 
 const params = parseLaunchParams(window.location.search);
 // `?debug=1` (CHAOS-45): Messanzeige; Herzschlag jede Sekunde für genug RTT-Messwerte.
@@ -53,12 +58,14 @@ function changeSeats(seats: number) {
 
 createRoot(root).render(
   <StrictMode>
-    <App
-      session={session}
-      onCodeSubmit={submitCode}
-      seats={params.seats}
-      onSeatsChange={changeSeats}
-      debug={debug}
-    />
+    <AlertToneContext value={alertTone}>
+      <App
+        session={session}
+        onCodeSubmit={submitCode}
+        seats={params.seats}
+        onSeatsChange={changeSeats}
+        debug={debug}
+      />
+    </AlertToneContext>
   </StrictMode>,
 );
