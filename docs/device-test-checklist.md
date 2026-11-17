@@ -431,7 +431,7 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 
 ## 20. Apple-TV-App über TestFlight (für CHAOS-119)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119 · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9) · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
 
 Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Testszene (Look-Dev-Texturen, Brett-Export, USDZ mit bpy) unter Linux erzeugt. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
 
@@ -442,3 +442,7 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
 | TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
 | TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |
+| TV6 | Apple TV (CHAOS-147): App aus TestFlight starten, Play/Pause auf der Siri Remote drücken | Menü „Messvariante“ mit fünf Einträgen, Häkchen bei „Nativ (ARView)“; Menü-Taste schließt es | | Foto |
+| TV7 | „Hochskaliert ×0,5, MetalFX“ wählen | Brett erscheint neu, HUD-Zeile 1 „Variante: Hochskaliert ×0,5, MetalFX (Menü)“; nach ca. 23 s Ergebnis mit `"spike":"CHAOS-114"`, fps notieren (unter tvOS < 27.2 steht dort `bilinear`) | | Foto, fps |
+| TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
+| TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
