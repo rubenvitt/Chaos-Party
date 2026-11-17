@@ -91,6 +91,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | abgeschlossen: Apple TV 4K bei 4K 20 fps (R12), Mac R13/R14 gemessen; abgelöst durch ADR-019 (W2) und CHAOS-138 |
 | CHAOS-51 (Backlog CHAOS-44) | Zurückgestellte Balance-Ideen per Bot-Simulation ([EXP-019](experiments.md)): **Trostpreis** (1 Item für den letzten Minispiel-Platz) neuer Standard, am PC und Handy angezeigt; Stellschrauben `trophy.placement`, `items.minigameWinItems`, `items.shieldBlocksTrap` bleiben aus | im PR, Playtest offen |
 | CHAOS-65 (Backlog CHAOS-44) | Aufholhilfe: Trophäen-Ziel `trophy.placement: 'nearest-to-last'` (neu, Standard) und Münz-Hilfen `RuleSet.catchUp` (Rabatt, Rückenwind, Finale-Fieber, Standard aus), Simulation mit 1000 Seeds; neuer Standard: Trophäe wandert vor die Letzten ([EXP-022](experiments.md)) | im PR, Gefühl im Playtest offen |
+| CHAOS-122 (Backlog CHAOS-44) | Hinweiston beim Angriff: kurzes, selbst erzeugtes „ding-ding“ (Web Audio, `apps/controller/src/board/alertTone.ts`) nur am Controller der angegriffenen Person, erst nach der ersten Berührung, einmal je Prompt, `audioSession` „ambient“ (Stumm-Schalter gilt); geteiltes iPad: Ton plus gelb blinkender Rahmen der angegriffenen Zone | im PR, Gerätetest B4a/B4b offen |
 
 ### Messwerte Performance (CHAOS-39)
 
@@ -235,7 +236,7 @@ Details: [`testing.md`](testing.md).
 
 Höchstes Risiko in M1 sind die Annahmen, die nur auf echter Hardware prüfbar sind: iPad-Multitouch für mehrere Zonen (A1–A3), LAN-Erreichbarkeit/Firewall/Client-Isolation (B1, B2), Latenz (B6) und Bildschirmsperre/Reconnect auf iOS (B7). Details und Validierungswege: [`assumptions.md`](assumptions.md).
 
-Neu in M2: Ob das Brettspiel **Spaß macht** und verständlich ist, zeigen nur Testrunden mit Menschen. Alle Balance-Werte stammen aus Bot-Simulationen (EXP-001 … EXP-004). Das Reaktionsfenster (3 s) beruht auf angenommenen Reaktionszeiten; auf iOS gibt es keine Vibration als Hinweis.
+Neu in M2: Ob das Brettspiel **Spaß macht** und verständlich ist, zeigen nur Testrunden mit Menschen. Alle Balance-Werte stammen aus Bot-Simulationen (EXP-001 … EXP-004). Das Reaktionsfenster (3 s) beruht auf angenommenen Reaktionszeiten; auf iOS gibt es keine Vibration als Hinweis (seit CHAOS-122 ein kurzer Hinweiston, Wirkung auf echten Geräten ungeprüft).
 
 Neu in M3: Ob die drei Minispiele Spaß machen, fair sind und schnell verstanden werden, zeigt nur der Test mit Menschen; alle Minispiel-Werte stammen aus Bot-Simulationen (EXP-005 … EXP-007). Leistung am echten PC während der Minispiele (Figuren, Partikel, Havok) ist ungemessen; unter ~4 Bilder/s läuft ein Minispiel langsamer als Echtzeit.
 

@@ -120,6 +120,8 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entsch
 | B2 | Würfeln, Weg wählen, Trophäe kaufen auf dem iPhone | Knöpfe groß, sofort verständlich, keine versehentlichen Doppeltipps | | |
 | B3 | Münzklau gegen eine Person: Reaktionsfenster | Countdown und pulsierender Knopf fallen auf; Reaktion per Daumen in der Zeit schaffbar; fühlt sich fair an | | |
 | B4 | Vibration bei Reaktion | iOS-Safari unterstützt `navigator.vibrate` nicht: **keine** Vibration erwartet; prüfen, ob das stört | | |
+| B4a | Hinweiston bei Reaktion (CHAOS-122), echtes iPhone: einmal irgendwo tippen (Code, „Bereit“), dann Münzklau gegen diese Person; einmal **laut**, einmal mit Stumm-Schalter (bzw. Kontrollzentrum „Stumm“) | Laut: kurzes „ding-ding“ nur am Handy der angegriffenen Person, nicht bei den anderen; stumm: **kein** Ton; laufende Musik einer anderen App wird nicht unterbrochen; Ton kommt nicht doppelt | | |
+| B4b | Hinweiston am geteilten iPad (CHAOS-122) | „ding-ding“ ertönt, der Rahmen der angegriffenen Zone blinkt gelb, die anderen Zonen bleiben ruhig; klar, wer reagieren muss | | |
 | B5 | Lange Optionstexte (Wegweiser, Namen) auf kleinem iPhone hoch/quer | Lesbar, Silbentrennung sinnvoll, nichts abgeschnitten | | |
 | B6 | Geteiltes iPad, 2 Zonen: zwei Personen wählen **gleichzeitig** (z. B. eine reagiert, eine wählt einen Weg) | Jede Wahl landet beim richtigen Spieler; Finger in Zone 1 löst nichts in Zone 2 aus | | |
 | B7 | Geteiltes iPad, 4 Zonen: Brett-Knöpfe | Groß genug, lesbar aus jeder Sitzposition | | |
