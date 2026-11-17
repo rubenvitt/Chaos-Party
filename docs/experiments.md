@@ -2121,3 +2121,45 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 - **Darstellung (Ruben, 17.11.):** „die app ist unspielbar auf dem tv weil das garnicht die echten grafiken sind“. Erwartet für den Spike, der nur Grundkörper zeichnet. Die echte Grafik ist der nächste Schritt.
 
 **Entscheidung:** **keep (W2 bestätigt).** Hosten allein auf der Apple TV ist machbar: Die Spiellogik kostet im Median unter 1 ms je Bild. Weiter geht es mit der echten Darstellung (Brett-Kulisse und Figuren als USDZ, Regie, Minispiel-Grafik) und mit der Bühnen-Spitze (Aufbau verteilen).
+
+---
+
+## EXP-025: Minispiel-Bühne und Brett ohne Shader-Standbild (2026-11-17, CHAOS-132)
+
+**Hypothese / gewünschtes Spielerlebnis:** Beim Wechsel Brett → Minispiel → Brett steht das Bild nicht. Bisher übersetzten Minispiel-Bühne und Brett alle Shader am Stück (`whenReadyAsync`, KI-25); die Anleitungskarte und ihr Countdown blieben dabei stehen. Annahme: Mit `prepareSceneGradually` aus CHAOS-71 (EXP-021) zerfällt die Vorbereitung in kleine Blöcke.
+
+**Testumgebung:** Sandbox-Linux, 4 Kerne, Headless-Chromium mit SwiftShader (**kein** `KHR_parallel_shader_compile`), 1280×720, Production-Build, frischer Browser je Lauf. Zwei Abläufe:
+- **Minispiel allein:** `/host/?local=1&minigame=<id>&flow=1&players=4&seed=7` (ohne Testmodus, Sparstufe automatisch `minimal`; Stufe `hoch` per `&qualitaet=hoch`), alle 6 Minispiele, je 2 Läufe.
+- **Echter Ablauf:** Perf-Partie (`pnpm perf`, Szenario „Partie“, 4 Bots, Server im selben Rechner), Stufe `minimal`.
+
+Gemessen: Long Tasks (`PerformanceObserver`, > 50 ms) zwischen dem Ende von `runner.prepare` und dem ersten Bild, gelinkte WebGL-Programme je Phase. Messmarken und Skripte nur temporär (Scratchpad), nicht eingecheckt.
+
+**Varianten und Ergebnisse (Minispiel allein):**
+
+| Variante | Längster Block `minimal` | Längster Block `hoch` | Programme im ersten Bild (`hoch`) |
+|---|---|---|---|
+| A: alt, `whenReadyAsync` am Stück | 0,61–0,88 s (Median 0,68) | **1,02–1,81 s** (Median 1,48) | 1 |
+| B: nur `prepareSceneGradually` | ≈ 0,7 s, kein Gewinn | – | – |
+| C: B + Shader-Quellen vorab laden | Vorbereitung ≤ 0,1 s | längster 1,7–2,3 s (erstes Bild) | **21** |
+| D: C + Pre-Pass wie `scene.isReady` + Bildpause vor der ersten Runde (**gewählt**) | 0,54–0,75 s (Median 0,66); davon Shader ≤ 0,14 s | **0,50–0,77 s** (Median 0,63); davon Shader ≤ 0,33 s | 1 |
+
+- **B scheitert an nachgeladenen Shader-Quellen:** Babylon 9 importiert die Quellen je Material-Klasse (`PBRMaterial`, `StandardMaterial`, …) erst beim ersten Effekt. Alle Effekte, die bis dahin entstehen, warten auf denselben Import und übersetzen danach gemeinsam in **einer** Aufgabe (≈ 0,64 s, 15 Programme). Beim Podest fiel das nicht auf, weil das Brett die Quellen schon geladen hatte. `preloadShaderSources` lädt sie vorab über Babylons `_ShaderLoader` (intern, aber stabil seit Babylon 9).
+- **C scheitert bei `hoch` am Pre-Pass:** SSAO2 braucht den Pre-Pass; `scene.isReady` schaltet ihn mit `prePassRenderer.update()` ein, bevor es Materialien prüft. Die Schritte taten das nicht und übersetzten Varianten ohne Pre-Pass. Das erste Bild übersetzte dann 21 Programme neu (≈ 2,1 s).
+- **Restblock bei D liegt vor der Shader-Vorbereitung:** `runner.prepare` (Minispiel-Szene, Figuren) kostet 0,5–0,8 s am Stück, in A und D gleich.
+
+**Echter Ablauf (Perf-Partie, `minimal`), längster Block zwischen Figuren geladen und erstem Bild:**
+
+| | alt (A) | neu (Brett und Bühne schrittweise, Quellen vorab; noch ohne Bildpause vor der ersten Runde) |
+|---|---|---|
+| Brett → Minispiel | 0,74–1,87 s | 0,70–1,25 s |
+| Minispiel → Brett | 0,69–1,84 s | 0,31–1,11 s |
+
+Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung und bleiben offen (CHAOS-152; Kennzahl in `pnpm perf`: CHAOS-153):
+- `new Engine(…)` der Minispiel-Bühne direkt nach dem Entsorgen des Brett-Kontexts: 0,7–2,7 s am Stück. SwiftShader wartet beim neuen Kontext auf das Aufräumen des alten.
+- Brett-Neuaufbau nach jedem Minispiel (Kontext + `buildNatureBoard`, synchron): 1,5–3,4 s.
+- Erste Bilder nach der Vorbereitung: 0,3–1,3 s (vermutlich SwiftShader-JIT beim ersten Zeichnen).
+- Unter Perf-Last kostet ein einzelner Shader-Schritt 0,3–0,7 s; kleiner geht es von JavaScript aus nicht.
+
+**Entscheidung:** keep D. Minispiel-Bühne (`minigame/stage.ts`) und Brett (`board/createBoardScene.ts`) nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt die Shader-Quellen vorab, schaltet den Pre-Pass ein und lässt vor der ersten Runde ein Bild zeichnen. Das Podest (CHAOS-71) profitiert mit.
+
+**Offen (nur auf echter Hardware):** Mit Grafikkarte ohne `KHR_parallel_shader_compile` kostet ein Programm wenige ms; dort war der gebündelte Import-Block (A/B) die wahrscheinliche Spitze. Rubens Messung N4 (Gerätecheckliste) steht aus; ob Kontext-Neuaufbau und Brett-Neuaufbau dort spürbar sind, entscheidet über CHAOS-152.

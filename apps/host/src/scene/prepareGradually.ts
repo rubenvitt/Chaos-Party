@@ -12,6 +12,12 @@
  * parallele Übersetzung), erledigt `whenReadyAsync` – in einem Stück, gemessen 0,5–1,2 s bei
  * Stufe `hoch` in SwiftShader.
  *
+ * Seit CHAOS-132 auch für Minispiel-Bühne und Brett. Dazu zwei Vorarbeiten, ohne die die
+ * Schritte nichts bringen: Shader-Quellen vorab laden ({@link preloadShaderSources}), sonst
+ * übersetzen alle Effekte nach dem Import gemeinsam in einer Aufgabe; und den Pre-Pass
+ * einschalten wie `scene.isReady`, sonst übersetzt das erste Bild bei Stufe `hoch` (SSAO2) die
+ * Materialien neu.
+ *
  * Die Planung ({@link runInSlices}, {@link runInRounds}) ist ohne Babylon testbar;
  * {@link prepareSceneGradually} verdrahtet sie mit einer Szene.
  */
@@ -123,6 +129,51 @@ export async function runInRounds<T>(
   };
 }
 
+/** Babylons Lader für nachgeladene Shader-Quellen (`_ShaderImportLoader`, intern). */
+interface ShaderSourceLoader {
+  getLoadCallback(shaderLanguage: number): (() => Promise<void>) | undefined;
+}
+
+function isShaderSourceLoader(value: unknown): value is ShaderSourceLoader {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { getLoadCallback?: unknown }).getLoadCallback === 'function'
+  );
+}
+
+/**
+ * Lader der Shader-Quellen aller Material-Klassen in `materials` (je Klasse höchstens einer,
+ * auch aus Oberklassen, z. B. `PBRBaseMaterial` hinter `PBRMaterial`).
+ */
+export function shaderSourceLoaders(materials: readonly object[]): ShaderSourceLoader[] {
+  const loaders = new Set<ShaderSourceLoader>();
+  for (const material of materials) {
+    let proto: unknown = Object.getPrototypeOf(material);
+    while (proto && proto !== Object.prototype) {
+      const loader: unknown = (proto as { constructor?: { _ShaderLoader?: unknown } }).constructor
+        ?._ShaderLoader;
+      if (isShaderSourceLoader(loader)) loaders.add(loader);
+      proto = Object.getPrototypeOf(proto);
+    }
+  }
+  return [...loaders];
+}
+
+/**
+ * Lädt die Shader-Quellen der Materialien vorab (CHAOS-132). Babylon 9 importiert sie erst beim
+ * ersten Effekt einer Material-Klasse; alle Effekte, die bis dahin entstehen, warten auf denselben
+ * Import und übersetzen danach **gemeinsam in einer Aufgabe** (gemessen 0,5–0,65 s am Stück in
+ * SwiftShader, Minispiel ohne vorheriges Brett). Sind die Quellen schon da, übersetzt jeder
+ * Effekt in seinem eigenen Schritt.
+ */
+export async function preloadShaderSources(materials: readonly object[], shaderLanguage: number) {
+  const pending = shaderSourceLoaders(materials)
+    .map((loader) => loader.getLoadCallback(shaderLanguage))
+    .filter((load) => load !== undefined);
+  await Promise.all(pending.map((load) => load()));
+}
+
 /** Ein Vorbereitungsschritt; `true` = fertig (oder nichts mehr zu tun). */
 export type PreparationStep = () => boolean;
 
@@ -138,6 +189,10 @@ export type PreparationStep = () => boolean;
 export function preparationSteps(scene: Scene): PreparationStep[] {
   const engine = scene.getEngine();
   const camera = scene.activeCamera;
+  // Wie `scene.isReady`: Pre-Pass (SSAO2 bei Stufe `hoch`) erst einschalten, sonst entstehen die
+  // Materialien ohne Pre-Pass-Varianten und das erste Bild übersetzt sie neu (CHAOS-132:
+  // 21 Programme, ≈ 2 s in SwiftShader).
+  scene.prePassRenderer?.update();
   // Wie `scene.isReady`: Meshes ohne Teilmeshes (Wurzeln, leere Knoten) zeichnen nichts.
   const meshes = scene.meshes.filter(
     (mesh) => (mesh.subMeshes as AbstractMesh['subMeshes'] | undefined)?.length,
@@ -172,6 +227,12 @@ export async function prepareSceneGradually(
     readonly maxRounds?: number;
   },
 ): Promise<boolean> {
+  // GLSL = 0, WGSL = 1 (`ShaderLanguage`); hier nur über `engine.isWebGPU` unterschieden.
+  await preloadShaderSources(scene.materials, scene.getEngine().isWebGPU ? 1 : 0);
+  // Erst ein Bild zeichnen lassen: Der Aufbau davor (Minispiel-`prepare`, Brett-Geometrie)
+  // landet sonst mit dem ersten Übersetzungsschritt in derselben Aufgabe.
+  await afterNextPaint();
+  if (options.isCancelled()) return false;
   const stats = await runInRounds(preparationSteps(scene), (step) => step(), {
     budgetMs: options.budgetMs ?? 12,
     maxRounds: options.maxRounds ?? 120,
