@@ -162,3 +162,16 @@ EXP-019 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.min
 - Controller-Minispiel-Kontext `prizes?: ItemKind[]` (eigene Items aus dem Ergebnis, nur in `results`).
 
 Beide Felder sind optional; die Protokollversion bleibt 4, weil Host, Server und Controller immer aus demselben Build kommen. Die Items kommen zusätzlich wie jedes gezogene Item als `item-gained` nach `minigame-results`.
+
+## Nachtrag 5 (2026-11-17, CHAOS-124): „Mehr Zeit zum Reagieren“ als Lobby-Einstellung
+
+Für langsamere Reaktionen (Kinder, ältere Mitspielende, motorische Einschränkungen) gibt es in der PC-Lobby den Schalter „Mehr Zeit zum Reagieren“, Standard aus. Es ist eine Barrierefreiheits-Option und keine Balance-Stellschraube:
+
+- `lobby.settings.moreReactionTime?: boolean` (der Server sendet es immer, fehlt = aus).
+- `configure { rounds?, moreReactionTime? }`: beide Felder optional, mindestens eines ist gesetzt (Schema-Prüfung). Ein Schalter-Klick schickt nur `moreReactionTime`, eine Rundenwahl nur `rounds`.
+- Der Server hält die Einstellung in der Session (wie die Rundenzahl). Sie gilt ab dem nächsten Start und überlebt die Revanche. Beim Start setzt `rulesForGame` (`apps/server/src/game.ts`) `pacing.reactionWindowMs` auf `MORE_REACTION_TIME_MS` = 5000 ms statt 3000 ms (ein längeres Fenster aus eigenen Regeln bleibt). Controller-Countdown (`prompt.remainingMs`) und `reaction-opened.deadline` am PC zeigen die echte Frist ohne weitere Änderung.
+- Warum 5000 ms: Im Reaktionszeit-Modell aus EXP-004 schafft das langsamste Profil („abgelenkt“, log-normal, Median 2,3 s, σ 0,45) bei 3000 ms 69 % (Simulation), bei 5000 ms rechnerisch ≈ 96 % (nur Verteilung, EXP-004 Nachtrag). Zeit kostet das nur, wenn niemand reagiert: höchstens 2 s je Fenster, ≈ 1 Fenster je Partie.
+- Andere Entscheidungen (Würfeln, Weg, Ziel, Trophäe) haben keine Frist, solange der Spieler verbunden ist. Dort gibt es nichts zu verlängern; die Schonfrist für getrennte Spieler (`disconnectGraceMs`) bleibt.
+
+Die Protokollversion bleibt 4 (additiv; Host, Server und Controller kommen aus demselben Build).
+

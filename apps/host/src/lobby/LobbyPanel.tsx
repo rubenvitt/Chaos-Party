@@ -20,6 +20,8 @@ interface LobbyPanelProps {
   readonly onStart: () => boolean;
   /** Rundenzahl gewählt (sendet `configure`). */
   readonly onRounds: (rounds: number) => void;
+  /** „Mehr Zeit zum Reagieren“ umgeschaltet (sendet `configure`, CHAOS-124). */
+  readonly onMoreReactionTime: (on: boolean) => void;
 }
 
 const ALL_SLOTS: readonly SlotNumber[] = [1, 2, 3, 4];
@@ -45,7 +47,9 @@ function hostLabel(url: string): string {
  * „iPhone / iPad“ zeigt für das geteilte iPad denselben Link mit `seats=2` (CHAOS-14).
  * Je Spieler eine Karte (CHAOS-36): Porträt und Name der gewählten Figur (`character`, bei
  * `null` „wählt noch …“ mit blassem Vorschlag), Slot-Farbe und -Symbol, Bereit-Status.
- * Dazu die Rundenzahl aus `lobby.settings.roundPresets` (sendet `configure`) und der Start.
+ * Dazu die Rundenzahl aus `lobby.settings.roundPresets` (sendet `configure`), der Schalter
+ * „Mehr Zeit zum Reagieren“ (Barrierefreiheit, CHAOS-124; zeigt den Server-Stand
+ * `lobby.settings.moreReactionTime`) und der Start.
  * Alles per Maus und Tastatur bedienbar (echte Knöpfe, sichtbarer Fokus).
  */
 export function LobbyPanel({
@@ -55,6 +59,7 @@ export function LobbyPanel({
   joinHintSeconds,
   onStart,
   onRounds,
+  onMoreReactionTime,
 }: LobbyPanelProps) {
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
@@ -94,6 +99,7 @@ export function LobbyPanel({
   }
 
   const options = roundOptions(lobby.settings);
+  const moreReactionTime = lobby.settings.moreReactionTime ?? false;
   return (
     <section className="lobby" aria-label="Lobby">
       <div className="lobby-card">
@@ -208,6 +214,27 @@ export function LobbyPanel({
               ))}
             </div>
           </fieldset>
+
+          <button
+            type="button"
+            role="switch"
+            className="lobby-toggle"
+            data-testid="more-reaction-time"
+            aria-checked={moreReactionTime}
+            onClick={() => {
+              onMoreReactionTime(!moreReactionTime);
+            }}
+          >
+            <span className="lobby-toggle-track" aria-hidden="true">
+              <span className="lobby-toggle-thumb" />
+            </span>
+            <span className="lobby-toggle-text">
+              <span className="lobby-toggle-label">Mehr Zeit zum Reagieren</span>
+              <span className="lobby-toggle-detail">
+                {moreReactionTime ? 'An: 5 s zum Festhalten' : 'Aus: 3 s zum Festhalten'}
+              </span>
+            </span>
+          </button>
 
           <button
             type="button"
