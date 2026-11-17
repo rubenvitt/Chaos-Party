@@ -204,6 +204,47 @@ test.describe('Finale: Trophäenzählung und Siegerbildschirm (lokal, Production
     expectNoProblems(problems, 'Host');
   });
 
+  test('Podest entsteht schon während der Zählung und wird am Siegerbildschirm nur eingehängt (CHAOS-71)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    await openBoard(page, '&finale=manual');
+    await feedResults(page, TIE_ON_TROPHIES);
+    const results = page.getByTestId('board-results');
+    await expect(results).toHaveAttribute('data-beat', 'intro');
+    // Während der Zählung: genau eine Podest-Leinwand, unsichtbar auf dem Parkplatz.
+    const parked = page.locator('.finale-parking canvas[aria-label="Siegerpodest"]');
+    await expect(parked).toHaveCount(1);
+    await expect(parked).toBeHidden();
+    // Die Leinwand hat schon ihre Größe (gleiche Fläche wie am Siegerbildschirm).
+    const parkedSize = await parked.evaluate((canvas) => [canvas.clientWidth, canvas.clientHeight]);
+    expect(parkedSize[0]).toBeGreaterThan(0);
+    const firstCanvas = await parked.elementHandle();
+
+    await page.evaluate(() => window.__chaosFinale?.skip());
+    await expect(results).toHaveAttribute('data-done', 'true');
+    await expect(results).toHaveAttribute('data-podium', 'ready');
+    const shown = results.locator('.finale-podium canvas');
+    await expect(shown).toHaveCount(1);
+    await expect(page.locator('canvas[aria-label="Siegerpodest"]')).toHaveCount(1);
+    // Dieselbe Leinwand (kein zweiter Aufbau), gleiche Größe wie auf dem Parkplatz.
+    expect(await shown.evaluate((canvas, first) => canvas === first, firstCanvas)).toBe(true);
+    expect(await shown.evaluate((canvas) => [canvas.clientWidth, canvas.clientHeight])).toEqual(
+      parkedSize,
+    );
+
+    // Zurück in die Zählung (nur über den Testhaken möglich): Leinwand parkt wieder, und der
+    // Siegerbildschirm zeigt sie danach erneut.
+    await page.evaluate(() => window.__chaosFinale?.seek(0));
+    await expect(results).toHaveAttribute('data-done', 'false');
+    await expect(parked).toHaveCount(1);
+    await page.evaluate(() => window.__chaosFinale?.skip());
+    await expect(results).toHaveAttribute('data-podium', 'ready');
+    await expect(shown).toHaveCount(1);
+    await page.evaluate(() => window.__chaosFinale?.stepPodium(5));
+    expectNoProblems(problems, 'Host');
+  });
+
   test('vorzeitiges Ende und geteilter Sieg werden benannt', async ({ page }) => {
     await openBoard(page);
     await feedResults(

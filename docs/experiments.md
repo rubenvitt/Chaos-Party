@@ -1663,3 +1663,28 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 **Offen für Playtest:** Fühlt sich der Trostpreis wie ein Trost an oder wie Belohnung fürs Verlieren? Wird die Ergebniskarte mit Item-Zeile noch in den 6 s gelesen? Ist Sabotage zu zweit jetzt spürbar, aber nicht nervig? Bemerkt jemand Trophäen, die lange hinter allen liegen?
 
 **Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.
+
+---
+
+## EXP-021: Siegerpodest ohne Standbild beim Übergang (2026-11-17, CHAOS-71)
+
+**Hypothese / gewünschtes Spielerlebnis:** Nach der Trophäenzählung erscheint das 3D-Podest sofort, ohne dass das Bild steht. Bisher baute der Siegerbildschirm das Podest erst beim Erscheinen und übersetzte alle Shader am Stück (`whenReadyAsync`, KI-25). Annahme: Wird das Podest schon während der Zählung (≈ 14 s, mit `fast` ≈ 3,5 s) vorbereitet und werden die Shader stückweise übersetzt, kostet der Übergang selbst fast nichts.
+
+**Testumgebung:** Sandbox-Linux, 4 Kerne, Headless-Chromium mit SwiftShader (`--use-angle=swiftshader`, **kein** `KHR_parallel_shader_compile`), 1280×720, Production-Build, lokaler Brett-Modus mit Testhaken (`/host/?local=1&board=1&test=1`, Endstand wie `host-finale.spec.ts`). Stufe `hoch` über einen temporären Schalter (im Testmodus sonst immer `minimal`, nicht eingecheckt). Gemessen: Long Tasks (`PerformanceObserver`, > 50 ms) und gelinkte WebGL-Programme je Phase; frischer Browser je Lauf (mehrere Seiten in einem Browser teilen sich den GPU-Prozess, das Aufräumen der Vorgängerseite erzeugte 5–22-s-Ausreißer). Messskript im Scratchpad, nicht eingecheckt.
+
+**Varianten:**
+
+| Variante | Übergang zum Podest (Sparstufe `minimal`) | Übergang (Stufe `hoch`) | Während der Zählung |
+|---|---|---|---|
+| A: alt – Aufbau am Siegerbildschirm, `whenReadyAsync` am Stück | 3 Blöcke, längster **0,84–1,04 s**, Summe 1,35–1,6 s | längster 1,0–1,2 s; 2 von 3 Läufen ein 21–22-s-Block (GPU-Prozess, Texturen) | – |
+| B: Aufbau während der Zählung, je Mesh ein Schritt, unfertige in weiteren Runden, Rest per `whenReadyAsync` (**gewählt**) | **35–47 ms**, kein Long Task | **46–110 ms**, kein Long Task | viele 50–90-ms-Blöcke, längster 0,2–1,1 s (`minimal`) bzw. 1,0–1,3 s (`hoch`, Rest in `whenReadyAsync`) |
+| C: wie B, zusätzlich Schattenkarten, Tiefenkarte, Schein und Nachbearbeitung einzeln | wie B | wie B | Vorbereitung in ≤ 100-ms-Stücken, dafür **erstes Bild 2,9–3,3 s**: Die einzelnen Bereitschaftsprüfungen außerhalb ihres Render-Passes melden „bereit“, die 20 Programme entstehen erst beim Zeichnen und kosten dort das Dreifache |
+| B ohne Zählung (`?finale=skip`, „Überspringen“ sofort) | 9–14 kleine Blöcke, längster 0,22–0,28 s (ein Lauf 1,75 s) | längster 1,1–1,3 s | – |
+
+- Babylon 9 lädt Shader-Quellen nach: Der erste `isReady` eines Materials meldet „nicht bereit“ ohne Übersetzung. Ohne zweite Runde blieb alles für `whenReadyAsync` übrig.
+- `isReady` je Mesh muss im Render-Pass der Kamera laufen (`engine.currentRenderPassId`), sonst übersetzt `whenReadyAsync` alles noch einmal.
+- Mit `KHR_parallel_shader_compile` (Chrome auf D3D11 und Metal) stößt jeder Schritt die Übersetzung nur an; dort ist der Gewinn vor allem, dass die Arbeit in die Zählung fällt.
+
+**Entscheidung:** keep B. `scene/prepareGradually.ts` (Abschnitte ≈ 12 ms, Bildpause dazwischen, Runden für unfertige Schritte), Podest mit `show()`/`hide()` und ohne Render-Schleife bis zum Einhängen, Finale baut es zu Beginn der Zählung auf einem unsichtbaren Parkplatz gleicher Größe. C verworfen (teurer). Der verbleibende Block bis ≈ 1 s während der Zählung (Rest in `whenReadyAsync`: Tiefenkarte, Schein, Nachbearbeitung) trifft nur die 2D-Zählung, nicht den Übergang.
+
+**Offen (nur auf echter Hardware):** Standbild beim Übergang auf Rubens PC (Gerätecheckliste LS3). Die Minispiel-Bühne baut weiterhin am Stück (KI-25).
