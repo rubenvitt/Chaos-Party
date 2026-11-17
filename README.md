@@ -137,3 +137,9 @@ Claude Code arbeitet die Zunder-Aufgaben Meilenstein für Meilenstein ab; jeder 
 | `meilenstein-abnahme` | Abnahme vorbereiten, Entscheidung eintragen |
 | `experiment-protokollieren` | Varianten-Vergleiche nach Experiment-Protokoll festhalten |
 | `blocker-eskalieren` | Nach drei Fehlversuchen oder bei Freigabebedarf sauber eskalieren |
+
+## Lizenz
+
+Chaos Party ist Open Source unter der **GNU General Public License v3.0** (`GPL-3.0-only`, Text in [`LICENSE`](LICENSE)). Das gilt für den Code und für die eigenen Assets (Figuren, Porträts, prozedurale Inhalte). Mitgelieferte Drittsoftware behält ihre eigene Lizenz (Babylon.js: Apache-2.0; Havok, React, ws, zod, uqr: MIT; Schriften Nunito und Inter: OFL-1.1).
+
+`pnpm build` legt in jedes `apps/*/dist` eine `LICENSE.txt` und eine `THIRD-PARTY-NOTICES.txt` mit allen Lizenztexten; `pnpm check:licenses` prüft, dass sie aktuell sind. Wer einen Build weitergibt, gibt beide Dateien mit und nennt den Quellcode (GPL). Hintergrund: [ADR-017](docs/decisions/ADR-017-lizenz.md).

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Die Minispiele (je Ordner ein Minispiel). `./catalog` ist rein (Steckbriefe für Server/Controller), `.` liefert die Babylon-Module für den Host.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

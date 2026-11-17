@@ -1,6 +1,8 @@
 // Prüft die Lizenzen aller Laufzeit-Abhängigkeiten (ohne devDependencies) gegen eine
-// Positivliste. Neue Lizenzen bewusst prüfen und hier ergänzen (CLAUDE.md, Quality gates).
+// Positivliste und die Lizenzhinweise in vorhandenen Builds. Neue Lizenzen bewusst prüfen
+// und hier ergänzen (CLAUDE.md, Quality gates).
 import { execFileSync } from 'node:child_process';
+import { checkNotices } from './third-party-notices.mjs';
 
 const ALLOWED = new Set([
   'MIT',
@@ -35,3 +37,17 @@ if (violations.length > 0) {
 }
 
 console.log(`Lizenzen ok: ${String(total)} Laufzeit-Pakete, alle auf der Positivliste.`);
+
+// Lizenzhinweise im Build (CHAOS-69, ADR-017): Jeder vorhandene Build muss die GPL und
+// aktuelle Drittlizenz-Hinweise enthalten, damit er weitergegeben werden darf.
+const notices = checkNotices();
+if (notices.problems.length > 0) {
+  console.error('Lizenzhinweise im Build fehlen oder sind veraltet (neu erzeugen: pnpm notices):');
+  for (const problem of notices.problems) console.error(`  ${problem}`);
+  process.exit(1);
+}
+console.log(
+  notices.checked === 0
+    ? 'Lizenzhinweise: kein Build vorhanden, nicht geprüft (erst pnpm build).'
+    : `Lizenzhinweise ok: ${String(notices.checked)} Builds mit LICENSE.txt und THIRD-PARTY-NOTICES.txt.`,
+);

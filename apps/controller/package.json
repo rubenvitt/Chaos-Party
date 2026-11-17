@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Browser-Controller für iPhone und geteiltes iPad. Rendert keine Spielwelt.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

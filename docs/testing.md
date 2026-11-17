@@ -180,7 +180,7 @@ Baseline bewusst aktualisieren (nur wenn sich die Oberfläche absichtlich geänd
 |---|---|---|
 | Drei Minispiele (Arcade, Physik, Hybrid) | je Minispiel Logik- und Headless-Tests (`packages/minigames/src/<id>/`), Vertragsprüfung je Modul mit 2/3/4 Zufalls-Bots (`catalog.test.ts`), Physik-Invarianten (Pudding-Gerangel), `m3-minispiele-bild.spec.ts` | Spaß, Fairness, Verständlichkeit (Checkliste 10, P3–P7) |
 | Vier kosmetische Figuren | `packages/assets` (Generator byte-genau, Manifest-Prüfung: Höhe, Animationen, Budgets), `apps/host/src/characters` (NullEngine-Tests), Baselines `host-brett`/`host-lobby` | Unterscheidbarkeit am Fernseher (P1, P2, P7) |
-| Hybride Asset-Pipeline, Lizenz-/Attributions-Manifest | `pnpm check:assets` (CI-Schritt „Assets“), 14 Fälle mit kaputten Manifesten | Lizenzfrage „Eigenwerk“ (Ruben) |
+| Hybride Asset-Pipeline, Lizenz-/Attributions-Manifest | `pnpm check:assets` (CI-Schritt „Assets“), 14 Fälle mit kaputten Manifesten | – (Lizenz seit CHAOS-69: GPL-3.0-only, ADR-017) |
 | Animation, Sound, VFX, Anleitungen, Ergebnisse | Fx-Unit-Tests (Klang-Rezepte, nachgebautes WebAudio, Partikel mit NullEngine), `m3-minispiel-anzeige` (Karten), `controller-minispiel` | Klang und Lesbarkeit (P8, P9, G1–G8) |
 | Experimente zu Minispiel-Konzepten | EXP-005 … EXP-007 mit Prototyp-Simulationen (`packages/minigames/src/prototypes/`, `EXPERIMENTS=1`) | Spaß: nur Playtest |
 | Tests für Lebenszyklus, Wertung, Scene-Cleanup | `minigame-sdk` (Laufzeit, Wertung, Ergebnisprüfung), game-core `minigame.test.ts`, Server-Integration Brett ↔ Minispiel je Minispiel mit 2/3/4 Spielern, `sceneResidue` = leer nach `dispose` | – |

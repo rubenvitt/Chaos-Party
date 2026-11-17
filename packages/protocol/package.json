@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Typisierte, versionierte Nachrichten zwischen Controller, Server und Host.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

@@ -26,7 +26,8 @@ export type AssetSource = (typeof ASSET_SOURCES)[number];
 
 /** Lizenzen, die Assets haben dürfen (SPDX). Neue nur nach Prüfung ergänzen. */
 export const ALLOWED_ASSET_LICENSES = [
-  'LicenseRef-ChaosParty-Eigenwerk',
+  // Eigenwerk: Chaos Party steht samt eigenen Assets unter GPL-3.0-only (ADR-017, CHAOS-69).
+  'GPL-3.0-only',
   'CC0-1.0',
   'CC-BY-4.0',
   'OFL-1.1',

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "PC-Spiel: Babylon.js-Canvas + React-UI. Läuft nur auf dem PC.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

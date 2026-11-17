@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Reine Messhelfer (Ringpuffer, Median/p95, Formatierung) für die Debug-Anzeigen von Host und Controller.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
