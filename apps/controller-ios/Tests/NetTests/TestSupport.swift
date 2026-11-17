@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ChaosController
+@testable import ChaosControllerKit
 
 let testTarget = JoinTarget.manual(address: "192.168.1.20", code: "ABCD")!
 let otherTarget = JoinTarget.manual(address: "192.168.1.20", code: "WXYZ")!

@@ -12,7 +12,7 @@ named per package. Player-facing text is German with real umlauts; identifiers a
 | `Sources/Protocol/JoinTarget.swift` | QR link / manual entry → `ws://…/ws` + code, `storageKey` |
 | `Sources/Protocol/ControllerSession.swift` | `ControllerState` (mirror of `state/reducer.ts`), selectors (`screen`, `link`, `slotScreen`, `ownPrompt`, `isLocked`), `UiErrorCode` (texts/severity), `SessionTiming`, `ControllerSessionProtocol`, `FakeControllerSession`, `ControllerState.*Sample` |
 | `Tests/Fixtures/**` | Generated – `node scripts/export-protocol-fixtures.mjs` (repo root). Never hand-edit. |
-| `project.yml` | xcodegen spec (targets `ChaosController`, `ChaosControllerTests`) |
+| `project.yml` | xcodegen spec (targets `ChaosControllerKit` = Protocol/Net/UI framework, `ChaosController` = app shell, `ChaosControllerTests` = non-hosted tests) |
 
 If the contract is wrong or missing something, stop and report the smallest change you need.
 Do not work around it with parallel types.
@@ -24,34 +24,19 @@ and parsed QR/IPv6/manual join targets correctly. Agent A turns that into real t
 
 ## Commands
 
-From the repo root (fish):
+See `README.md` (German) for build, device and test details. Short form, from the repo root (fish):
 
 ```fish
 node scripts/export-protocol-fixtures.mjs            # regenerate fixtures (after schema changes)
 node scripts/export-protocol-fixtures.mjs --check    # exit 1 if the corpus is stale
+pnpm install --frozen-lockfile                       # once, the integration suite starts the server
+apps/controller-ios/scripts/run-tests.sh             # all Swift suites incl. server integration
+apps/controller-ios/scripts/run-tests.sh --no-server # without the integration suite
 ```
 
-From `apps/controller-ios`:
-
-```fish
-xcodegen generate
-xcrun simctl list devices available | grep iPhone    # pick a simulator name
-xcodebuild test -project ChaosController.xcodeproj -scheme ChaosController \
-  -destination 'platform=iOS Simulator,name=<iPhone name>' \
-  -skip-testing:ChaosControllerTests/ServerIntegrationTests
-```
-
-Integration test against the real server (two terminals):
-
-```fish
-# 1 – repo root
-env JOIN_CODE=SWIFT1 TERMINAL_QR=0 pnpm start
-# 2 – apps/controller-ios (xcodebuild forwards TEST_RUNNER_* without the prefix)
-env TEST_RUNNER_CHAOS_SERVER_URL=ws://127.0.0.1:8787/ws TEST_RUNNER_CHAOS_JOIN_CODE=SWIFT1 \
-  xcodebuild test -project ChaosController.xcodeproj -scheme ChaosController \
-  -destination 'platform=iOS Simulator,name=<iPhone name>' \
-  -only-testing:ChaosControllerTests/ServerIntegrationTests
-```
+`xcodebuild test` hangs with the iOS 27 simulator on the dev Mac (host app waits for a debugger,
+"test runner hung before establishing connection"). The tests are therefore a non-hosted bundle
+against the `ChaosControllerKit` framework, started by the script with `simctl spawn … xctest`.
 
 CI has no Xcode (`ubuntu-latest` only). Swift tests are local-only; report their output.
 

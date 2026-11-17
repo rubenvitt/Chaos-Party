@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-@testable import ChaosController
+@testable import ChaosControllerKit
 
 /// Real transport that records what was sent and can be killed like a dropped network.
 @MainActor

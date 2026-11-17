@@ -4,7 +4,7 @@
 import Foundation
 import Testing
 
-@testable import ChaosController
+@testable import ChaosControllerKit
 
 @Suite struct JoystickMathTests {
     @Test func deadZoneIsExactlyZero() {

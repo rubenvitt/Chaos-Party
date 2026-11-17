@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ChaosController
+@testable import ChaosControllerKit
 
 private let t0 = ContinuousClock.now
 

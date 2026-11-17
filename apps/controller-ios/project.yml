@@ -11,17 +11,32 @@ settings:
     MARKETING_VERSION: '0.1'
     CURRENT_PROJECT_VERSION: '1'
 targets:
+  # Protokoll, Netz und Bildschirme. Eigenes Framework, damit die Tests ohne App-Host laufen
+  # (`xcodebuild test` hängt mit App-Host auf dem iOS-27-Simulator, siehe README.md).
+  ChaosControllerKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/Protocol
+      - path: Sources/Net
+      - path: Sources/UI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.controller.kit
+        GENERATE_INFOPLIST_FILE: YES
+        'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': NO
   ChaosController:
     type: application
     platform: iOS
     sources:
-      - path: Sources
+      - path: Sources/App
+    dependencies:
+      - target: ChaosControllerKit
     info:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: Chaos Party
         UILaunchScreen: {}
-        UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -55,8 +70,10 @@ targets:
       - path: Tests/Fixtures
         type: folder
         buildPhase: resources
+    # Ohne App-Host: `scripts/run-tests.sh` startet das Bundle mit `xctest` im Simulator.
     dependencies:
-      - target: ChaosController
+      - target: ChaosControllerKit
+        embed: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ChaosController
+@testable import ChaosControllerKit
 
 private final class BundleToken {}
 

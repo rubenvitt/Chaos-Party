@@ -253,13 +253,15 @@ extension ItemKind {
 
 // MARK: - Character portraits (ui/CharacterPortrait.tsx)
 
+private final class KitBundleToken {}
+
 @MainActor
 private enum PortraitImages {
     static var cache: [String: UIImage] = [:]
 
     static func image(_ name: String) -> UIImage? {
         if let image = cache[name] { return image }
-        guard let path = Bundle.main.path(forResource: name, ofType: "webp"),
+        guard let path = Bundle(for: KitBundleToken.self).path(forResource: name, ofType: "webp"),
             let image = UIImage(contentsOfFile: path)
         else { return nil }
         cache[name] = image
