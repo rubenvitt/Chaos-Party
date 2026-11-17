@@ -1472,6 +1472,8 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 
 **Nachtrag 2026-11-17:** Weiter in [EXP-020](#exp-020-apple-tv-bei-4k-ausgabe--interne-auflösung-hochskalierung-profilierung-2026-11-17-chaos-114) (CHAOS-114): interne Auflösung mit Hochskalierung und Diagnose-Schalter.
 
+**Abschluss 2026-11-17 (CHAOS-78):** Ruben hat die Apple TV als Spiel-Host freigegeben (CHAOS-74). [ADR-019](decisions/ADR-019-nativer-apple-host.md) wählt W2: Die Apple TV hostet allein, der TypeScript-Kern läuft in JavaScriptCore. Damit ist die Server-Variante 1 dieses Spikes (Server auf PC/Mac, RK5) nur noch ein optionaler Entwicklungsweg. Den Weg über das Protokoll zeigt [EXP-024](#exp-024-apple-tv-hostet-allein--typescript-kern-in-javascriptcore-2026-11-17-chaos-138) auf der echten Apple TV. Die Aufwandsschätzung oben ist durch ADR-019 ersetzt: Minispiel-Logik und Havok laufen dort unverändert in TypeScript, neu sind nur Darstellung und Brücke. Den Gesamteindruck (RK6) beurteilt Ruben mit der echten Grafik (CHAOS-148).
+
 ---
 
 ## EXP-018: Wachsende Sabotage über die Partiedauer (2026-11-17, CHAOS-67)
