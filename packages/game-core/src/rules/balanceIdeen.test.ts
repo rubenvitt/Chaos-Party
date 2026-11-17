@@ -1,5 +1,5 @@
 /**
- * Regel-Stellschrauben aus CHAOS-51 (EXP-018): Ziel einer wandernden Trophäe
+ * Regel-Stellschrauben aus CHAOS-51 (EXP-019): Ziel einer wandernden Trophäe
  * (`trophy.placement`), Item für den Minispiel-Sieg (`items.minigameWinItems`) und Schild gegen
  * Fallen (`items.shieldBlocksTrap`). Alle fehlen in den Standardregeln = bisheriges Verhalten.
  */

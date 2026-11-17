@@ -50,7 +50,7 @@ const kinds = (board: BoardDefinition): string[] => board.spaces.map((s) => `${s
 describe('Experimente: Grundlagen', () => {
   it('die gewählten Werte sind genau die Standardregeln und das Standardbrett', () => {
     // M3 verlängert nur Anleitung und Ergebnisanzeige der Minispiele (Lesezeit, kein Balance-Wert);
-    // EXP-018 (CHAOS-51) ergänzt den Trostpreis nach dem Minispiel (gibt es in M2 nicht).
+    // EXP-019 (CHAOS-51) ergänzt den Trostpreis nach dem Minispiel (gibt es in M2 nicht).
     expect({
       ...CHOICE_RULES,
       items: { ...CHOICE_RULES.items, minigameLastItems: 1 },

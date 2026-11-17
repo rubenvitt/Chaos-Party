@@ -82,7 +82,7 @@ describe('rankPlayers', () => {
 });
 
 describe('DEFAULT_RULES und withRules', () => {
-  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004, EXP-018) und M3-Minispielzeiten', () => {
+  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004, EXP-018, EXP-019) und M3-Minispielzeiten', () => {
     expect(DEFAULT_RULES).toEqual({
       diceFaces: [1, 2, 3, 4, 5, 6],
       economy: { startCoins: 10, coinsPlus: 3, coinsMinus: 3, minigameRewards: [10, 5, 3, 0] },
@@ -93,6 +93,7 @@ describe('DEFAULT_RULES und withRules', () => {
         weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
         stealAmount: 5,
         trapAmount: 4,
+        sabotageGrowthRounds: 5,
         trapTrigger: 'pass',
         minigameLastItems: 1,
       },

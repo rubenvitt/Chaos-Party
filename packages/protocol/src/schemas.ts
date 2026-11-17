@@ -251,7 +251,7 @@ export const ControllerMinigameInfoSchema = z.strictObject({
   aborted: z.boolean(),
   /** v4: Nur in `results`: eigene Münzbelohnung für den Platz. */
   reward: CountSchema.optional(),
-  /** v4 (CHAOS-51, EXP-018): Nur in `results`: Items aus dem Ergebnis (Trostpreis). */
+  /** v4 (CHAOS-51, EXP-019): Nur in `results`: Items aus dem Ergebnis (Trostpreis). */
   prizes: z.array(ItemKindSchema).min(1).max(4).optional(),
 });
 
@@ -744,7 +744,7 @@ export const RankingEntrySchema = z.strictObject({
 export const MinigameRewardSchema = z.strictObject({
   slot: SlotSchema,
   coins: CountSchema,
-  /** v4 (CHAOS-51, EXP-018): Items aus dem Ergebnis (Trostpreis); fehlt, wenn keine. */
+  /** v4 (CHAOS-51, EXP-019): Items aus dem Ergebnis (Trostpreis); fehlt, wenn keine. */
   items: z.array(ItemKindSchema).min(1).max(4).optional(),
 });
 

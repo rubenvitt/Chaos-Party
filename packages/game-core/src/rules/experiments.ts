@@ -80,6 +80,7 @@ export const START_RULES: RuleSet = {
     weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
     stealAmount: 6,
     trapAmount: 5,
+    sabotageGrowthRounds: 0,
     trapTrigger: 'land',
   },
   pacing: {
@@ -182,9 +183,14 @@ export const ITEM_CHOICE: NonNullable<RuleOverrides['items']> = {
   trapAmount: 4,
 };
 
+/** Entscheidung EXP-018 (CHAOS-67): Sabotage wächst alle 5 Runden um eine Münze. */
+export const SABOTAGE_GROWTH_CHOICE: NonNullable<RuleOverrides['items']> = {
+  sabotageGrowthRounds: 5,
+};
+
 /** Alle Entscheidungen zusammen; muss `DEFAULT_RULES` ergeben (Test in experiments.test.ts). */
 export const CHOICE_RULES: RuleSet = withRules(
-  { ...ECONOMY_CHOICE, items: ITEM_CHOICE },
+  { ...ECONOMY_CHOICE, items: { ...ITEM_CHOICE, ...SABOTAGE_GROWTH_CHOICE } },
   START_RULES,
 );
 

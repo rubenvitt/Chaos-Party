@@ -372,7 +372,7 @@ test('Nur Knöpfe (Pump-Parade): kein Joystick, ein großer Knopf; Ergebnis und 
   await expect(page.getByTestId('result-score')).toHaveText('1.234 Pumpstöße');
   await expect(page.getByTestId('result-prize')).toHaveCount(0);
 
-  // Letzter Platz mit Trostpreis (CHAOS-51, EXP-018): Item neben den Münzen.
+  // Letzter Platz mit Trostpreis (CHAOS-51, EXP-019): Item neben den Münzen.
   sendMinigame(fake, 1, PUMPEN, 'results', { place: 4, score: 3, reward: 0, prizes: ['trap'] });
   await expect(page.getByTestId('result-place')).toHaveText('Platz 4!');
   await expect(page.getByTestId('result-prize')).toHaveAttribute('data-items', 'trap');

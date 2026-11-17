@@ -1553,7 +1553,7 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
-/* Trostpreis (CHAOS-51, EXP-018): zweite Zeile unter Name bis Münzen. */
+/* Trostpreis (CHAOS-51, EXP-019): zweite Zeile unter Name bis Münzen. */
 .minigame-rank-prize {
   grid-column: 2 / -1;
   display: inline-flex;

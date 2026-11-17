@@ -4,7 +4,7 @@
  */
 import { pickWeighted } from '../rng.ts';
 import type { ItemKind, Slot } from '../types.ts';
-import { transferCoins } from './economy.ts';
+import { sabotageAmount, transferCoins } from './economy.ts';
 import { activePlayer, playerOf, type Ctx } from './internal.ts';
 import { openRollPrompt, openTargetPrompt } from './prompts.ts';
 import { openReaction } from './reaction.ts';
@@ -91,7 +91,7 @@ export function triggerTrap(ctx: Ctx): void {
   d.traps.splice(index, 1);
   const shield = player.items.indexOf('shield');
   if (ctx.rules.items.shieldBlocksTrap === true && shield >= 0) {
-    // CHAOS-51 (EXP-018): Der Schild fängt die Falle ab, ohne Reaktionsfenster.
+    // CHAOS-51 (EXP-019): Der Schild fängt die Falle ab, ohne Reaktionsfenster.
     player.items.splice(shield, 1);
     ctx.events.push({
       type: 'trap-triggered',
@@ -103,7 +103,7 @@ export function triggerTrap(ctx: Ctx): void {
     ctx.events.push({ type: 'item-used', slot: player.slot, item: 'shield' });
     return;
   }
-  const amount = Math.min(ctx.rules.items.trapAmount, player.coins);
+  const amount = Math.min(sabotageAmount(ctx.rules.items, 'trap', d.round), player.coins);
   ctx.events.push({
     type: 'trap-triggered',
     slot: player.slot,

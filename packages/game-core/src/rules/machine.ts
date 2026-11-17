@@ -94,6 +94,9 @@ function assertConfig(config: GameConfig): void {
       throw new RangeError(`items.${key} muss eine ganze Zahl ≥ 0 sein`);
     }
   }
+  if (!Number.isInteger(rules.items.sabotageGrowthRounds) || rules.items.sabotageGrowthRounds < 0) {
+    throw new RangeError('items.sabotageGrowthRounds muss eine ganze Zahl ≥ 0 sein');
+  }
   const minigameIds = new Set<string>();
   for (const spec of config.minigames ?? []) {
     if (!/^[a-z0-9-]{3,32}$/.test(spec.id))

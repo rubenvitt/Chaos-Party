@@ -121,7 +121,7 @@ export type ResultView =
       readonly score: string | null;
       /** „+5 Münzen“, „Keine Münzen“ oder `null`, wenn der Server keine Belohnung schickt. */
       readonly reward: string | null;
-      /** Trostpreis-Items aus dem Ergebnis (CHAOS-51, EXP-018); leer, wenn keine. */
+      /** Trostpreis-Items aus dem Ergebnis (CHAOS-51, EXP-019); leer, wenn keine. */
       readonly prizes: readonly ItemKindName[];
     }
   | { readonly kind: 'aborted'; readonly headline: string; readonly lead: string };

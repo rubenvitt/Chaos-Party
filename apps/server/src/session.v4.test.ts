@@ -385,7 +385,7 @@ describe('Reconnect in den neuen Zuständen (ADR-009/014)', () => {
   });
 });
 
-describe('Trostpreis nach dem Minispiel (CHAOS-51, EXP-018)', () => {
+describe('Trostpreis nach dem Minispiel (CHAOS-51, EXP-019)', () => {
   it('Letzte(r) bekommt ein Item: im Stand (rewards.items) und im eigenen Kontext (prizes)', () => {
     const id = rotationInfos()[0]?.id ?? 'pump-parade';
     const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);

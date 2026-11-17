@@ -1,5 +1,5 @@
 /**
- * Balance-Ideen CHAOS-51 (EXP-018). Der Smoke-Test läuft immer (wenige Seeds); die vollen
+ * Balance-Ideen CHAOS-51 (EXP-019). Der Smoke-Test läuft immer (wenige Seeds); die vollen
  * Tabellen für `docs/experiments.md` nur mit Umgebungsvariable:
  *
  * ```sh
@@ -35,7 +35,7 @@ function variant(list: readonly Variant[], id: string): Variant {
   return found;
 }
 
-describe('EXP-018: Varianten wirken', () => {
+describe('EXP-019: Varianten wirken', () => {
   const seeds = { seeds: seedRange(20), rounds: 6 };
 
   it('Item für Minispiel-Sieg bzw. letzten Platz erhöht die gezogenen Items', () => {
@@ -62,7 +62,7 @@ describe('EXP-018: Varianten wirken', () => {
   });
 });
 
-describe('EXP-018: Smoke-Test mit wenigen Seeds', () => {
+describe('EXP-019: Smoke-Test mit wenigen Seeds', () => {
   const small: ExperimentSetup = { seeds: seedRange(2), players: [2, 4], rounds: 2 };
 
   it.each([
@@ -79,7 +79,7 @@ describe('EXP-018: Smoke-Test mit wenigen Seeds', () => {
 });
 
 describe.runIf(runtime.process?.env?.EXPERIMENTS === 'balance')(
-  'EXP-018: volle Tabellen (EXPERIMENTS=balance)',
+  'EXP-019: volle Tabellen (EXPERIMENTS=balance)',
   () => {
     it('druckt alle Tabellen als Markdown', { timeout: 1_800_000 }, () => {
       const md = runBalanceExperiments();

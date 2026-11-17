@@ -156,7 +156,7 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 
 ## Nachtrag 4 (2026-11-17, CHAOS-51): Trostpreis im Minispiel-Ergebnis
 
-EXP-018 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.minigameLastItems: 1`). Damit PC und Controller das zeigen können, auch nach einem Neuladen, trägt der Stand die Items:
+EXP-019 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.minigameLastItems: 1`). Damit PC und Controller das zeigen können, auch nach einem Neuladen, trägt der Stand die Items:
 
 - `BoardView.minigame.rewards[].items?: ItemKind[]` (1–4, fehlt ohne Item).
 - Controller-Minispiel-Kontext `prizes?: ItemKind[]` (eigene Items aus dem Ergebnis, nur in `results`).

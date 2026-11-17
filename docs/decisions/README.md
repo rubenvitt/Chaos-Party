@@ -30,3 +30,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-015](ADR-015-vertical-slice.md) | Vertical Slice in M4: Charakterwahl, Rundenzahl, Pause/Ende, Gleichstandsregel, Revanche, Protokoll v4 | Angenommen | CHAOS-4 |
 | [ADR-016](ADR-016-renderer.md) | Renderer: bei Babylon.js bleiben, WebGPU als Option messen, tvOS getrennt entscheiden | Vorgeschlagen (Entwurf, wartet auf Messwerte) | CHAOS-75 |
 | [ADR-017](ADR-017-native-controller.md) | Native Controller-App in SwiftUI für iPhone/iPad, Browser-Controller bleibt Rückfall | Vorgeschlagen (Entwurf, Vertrag steht) | CHAOS-115 |
+| [ADR-018](ADR-018-lizenz.md) | Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build | Angenommen | CHAOS-69 |

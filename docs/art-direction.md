@@ -211,7 +211,7 @@ Sounds und Effekte (andere M3-Aufgaben) sind prozedural und zeigen auf ihre Code
   "source": "procedural",
   "path": "apps/host/src/fx/sounds.ts",
   "description": "Münz-Klingeln (WebAudio-Synthese, zwei Sinus-Töne).",
-  "license": "LicenseRef-ChaosParty-Eigenwerk",
+  "license": "GPL-3.0-only",
   "attribution": "Chaos Party – prozedural im Code"
 }
 ```

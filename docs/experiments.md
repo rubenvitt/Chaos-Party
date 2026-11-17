@@ -29,7 +29,8 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 | EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
 | EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
-| EXP-018 | Zurückgestellte Balance-Ideen (Würfel 2–7, Trophäen-Ziel, Item nach dem Minispiel, Schild/Fallen) | CHAOS-51 | keep **Trostpreis**: 1 Item für den letzten Minispiel-Platz (neuer Standard); Sieg-Item, W 2–7, Schild gegen Fallen discard; `ahead` iterate; Fallen bleiben sichtbar |
+| EXP-018 | Wachsende Sabotage über die Partiedauer | CHAOS-67 | keep F: Klau 5/Falle 4, **+1 alle 5 Runden**; Klau 6/Falle 5 fest discard (Anfang zu hart) |
+| EXP-019 | Zurückgestellte Balance-Ideen (Würfel 2–7, Trophäen-Ziel, Item nach dem Minispiel, Schild/Fallen) | CHAOS-51 | keep **Trostpreis**: 1 Item für den letzten Minispiel-Platz (neuer Standard); Sieg-Item, W 2–7, Schild gegen Fallen discard; `ahead` iterate; Fallen bleiben sichtbar |
 
 ---
 
@@ -1404,7 +1405,105 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 
 ---
 
-## EXP-018: Zurückgestellte Balance-Ideen aus EXP-001 … EXP-004 mit dem M4-Stand (2026-11-17, CHAOS-51)
+## EXP-018: Wachsende Sabotage über die Partiedauer (2026-11-17, CHAOS-67)
+
+**Hypothese / gewünschtes Spielerlebnis:** Sabotage (Münzklau, Falle) soll über die ganze Partie spürbar bleiben: Schadenfreude statt Achselzucken, aber kein Frust (VISION, Produktsäule 1). EXP-013 hat gezeigt, dass Sabotage insgesamt nur 3–5 % aller Münzen kostet. Vermutung: Mit festen Werten wird sie zum Ende hin **zahmer**, weil der Bestand mit den Minispiel-Münzen wächst, der Klau aber bei 5 bleibt. Ein Wert, der mit der Runde wächst, sollte das ausgleichen, ohne den Anfang härter zu machen. Klau 6 / Falle 5 (der erste Hebel aus EXP-013) macht dagegen jeden Treffer stärker, auch früh, wenn alle wenig haben.
+
+**Varianten** (10, 16, 20 Runden; 2–4 Spieler):
+- A: Klau 5, Falle 4 fest (Stand vor diesem Experiment)
+- B: Klau 6, Falle 5 fest (Hebel aus EXP-013): stärker, aber auch am Anfang
+- F: 5/4, **+1 alle 5 Runden** (Runde 6–10: 6/5, 11–15: 7/6, 16–20: 8/7)
+- G: 5/4, +1 alle 4 Runden
+- H: 5/4, +1 alle 3 Runden
+- I: 6/5, +1 alle 5 Runden (B und F zusammen)
+
+**Neue Regel-Stellschraube:** `items.sabotageGrowthRounds` im `RuleSet` (`packages/game-core/src/types.ts`, `0` = fest). `sabotageAmount()` in `economy.ts` liefert den Wert der laufenden Runde. Er gilt beim Auslösen: für den Klau beim Auflösen des Reaktionsfensters („Festhalten!“ halbiert den gewachsenen Wert), für die Falle, wenn jemand hineinläuft, nicht beim Legen. Der Würfel-Prompt am Controller zeigt den Wert der laufenden Runde („Bis zu 6 Münzen klauen“). Protokoll und Apps bleiben unverändert, weil Host und Controller die Beträge aus den Ereignissen bzw. dem Prompt-Text nehmen.
+
+**Objektive Messgrößen:** wie EXP-013 (Sabotagen je Partie, Verlust/Einnahmen, Verlust/Bestand mit p90, Münzen je Treffer, Spitzenopfer), neu **Verlust/Bestand im ersten und im letzten Drittel** der Partie (`SabotageLoss.round`) und Münzen je Treffer im letzten Drittel; als Nebenwirkung Sieg per Trophäen, Siegquote des Halbzeit-Führenden, Trophäen je Partie. Zielwerte aus EXP-003/013: Verlust je Treffer im Mittel ≤ 25 % des Bestands, Spitzenopfer über die Partie im Mittel höchstens etwa eine Trophäe (15 Münzen).
+
+**Subjektive Playtest-Fragen (für Ruben):** Merkt man, dass der Klau später mehr bringt (6, 7, 8 Münzen), und macht das das Ende spannender? Fühlt sich ein Klau über 8 Münzen in Runde 16+ gemein an? Bleibt Sabotage zu zweit trotzdem zu selten (Häufigkeit ändert diese Stellschraube nicht)?
+
+**Testumgebung:** wie „Gemeinsamer Aufbau von EXP-011 … EXP-013“, aber mit der aktuellen Rotation aus **vier** Minispielen (inkl. Kuckucks-Klatsche, CHAOS-54). Seeds 1–200 je Zeile, Node 22, Linux-Container, Basis-Commit `3703994`. Die Zahlen für A weichen deshalb leicht von EXP-013 ab. Alle Varianten setzen `sabotageGrowthRounds` ausdrücklich und bleiben unabhängig vom Standard wiederholbar (≈ 8 s):
+
+```sh
+EXPERIMENTS=growth pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false
+```
+
+**Ergebnisse:**
+
+| Runden | Variante | Sp. | Sabotagen/Partie | Verlust/Einnahmen | Verlust/Bestand | p90 | 1. Drittel | 3. Drittel | Münzen/Treffer | Münzen/Treffer 3. Drittel | Spitzenopfer Münzen | p90 | Spitzenopfer/Einnahmen | Sieg per Trophäen | Führender (Hälfte) gewinnt | Trophäen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 1,73 | 3 % | 19 % | 42 % | 25 % | 13 % | 3,6 | 3,7 | 4,2 | 8 | 5 % | 85 % | 77 % | 5,03 |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 2,85 | 4 % | 17 % | 36 % | 23 % | 14 % | 3,7 | 3,8 | 6,2 | 10 | 8 % | 72 % | 59 % | 6,01 |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 3,92 | 5 % | 19 % | 38 % | 22 % | 18 % | 3,7 | 3,8 | 7,3 | 12 | 12 % | 67 % | 55 % | 6,53 |
+| 10 | B: Klau 6, Falle 5 | 2 | 1,74 | 4 % | 24 % | 50 % | 32 % | 16 % | 4,6 | 4,7 | 5,3 | 11 | 6 % | 86 % | 77 % | 5,04 |
+| 10 | B: Klau 6, Falle 5 | 3 | 2,85 | 5 % | 22 % | 45 % | 29 % | 18 % | 4,7 | 4,8 | 7,8 | 12 | 10 % | 73 % | 60 % | 6,00 |
+| 10 | B: Klau 6, Falle 5 | 4 | 3,94 | 7 % | 24 % | 46 % | 28 % | 23 % | 4,7 | 4,8 | 9,1 | 14 | 14 % | 66 % | 56 % | 6,58 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 1,73 | 3 % | 21 % | 46 % | 25 % | 16 % | 4,1 | 4,7 | 4,7 | 9 | 5 % | 85 % | 76 % | 5,01 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 2,86 | 5 % | 19 % | 38 % | 23 % | 17 % | 4,2 | 4,8 | 7,1 | 11 | 9 % | 72 % | 59 % | 5,99 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 3,92 | 6 % | 21 % | 38 % | 22 % | 22 % | 4,2 | 4,8 | 8,3 | 13 | 13 % | 67 % | 55 % | 6,51 |
+| 10 | G: 5/4, +1 alle 4 Runden | 2 | 1,73 | 4 % | 22 % | 50 % | 25 % | 18 % | 4,3 | 5,2 | 5,1 | 9 | 6 % | 85 % | 76 % | 5,01 |
+| 10 | G: 5/4, +1 alle 4 Runden | 3 | 2,86 | 5 % | 20 % | 38 % | 23 % | 19 % | 4,5 | 5,3 | 7,6 | 12 | 10 % | 72 % | 58 % | 5,99 |
+| 10 | G: 5/4, +1 alle 4 Runden | 4 | 3,94 | 6 % | 22 % | 38 % | 22 % | 24 % | 4,5 | 5,2 | 8,9 | 14 | 14 % | 66 % | 55 % | 6,53 |
+| 10 | H: 5/4, +1 alle 3 Runden | 2 | 1,73 | 4 % | 22 % | 50 % | 25 % | 19 % | 4,6 | 5,7 | 5,4 | 10 | 6 % | 84 % | 76 % | 5,01 |
+| 10 | H: 5/4, +1 alle 3 Runden | 3 | 2,86 | 5 % | 21 % | 41 % | 23 % | 21 % | 4,8 | 5,9 | 8,2 | 13 | 10 % | 72 % | 59 % | 6,00 |
+| 10 | H: 5/4, +1 alle 3 Runden | 4 | 3,94 | 7 % | 24 % | 40 % | 22 % | 26 % | 4,8 | 5,8 | 9,6 | 15 | 15 % | 67 % | 56 % | 6,52 |
+| 10 | I: 6/5, +1 alle 5 Runden | 2 | 1,74 | 4 % | 25 % | 50 % | 32 % | 18 % | 4,9 | 5,5 | 5,7 | 11 | 6 % | 86 % | 77 % | 5,02 |
+| 10 | I: 6/5, +1 alle 5 Runden | 3 | 2,85 | 6 % | 23 % | 46 % | 29 % | 20 % | 5,1 | 5,6 | 8,5 | 13 | 11 % | 73 % | 60 % | 5,99 |
+| 10 | I: 6/5, +1 alle 5 Runden | 4 | 3,96 | 7 % | 26 % | 46 % | 28 % | 27 % | 5,1 | 5,5 | 9,9 | 16 | 16 % | 66 % | 55 % | 6,57 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 2,67 | 3 % | 15 % | 29 % | 24 % | 8 % | 3,6 | 3,8 | 6,3 | 10 | 4 % | 88 % | 82 % | 9,38 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 4,46 | 4 % | 14 % | 29 % | 21 % | 9 % | 3,7 | 3,8 | 8,9 | 14 | 7 % | 78 % | 66 % | 11,43 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 5,89 | 5 % | 17 % | 33 % | 20 % | 13 % | 3,7 | 3,8 | 10,0 | 15 | 10 % | 72 % | 56 % | 13,28 |
+| 16 | B: Klau 6, Falle 5 | 2 | 2,68 | 4 % | 19 % | 37 % | 30 % | 10 % | 4,6 | 4,8 | 8,0 | 13 | 5 % | 88 % | 80 % | 9,36 |
+| 16 | B: Klau 6, Falle 5 | 3 | 4,47 | 5 % | 18 % | 35 % | 27 % | 12 % | 4,7 | 4,8 | 11,2 | 17 | 9 % | 79 % | 67 % | 11,40 |
+| 16 | B: Klau 6, Falle 5 | 4 | 5,95 | 6 % | 21 % | 43 % | 25 % | 15 % | 4,7 | 4,8 | 12,4 | 18 | 12 % | 72 % | 55 % | 13,24 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 2,67 | 4 % | 18 % | 35 % | 24 % | 12 % | 4,7 | 5,8 | 8,1 | 14 | 6 % | 88 % | 80 % | 9,35 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 4,46 | 5 % | 17 % | 37 % | 21 % | 15 % | 4,8 | 5,8 | 11,4 | 17 | 9 % | 78 % | 66 % | 11,44 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 5,86 | 6 % | 20 % | 38 % | 20 % | 18 % | 4,7 | 5,7 | 12,5 | 18 | 12 % | 74 % | 56 % | 13,21 |
+| 16 | G: 5/4, +1 alle 4 Runden | 2 | 2,67 | 4 % | 18 % | 36 % | 25 % | 13 % | 5,0 | 6,2 | 8,7 | 15 | 6 % | 88 % | 80 % | 9,35 |
+| 16 | G: 5/4, +1 alle 4 Runden | 3 | 4,45 | 5 % | 18 % | 38 % | 22 % | 15 % | 5,1 | 6,3 | 12,2 | 19 | 10 % | 78 % | 67 % | 11,42 |
+| 16 | G: 5/4, +1 alle 4 Runden | 4 | 5,88 | 7 % | 21 % | 40 % | 20 % | 20 % | 5,1 | 6,3 | 13,6 | 20 | 13 % | 76 % | 54 % | 13,18 |
+| 16 | H: 5/4, +1 alle 3 Runden | 2 | 2,67 | 4 % | 20 % | 40 % | 25 % | 15 % | 5,6 | 7,3 | 9,8 | 17 | 7 % | 89 % | 80 % | 9,34 |
+| 16 | H: 5/4, +1 alle 3 Runden | 3 | 4,44 | 6 % | 20 % | 39 % | 22 % | 18 % | 5,7 | 7,3 | 13,6 | 21 | 11 % | 78 % | 66 % | 11,46 |
+| 16 | H: 5/4, +1 alle 3 Runden | 4 | 5,88 | 7 % | 23 % | 46 % | 21 % | 23 % | 5,6 | 7,3 | 15,0 | 21 | 14 % | 76 % | 54 % | 13,18 |
+| 16 | I: 6/5, +1 alle 5 Runden | 2 | 2,68 | 4 % | 21 % | 40 % | 30 % | 14 % | 5,6 | 6,7 | 9,7 | 17 | 7 % | 88 % | 79 % | 9,32 |
+| 16 | I: 6/5, +1 alle 5 Runden | 3 | 4,46 | 6 % | 21 % | 41 % | 27 % | 16 % | 5,7 | 6,8 | 13,6 | 20 | 11 % | 79 % | 69 % | 11,43 |
+| 16 | I: 6/5, +1 alle 5 Runden | 4 | 5,95 | 7 % | 24 % | 46 % | 25 % | 21 % | 5,6 | 6,7 | 14,8 | 21 | 14 % | 74 % | 56 % | 13,21 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 3,21 | 3 % | 14 % | 28 % | 23 % | 7 % | 3,7 | 3,9 | 7,5 | 13 | 4 % | 90 % | 79 % | 11,77 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 5,31 | 4 % | 13 % | 27 % | 20 % | 7 % | 3,7 | 3,8 | 10,3 | 15 | 7 % | 83 % | 65 % | 14,45 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 7,10 | 5 % | 16 % | 33 % | 20 % | 11 % | 3,7 | 3,7 | 11,5 | 16 | 9 % | 78 % | 54 % | 16,80 |
+| 20 | B: Klau 6, Falle 5 | 2 | 3,23 | 4 % | 17 % | 32 % | 30 % | 9 % | 4,7 | 4,9 | 9,5 | 16 | 5 % | 91 % | 79 % | 11,72 |
+| 20 | B: Klau 6, Falle 5 | 3 | 5,33 | 5 % | 17 % | 32 % | 25 % | 10 % | 4,8 | 4,9 | 12,9 | 19 | 8 % | 83 % | 65 % | 14,35 |
+| 20 | B: Klau 6, Falle 5 | 4 | 7,20 | 6 % | 20 % | 38 % | 25 % | 14 % | 4,7 | 4,7 | 14,3 | 21 | 11 % | 78 % | 55 % | 16,75 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 3,22 | 4 % | 16 % | 31 % | 24 % | 11 % | 5,0 | 6,4 | 10,2 | 18 | 6 % | 91 % | 80 % | 11,71 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 5,29 | 5 % | 16 % | 33 % | 21 % | 12 % | 5,1 | 6,4 | 14,0 | 20 | 9 % | 84 % | 64 % | 14,41 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 7,08 | 6 % | 20 % | 38 % | 20 % | 18 % | 5,0 | 6,1 | 15,1 | 23 | 12 % | 80 % | 55 % | 16,74 |
+| 20 | G: 5/4, +1 alle 4 Runden | 2 | 3,23 | 4 % | 17 % | 33 % | 24 % | 13 % | 5,4 | 7,1 | 11,1 | 19 | 6 % | 91 % | 80 % | 11,71 |
+| 20 | G: 5/4, +1 alle 4 Runden | 3 | 5,28 | 6 % | 17 % | 35 % | 21 % | 13 % | 5,5 | 7,1 | 15,1 | 22 | 10 % | 84 % | 66 % | 14,38 |
+| 20 | G: 5/4, +1 alle 4 Runden | 4 | 7,09 | 7 % | 21 % | 41 % | 21 % | 20 % | 5,4 | 6,9 | 16,6 | 25 | 13 % | 79 % | 55 % | 16,66 |
+| 20 | H: 5/4, +1 alle 3 Runden | 2 | 3,22 | 5 % | 19 % | 36 % | 25 % | 15 % | 6,1 | 8,4 | 12,6 | 22 | 7 % | 91 % | 80 % | 11,71 |
+| 20 | H: 5/4, +1 alle 3 Runden | 3 | 5,25 | 6 % | 19 % | 38 % | 21 % | 16 % | 6,2 | 8,4 | 17,0 | 25 | 11 % | 84 % | 67 % | 14,38 |
+| 20 | H: 5/4, +1 alle 3 Runden | 4 | 7,04 | 7 % | 23 % | 46 % | 21 % | 23 % | 6,0 | 8,1 | 18,4 | 28 | 14 % | 80 % | 51 % | 16,72 |
+| 20 | I: 6/5, +1 alle 5 Runden | 2 | 3,23 | 5 % | 20 % | 38 % | 30 % | 13 % | 5,9 | 7,3 | 12,0 | 21 | 6 % | 91 % | 79 % | 11,69 |
+| 20 | I: 6/5, +1 alle 5 Runden | 3 | 5,28 | 6 % | 20 % | 38 % | 26 % | 14 % | 6,0 | 7,3 | 16,3 | 23 | 10 % | 83 % | 66 % | 14,34 |
+| 20 | I: 6/5, +1 alle 5 Runden | 4 | 7,18 | 7 % | 23 % | 46 % | 25 % | 20 % | 5,9 | 7,0 | 17,8 | 27 | 14 % | 79 % | 52 % | 16,66 |
+
+- **Feste Werte werden zahm:** Bei A nimmt ein Treffer im ersten Drittel 20–25 % des Bestands, im letzten Drittel nur noch 13–18 % (10 Runden), 8–13 % (16 Runden) und 7–11 % (20 Runden). Die Hypothese stimmt.
+- **Klau 6 / Falle 5 (B) trifft den Falschen:** Im ersten Drittel steigt der Biss auf 28–32 % und liegt damit über dem Ziel ≤ 25 % aus EXP-003. Am Ende bleibt es bei 9–14 % (20 Runden). B macht den Anfang härter, ohne das Ende zu retten.
+- **Wachsend (F) gleicht aus:** Im ersten Drittel ist F identisch mit A (20–25 %). Im letzten Drittel steigt der Biss auf 16–22 % (10 Runden) bzw. 11–18 % (20 Runden). Insgesamt 16–21 % je Treffer (p90 ≤ 46 %), Sabotage kostet 3–6 % aller Münzen. Das Spitzenopfer verliert bei 10 Runden 4,7–8,3 Münzen (p90 9–13), bei 20 Runden 10–15 (p90 18–23), also auch in langen Partien im Mittel höchstens eine Trophäe.
+- **Schneller wachsend (G, H) überzieht lange Partien:** H bringt im letzten Drittel 8 Münzen je Treffer, das Spitzenopfer verliert bei 20 Runden / 4 Spielern 18 Münzen (p90 28, fast zwei Trophäen). G liegt dazwischen (16,6, p90 25). I (6/5 + Wachstum) erbt die harte Anfangsphase von B.
+- **Wertung unberührt:** Trophäen je Partie, Sieg per Trophäen und die Siegquote des Halbzeit-Führenden ändern sich in keiner Variante über das Rauschen hinaus (± 2 Prozentpunkte). Wachsende Sabotage ist also **keine Aufholhilfe**; dafür bleibt CHAOS-65.
+- **Häufigkeit unverändert:** Die Stellschraube ändert nur die Stärke. Zu zweit gibt es weiterhin nur etwa alle 6 Runden eine Sabotage (1,7 je 10-Runden-Partie).
+
+**Entscheidung:** **keep F** – `sabotageGrowthRounds: 5` in `DEFAULT_RULES` (`packages/game-core/src/rules/defaults.ts`). F ist die stärkste Variante, die alle Zielwerte einhält. Sie lässt den bewährten Anfang unverändert und gibt das zurück, was der wachsende Bestand der Sabotage nimmt. Beim Standard von 10 Runden heißt das: Ab Runde 6 klaut man 6 statt 5 Münzen, eine Falle kostet 5 statt 4. **discard** B als Standard (Anfang zu hart), G und H (lange Partien zu hart), I (wie B). Rückweg ohne Codeänderung: `sabotageGrowthRounds: 0`.
+
+Die Aufgabe sah „nach Playtest-Feedback“ vor. Die Sabotage-Frage aus der M4-Abnahme (CHAOS-43, Frage 4) blieb unbeantwortet, weil die Partie auf Rubens Hardware ruckelte. Die Entscheidung beruht deshalb nur auf der Simulation. Sie ist klein, lässt sich mit einem Wert zurücknehmen und gehört in den nächsten Playtest.
+
+**Offen für Playtest:** Fühlt sich das Ende mit 6–8 Münzen Klau spannender an oder gemeiner? Fällt das Wachsen überhaupt auf? Der Host kündigt es bisher nicht an, nur der Controller zeigt den höheren Wert (Idee: CHAOS-120 im Backlog CHAOS-44). Die Falle zahlt den Wert der Runde, in der sie auslöst; wer sie in Runde 5 legt, sieht dort noch „Kostet andere 4 Münzen“, auch wenn sie erst in Runde 6 fünf Münzen bringt.
+
+---
+
+## EXP-019: Zurückgestellte Balance-Ideen aus EXP-001 … EXP-004 mit dem M4-Stand (2026-11-17, CHAOS-51)
 
 **Hypothese / gewünschtes Spielerlebnis:** Bei den M2-Experimenten zurückgestellte Ideen könnten zwei offene Punkte aus M4 verbessern: In kurzen Partien bleiben Spieler ohne Trophäe („tote“ Trophäen hinter allen Figuren), und Sabotage ist zu zweit selten (EXP-013: etwa alle 6 Runden). Gewünscht sind mehr überraschende Wendungen (VISION: „laugh at unexpected reversals“), ohne dass Sabotage gnadenlos wird oder gute Minispieler davonziehen.
 
@@ -1427,19 +1526,19 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 - `items.shieldBlocksTrap`: ein gehaltener Schild fängt eine fremde Falle automatisch ab (ohne Reaktionsfenster).
 - Bot-Policy `avoidTrapChance` (nur Simulation): Fallen sind sichtbar, Bots meiden an Gabeln zu 75 % Wege mit einer fremden Falle in den nächsten 6 Feldern. Ohne das (Stand) verhalten sich Bots wie bei versteckten Fallen.
 
-**Aufbau:** wie EXP-011 … EXP-013 (Wackelwald, Minispiel-Rotation, Bots `EXPERIMENT_POLICY`), Basis `M4_RULES` = `DEFAULT_RULES` vor diesem Experiment. Seeds 1–200 je Zeile, 2/3/4 Spieler. Wiederholen (≈ 8 s):
+**Aufbau:** wie EXP-011 … EXP-013 (Wackelwald, Minispiel-Rotation, Bots `EXPERIMENT_POLICY`), Basis `M4_RULES` = `DEFAULT_RULES` ohne Trostpreis, also mit der wachsenden Sabotage aus EXP-018 (CHAOS-67). Seeds 1–200 je Zeile, 2/3/4 Spieler. Wiederholen (≈ 8 s):
 
 ```sh
 EXPERIMENTS=balance pnpm exec vitest run packages/game-core/src/rules/experimentsBalance.test.ts --silent=false
 ```
 
-Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `3703994`, Ergebnisse vom Commit, der diesen Eintrag einführt.
+Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6a` (main mit EXP-018), Ergebnisse vom Merge-Commit, der diesen Eintrag auf diese Basis bringt. Ein erster Lauf ohne EXP-018 (Basis `3703994`) ergab dieselben Entscheidungen; die wachsende Sabotage greift erst ab Runde 6.
 
 **Messgrößen:** Trophäen je Partie, Züge je gekaufter Trophäe, Anteil Spieler ohne Trophäe, Sieg per Trophäen, Aufholeffekt (Halbzeit-Führender bzw. -Letzter gewinnt), Sabotagen je Partie und Runde, Verlust durch Sabotage relativ zu den Einnahmen, Vorteil eines Minispiel-Profis (Slot 1 +10 Punkte), Partiedauer.
 
 **Ergebnisse:**
 
-**EXP-018 A Würfel 2–7 mit Rotation (Seeds 1–200 je Zeile)**
+**EXP-019 A Würfel 2–7 mit Rotation (Seeds 1–200 je Zeile)**
 | Runden | Variante | Sp. | min | Felder/Zug | Trophäen/Partie | ohne Trophäe | Sieg per Trophäen | Führender (Hälfte) gewinnt |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 5 | A: W6 1–6 (Stand M4) | 2 | 5,7 | 3,8 | 2,45 | 20 % | 74 % | 71 % |
@@ -1448,14 +1547,13 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `370399
 | 5 | B: Würfel 2–7 | 2 | 5,8 | 4,9 | 3,01 | 10 % | 71 % | 62 % |
 | 5 | B: Würfel 2–7 | 3 | 6,6 | 4,8 | 3,42 | 20 % | 57 % | 55 % |
 | 5 | B: Würfel 2–7 | 4 | 7,4 | 4,9 | 3,94 | 26 % | 54 % | 51 % |
-| 10 | A: W6 1–6 (Stand M4) | 2 | 11,1 | 3,7 | 5,03 | 6 % | 85 % | 77 % |
-| 10 | A: W6 1–6 (Stand M4) | 3 | 12,5 | 3,7 | 6,01 | 10 % | 72 % | 59 % |
-| 10 | A: W6 1–6 (Stand M4) | 4 | 13,9 | 3,7 | 6,53 | 15 % | 67 % | 55 % |
-| 10 | B: Würfel 2–7 | 2 | 11,3 | 4,8 | 6,67 | 2 % | 85 % | 76 % |
-| 10 | B: Würfel 2–7 | 3 | 12,8 | 4,7 | 7,82 | 6 % | 70 % | 58 % |
-| 10 | B: Würfel 2–7 | 4 | 14,3 | 4,8 | 8,81 | 7 % | 69 % | 55 % |
-
-**EXP-018 B Ziel der wandernden Trophäe (Seeds 1–200 je Zeile)**
+| 10 | A: W6 1–6 (Stand M4) | 2 | 11,1 | 3,7 | 5,01 | 6 % | 85 % | 76 % |
+| 10 | A: W6 1–6 (Stand M4) | 3 | 12,5 | 3,7 | 5,99 | 10 % | 72 % | 59 % |
+| 10 | A: W6 1–6 (Stand M4) | 4 | 13,9 | 3,7 | 6,51 | 15 % | 67 % | 55 % |
+| 10 | B: Würfel 2–7 | 2 | 11,3 | 4,8 | 6,67 | 2 % | 86 % | 76 % |
+| 10 | B: Würfel 2–7 | 3 | 12,8 | 4,7 | 7,82 | 6 % | 70 % | 59 % |
+| 10 | B: Würfel 2–7 | 4 | 14,3 | 4,8 | 8,79 | 7 % | 68 % | 55 % |
+**EXP-019 B Ziel der wandernden Trophäe (Seeds 1–200 je Zeile)**
 | Runden | Variante | Sp. | Trophäen/Partie | Züge je Trophäe | ohne Trophäe | Abstand Erste–Letzte | Sieg per Trophäen | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 5 | A: zufällig (Stand M4) | 2 | 2,45 | 4,1 | 20 % | 1,02 | 74 % | 71 % | 29 % | 50 % |
@@ -1467,84 +1565,82 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `370399
 | 5 | C: vor die Letzten | 2 | 2,69 | 3,7 | 16 % | 0,96 | 71 % | 73 % | 27 % | 50 % |
 | 5 | C: vor die Letzten | 3 | 3,06 | 4,9 | 25 % | 1,21 | 60 % | 46 % | 23 % | 33 % |
 | 5 | C: vor die Letzten | 4 | 3,28 | 6,1 | 34 % | 1,35 | 50 % | 37 % | 13 % | 25 % |
-| 10 | A: zufällig (Stand M4) | 2 | 5,03 | 4,0 | 6 % | 1,72 | 85 % | 77 % | 23 % | 50 % |
-| 10 | A: zufällig (Stand M4) | 3 | 6,01 | 5,0 | 10 % | 2,10 | 72 % | 59 % | 14 % | 33 % |
-| 10 | A: zufällig (Stand M4) | 4 | 6,53 | 6,1 | 15 % | 2,22 | 67 % | 55 % | 6 % | 25 % |
-| 10 | B: vor die Spieler | 2 | 5,59 | 3,6 | 3 % | 1,53 | 78 % | 79 % | 22 % | 50 % |
-| 10 | B: vor die Spieler | 3 | 7,06 | 4,2 | 7 % | 2,04 | 73 % | 60 % | 14 % | 33 % |
-| 10 | B: vor die Spieler | 4 | 7,67 | 5,2 | 9 % | 2,13 | 57 % | 57 % | 7 % | 25 % |
-| 10 | C: vor die Letzten | 2 | 5,52 | 3,6 | 3 % | 1,49 | 77 % | 77 % | 23 % | 50 % |
-| 10 | C: vor die Letzten | 3 | 6,54 | 4,6 | 9 % | 2,08 | 70 % | 58 % | 14 % | 33 % |
-| 10 | C: vor die Letzten | 4 | 6,95 | 5,8 | 11 % | 2,09 | 66 % | 54 % | 8 % | 25 % |
-| 20 | A: zufällig (Stand M4) | 2 | 11,77 | 3,4 | 0 % | 2,77 | 90 % | 79 % | 21 % | 50 % |
-| 20 | A: zufällig (Stand M4) | 3 | 14,45 | 4,2 | 0 % | 3,78 | 83 % | 65 % | 11 % | 33 % |
-| 20 | A: zufällig (Stand M4) | 4 | 16,80 | 4,8 | 1 % | 3,79 | 78 % | 54 % | 6 % | 25 % |
-| 20 | B: vor die Spieler | 2 | 12,79 | 3,1 | 0 % | 2,53 | 88 % | 74 % | 26 % | 50 % |
-| 20 | B: vor die Spieler | 3 | 16,93 | 3,5 | 0 % | 3,33 | 76 % | 65 % | 12 % | 33 % |
-| 20 | B: vor die Spieler | 4 | 19,40 | 4,1 | 1 % | 3,31 | 73 % | 50 % | 7 % | 25 % |
-| 20 | C: vor die Letzten | 2 | 12,80 | 3,1 | 0 % | 2,36 | 87 % | 70 % | 31 % | 50 % |
-| 20 | C: vor die Letzten | 3 | 16,04 | 3,7 | 0 % | 3,33 | 80 % | 57 % | 15 % | 33 % |
-| 20 | C: vor die Letzten | 4 | 18,21 | 4,4 | 0 % | 3,21 | 79 % | 54 % | 9 % | 25 % |
-
-**EXP-018 C Item für den Minispiel-Sieg oder den letzten Platz (Seeds 1–200 je Zeile)**
+| 10 | A: zufällig (Stand M4) | 2 | 5,01 | 4,0 | 6 % | 1,71 | 85 % | 76 % | 24 % | 50 % |
+| 10 | A: zufällig (Stand M4) | 3 | 5,99 | 5,0 | 10 % | 2,08 | 72 % | 59 % | 14 % | 33 % |
+| 10 | A: zufällig (Stand M4) | 4 | 6,51 | 6,1 | 15 % | 2,21 | 67 % | 55 % | 6 % | 25 % |
+| 10 | B: vor die Spieler | 2 | 5,59 | 3,6 | 3 % | 1,52 | 78 % | 79 % | 22 % | 50 % |
+| 10 | B: vor die Spieler | 3 | 7,08 | 4,2 | 7 % | 2,04 | 73 % | 60 % | 14 % | 33 % |
+| 10 | B: vor die Spieler | 4 | 7,67 | 5,2 | 9 % | 2,14 | 58 % | 55 % | 7 % | 25 % |
+| 10 | C: vor die Letzten | 2 | 5,53 | 3,6 | 3 % | 1,49 | 77 % | 77 % | 23 % | 50 % |
+| 10 | C: vor die Letzten | 3 | 6,54 | 4,6 | 9 % | 2,06 | 70 % | 58 % | 15 % | 33 % |
+| 10 | C: vor die Letzten | 4 | 6,95 | 5,8 | 11 % | 2,07 | 65 % | 55 % | 8 % | 25 % |
+| 20 | A: zufällig (Stand M4) | 2 | 11,71 | 3,4 | 0 % | 2,75 | 91 % | 80 % | 21 % | 50 % |
+| 20 | A: zufällig (Stand M4) | 3 | 14,41 | 4,2 | 0 % | 3,78 | 84 % | 64 % | 11 % | 33 % |
+| 20 | A: zufällig (Stand M4) | 4 | 16,74 | 4,8 | 1 % | 3,79 | 80 % | 55 % | 6 % | 25 % |
+| 20 | B: vor die Spieler | 2 | 12,76 | 3,1 | 0 % | 2,51 | 88 % | 75 % | 26 % | 50 % |
+| 20 | B: vor die Spieler | 3 | 16,91 | 3,5 | 0 % | 3,31 | 75 % | 65 % | 10 % | 33 % |
+| 20 | B: vor die Spieler | 4 | 19,30 | 4,1 | 0 % | 3,27 | 71 % | 52 % | 8 % | 25 % |
+| 20 | C: vor die Letzten | 2 | 12,80 | 3,1 | 0 % | 2,36 | 87 % | 72 % | 28 % | 50 % |
+| 20 | C: vor die Letzten | 3 | 16,05 | 3,7 | 0 % | 3,35 | 81 % | 59 % | 16 % | 33 % |
+| 20 | C: vor die Letzten | 4 | 18,18 | 4,4 | 0 % | 3,26 | 79 % | 55 % | 7 % | 25 % |
+**EXP-019 C Item für den Minispiel-Sieg oder den letzten Platz (Seeds 1–200 je Zeile)**
 | Runden | Variante | Sp. | min | Items/Spieler | Sabotagen/Partie | je Runde | Verlust/Einnahmen | Trophäen/Partie | Führender (Hälfte) gewinnt | Siege Slot 1 | fair 1/n |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 10 | A: kein Item (Stand M4) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,03 | 77 % | 55 % | 50 % |
-| 10 | A: kein Item (Stand M4) | 3 | 12,5 | 2,4 | 2,85 | 0,29 | 4 % | 6,01 | 59 % | 37 % | 33 % |
-| 10 | A: kein Item (Stand M4) | 4 | 13,9 | 2,4 | 3,92 | 0,39 | 5 % | 6,53 | 55 % | 26 % | 25 % |
-| 10 | B: 1 Item für den Sieg | 2 | 11,3 | 6,3 | 3,54 | 0,35 | 6 % | 5,35 | 74 % | 43 % | 50 % |
-| 10 | B: 1 Item für den Sieg | 3 | 12,8 | 5,3 | 5,20 | 0,52 | 7 % | 6,32 | 65 % | 37 % | 33 % |
-| 10 | B: 1 Item für den Sieg | 4 | 14,3 | 4,7 | 6,82 | 0,68 | 8 % | 6,99 | 59 % | 25 % | 25 % |
-| 10 | L: 1 Item für den letzten Platz | 2 | 11,4 | 6,3 | 3,80 | 0,38 | 6 % | 5,29 | 71 % | 45 % | 50 % |
-| 10 | L: 1 Item für den letzten Platz | 3 | 12,8 | 5,3 | 5,38 | 0,54 | 7 % | 6,30 | 56 % | 36 % | 33 % |
-| 10 | L: 1 Item für den letzten Platz | 4 | 14,3 | 4,7 | 6,70 | 0,67 | 9 % | 7,33 | 56 % | 25 % | 25 % |
-| 10 | P: Stand, Slot 1 Profi (+10) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,08 | 72 % | 66 % | 50 % |
-| 10 | P: Stand, Slot 1 Profi (+10) | 3 | 12,5 | 2,4 | 2,92 | 0,29 | 4 % | 5,97 | 66 % | 53 % | 33 % |
-| 10 | P: Stand, Slot 1 Profi (+10) | 4 | 13,9 | 2,4 | 3,99 | 0,40 | 5 % | 6,58 | 60 % | 43 % | 25 % |
-| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 11,3 | 6,0 | 3,43 | 0,34 | 6 % | 5,30 | 72 % | 62 % | 50 % |
-| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,08 | 0,51 | 7 % | 6,44 | 66 % | 53 % | 33 % |
-| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 14,3 | 4,6 | 6,50 | 0,65 | 8 % | 7,05 | 57 % | 50 % | 25 % |
-| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 11,4 | 6,0 | 3,58 | 0,36 | 6 % | 5,25 | 67 % | 55 % | 50 % |
-| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,16 | 0,52 | 7 % | 6,28 | 58 % | 39 % | 33 % |
-| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 14,3 | 4,7 | 6,74 | 0,67 | 9 % | 7,16 | 53 % | 39 % | 25 % |
-| 20 | A: kein Item (Stand M4) | 2 | 21,8 | 3,7 | 3,21 | 0,16 | 3 % | 11,77 | 79 % | 52 % | 50 % |
-| 20 | A: kein Item (Stand M4) | 3 | 24,6 | 3,8 | 5,31 | 0,27 | 4 % | 14,45 | 65 % | 39 % | 33 % |
-| 20 | A: kein Item (Stand M4) | 4 | 27,5 | 3,8 | 7,10 | 0,35 | 5 % | 16,80 | 54 % | 25 % | 25 % |
-| 20 | B: 1 Item für den Sieg | 2 | 22,5 | 10,7 | 8,59 | 0,43 | 7 % | 12,54 | 74 % | 43 % | 50 % |
-| 20 | B: 1 Item für den Sieg | 3 | 25,5 | 9,0 | 11,71 | 0,59 | 8 % | 15,62 | 63 % | 37 % | 33 % |
-| 20 | B: 1 Item für den Sieg | 4 | 28,4 | 8,0 | 14,38 | 0,72 | 9 % | 18,25 | 57 % | 25 % | 25 % |
-| 20 | L: 1 Item für den letzten Platz | 2 | 22,5 | 10,6 | 8,57 | 0,43 | 7 % | 12,61 | 75 % | 52 % | 50 % |
-| 20 | L: 1 Item für den letzten Platz | 3 | 25,5 | 9,1 | 12,12 | 0,61 | 8 % | 15,65 | 57 % | 33 % | 33 % |
-| 20 | L: 1 Item für den letzten Platz | 4 | 28,4 | 8,0 | 14,29 | 0,71 | 9 % | 18,43 | 57 % | 25 % | 25 % |
-| 20 | P: Stand, Slot 1 Profi (+10) | 2 | 21,8 | 3,7 | 3,23 | 0,16 | 3 % | 11,73 | 78 % | 62 % | 50 % |
-| 20 | P: Stand, Slot 1 Profi (+10) | 3 | 24,6 | 3,8 | 5,12 | 0,26 | 4 % | 14,54 | 67 % | 44 % | 33 % |
-| 20 | P: Stand, Slot 1 Profi (+10) | 4 | 27,5 | 3,8 | 7,13 | 0,36 | 5 % | 16,95 | 56 % | 43 % | 25 % |
-| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 22,4 | 10,1 | 8,09 | 0,40 | 7 % | 12,78 | 80 % | 61 % | 50 % |
-| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 25,4 | 8,6 | 11,14 | 0,56 | 8 % | 16,18 | 73 % | 57 % | 33 % |
-| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 28,4 | 7,8 | 13,93 | 0,70 | 9 % | 18,21 | 55 % | 57 % | 25 % |
-| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 22,4 | 10,0 | 8,34 | 0,42 | 7 % | 12,19 | 76 % | 56 % | 50 % |
-| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 25,4 | 8,5 | 11,31 | 0,57 | 8 % | 15,51 | 60 % | 35 % | 33 % |
-| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 28,3 | 7,7 | 13,98 | 0,70 | 9 % | 17,98 | 55 % | 42 % | 25 % |
-
-**EXP-018 D Schild gegen Fallen, sichtbare Fallen (Seeds 1–200 je Zeile)**
+| 10 | A: kein Item (Stand M4) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,01 | 76 % | 55 % | 50 % |
+| 10 | A: kein Item (Stand M4) | 3 | 12,5 | 2,4 | 2,86 | 0,29 | 5 % | 5,99 | 59 % | 38 % | 33 % |
+| 10 | A: kein Item (Stand M4) | 4 | 13,9 | 2,4 | 3,92 | 0,39 | 6 % | 6,51 | 55 % | 26 % | 25 % |
+| 10 | B: 1 Item für den Sieg | 2 | 11,3 | 6,3 | 3,53 | 0,35 | 6 % | 5,35 | 74 % | 43 % | 50 % |
+| 10 | B: 1 Item für den Sieg | 3 | 12,8 | 5,3 | 5,18 | 0,52 | 8 % | 6,31 | 65 % | 37 % | 33 % |
+| 10 | B: 1 Item für den Sieg | 4 | 14,3 | 4,7 | 6,82 | 0,68 | 10 % | 6,95 | 59 % | 26 % | 25 % |
+| 10 | L: 1 Item für den letzten Platz | 2 | 11,4 | 6,3 | 3,80 | 0,38 | 7 % | 5,29 | 71 % | 45 % | 50 % |
+| 10 | L: 1 Item für den letzten Platz | 3 | 12,8 | 5,3 | 5,38 | 0,54 | 8 % | 6,29 | 56 % | 37 % | 33 % |
+| 10 | L: 1 Item für den letzten Platz | 4 | 14,3 | 4,7 | 6,69 | 0,67 | 10 % | 7,32 | 55 % | 26 % | 25 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,07 | 72 % | 66 % | 50 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 3 | 12,5 | 2,4 | 2,92 | 0,29 | 5 % | 5,96 | 66 % | 53 % | 33 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 4 | 13,9 | 2,4 | 3,98 | 0,40 | 6 % | 6,57 | 60 % | 43 % | 25 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 11,3 | 6,0 | 3,44 | 0,34 | 7 % | 5,30 | 72 % | 63 % | 50 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,08 | 0,51 | 8 % | 6,42 | 65 % | 53 % | 33 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 14,2 | 4,6 | 6,47 | 0,65 | 9 % | 7,01 | 57 % | 50 % | 25 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 11,4 | 6,0 | 3,58 | 0,36 | 7 % | 5,25 | 68 % | 54 % | 50 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,15 | 0,51 | 8 % | 6,27 | 59 % | 39 % | 33 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 14,3 | 4,7 | 6,75 | 0,67 | 10 % | 7,16 | 53 % | 39 % | 25 % |
+| 20 | A: kein Item (Stand M4) | 2 | 21,8 | 3,7 | 3,22 | 0,16 | 4 % | 11,71 | 80 % | 53 % | 50 % |
+| 20 | A: kein Item (Stand M4) | 3 | 24,6 | 3,8 | 5,29 | 0,26 | 5 % | 14,41 | 64 % | 38 % | 33 % |
+| 20 | A: kein Item (Stand M4) | 4 | 27,5 | 3,8 | 7,08 | 0,35 | 6 % | 16,74 | 55 % | 26 % | 25 % |
+| 20 | B: 1 Item für den Sieg | 2 | 22,5 | 10,6 | 8,56 | 0,43 | 10 % | 12,48 | 75 % | 44 % | 50 % |
+| 20 | B: 1 Item für den Sieg | 3 | 25,5 | 9,0 | 11,68 | 0,58 | 11 % | 15,56 | 66 % | 36 % | 33 % |
+| 20 | B: 1 Item für den Sieg | 4 | 28,4 | 8,0 | 14,38 | 0,72 | 12 % | 18,20 | 57 % | 27 % | 25 % |
+| 20 | L: 1 Item für den letzten Platz | 2 | 22,5 | 10,6 | 8,59 | 0,43 | 10 % | 12,59 | 76 % | 51 % | 50 % |
+| 20 | L: 1 Item für den letzten Platz | 3 | 25,5 | 9,0 | 12,11 | 0,61 | 11 % | 15,68 | 57 % | 31 % | 33 % |
+| 20 | L: 1 Item für den letzten Platz | 4 | 28,4 | 8,0 | 14,41 | 0,72 | 12 % | 18,45 | 52 % | 24 % | 25 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 2 | 21,8 | 3,7 | 3,23 | 0,16 | 4 % | 11,71 | 77 % | 62 % | 50 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 3 | 24,6 | 3,8 | 5,15 | 0,26 | 5 % | 14,52 | 65 % | 45 % | 33 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 4 | 27,5 | 3,8 | 7,18 | 0,36 | 6 % | 16,86 | 56 % | 43 % | 25 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 22,4 | 10,1 | 8,13 | 0,41 | 9 % | 12,65 | 80 % | 61 % | 50 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 25,4 | 8,6 | 11,07 | 0,55 | 10 % | 16,11 | 74 % | 56 % | 33 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 28,3 | 7,8 | 13,81 | 0,69 | 12 % | 17,98 | 59 % | 59 % | 25 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 22,4 | 10,0 | 8,32 | 0,42 | 9 % | 12,21 | 75 % | 56 % | 50 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 25,4 | 8,5 | 11,34 | 0,57 | 11 % | 15,55 | 59 % | 33 % | 33 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 28,3 | 7,7 | 14,06 | 0,70 | 12 % | 17,98 | 54 % | 38 % | 25 % |
+**EXP-019 D Schild gegen Fallen, sichtbare Fallen (Seeds 1–200 je Zeile)**
 | Runden | Variante | Sp. | Fallen gelegt | ausgelöst | per Schild abgewehrt | getroffen/gelegt | Schild gegen Klau | Sabotagen/Partie | Verlust/Einnahmen | Spitzenopfer Münzen |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 2 | 1,08 | 0,49 | 0,00 | 45 % | 0,17 | 1,73 | 3 % | 4,2 |
-| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 3 | 1,77 | 1,14 | 0,00 | 64 % | 0,23 | 2,85 | 4 % | 6,2 |
-| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 4 | 2,17 | 1,64 | 0,00 | 75 % | 0,26 | 3,92 | 5 % | 7,3 |
-| 10 | B: Schild auch gegen Fallen | 2 | 1,08 | 0,39 | 0,10 | 45 % | 0,17 | 1,63 | 3 % | 3,9 |
-| 10 | B: Schild auch gegen Fallen | 3 | 1,76 | 0,88 | 0,25 | 64 % | 0,22 | 2,60 | 4 % | 5,7 |
-| 10 | B: Schild auch gegen Fallen | 4 | 2,17 | 1,25 | 0,39 | 75 % | 0,24 | 3,55 | 5 % | 6,9 |
-| 10 | C: Fallen sichtbar, Bots weichen aus | 2 | 1,10 | 0,50 | 0,00 | 45 % | 0,18 | 1,68 | 3 % | 4,2 |
-| 10 | C: Fallen sichtbar, Bots weichen aus | 3 | 1,70 | 1,07 | 0,00 | 63 % | 0,24 | 2,75 | 4 % | 5,8 |
-| 10 | C: Fallen sichtbar, Bots weichen aus | 4 | 2,21 | 1,53 | 0,00 | 69 % | 0,23 | 3,54 | 5 % | 7,0 |
-| 10 | D: B + C | 2 | 1,10 | 0,41 | 0,09 | 45 % | 0,18 | 1,59 | 3 % | 3,9 |
-| 10 | D: B + C | 3 | 1,70 | 0,81 | 0,26 | 63 % | 0,23 | 2,50 | 4 % | 5,4 |
-| 10 | D: B + C | 4 | 2,19 | 1,20 | 0,33 | 70 % | 0,23 | 3,23 | 4 % | 6,6 |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 2 | 1,08 | 0,49 | 0,00 | 46 % | 0,17 | 1,73 | 3 % | 4,7 |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 3 | 1,77 | 1,14 | 0,00 | 64 % | 0,23 | 2,86 | 5 % | 7,1 |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 4 | 2,17 | 1,64 | 0,00 | 75 % | 0,26 | 3,92 | 6 % | 8,3 |
+| 10 | B: Schild auch gegen Fallen | 2 | 1,08 | 0,39 | 0,10 | 46 % | 0,17 | 1,63 | 3 % | 4,4 |
+| 10 | B: Schild auch gegen Fallen | 3 | 1,76 | 0,88 | 0,25 | 64 % | 0,22 | 2,60 | 4 % | 6,5 |
+| 10 | B: Schild auch gegen Fallen | 4 | 2,17 | 1,25 | 0,39 | 75 % | 0,24 | 3,55 | 5 % | 7,8 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 2 | 1,10 | 0,50 | 0,00 | 45 % | 0,18 | 1,68 | 3 % | 4,8 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 3 | 1,70 | 1,07 | 0,00 | 63 % | 0,24 | 2,75 | 5 % | 6,7 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 4 | 2,21 | 1,53 | 0,00 | 69 % | 0,23 | 3,54 | 5 % | 8,0 |
+| 10 | D: B + C | 2 | 1,10 | 0,41 | 0,09 | 45 % | 0,18 | 1,59 | 3 % | 4,4 |
+| 10 | D: B + C | 3 | 1,70 | 0,81 | 0,26 | 63 % | 0,23 | 2,50 | 4 % | 6,1 |
+| 10 | D: B + C | 4 | 2,19 | 1,20 | 0,33 | 70 % | 0,23 | 3,23 | 5 % | 7,5 |
 
 - **Würfel 2–7 (A):** +33 % Felder je Zug, ein Drittel mehr Trophäen, weniger Spieler ohne Trophäe (10 Runden, 4 Spieler: 15 % → 7 %). Aufholeffekt und Sieg per Trophäen bleiben gleich, die Partie wird kaum länger (+0,2–0,4 min). Seit EXP-011 ist 10 der kürzeste Vorschlag; das Problem der kurzen 5-Runden-Partie gibt es so nicht mehr.
-- **Trophäen-Ziel (B):** „vor die Spieler“ verkürzt die Wartezeit auf eine Trophäe (4 Spieler, 10 Runden: 6,1 → 5,2 Züge je Kauf) und senkt den Anteil ohne Trophäe (15 % → 9 %). Dafür häufen sich Trophäen-Gleichstände, und bei 4 Spielern entscheiden Trophäen seltener (67 % → 57 %). „Vor die Letzten“ hilft beim Aufholen nicht messbar (Halbzeit-Letzter gewinnt 6 % → 8 %, im Rauschen). Als Aufholhilfe für CHAOS-65 taugt das Trophäen-Ziel also nicht.
-- **Item nach dem Minispiel (C):** Beide Varianten verdoppeln die Sabotage (zu zweit 0,17 → 0,35–0,38 je Runde, also etwa alle 2–3 statt alle 6 Runden) bei kleinem Gesamtschaden (Verlust 3–5 % → 6–9 % der Einnahmen) und +0,3 min Partiedauer. Der Unterschied liegt bei der Fairness: Das **Sieg-Item (B)** verstärkt Können (Profi bei 4 Spielern, 20 Runden: 43 % → 57 % Siege), der **Trostpreis (L)** dämpft es (43 % → 39 % bei 10 Runden; 3 Spieler 53 % → 39 %). Mit 1000 Seeds (2 und 3 Spieler, 10 Runden) sinkt der Halbzeit-Vorteil mit L leicht (75 % → 72 %, 62 % → 59 %), mit B nicht (75 %, 64 %). Die Abweichung von Slot 1 bei 2 Spielern in der Tabelle (55 % gegen 43–45 %) ist Rauschen: Mit 1000 Seeds liegen A, B und L bei 49–50 %.
+- **Trophäen-Ziel (B):** „vor die Spieler“ verkürzt die Wartezeit auf eine Trophäe (4 Spieler, 10 Runden: 6,1 → 5,2 Züge je Kauf) und senkt den Anteil ohne Trophäe (15 % → 9 %). Dafür häufen sich Trophäen-Gleichstände, und bei 4 Spielern entscheiden Trophäen seltener (67 % → 58 %). „Vor die Letzten“ hilft beim Aufholen nicht messbar (Halbzeit-Letzter gewinnt 6 % → 8 %, im Rauschen). Als Aufholhilfe für CHAOS-65 taugt das Trophäen-Ziel also nicht.
+- **Item nach dem Minispiel (C):** Beide Varianten verdoppeln die Sabotage (zu zweit 0,17 → 0,35–0,38 je Runde, also etwa alle 2–3 statt alle 6 Runden) bei kleinem Gesamtschaden (Verlust 3–6 % → 7–10 % der Einnahmen bei 10 Runden, bis 12 % bei 20 Runden) und +0,3 min Partiedauer. Der Unterschied liegt bei der Fairness: Das **Sieg-Item (B)** verstärkt Können (Profi bei 4 Spielern, 20 Runden: 43 % → 59 % Siege), der **Trostpreis (L)** dämpft es (43 % → 39 % bei 10 Runden, 43 % → 38 % bei 20 Runden; 3 Spieler 53 % → 39 %). Mit 1000 Seeds (2 und 3 Spieler, 10 Runden) sinkt der Halbzeit-Vorteil mit L leicht (75 % → 72 %, 62 % → 59 %), mit B nicht (75 %, 63 %). Die Abweichung von Slot 1 bei 2 Spielern in der Tabelle (55 % gegen 43–45 %) ist Rauschen: Mit 1000 Seeds liegen A, B und L bei 49–50 %.
 - **Fallen (D):** Ein Schild gegen Fallen fängt etwa ein Viertel der Fallen ab (4 Spieler: 1,64 → 1,25 ausgelöst) und senkt die ohnehin seltene Sabotage um ≈ 10 %. Sichtbare Fallen, denen Bots an Gabeln ausweichen, ändern wenig (Treffer je gelegter Falle 75 % → 69 % bei 4 Spielern): Der Wackelwald hat nur zwei Gabeln, die meisten Fallen liegen auf dem Pflichtweg.
 
 **Entscheidung:**
@@ -1555,8 +1651,8 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `370399
 - **discard** Schild gegen Fallen als Standard: macht die seltene Sabotage noch seltener und verbraucht den Schild ohne eigene Entscheidung. Stellschraube bleibt für den Fall, dass Sabotage im Playtest als zu hart empfunden wird.
 - **keep sichtbare Fallen:** Der PC zeigt Fallen weiter an (lesbar, „Chaos sichtbar“). Versteckte Fallen brächten auf dem Wackelwald kaum Balance-Gewinn und kosten Lesbarkeit.
 
-**Folgen für andere Experimente:** EXP-011 … EXP-013 laufen jetzt auf `M4_RULES` (ohne Trostpreis) und bleiben so wiederholbar; ihre Zahlen beschreiben den Stand vor EXP-018. Mit Trostpreis steigen Items und Sabotagen wie in Tabelle C, die Dauer um ≈ 0,3 min.
+**Folgen für andere Experimente:** EXP-011 … EXP-013 und EXP-018 laufen auf `M4_RULES` (ohne Trostpreis); ihre Zahlen beschreiben den Stand vor EXP-019. Mit Trostpreis steigen Items und Sabotagen wie in Tabelle C, die Dauer um ≈ 0,3 min.
 
 **Offen für Playtest:** Fühlt sich der Trostpreis wie ein Trost an oder wie Belohnung fürs Verlieren? Wird die Ergebniskarte mit Item-Zeile noch in den 6 s gelesen? Ist Sabotage zu zweit jetzt spürbar, aber nicht nervig? Bemerkt jemand Trophäen, die lange hinter allen liegen?
 
-**Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) und Sabotage-Stärke (CHAOS-67) mit dem Trostpreis neu bewerten.
+**Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.

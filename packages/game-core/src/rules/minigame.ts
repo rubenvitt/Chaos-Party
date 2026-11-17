@@ -164,7 +164,7 @@ export function finishMinigame(
     if (entry.place === 1) playerOf(ctx, entry.slot).minigameWins += 1;
     return { slot: entry.slot, coins: changeCoins(ctx, entry.slot, reward, 'minigame') };
   });
-  // CHAOS-51 (EXP-018): optional Items für den Sieg bzw. als Trostpreis für den letzten Platz
+  // CHAOS-51 (EXP-019): optional Items für den Sieg bzw. als Trostpreis für den letzten Platz
   // (geteilt: alle; sind alle gleichauf, gibt es keinen letzten Platz).
   const lastPlace = Math.max(...sorted.map((entry) => entry.place));
   const withItems = rewards.map((reward, index) => {

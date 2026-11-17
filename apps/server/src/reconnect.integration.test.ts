@@ -153,7 +153,7 @@ function promptScenario(
 
 /**
  * Seed, bei dem in 3 Runden mit 3 Spielern jede Prompt-Art vorkommt (Klau, Reaktion, Trophäe).
- * Seit dem Trostpreis nach dem Minispiel (EXP-018, CHAOS-51) Seed 2 statt 1.
+ * Seit dem Trostpreis nach dem Minispiel (EXP-019, CHAOS-51) Seed 2 statt 1.
  */
 const ALL_PROMPTS_SEED = 2;
 

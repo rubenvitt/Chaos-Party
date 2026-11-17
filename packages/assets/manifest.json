@@ -27,7 +27,7 @@
       "path": "packages/assets/models/characters/robot.glb",
       "description": "Figur Schraubi (lackierter Blech-Aufziehroboter mit Bildschirmgesicht, Wackelantenne mit Glühbirne und Aufziehschlüssel; starre Teile am Skelett); Material „akzent“ = Halsring in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
       "budgetBytes": 393216,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
@@ -40,7 +40,7 @@
       "path": "packages/assets/models/characters/cactus.glb",
       "description": "Figur Kalle Kaktus (gerippter Saguaro im Tontopf mit Sonnenbrille, Blüte und Halstuch; Skinning); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
       "budgetBytes": 393216,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
@@ -53,7 +53,7 @@
       "path": "packages/assets/models/characters/raccoon.glb",
       "description": "Figur Wusel (Waschbär mit Maske, Fellwangen und Ringelschwanz; Skinning, Fell-Sheen); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
       "budgetBytes": 393216,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
@@ -66,7 +66,7 @@
       "path": "packages/assets/models/characters/sock.glb",
       "description": "Figur Socke Sigi (Strick-Socke mit Ringeln und ungleichen Knopfaugen; Skinning); Material „akzent“ = Rippbündchen in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
       "budgetBytes": 393216,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
@@ -79,7 +79,7 @@
       "path": "packages/assets/textures/portraits/robot.webp",
       "description": "Porträt von Schraubi (Kopf und Schultern, 384×384 WebP mit Alpha, Cycles-Render der Blender-Figur); Akzent weiß, die Slot-Farbe kommt über die Maske „portraet-robot-akzent“.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 24576
     },
@@ -90,7 +90,7 @@
       "path": "packages/assets/textures/portraits/robot-akzent.webp",
       "description": "Akzent-Maske zum Porträt von Schraubi (Alpha = sichtbares Material „akzent“); Lobby und Controller färben damit in Slot-Farbe.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 4096
     },
@@ -101,7 +101,7 @@
       "path": "packages/assets/textures/portraits/cactus.webp",
       "description": "Porträt von Kalle Kaktus (Kopf und Schultern, 384×384 WebP mit Alpha, Cycles-Render der Blender-Figur); Akzent weiß, die Slot-Farbe kommt über die Maske „portraet-cactus-akzent“.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 24576
     },
@@ -112,7 +112,7 @@
       "path": "packages/assets/textures/portraits/cactus-akzent.webp",
       "description": "Akzent-Maske zum Porträt von Kalle Kaktus (Alpha = sichtbares Material „akzent“); Lobby und Controller färben damit in Slot-Farbe.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 4096
     },
@@ -123,7 +123,7 @@
       "path": "packages/assets/textures/portraits/raccoon.webp",
       "description": "Porträt von Wusel (Kopf und Schultern, 384×384 WebP mit Alpha, Cycles-Render der Blender-Figur); Akzent weiß, die Slot-Farbe kommt über die Maske „portraet-raccoon-akzent“.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 24576
     },
@@ -134,7 +134,7 @@
       "path": "packages/assets/textures/portraits/raccoon-akzent.webp",
       "description": "Akzent-Maske zum Porträt von Wusel (Alpha = sichtbares Material „akzent“); Lobby und Controller färben damit in Slot-Farbe.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 4096
     },
@@ -145,7 +145,7 @@
       "path": "packages/assets/textures/portraits/sock.webp",
       "description": "Porträt von Socke Sigi (Kopf und Schultern, 384×384 WebP mit Alpha, Cycles-Render der Blender-Figur); Akzent weiß, die Slot-Farbe kommt über die Maske „portraet-sock-akzent“.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 24576
     },
@@ -156,7 +156,7 @@
       "path": "packages/assets/textures/portraits/sock-akzent.webp",
       "description": "Akzent-Maske zum Porträt von Socke Sigi (Alpha = sichtbares Material „akzent“); Lobby und Controller färben damit in Slot-Farbe.",
       "generator": "packages/assets/blender/portraits-all.sh",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript gerendert (CHAOS-61)",
       "budgetBytes": 4096
     },
@@ -166,7 +166,7 @@
       "source": "procedural",
       "path": "apps/host/src/board/createBoardScene.ts",
       "description": "Brett „Wackelwald“: Insel, Felder (Farbe + Form je Feldtyp), Wege mit Pfeilen, Bäume, Teich, Pilze, Felsen, Brücke.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -175,7 +175,7 @@
       "source": "procedural",
       "path": "apps/host/src/board/createBoardScene.ts",
       "description": "Brett: Wegweiser-Schilder, Am-Zug-Ring und -Pfeil, Popups (Text auf DynamicTexture), Getrennt-Marker „!“.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -184,7 +184,7 @@
       "source": "procedural",
       "path": "apps/host/src/board/createBoardScene.ts",
       "description": "Brett: Fallen (Fangeisen mit Besitzerfarbe) und Trophäen-Pokal.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -193,7 +193,7 @@
       "source": "procedural",
       "path": "apps/host/src/board/createBoardScene.ts",
       "description": "Brett: Spielstein-Sockel in Slot-Farbe mit weißem Ring und schwebendem Slot-Symbol (● ▲ ■ ★).",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -202,7 +202,7 @@
       "source": "procedural",
       "path": "apps/host/src/characters/badge.ts",
       "description": "Slot-Abzeichen auf der Brust jeder Figur (Plakette mit Symbol in Slot-Farbe).",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -211,7 +211,7 @@
       "source": "procedural",
       "path": "apps/host/src/scene/createGameScene.ts",
       "description": "M1-Arena (Testszene mit Havok): Boden, Rand, Eckpfosten, Kapsel-Figuren.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -240,7 +240,7 @@
       "source": "procedural",
       "path": "apps/host/src/fx/sounds.ts",
       "description": "Minispiel-Klänge (WebAudio-Synthese): tick, go, hit, bump, coin, score, fall, splash, whoosh, pop, buzz, cheer, win, lose.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -249,7 +249,7 @@
       "source": "procedural",
       "path": "apps/host/src/fx/sounds.ts",
       "description": "Brett-Klänge (WebAudio-Synthese): dice, coin-gain, coin-loss, steal, trap, shield, trophy, turn, minigame-start; Zuordnung in boardSounds.ts.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -258,7 +258,7 @@
       "source": "procedural",
       "path": "apps/host/src/fx/particles.ts",
       "description": "Partikel mit berechneten Texturen: sparkle, dust, confetti, impact, splash, stars, smoke; Kamerawackeln in shake.ts.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -267,7 +267,7 @@
       "source": "procedural",
       "path": "packages/minigames/src/sockenregen/index.ts",
       "description": "Minispiel „Sockenregen“: Arena, Waschmaschine Wumms, Socken, Goldsocken, Bügeleisen, Landeschatten.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -276,7 +276,7 @@
       "source": "procedural",
       "path": "packages/minigames/src/pudding-gerangel/visuals.ts",
       "description": "Minispiel „Pudding-Gerangel“: Wackelpudding, Kirschfleck, Rührlöffel, Sahnesee, Wackelkrone.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -285,7 +285,7 @@
       "source": "procedural",
       "path": "packages/minigames/src/wackelturm/index.ts",
       "description": "Minispiel „Wackelturm“: Törtchenberg, Eck-Nester, Törtchen, Goldtörtchen, Kronen.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {
@@ -294,7 +294,7 @@
       "source": "procedural",
       "path": "packages/minigames/src/pump-parade/index.ts",
       "description": "Referenz-Minispiel „Pump-Parade“: Boden und Ballons.",
-      "license": "LicenseRef-ChaosParty-Eigenwerk",
+      "license": "GPL-3.0-only",
       "attribution": "Chaos Party – prozedural im Code"
     },
     {

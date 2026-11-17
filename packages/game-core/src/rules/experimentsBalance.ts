@@ -1,6 +1,6 @@
 /**
  * Zurückgestellte Balance-Ideen aus EXP-001 … EXP-004, geprüft mit dem M4-Stand (CHAOS-51,
- * `docs/experiments.md` EXP-018): Würfel 2–7, Ziel der wandernden Trophäe, Item für den
+ * `docs/experiments.md` EXP-019): Würfel 2–7, Ziel der wandernden Trophäe, Item für den
  * Minispiel-Sieg, Schild gegen Fallen und sichtbare gegen versteckte Fallen.
  *
  * ```sh
@@ -84,7 +84,7 @@ export function diceExperiment(
     }
   }
   return {
-    title: `EXP-018 A Würfel 2–7 mit Rotation (${seedText(setup)})`,
+    title: `EXP-019 A Würfel 2–7 mit Rotation (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',
@@ -138,7 +138,7 @@ export function placementExperiment(
     }
   }
   return {
-    title: `EXP-018 B Ziel der wandernden Trophäe (${seedText(setup)})`,
+    title: `EXP-019 B Ziel der wandernden Trophäe (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',
@@ -215,7 +215,7 @@ export function winItemExperiment(
     }
   }
   return {
-    title: `EXP-018 C Item für den Minispiel-Sieg oder den letzten Platz (${seedText(setup)})`,
+    title: `EXP-019 C Item für den Minispiel-Sieg oder den letzten Platz (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',
@@ -283,7 +283,7 @@ export function trapExperiment(
     }
   }
   return {
-    title: `EXP-018 D Schild gegen Fallen, sichtbare Fallen (${seedText(setup)})`,
+    title: `EXP-019 D Schild gegen Fallen, sichtbare Fallen (${seedText(setup)})`,
     headers: [
       'Runden',
       'Variante',
@@ -301,7 +301,7 @@ export function trapExperiment(
   };
 }
 
-/** Alle EXP-018-Tabellen als Markdown. */
+/** Alle EXP-019-Tabellen als Markdown. */
 export function runBalanceExperiments(setup: ExperimentSetup = M4_SETUP): string {
   return [
     diceExperiment(setup),

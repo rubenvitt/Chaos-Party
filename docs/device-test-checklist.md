@@ -307,7 +307,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | V27 | Mitten im Zug „Pause“ (Knopf oder Taste P/Esc) | PC zeigt Pause mit „Weiter“ und „Partie beenden“; alle Controller zeigen „Pause – Der PC hat angehalten.“ ohne Knöpfe; Countdowns stehen | | | |
 | V28 | Pause mitten im Minispiel, nach 20 s „Weiter“ | Minispiel steht still und läuft mit derselben Restzeit weiter | | | |
 | V29 | „Partie beenden“ → Rückfrage → bestätigen | Finale mit Hinweis „vorzeitig beendet“; Controller zeigen den Endstand mit diesem Hinweis | | | |
-| V30 | Nach einem Minispiel mit klarem letzten Platz (CHAOS-51, EXP-018) | PC-Ergebniskarte zeigt beim letzten Platz „Trostpreis“ mit Item, in den 6 s lesbar; nur das Handy dieser Person zeigt „Trostpreis: …“; das Item ist danach im Brett-HUD und beim nächsten Würfeln wählbar | | | |
+| V30 | Nach einem Minispiel mit klarem letzten Platz (CHAOS-51, EXP-019) | PC-Ergebniskarte zeigt beim letzten Platz „Trostpreis“ mit Item, in den 6 s lesbar; nur das Handy dieser Person zeigt „Trostpreis: …“; das Item ist danach im Brett-HUD und beim nächsten Würfeln wählbar | | | |
 
 ### Gesamturteil M4 (für CHAOS-43)
 
@@ -319,7 +319,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | Wollte die Gruppe direkt noch eine Runde spielen? | |
 | Echte Partiedauer bei 10 Runden (V2) – passt 10 als Standard, oder lieber kürzer/länger? | |
 | Hatte der Führende zur Halbzeit einen uneinholbaren Vorsprung, oder blieb es spannend? | |
-| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? | |
+| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8): Fällt das auf, wird das Ende spannender oder gemeiner? | |
 | Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
 | Lieblingsmoment und größtes Ärgernis | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |

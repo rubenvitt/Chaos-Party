@@ -4,7 +4,7 @@
  * und Ergebnisanzeige ohne Server angeschaut und fotografiert werden können. Rein.
  *
  * Münzen im Ergebnis: die Standardregeln (`DEFAULT_RULES.economy.minigameRewards`) – im echten
- * Spiel kommen sie vom Server. Trostpreis (CHAOS-51, EXP-018): Der letzte Platz bekommt
+ * Spiel kommen sie vom Server. Trostpreis (CHAOS-51, EXP-019): Der letzte Platz bekommt
  * `DEFAULT_RULES.items.minigameLastItems` Items, hier fest `LOCAL_PRIZE` statt gezogen.
  */
 import { DEFAULT_BOARD, DEFAULT_RULES } from '@chaos-party/game-core';

@@ -3,7 +3,14 @@
  * tatsächliche Delta. Deltas von 0 erzeugen kein `coins-changed`.
  */
 import { pickOne } from '../rng.ts';
-import type { CoinReason, PlayerState, RankingCriterion, RankingEntry, Slot } from '../types.ts';
+import type {
+  CoinReason,
+  PlayerState,
+  RankingCriterion,
+  RankingEntry,
+  RuleSet,
+  Slot,
+} from '../types.ts';
 import { playerOf, type Ctx } from './internal.ts';
 
 /** Münzen ändern (nie unter 0). Liefert das tatsächliche Delta. */
@@ -15,6 +22,21 @@ export function changeCoins(ctx: Ctx, slot: Slot, delta: number, reason: CoinRea
   player.coins = balance;
   ctx.events.push({ type: 'coins-changed', slot, delta: actual, balance, reason });
   return actual;
+}
+
+/**
+ * Sabotage-Stärke in einer Runde (CHAOS-67): Grundwert (`stealAmount` bzw. `trapAmount`) plus
+ * eine Münze je `sabotageGrowthRounds` abgeschlossener Runden. Vor Runde 1 gilt der Grundwert.
+ */
+export function sabotageAmount(
+  items: RuleSet['items'],
+  kind: 'coin-steal' | 'trap',
+  round: number,
+): number {
+  const base = kind === 'trap' ? items.trapAmount : items.stealAmount;
+  const every = items.sabotageGrowthRounds;
+  if (every <= 0) return base;
+  return base + Math.floor(Math.max(0, round - 1) / every);
 }
 
 /** Bis zu `amount` Münzen von `from` an `to` (höchstens Bestand). Liefert die Menge. */
@@ -85,7 +107,7 @@ export function stepsAhead(ctx: Ctx, from: string, to: string): number {
 }
 
 /**
- * Mögliche Ziele einer wandernden Trophäe nach `trophy.placement` (CHAOS-51, EXP-018).
+ * Mögliche Ziele einer wandernden Trophäe nach `trophy.placement` (CHAOS-51, EXP-019).
  * `random`: alle freien Felder. `ahead`/`ahead-of-last`: die nähere Hälfte (aufgerundet, bei
  * gleichem Abstand alle gleich nahen), gemessen am kürzesten Weg vorwärts von der nächsten
  * Figur (aller bzw. der Letztplatzierten). Verbraucht keinen Zufall.

@@ -125,7 +125,7 @@ test.describe('Minispiel-Bühne: Anleitung und Ergebnis (lokal)', () => {
     }
     await expect(page.getByTestId('minigame-rank-1')).toContainText('geteilt');
     await expect(page.getByTestId('minigame-rank-1')).toContainText(`5 ${INFO.scoreUnit}`);
-    // Trostpreis (CHAOS-51, EXP-018): nur der letzte Platz, lokal fest ein Schild.
+    // Trostpreis (CHAOS-51, EXP-019): nur der letzte Platz, lokal fest ein Schild.
     await expect(page.getByTestId('minigame-prize-4')).toHaveAttribute('data-items', 'shield');
     await expect(page.getByTestId('minigame-prize-4')).toContainText('Trostpreis');
     await expect(page.locator('[data-testid^="minigame-prize-"]')).toHaveCount(1);

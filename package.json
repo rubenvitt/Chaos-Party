@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Chaotisches 3D-Party-Brettspiel: PC-Host, iPhones/iPad als Browser-Controller.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {
@@ -11,7 +12,8 @@
   "scripts": {
     "play": "node scripts/play.mjs",
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -r build && pnpm notices",
+    "notices": "node scripts/third-party-notices.mjs",
     "start": "pnpm --filter @chaos-party/server start",
     "smoke": "node scripts/smoke-start.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tests/e2e/tsconfig.json && tsc -p tests/perf/tsconfig.json && pnpm -r typecheck",

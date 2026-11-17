@@ -29,7 +29,7 @@ export interface ResultRow {
    */
   readonly coins: number | null;
   /**
-   * Items aus dem Ergebnis (Trostpreis für den letzten Platz, CHAOS-51/EXP-018), aus
+   * Items aus dem Ergebnis (Trostpreis für den letzten Platz, CHAOS-51/EXP-019), aus
    * `view.minigame.rewards`; leer, wenn keine.
    */
   readonly items: readonly ItemKindName[];

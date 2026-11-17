@@ -18,6 +18,7 @@ import {
   ROTATION_SPECS,
   runM4Experiments,
   sabotageExperiment,
+  sabotageGrowthExperiment,
   sabotageMetrics,
   scoringExperiment,
   scoringMetrics,
@@ -69,6 +70,7 @@ describe('M4-Experimente: Smoke-Test mit wenigen Seeds', () => {
     ['Wertung', () => scoringExperiment(small, [2])],
     ['Ökonomie', () => m4EconomyExperiment(small, [2])],
     ['Sabotage', () => sabotageExperiment(small, [2])],
+    ['Wachsende Sabotage', () => sabotageGrowthExperiment(small, [3])],
   ] as const)('%s liefert eine vollständige Tabelle', (_, experiment) => {
     const table = experiment();
     expect(table.rows.length).toBeGreaterThan(0);
@@ -76,6 +78,17 @@ describe('M4-Experimente: Smoke-Test mit wenigen Seeds', () => {
     expect(toMarkdown(table)).not.toContain('NaN');
   });
 });
+
+describe.runIf(runtime.process?.env?.EXPERIMENTS === 'growth')(
+  'EXP-018: wachsende Sabotage (EXPERIMENTS=growth, CHAOS-67)',
+  () => {
+    it('druckt die Tabelle als Markdown', { timeout: 1_200_000 }, () => {
+      const md = toMarkdown(sabotageGrowthExperiment());
+      expect(md).not.toContain('NaN');
+      runtime.console?.log(`\n${md}\n`);
+    });
+  },
+);
 
 describe.runIf(runtime.process?.env?.EXPERIMENTS === 'm4')(
   'M4-Experimente: volle Tabellen (EXPERIMENTS=m4)',

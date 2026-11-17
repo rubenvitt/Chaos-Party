@@ -3,6 +3,7 @@
  * getrennte Spieler) und die konkreten Prompts des Zugablaufs.
  */
 import type { GamePhase, ItemKind, PromptKind, PromptOption, Slot } from '../types.ts';
+import { sabotageAmount } from './economy.ts';
 import { activePlayer, playerOf, spaceOf, type Ctx } from './internal.ts';
 import {
   coinsText,
@@ -87,7 +88,8 @@ export function rollOptions(ctx: Ctx): PromptOption[] {
     if (!player.items.includes(item)) continue;
     if (item === 'coin-steal' && d.players.length < 2) continue;
     if (item === 'trap' && d.traps.some((trap) => trap.spaceId === player.spaceId)) continue;
-    const amount = item === 'trap' ? rules.items.trapAmount : rules.items.stealAmount;
+    const amount =
+      item === 'trap' || item === 'coin-steal' ? sabotageAmount(rules.items, item, ctx.d.round) : 0;
     options.push({
       id: itemOption(item),
       label: ITEM_LABELS[item],
