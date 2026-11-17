@@ -3,6 +3,8 @@ import RealityKit
 
 /// Optional (`--server=ws://<pc>:8787/ws`): verbindet sich wie der Babylon-Host mit dem Sitzungsserver
 /// (`host-hello`, Herzschlag), liest `board`-Stände und stellt die Figuren je Slot auf ihr Feld.
+/// Steht die Szene, meldet er `host-ready` (CHAOS-121): Nach einem Neustart mitten in der Partie setzt der
+/// Server die Auto-Pause dann sofort fort statt erst nach 30 s (CHAOS-68, ADR-015 Nachtrag 3).
 @MainActor
 final class HostClient {
     static let shared = HostClient()
@@ -11,18 +13,47 @@ final class HostClient {
     private var task: URLSessionWebSocketTask?
     private var heartbeat: Timer?
     private var log: (String) -> Void = { _ in }
+    /// Szene dieses Laufs steht (Brett und Figuren geladen), siehe `sceneReady()`.
+    private var sceneIsReady = false
+    /// Der Server hat auf dieser Verbindung `lobby` oder `board` geschickt: Er hat das Hallo verarbeitet.
+    private var serverAnswered = false
+    /// `host-ready` ging auf dieser Verbindung schon (einmal je Verbindung, wie im Babylon-Host).
+    private var readySent = false
+    /// Spieler aus dem letzten `board`: Kommt es vor den Figuren an (Neustart mitten in der Partie: die Szene
+    /// lädt Sekunden, der Server antwortet sofort), setzt `sceneReady()` sie nach.
+    private var lastPlayers: [[String: Any]]?
 
     func connect(_ address: String, log: @escaping (String) -> Void) {
         self.log = log
         guard let url = URL(string: address) else { log("Server: ungültige Adresse \(address)"); return }
         let task = URLSession.shared.webSocketTask(with: url)
         self.task = task
+        // Neue Verbindung, neuer Lauf: Die Szene meldet sich mit `sceneReady()`, sobald sie steht.
+        sceneIsReady = false
+        serverAnswered = false
+        readySent = false
+        lastPlayers = nil
         task.resume()
         send(["type": "host-hello"])
         heartbeat = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
             MainActor.assumeIsolated { self.send(["type": "heartbeat", "t": Date().timeIntervalSince1970 * 1000]) }
         }
         receive()
+    }
+
+    /// Brett und Figuren sind geladen (Aufruf aus `Meter`, wenn die Szene steht).
+    func sceneReady() {
+        sceneIsReady = true
+        if let lastPlayers { place(lastPlayers) }
+        sendReadyIfDue()
+    }
+
+    /// `host-ready` senden, wenn die Szene steht, der Server schon geantwortet hat und diese Verbindung es noch nicht hat.
+    private func sendReadyIfDue() {
+        guard sceneIsReady, serverAnswered, !readySent, task != nil else { return }
+        readySent = true
+        send(["type": "host-ready"])
+        log("Server: host-ready gesendet")
     }
 
     private func send(_ message: [String: Any]) {
@@ -59,8 +90,21 @@ final class HostClient {
               let view = message["view"] as? [String: Any],
               let players = view["players"] as? [[String: Any]] else {
             if type != "heartbeat-ack" { log("Server: \(type)") }
+            if type == "lobby" || type == "board" {
+                serverAnswered = true
+                sendReadyIfDue()
+            }
             return
         }
+        lastPlayers = players
+        place(players)
+        log("Server: board, Runde \(view["round"] ?? "?"), \(players.count) Figuren")
+        serverAnswered = true
+        sendReadyIfDue()
+    }
+
+    /// Figuren je Slot auf ihr Feld stellen (nur die schon geladenen; fehlende setzt `sceneReady()` nach).
+    private func place(_ players: [[String: Any]]) {
         for player in players {
             guard let slot = player["slot"] as? Int, let space = player["spaceId"] as? String,
                   let at = Self.spaces[space] else { continue }
@@ -68,7 +112,6 @@ final class HostClient {
             let offset = Float(slot - 1) * 0.4
             pawns[slot]?.position = SIMD3(-at.x + offset, 0.3, at.z)
         }
-        log("Server: board, Runde \(view["round"] ?? "?"), \(players.count) Figuren gesetzt")
     }
 
     // shortcut: Feldkoordinaten aus packages/game-core/src/board/wackelwald.ts kopiert (nur dieses Brett); für mehr Bretter aus dem Export lesen.

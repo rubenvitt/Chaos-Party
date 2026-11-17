@@ -76,6 +76,7 @@ final class Meter: ObservableObject {
                     view.environment.lighting.intensityExponent = built.skyExponent
                 }
                 readyAt = CACurrentMediaTime()
+                HostClient.shared.sceneReady()
                 subscription = view.scene.subscribe(to: SceneEvents.Update.self) { [weak self] event in
                     MainActor.assumeIsolated { self?.tick(event.deltaTime) }
                 }
@@ -154,6 +155,7 @@ final class Meter: ObservableObject {
                     self?.record(event)
                 }
                 readyAt = CACurrentMediaTime()
+                HostClient.shared.sceneReady()
             } catch {
                 hud = "Fehler: \(error)"
                 log("FEHLER \(error)")
