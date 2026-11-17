@@ -95,7 +95,7 @@ Ruben hat am 2026-11-17 im Chat entschieden: **„Annehmen, PC folgt“.** Die E
 
 Was damit feststeht:
 - Kein Rendererwechsel am PC. `apps/host` bleibt bei Babylon.js mit WebGL2.
-- `?gpu=webgpu` bleibt ein Mess-Schalter und wird nicht auf die übrigen vier Szenen ausgeweitet. Mit WebGPU zeichnet das Brett noch kein Bild (CHAOS-117).
+- `?gpu=webgpu` bleibt ein Mess-Schalter und wird nicht auf die übrigen vier Szenen ausgeweitet. Mit WebGPU zeichnete das Brett zunächst kein Bild; seit CHAOS-117 (17.11.) zeichnet es. R8 (Mac): kein Vorteil, Median −14 %, p95 doppelt so hoch (EXP-015, Nachtrag); R2 (PC) ist noch zu messen.
 - Die Bevy-Prototypen (`spikes/renderer-bevy`) bleiben als Messlatte im Repo und werden nicht weiterentwickelt.
 - tvOS läuft getrennt über CHAOS-78 (RealityKit, Server auf PC/Mac). CHAOS-74 wartet darauf.
 

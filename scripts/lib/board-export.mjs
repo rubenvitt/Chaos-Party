@@ -32,10 +32,21 @@ export async function exportBoard({
   timeoutMs = 240_000,
   verbose = false,
 }) {
+  // Eigene Prozessgruppe, damit `stopVite` auch den Vite-Prozess unter `pnpm exec` beendet
+  // (sonst bleibt er als Waise übrig; Idee aus CHAOS-119). NO_COLOR hält die Ausgabe lesbar.
   const vite = spawn('pnpm', ['exec', 'vite', '--port', String(port), '--strictPort'], {
     cwd: join(root, 'apps/host'),
     stdio: ['ignore', verbose ? 'inherit' : 'ignore', 'inherit'],
+    detached: true,
+    env: { ...process.env, NO_COLOR: '1' },
   });
+  const stopVite = () => {
+    try {
+      if (vite.pid) process.kill(-vite.pid, 'SIGTERM');
+    } catch {
+      vite.kill();
+    }
+  };
   try {
     // Auf die Antwort des Servers warten, nicht auf seine Ausgabe: Unter `CI=true` färbt Vite
     // „Local:“ mit ANSI-Codes, ein Textvergleich passt dann nie (CI hing 30 min, CHAOS-140).
@@ -73,7 +84,7 @@ export async function exportBoard({
       await browser.close();
     }
   } finally {
-    vite.kill();
+    stopVite();
   }
 }
 

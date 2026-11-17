@@ -57,6 +57,8 @@ jobs:
       # Figuren direkt aus den bpy-Skripten, Prüfung mit usd-core. Look-Dev-Texturen braucht das
       # Brett nicht (es nutzt die eingecheckten aus packages/assets).
       - name: Testszene erzeugen
+        # lokal ca. 4 min (Texturen, Brett-Export, USDZ); hängt etwas, früh abbrechen
+        timeout-minutes: 25
         env:
           BOARD_EXPORT_TIMEOUT: '600000'
           RK_CHECK: '0'

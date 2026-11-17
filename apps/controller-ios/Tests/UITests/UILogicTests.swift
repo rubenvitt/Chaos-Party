@@ -218,3 +218,37 @@ import Testing
         #expect(haptic(nil) == nil)
     }
 }
+
+/// Result texts of the minigame card (`minigame/view.ts`, `ui/minigame.tsx`; CHAOS-127).
+@Suite struct MinigameResultTextTests {
+    private func info(reward: Int? = nil, prizes: [ItemKind]? = nil) throws -> ControllerMinigameInfo {
+        var minigame = try #require(ControllerState.minigameConsolationSample.contexts[1]?.minigame)
+        minigame.reward = reward
+        minigame.prizes = prizes
+        return minigame
+    }
+
+    @Test func rewardMatchesTheWebController() throws {
+        #expect(try info(reward: 0).rewardText == "Keine Münzen")
+        #expect(try info(reward: 1).rewardText == "+1 Münze")
+        #expect(try info(reward: 10).rewardText == "+10 Münzen")
+        #expect(try info().rewardText == nil)
+    }
+
+    @Test func prizeUsesTheItemNames() throws {
+        #expect(try info(prizes: [.trap]).prizeText == "Trostpreis: Falle")
+        #expect(try info(prizes: [.trap, .shield]).prizeText == "Trostpreis: Falle, Schild")
+        #expect(try info(prizes: ["mystery-box"]).prizeText == "Trostpreis: mystery-box")
+    }
+
+    @Test func noPrizeNoLine() throws {
+        #expect(try info().prizeText == nil)
+        #expect(try info(prizes: []).prizeText == nil)
+    }
+
+    @Test func consolationSampleShowsAPrize() {
+        let minigame = ControllerState.minigameConsolationSample.contexts[1]?.minigame
+        #expect(minigame?.stage == .results)
+        #expect(minigame?.prizeText == "Trostpreis: Falle")
+    }
+}

@@ -19,9 +19,9 @@ export default defineConfig(
       'perf-results/**',
       // Wegwerf-Probe für die Apple TV (CHAOS-135): Einstieg nur für den esbuild-Bündel.
       'spikes/apple-host-probe/**',
-      // Apple-TV-Host-Spike (CHAOS-138): Xcode-Build und kopierte Bündel.
-      'spikes/apple-host/build/**',
-      'spikes/apple-host/payload/**',
+      // Nativer Apple-Host (CHAOS-139): Xcode-Build und kopierte Bündel.
+      'apps/apple-host/build/**',
+      'apps/apple-host/payload/**',
       // Renderer-Spike (CHAOS-75): Rust-Build, wasm-bindgen-Ausgabe und exportierte Szene.
       'spikes/renderer-bevy/target/**',
       'spikes/renderer-bevy/web/pkg-*/**',
@@ -52,7 +52,13 @@ export default defineConfig(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['apps/server/**/*.{ts,mjs}', 'scripts/**/*.mjs', '*.{js,ts,mjs}'],
+    files: [
+      'apps/server/**/*.{ts,mjs}',
+      'apps/apple-host/*.mjs',
+      'apps/apple-host/scripts/**/*.mjs',
+      'scripts/**/*.mjs',
+      '*.{js,ts,mjs}',
+    ],
     languageOptions: { globals: globals.node },
   },
   prettier,
