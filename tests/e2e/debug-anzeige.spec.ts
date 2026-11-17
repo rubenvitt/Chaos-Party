@@ -129,6 +129,35 @@ test.describe('Messanzeige (?debug=1)', () => {
     expectNoProblems(problems, 'iPad');
   });
 
+  // CHAOS-46: Unten rechts lag die Anzeige bei 4 Spielern auf dem 4. Spielerchip.
+  for (const { scene, query, chips } of [
+    { scene: 'Arena', query: 'arena=1', chips: '.player-chip' },
+    { scene: 'Brett', query: 'board=1', chips: '.board-player' },
+  ]) {
+    test(`überdeckt bei 4 Spielern keinen Spielerchip (${scene}, lokal)`, async ({ page }) => {
+      const problems = collectProblems(page);
+      await page.goto(`/host/?local=1&${query}&players=4&test=1&debug=1`);
+      await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready', {
+        timeout: 60_000,
+      });
+      await expect(page.locator(chips)).toHaveCount(4);
+      const overlay = await page.getByTestId('debug-overlay').boundingBox();
+      expect(overlay).not.toBeNull();
+      for (const chip of await page.locator(chips).all()) {
+        const box = await chip.boundingBox();
+        expect(box).not.toBeNull();
+        if (!overlay || !box) continue;
+        const overlaps =
+          overlay.x < box.x + box.width &&
+          box.x < overlay.x + overlay.width &&
+          overlay.y < box.y + box.height &&
+          box.y < overlay.y + overlay.height;
+        expect(overlaps, `Messanzeige über ${await chip.textContent()}`).toBe(false);
+      }
+      expectNoProblems(problems, 'Host');
+    });
+  }
+
   test('ohne debug gibt es keine Messanzeige', async ({ page: host, openDevice, chaosServer }) => {
     await openLiveHost(host, '/host/');
     const phone = await openDevice('iPhone 13');

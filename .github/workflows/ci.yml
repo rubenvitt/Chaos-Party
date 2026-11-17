@@ -137,6 +137,20 @@ jobs:
         if: hashFiles('apps/controller-ios/project.yml') != ''
         run: apps/controller-ios/scripts/run-tests.sh
 
+      # Beleg für geänderte Controller-Bildschirme (CHAOS-127): Beispielzustände im Simulator.
+      - name: Controller-Screenshots (Simulator)
+        if: hashFiles('apps/controller-ios/scripts/screenshots.sh') != ''
+        run: apps/controller-ios/scripts/screenshots.sh minigameConsolation minigameResults
+
+      - name: Controller-Screenshots hochladen
+        if: always() && hashFiles('apps/controller-ios/scripts/screenshots.sh') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: controller-ios-screenshots
+          path: apps/controller-ios/build/screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
       # CHAOS-147: Startparameter vor gespeicherter Messvariante, Menüwahl, Speicherung.
       - name: Renderer-Spike Varianten prüfen
         if: hashFiles('spikes/renderer-realitykit/tests/main.swift') != ''

@@ -686,15 +686,23 @@ body,
   }
 }
 
-/* Messanzeige, nur mit ?debug=1 (CHAOS-45, ADR-010): klein, unten rechts, halbtransparent. */
+/*
+ * Messanzeige, nur mit ?debug=1 (CHAOS-45, ADR-010): klein, halbtransparent, links mittig.
+ * Unten rechts lag sie bei 4 Spielern auf dem 4. Spielerchip (CHAOS-46); links mittig ist im
+ * Spiel frei: oben links Titel und Pause-Knopf, oben rechts Ticker bzw. Minispiel-Uhr, unten
+ * Spielerleiste bzw. Minispiel-Punkte. In der Lobby läge sie dort auf dem QR-Code, deshalb
+ * bleibt sie da unten rechts neben der Lobby-Karte (ab 1920 px Breite frei; bei 1280 × 720
+ * füllt die Karte den Bildschirm, dann liegt sie über Rundenwahl und Start-Knopf).
+ */
 .debug-overlay {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
   z-index: 30;
   display: grid;
   gap: 2px;
-  max-width: 440px;
+  max-width: 390px;
   padding: 8px 10px;
   border-radius: 8px;
   background: rgb(20 16 40 / 72%);
@@ -709,6 +717,14 @@ body,
   user-select: text;
   /* Liegt über der Lobby (Start-Knopf, CHAOS-36): nur die eigenen Knöpfe fangen Klicks. */
   pointer-events: none;
+}
+
+.host[data-phase='lobby'] .debug-overlay {
+  top: auto;
+  right: 12px;
+  bottom: 12px;
+  left: auto;
+  transform: none;
 }
 
 .debug-overlay button {

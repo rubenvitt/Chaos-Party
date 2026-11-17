@@ -182,6 +182,20 @@ describe('bonusAwards', () => {
     ]);
     expect(bonusAwards([])).toEqual([]);
   });
+
+  it('Pechvogel nach `coinsLost` (Pech ohne Trophäenkäufe, gezählt in game-core, CHAOS-123)', () => {
+    const unlucky = players.map((p, i) => ({
+      ...p,
+      stats: { ...p.stats, coinsLost: [4, 0, 9, 1][i] ?? 0 },
+    }));
+    expect(bonusAwards(unlucky).find((a) => a.id === 'unlucky')).toEqual({
+      id: 'unlucky',
+      title: 'Pechvogel',
+      detail: '9 Münzen verloren',
+      slots: [3],
+      value: 9,
+    });
+  });
 });
 
 describe('Texte', () => {

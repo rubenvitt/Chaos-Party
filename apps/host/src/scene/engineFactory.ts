@@ -10,6 +10,7 @@
  */
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
+import type { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine.js';
 import type { GpuBackend } from '../config.ts';
 import type { RendererInfo } from './types.ts';
 
@@ -25,6 +26,25 @@ export interface HostEngine {
   readonly backend: GpuBackend;
   /** Warum WebGPU nicht ging (nur bei Rückfall). */
   readonly fallbackReason?: string;
+}
+
+/**
+ * Engine-Erweiterungen, die `webgpuEngine.js` nicht selbst lädt, die Szenen aber brauchen
+ * (CHAOS-117). Babylons `MultiRenderTarget` registriert nur die WebGL-Variante von
+ * `createMultipleRenderTarget`; unter WebGPU fehlt die Methode dann, und der Geometriepuffer
+ * (SSAO2 ab Stufe `hoch`) bricht den Aufbau des Bretts ab: kein Bild, keine Render-Schleife.
+ */
+const WEBGPU_EXTENSIONS: readonly (() => Promise<unknown>)[] = [
+  () => import('@babylonjs/core/Engines/WebGPU/Extensions/engine.multiRender.js'),
+];
+
+/** Lädt die WebGPU-Engine samt fehlender Erweiterungen (dynamisch, nur für `?gpu=webgpu`). */
+export async function loadWebGpuEngine(): Promise<typeof WebGPUEngine> {
+  const [module] = await Promise.all([
+    import('@babylonjs/core/Engines/webgpuEngine.js'),
+    ...WEBGPU_EXTENSIONS.map((load) => load()),
+  ]);
+  return module.WebGPUEngine;
 }
 
 /** Synchrone WebGL2-Engine wie bisher in allen Szenen. */
@@ -51,7 +71,7 @@ export async function createHostEngine(
     if (reason === null) {
       try {
         // Dynamisch: Der WebGL-Pfad lädt den WebGPU-Code nicht mit.
-        const { WebGPUEngine } = await import('@babylonjs/core/Engines/webgpuEngine.js');
+        const WebGPUEngine = await loadWebGpuEngine();
         const engine = new WebGPUEngine(canvas, {
           antialias: true,
           stencil: true,

@@ -327,7 +327,10 @@ export interface Prompt {
 export interface PlayerStats {
   /** Summe aller Münzgewinne (positive `coins-changed`). */
   readonly coinsEarned: number;
-  /** Summe aller Münzverluste (Betrag negativer `coins-changed`, auch Trophäenkauf). */
+  /**
+   * Summe der Münzverluste durch Pech (Betrag negativer `coins-changed` mit Grund `space`,
+   * `steal` oder `trap`); Trophäenkäufe zählen nicht (CHAOS-123).
+   */
   readonly coinsLost: number;
   /** Gelaufene Felder (alle `moved`-Abschnitte). */
   readonly spacesMoved: number;
