@@ -6,7 +6,9 @@
  * 3D-Hintergrund blenden sie aus: Er gehört dem jeweiligen Minispiel und den Figuren (die
  * parallel durch GLB-Modelle ersetzt werden) und hat eigene Tests. Belegbilder mit Szene für
  * die Doku: `M3_BELEG=1 pnpm test:e2e m3-minispiel-anzeige` schreibt
- * `docs/screenshots/m3-minispiel-intro.png` und `m3-minispiel-ergebnis.png` (Pixeldichte 2).
+ * `docs/screenshots/m3-minispiel-intro.png` und `m3-minispiel-ergebnis.png` (Pixeldichte 2),
+ * dazu `chaos66-minispiel-intro-kurz.png` (kurze Anleitung bei Wiederholung, CHAOS-66; als JPG
+ * eingecheckt).
  */
 import type { Browser, Page } from '@playwright/test';
 import { getMinigameInfo } from '../../packages/minigames/src/catalog.ts';
@@ -80,6 +82,25 @@ async function writeDocShots(browser: Browser, baseURL: string) {
   await context.close();
 }
 
+/** Belegbild der kurzen Anleitung mit Szene (nur `M3_BELEG=1`, CHAOS-66). */
+async function writeRepeatDocShot(browser: Browser, baseURL: string) {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 2,
+    baseURL,
+  });
+  const page = await context.newPage();
+  await page.goto(`${FLOW_URL}&repeat=1`);
+  await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready');
+  await page.waitForFunction(() => window.__chaosMinigame?.ready === true);
+  // Eingecheckt als JPG (`convert … -quality 82 …-kurz.jpg`), wie die übrigen Belegbilder.
+  await page.screenshot({
+    path: 'docs/screenshots/chaos66-minispiel-intro-kurz.png',
+    animations: 'disabled',
+  });
+  await context.close();
+}
+
 test.describe('Minispiel-Bühne: Anleitung und Ergebnis (lokal)', () => {
   test('Anleitung → Spiel → Ergebnis mit Gleichstand und Münzen; Screenshots stabil', async ({
     page,
@@ -103,6 +124,7 @@ test.describe('Minispiel-Bühne: Anleitung und Ergebnis (lokal)', () => {
     for (const name of ['Schraubi', 'Kalle Kaktus', 'Wusel', 'Socke Sigi']) {
       await expect(intro).toContainText(name);
     }
+    await expect(intro).toHaveAttribute('data-repeat', 'false');
     await hideScene(page);
     await expect(page).toHaveScreenshot('m3-minispiel-intro.png');
 
@@ -153,6 +175,34 @@ test.describe('Minispiel-Bühne: Anleitung und Ergebnis (lokal)', () => {
     const scores = await page.evaluate(() => window.__chaosMinigame?.hud()?.scores ?? []);
     expect(scores.find((entry) => entry.slot === 1)?.score).toBe(2);
     expect(scores.find((entry) => entry.slot === 2)?.score).toBe(1);
+    expectNoProblems(problems, 'Host');
+  });
+
+  test('Kurze Anleitung bei Wiederholung (CHAOS-66): Titel, Bedienung, Spieler, 3-s-Countdown', async ({
+    page,
+    browser,
+    chaosServer,
+  }) => {
+    const problems = collectProblems(page);
+    await page.goto(`${FLOW_URL}&repeat=1`);
+    await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready');
+    await page.waitForFunction(() => window.__chaosMinigame?.ready === true);
+
+    const intro = page.getByTestId('minigame-intro');
+    await expect(intro).toHaveAttribute('data-repeat', 'true');
+    await expect(page.getByTestId('minigame-kicker')).toContainText('Nochmal!');
+    await expect(page.getByTestId('minigame-title')).toHaveText(INFO.title);
+    await expect(page.getByTestId('minigame-instructions')).toHaveCount(0);
+    await expect(intro).not.toContainText(INFO.tagline);
+    await expect(page.getByTestId('minigame-controls')).toBeVisible();
+    await expect(page.getByTestId('minigame-countdown')).toHaveAttribute('data-seconds', '3');
+    for (const name of ['Schraubi', 'Kalle Kaktus', 'Wusel', 'Socke Sigi']) {
+      await expect(intro).toContainText(name);
+    }
+    await hideScene(page);
+    await expect(page).toHaveScreenshot('m3-minispiel-intro-kurz.png');
+
+    if (process.env.M3_BELEG) await writeRepeatDocShot(browser, chaosServer.base);
     expectNoProblems(problems, 'Host');
   });
 });

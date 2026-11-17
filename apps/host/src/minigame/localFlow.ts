@@ -21,6 +21,8 @@ import type { MinigameStageName } from './plan.ts';
 
 /** So lange zeigt der lokale Ablauf die Anleitung (ohne Testmodus). */
 export const LOCAL_INTRO_MS = 8_000;
+/** Kurze Anleitung bei Wiederholung (`&repeat=1`, CHAOS-66). */
+export const LOCAL_REPEAT_INTRO_MS = 3_000;
 /** Runde des lokalen Minispiels. */
 export const LOCAL_ROUND = 1;
 /** Fester Trostpreis im lokalen Ablauf (im Spiel zieht der Server ihn zufällig). */
@@ -45,8 +47,11 @@ export function localView(
     readonly players: number;
     readonly seed: number;
     readonly result?: MinigameResultPayload | null;
+    /** Minispiel lief in der Partie schon (CHAOS-66). */
+    readonly repeat?: boolean;
   },
 ): BoardView {
+  const repeat = options.repeat ?? false;
   const slots = localSlots(options.players);
   const result = options.result ?? null;
   return {
@@ -77,7 +82,14 @@ export function localView(
     trophyPrice: DEFAULT_RULES.trophy.price,
     traps: [],
     prompt: null,
-    remainingMs: stage === 'intro' ? LOCAL_INTRO_MS : stage === 'play' ? info.durationMs : null,
+    remainingMs:
+      stage === 'intro'
+        ? repeat
+          ? LOCAL_REPEAT_INTRO_MS
+          : LOCAL_INTRO_MS
+        : stage === 'play'
+          ? info.durationMs
+          : null,
     stepMs: DEFAULT_RULES.pacing.stepMs,
     ranking: null,
     minigame: {
@@ -85,6 +97,7 @@ export function localView(
       round: LOCAL_ROUND,
       seed: options.seed >>> 0,
       playMs: info.durationMs,
+      repeat,
       elapsedMs: stage === 'intro' ? null : 0,
       placements:
         stage === 'results' && result ? result.placements.map((entry) => ({ ...entry })) : null,

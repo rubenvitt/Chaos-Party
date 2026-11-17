@@ -11,6 +11,7 @@ import { rotationInfos } from '@chaos-party/minigames/catalog';
 import { seedRange, toMarkdown, type ExperimentSetup } from './experiments.ts';
 import {
   durationExperiment,
+  repeatIntroExperiment,
   durationMetrics,
   FINALE_MS,
   m4Defaults,
@@ -67,6 +68,7 @@ describe('M4-Experimente: Smoke-Test mit wenigen Seeds', () => {
 
   it.each([
     ['Dauer', () => durationExperiment(small, [2])],
+    ['Anleitung bei Wiederholung', () => repeatIntroExperiment(small, [4])],
     ['Wertung', () => scoringExperiment(small, [2])],
     ['Ökonomie', () => m4EconomyExperiment(small, [2])],
     ['Sabotage', () => sabotageExperiment(small, [2])],

@@ -21,6 +21,8 @@ export type MinigameStage = ControllerMinigameInfo['stage'];
 
 /** Schlusszeile im Intro. */
 export const INTRO_READY = 'Gleich geht’s los!';
+/** Kurzes Intro (CHAOS-66): Minispiel lief in der Partie schon, nur Titel und Bedienlegende. */
+export const REPEAT_KICKER = 'Nochmal!';
 /** Hinweis unter dem Ergebnis: Danach geht es am PC weiter. */
 export const RESULTS_LEAD = 'Gleich geht’s auf dem Brett weiter.';
 export const ABORTED_HEADLINE = 'Minispiel abgebrochen';

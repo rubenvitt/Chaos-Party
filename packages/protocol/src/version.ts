@@ -17,6 +17,9 @@
  * Figuren geladen); erst danach setzt der Server eine Auto-Pause nach Host-Verlust fort.
  * v4-Nachtrag (CHAOS-51, additiv, ohne Versionssprung): Trostpreis im Minispiel-Ergebnis –
  * `BoardView.minigame.rewards[].items` und Minispiel-Kontext `prizes` (beide optional).
+ * v4-Nachtrag (CHAOS-66, additiv, ohne Versionssprung): `repeat` (optional) in
+ * `BoardView.minigame` und im Minispiel-Kontext des Controllers: Minispiel lief in der Partie
+ * schon, das Intro ist kurz (nur Titel und Bedienlegende).
  */
 export const PROTOCOL_VERSION = 4;
 

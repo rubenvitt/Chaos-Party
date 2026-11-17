@@ -71,7 +71,8 @@ describe('roundOptions', () => {
     expect(roundsDuration(10, 1)).toBe('≈ 15 Min.');
     // Weniger Spieler, kürzere Runden.
     expect(roundsDuration(16, 3)).toBe('≈ 20 Min.');
-    expect(roundsDuration(20, 2)).toBe('≈ 25 Min.');
+    // 20 Runden zu zweit: ≈ 22 min (EXP-011, Nachtrag CHAOS-66).
+    expect(roundsDuration(20, 2)).toBe('≈ 20 Min.');
     expect(roundsDuration(1)).toBe('≈ 5 Min.');
   });
 });

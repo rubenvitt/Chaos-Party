@@ -9,6 +9,7 @@
  * Seeds sind fest und in `docs/progress.md` dokumentiert. Die Helfer (Harness, Bots,
  * synthetischer Host) liegen in `testHarness.ts`.
  */
+import { DEFAULT_RULES } from '@chaos-party/game-core';
 import { createMessage, type BoardEvent, type SlotNumber } from '@chaos-party/protocol';
 import { rankByScore } from '@chaos-party/minigame-sdk';
 import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
@@ -355,6 +356,40 @@ describe('Minispiele über die Session (M3, CHAOS-34)', () => {
       }),
     );
     expect(h.gamePhase).toBe('minigame-results');
+  });
+
+  it('zweites Vorkommen desselben Minispiels: kurze Anleitung an Host und Controllern (CHAOS-66)', () => {
+    const id = rotation[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 2);
+    const host = { sent: new Set<number>(), startedAt: new Map<number, number>() };
+    const pressed = new Map<SlotNumber, number>();
+    // Je Runde: erste `board`-Nachricht im Intro (Restzeit) und Controller-Kontext im Intro.
+    const intros = new Map<number, { repeat: boolean | undefined; remainingMs: number | null }>();
+    const contexts = new Map<number, (boolean | undefined)[]>();
+    h.runToEnd(400_000, (harness) => {
+      pressInMinigame(harness, pressed);
+      playMinigameAsHost(harness, host);
+      if (harness.gamePhase === 'round-end') pressed.clear();
+      const view = harness.boards.at(-1)?.view;
+      if (view?.gamePhase === 'minigame-intro' && view.minigame && !intros.has(view.round)) {
+        intros.set(view.round, { repeat: view.minigame.repeat, remainingMs: view.remainingMs });
+      }
+      for (const [, { context }] of harness.contexts) {
+        if (context.minigame?.stage !== 'intro' || view === undefined) continue;
+        const list = contexts.get(view.round) ?? [];
+        list.push(context.minigame.repeat);
+        contexts.set(view.round, list);
+      }
+    });
+    expect(h.gamePhase).toBe('game-results');
+    const pacing = DEFAULT_RULES.pacing;
+    expect(intros.get(1)?.repeat).toBe(false);
+    expect(intros.get(1)?.remainingMs).toBe(pacing.minigameIntroMs);
+    expect(intros.get(2)?.repeat).toBe(true);
+    expect(intros.get(2)?.remainingMs).toBe(pacing.minigameRepeatIntroMs);
+    expect(pacing.minigameRepeatIntroMs).toBeLessThan(pacing.minigameIntroMs);
+    expect(new Set(contexts.get(1))).toEqual(new Set([false]));
+    expect(new Set(contexts.get(2))).toEqual(new Set([true]));
   });
 
   it('Controller-Eingaben außerhalb von minigame-play bleiben out-of-phase', () => {

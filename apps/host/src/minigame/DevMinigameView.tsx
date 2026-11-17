@@ -18,11 +18,13 @@ export interface DevMinigameViewProps {
   readonly players: number;
   readonly seed: number;
   readonly test: boolean;
+  /** Kurze Anleitung wie bei Wiederholung in der Partie (`&repeat=1`, CHAOS-66). */
+  readonly repeat: boolean;
 }
 
-export function DevMinigameView({ id, flow, players, seed, test }: DevMinigameViewProps) {
+export function DevMinigameView({ id, flow, players, seed, test, repeat }: DevMinigameViewProps) {
   return flow ? (
-    <LocalMinigameFlow id={id} players={players} seed={seed} test={test} />
+    <LocalMinigameFlow id={id} players={players} seed={seed} test={test} repeat={repeat} />
   ) : (
     <MinigamePreview id={id} players={players} seed={seed} test={test} />
   );

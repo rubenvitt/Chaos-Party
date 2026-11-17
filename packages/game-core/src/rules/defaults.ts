@@ -42,6 +42,8 @@ export const DEFAULT_RULES: RuleSet = {
     turnEndMs: 600,
     // M3: Zeit zum Lesen der Anleitung bzw. der Ergebniskarte (Platzhalter-Minispiel: 3 s Spiel).
     minigameIntroMs: 7000,
+    // CHAOS-66: Wiederholung eines Minispiels in derselben Partie, nur Titel + Bedienlegende.
+    minigameRepeatIntroMs: 3000,
     minigamePlayMs: 3000,
     minigameResultsMs: 6000,
     roundEndMs: 1500,
@@ -59,6 +61,7 @@ export const ZERO_PACING: Pacing = {
   spaceEventMs: 0,
   turnEndMs: 0,
   minigameIntroMs: 0,
+  minigameRepeatIntroMs: 0,
   minigamePlayMs: 0,
   minigameResultsMs: 0,
   roundEndMs: 0,

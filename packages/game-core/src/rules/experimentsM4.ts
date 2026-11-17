@@ -152,6 +152,59 @@ export function durationExperiment(
   };
 }
 
+/** Runden-Vorschläge der Lobby (`DEFAULT_ROUND_PRESETS`), für den Vergleich der Anleitung. */
+export const REPEAT_INTRO_ROUND_COUNTS: readonly number[] = [10, 16, 20];
+
+/**
+ * EXP-011, Nachtrag CHAOS-66: Partiedauer (gemütlich) mit voller Anleitung bei jedem Minispiel
+ * gegen die kurze Anleitung bei Wiederholung (`minigameRepeatIntroMs`, Standard).
+ */
+export function repeatIntroExperiment(
+  setup: ExperimentSetup = M4_SETUP,
+  roundCounts: readonly number[] = REPEAT_INTRO_ROUND_COUNTS,
+): Table {
+  const slowest = TEMPO_MODELS[TEMPO_MODELS.length - 1];
+  const policy = { decisionMs: slowest?.decisionMs ?? ([1500, 4500] as const) };
+  const full: Variant = {
+    ...m4Variant('FULL', 'volle Anleitung', {
+      pacing: { minigameRepeatIntroMs: DEFAULT_RULES.pacing.minigameIntroMs },
+    }),
+    policy,
+  };
+  const short: Variant = { ...m4Defaults(), policy };
+  const rows: string[][] = [];
+  for (const rounds of roundCounts) {
+    for (const players of setup.players) {
+      const before = durationMetrics(runVariant(full, players, { seeds: setup.seeds, rounds }));
+      const after = durationMetrics(runVariant(short, players, { seeds: setup.seeds, rounds }));
+      rows.push([
+        String(rounds),
+        String(players),
+        num(before.minutes),
+        num(after.minutes),
+        num(before.minutes - after.minutes),
+        num(after.minutesPerRound, 2),
+        pct(before.minigameShare),
+        pct(after.minigameShare),
+      ]);
+    }
+  }
+  return {
+    title: `EXP-011 Nachtrag (CHAOS-66): volle gegen kurze Anleitung bei Wiederholung, gemütlich (${seedText(setup)})`,
+    headers: [
+      'Runden',
+      'Sp.',
+      'min voll',
+      'min kurz',
+      'gespart (min)',
+      'min/Runde kurz',
+      'Anteil ohne Brettzüge voll',
+      'Anteil ohne Brettzüge kurz',
+    ],
+    rows,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // EXP-012 Wertung, Gleichstand, Aufholeffekt, Ökonomie
 // ---------------------------------------------------------------------------
@@ -577,6 +630,7 @@ export function sabotageGrowthExperiment(
 export function runM4Experiments(setup: ExperimentSetup = M4_SETUP): string {
   return [
     durationExperiment(setup),
+    repeatIntroExperiment(setup),
     scoringExperiment(setup),
     m4EconomyExperiment(setup),
     sabotageExperiment(setup),

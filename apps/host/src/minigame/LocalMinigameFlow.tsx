@@ -11,7 +11,13 @@ import { getMinigameModule } from '@chaos-party/minigames';
 import { useCallback, useEffect, useState } from 'react';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
 import { MinigameScreen } from './MinigameScreen.tsx';
-import { LOCAL_INTRO_MS, localRewards, localView, type LocalFlowState } from './localFlow.ts';
+import {
+  LOCAL_INTRO_MS,
+  LOCAL_REPEAT_INTRO_MS,
+  localRewards,
+  localView,
+  type LocalFlowState,
+} from './localFlow.ts';
 import { minigameStageOf } from './plan.ts';
 
 interface LocalMinigameFlowProps {
@@ -19,12 +25,20 @@ interface LocalMinigameFlowProps {
   readonly players: number;
   readonly seed: number;
   readonly test: boolean;
+  /** Als Wiederholung in der Partie zeigen: kurze Anleitung (`&repeat=1`, CHAOS-66). */
+  readonly repeat?: boolean;
 }
 
-export function LocalMinigameFlow({ id, players, seed, test }: LocalMinigameFlowProps) {
+export function LocalMinigameFlow({
+  id,
+  players,
+  seed,
+  test,
+  repeat = false,
+}: LocalMinigameFlowProps) {
   const module = getMinigameModule(id);
   const [state, setState] = useState<LocalFlowState & { readonly receivedAt: number }>(() => ({
-    view: localView(module?.info ?? { id, durationMs: 5_000 }, 'intro', { players, seed }),
+    view: localView(module?.info ?? { id, durationMs: 5_000 }, 'intro', { players, seed, repeat }),
     rewards: null,
     receivedAt: performance.now(),
   }));
@@ -36,33 +50,33 @@ export function LocalMinigameFlow({ id, players, seed, test }: LocalMinigameFlow
     setState((current) =>
       minigameStageOf(current.view) === 'intro'
         ? {
-            view: localView(module.info, 'play', { players, seed }),
+            view: localView(module.info, 'play', { players, seed, repeat }),
             rewards: null,
             receivedAt: performance.now(),
           }
         : current,
     );
-  }, [module, players, seed]);
+  }, [module, players, seed, repeat]);
 
   const onResult = useCallback(
     (result: MinigameResultPayload) => {
       if (!module) return;
       setState({
-        view: localView(module.info, 'results', { players, seed, result }),
+        view: localView(module.info, 'results', { players, seed, result, repeat }),
         rewards: localRewards(result),
         receivedAt: performance.now(),
       });
     },
-    [module, players, seed],
+    [module, players, seed, repeat],
   );
 
   useEffect(() => {
     if (test || stage !== 'intro') return;
-    const timer = setTimeout(toPlay, LOCAL_INTRO_MS);
+    const timer = setTimeout(toPlay, repeat ? LOCAL_REPEAT_INTRO_MS : LOCAL_INTRO_MS);
     return () => {
       clearTimeout(timer);
     };
-  }, [test, stage, toPlay]);
+  }, [test, stage, toPlay, repeat]);
 
   if (!module) {
     return (

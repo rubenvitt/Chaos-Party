@@ -101,9 +101,10 @@ export function roundOptions(settings: LobbySettings): RoundOption[] {
 
 /**
  * Minuten je Runde nach Spielerzahl (Brettzüge + Minispiel mit Anleitung und Ergebnis), aus der
- * Bot-Simulation mit gemütlichem Entscheidungstempo (EXP-011, CHAOS-40). Dazu kommt das Finale.
+ * Bot-Simulation mit gemütlichem Entscheidungstempo (EXP-011, CHAOS-40; seit CHAOS-66 mit kurzer
+ * Anleitung bei Wiederholung und vier Minispielen in der Rotation). Dazu kommt das Finale.
  */
-const MINUTES_PER_ROUND: Readonly<Record<2 | 3 | 4, number>> = { 2: 1.15, 3: 1.35, 4: 1.5 };
+const MINUTES_PER_ROUND: Readonly<Record<2 | 3 | 4, number>> = { 2: 1.1, 3: 1.3, 4: 1.45 };
 const FINALE_MINUTES = 0.35;
 
 /**

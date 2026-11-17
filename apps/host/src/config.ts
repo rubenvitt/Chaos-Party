@@ -46,6 +46,11 @@ export interface HostConfig {
    * für Screenshots von Anleitung und Ergebnis ohne Server.
    */
   readonly flow: boolean;
+  /**
+   * Mit `flow`: Minispiel gilt als Wiederholung in der Partie (`&repeat=1`, CHAOS-66) – kurze
+   * Anleitung, nur Titel und Bedienung.
+   */
+  readonly repeat: boolean;
   /** Ton aus (`?mute=1`, CHAOS-33). Im Testmodus ist der Ton immer aus. */
   readonly mute: boolean;
   /** Gesamtlautstärke 0–100 (`?volume=`), Standard 70. */
@@ -87,6 +92,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   demo: false,
   minigame: null,
   flow: false,
+  repeat: false,
   mute: false,
   volume: 70,
   finale: null,
@@ -125,6 +131,7 @@ export function parseHostConfig(search: string): HostConfig {
       ? params.get('minigame')
       : null,
     flow: flag(params.get('flow')),
+    repeat: flag(params.get('repeat')),
     mute: flag(params.get('mute')),
     volume: Number.isInteger(volume) ? Math.min(100, Math.max(0, volume)) : DEFAULT_CONFIG.volume,
     finale: FINALE_SPEEDS.find((speed) => speed === params.get('finale')) ?? null,

@@ -24,7 +24,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-008 | Look-Dev: drei moderne Stilrichtungen | CHAOS-56 | Mix aus A und C, etwas realistischer → EXP-009 |
 | EXP-009 | Look-Dev Runde 2: „Stilisierte Natur“ | CHAOS-57 | keep: Richtung bestätigt (Ruben, 2026-11-15); Lichtstimmung offen → EXP-010 |
 | EXP-010 | Lichtstimmung: je Brett, Uhrzeit oder Spielverlauf, inkl. Nacht | CHAOS-60 | keep C „Spielverlauf“ (Ruben, 2026-11-15); A und B discard |
-| EXP-011 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20 |
+| EXP-011 | Partiedauer und Runden-Vorschläge mit echten Minispielen | CHAOS-40, CHAOS-66 | Vorschläge 3/5/8 → **10/16/20**, Standard 5 → **10**; 40 min nicht unter `MAX_ROUNDS` 20; Nachtrag: kurze Anleitung bei Wiederholung (3 s) spart 0,4–1,1 min |
 | EXP-012 | Wertung, Gleichstandsregel, Aufholeffekt, Trophäen-Ökonomie | CHAOS-40 | keep: Preis 15, Minispiel 10/5/3/0; dritte Stufe (Minispiel-Siege) fast nie nötig |
 | EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 | EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
@@ -899,7 +899,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 - **Code:** `packages/game-core/src/rules/experimentsM4.ts` (Kennzahlen, Varianten, Tabellen), Bot-Partien in `simulate.ts`. Ohne `EXPERIMENTS=m4` läuft nur ein Smoke-Test (Teil von `pnpm test`).
 - **Seeds:** 1–200 je Zeile und Spielerzahl (2, 3, 4).
 - **Minispiele:** `ROTATION_SPECS` = Sockenregen (30 s), Pudding-Gerangel (30 s), Wackelturm (35 s); ein Test prüft Gleichheit mit dem Katalog (`@chaos-party/minigames/catalog`, dafür neue devDependency von game-core). game-core zieht je Runde eines ohne Wiederholung (wie im Server). Der Bot-„Host“ meldet das Ergebnis 0,5 s nach Spielende (`minigameResultDelayMs`). Punkte je Spieler gleichverteilt 0–40 (`minigameScoreSpread`), dadurch ist der 1. Platz in 2–5 % der Minispiele geteilt, wie bei den Prototypen in EXP-005 … 007 (1–15 %). Variante „Profi“: Slot 1 bekommt +10 Punkte (`minigameSkill`).
-- **Dauer** = Pacing (`stepMs` 350 usw.) + Entscheidungszeit + je Runde Anleitung 7 s + Spielzeit + Ergebnis 6 s + Rundenende 1,5 s, dazu pauschal **20 s Finale** (Trophäenzählung 2,2 s + 2,8 s je Platz + 3,4 s Sieger, ggf. 2,6 s Gleichstand). Die Lobby (QR, Figuren) zählt nicht. Entscheidungstempo **flott** = Bot-Standard 0,8–2,5 s je Prompt, **gemütlich** = 1,5–4,5 s (Menschen reden, lachen, suchen das Handy). Beides sind Annahmen.
+- **Dauer** = Pacing (`stepMs` 350 usw.) + Entscheidungszeit + je Runde Anleitung 7 s (seit CHAOS-66 bei Wiederholung 3 s) + Spielzeit + Ergebnis 6 s + Rundenende 1,5 s, dazu pauschal **20 s Finale** (Trophäenzählung 2,2 s + 2,8 s je Platz + 3,4 s Sieger, ggf. 2,6 s Gleichstand). Die Lobby (QR, Figuren) zählt nicht. Entscheidungstempo **flott** = Bot-Standard 0,8–2,5 s je Prompt, **gemütlich** = 1,5–4,5 s (Menschen reden, lachen, suchen das Handy). Beides sind Annahmen.
 - **Neu in der Simulation:** `SimulationOptions.minigames`, `BotPolicy.minigameResultDelayMs`/`minigameScoreSpread`/`minigameSkill`, `SimulationResult.midRanking` (Wertung nach Runde ⌊n/2⌋), `minigamesPlayed`, `minigameSharedWins`, `standings[].coinsEarned`. Ohne `minigames` ändert sich nichts (Platzhalter, gleiche Zufallsfolge), EXP-001 … 004 bleiben reproduzierbar.
 - **Testumgebung:** Node 22, Linux-Container, Basis-Commit `c4df936`, Ergebnisse vom Commit, der diese Einträge einführt.
 
@@ -958,6 +958,63 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 **Offen für Playtest:** Echte Dauer mit Stoppuhr (Menschen sind vermutlich langsamer als „gemütlich“: Erklären, Lachen, Nachfragen). Verdrängt der hohe Minispiel-Anteil das Brettspiel (VISION, Produktsäule 3)?
 
 **Für später (CHAOS-44):** Anleitung eines schon gespielten Minispiels kürzer zeigen (spart ≈ 4 s je Runde). Längere Partien erst mit mehr Minispielen und höherem `MAX_ROUNDS`.
+
+**Nachtrag 2026-11-17 (CHAOS-66): kurze Anleitung bei Wiederholung**
+
+Umgesetzt: Läuft ein Minispiel in der Partie zum zweiten (oder weiteren) Mal, dauert die Anleitung **3 s statt 7 s** (`pacing.minigameRepeatIntroMs`; fehlt der Wert, gilt `minigameIntroMs`). PC und Controller zeigen dann nur Titel, „Nochmal!“, Bedienlegende (und am PC Mitspieler und Countdown); Untertitel und Anleitungsschritte entfallen. Seit CHAOS-54 sind **vier** Minispiele in der Rotation (`ROTATION_SPECS` mit Kuckucks-Klatsche), daher wiederholt sich bei 10 Runden jedes 2–3-mal.
+
+Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeatIntroExperiment` in `experimentsM4.ts`). Die Spalten „voll“ simulieren dieselbe Rotation mit 7 s Anleitung bei jedem Vorkommen.
+
+**EXP-011 Nachtrag (CHAOS-66): volle gegen kurze Anleitung bei Wiederholung, gemütlich (Seeds 1–200 je Zeile)**
+
+| Runden | Sp. | min voll | min kurz | gespart (min) | min/Runde kurz | Anteil ohne Brettzüge voll | Anteil ohne Brettzüge kurz |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | 2 | 11,8 | 11,4 | 0,4 | 1,11 | 69 % | 68 % |
+| 10 | 3 | 13,6 | 13,2 | 0,4 | 1,29 | 60 % | 59 % |
+| 10 | 4 | 15,4 | 15,0 | 0,4 | 1,46 | 54 % | 53 % |
+| 16 | 2 | 18,8 | 18,0 | 0,8 | 1,10 | 69 % | 67 % |
+| 16 | 3 | 21,6 | 20,8 | 0,8 | 1,28 | 60 % | 59 % |
+| 16 | 4 | 24,4 | 23,6 | 0,8 | 1,46 | 54 % | 52 % |
+| 20 | 2 | 23,3 | 22,3 | 1,1 | 1,10 | 69 % | 67 % |
+| 20 | 3 | 26,9 | 25,8 | 1,1 | 1,27 | 60 % | 59 % |
+| 20 | 4 | 30,4 | 29,4 | 1,1 | 1,45 | 54 % | 52 % |
+
+**Aktuelle Partiedauer (Standard mit kurzer Anleitung, vier Minispiele, Seeds 1–200 je Zeile)**
+
+| Runden | Sp. | min flott | min gemütlich | p90 gemütlich | min/Runde gemütlich | Anteil ohne Brettzüge |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5 | 2 | 5,7 | 6,1 | 6,3 | 1,15 | 68 % |
+| 5 | 3 | 6,4 | 7,0 | 7,2 | 1,32 | 60 % |
+| 5 | 4 | 7,1 | 7,9 | 8,1 | 1,50 | 53 % |
+| 8 | 2 | 8,7 | 9,3 | 9,6 | 1,12 | 68 % |
+| 8 | 3 | 9,8 | 10,7 | 11,1 | 1,30 | 59 % |
+| 8 | 4 | 11,0 | 12,1 | 12,5 | 1,48 | 53 % |
+| 10 | 2 | 10,7 | 11,4 | 11,7 | 1,11 | 68 % |
+| 10 | 3 | 12,1 | 13,2 | 13,6 | 1,29 | 59 % |
+| 10 | 4 | 13,5 | 15,0 | 15,3 | 1,46 | 53 % |
+| 12 | 2 | 12,7 | 13,6 | 14,0 | 1,11 | 67 % |
+| 12 | 3 | 14,4 | 15,7 | 16,1 | 1,28 | 59 % |
+| 12 | 4 | 16,1 | 17,8 | 18,3 | 1,46 | 53 % |
+| 15 | 2 | 15,7 | 16,9 | 17,3 | 1,10 | 67 % |
+| 15 | 3 | 17,8 | 19,5 | 19,9 | 1,28 | 59 % |
+| 15 | 4 | 20,0 | 22,2 | 22,6 | 1,46 | 52 % |
+| 16 | 2 | 16,7 | 18,0 | 18,4 | 1,10 | 67 % |
+| 16 | 3 | 19,0 | 20,8 | 21,2 | 1,28 | 59 % |
+| 16 | 4 | 21,3 | 23,6 | 24,2 | 1,46 | 52 % |
+| 18 | 2 | 18,7 | 20,1 | 20,5 | 1,10 | 67 % |
+| 18 | 3 | 21,3 | 23,3 | 23,8 | 1,28 | 59 % |
+| 18 | 4 | 23,8 | 26,5 | 27,0 | 1,45 | 52 % |
+| 20 | 2 | 20,7 | 22,3 | 22,7 | 1,10 | 67 % |
+| 20 | 3 | 23,6 | 25,8 | 26,2 | 1,27 | 59 % |
+| 20 | 4 | 26,4 | 29,4 | 29,9 | 1,45 | 52 % |
+
+- Die kurze Anleitung spart **4 s je Wiederholung**: 0,4 min bei 10 Runden (6 Wiederholungen), 0,8 min bei 16 und 1,1 min bei 20 Runden. Das sind 3–4 % der Partie; der Anteil außerhalb der Brettzüge sinkt nur um 1–2 Prozentpunkte (52–68 %).
+- Die Runden-Vorschläge 10/16/20 bleiben passend (≈ 15/24/29 min mit 4 Spielern). Die Lobby-Schätzung rechnet jetzt mit 1,1/1,3/1,45 min je Runde für 2/3/4 Spieler (`apps/host/src/lobby/lobbyState.ts`); 20 Runden zu zweit zeigen damit „≈ 20 Min.“ statt „≈ 25 Min.“.
+- Der eigentliche Gewinn ist vermutlich nicht die Zeit, sondern dass niemand dieselbe Anleitung dreimal ganz lesen muss. Das zeigt erst der Playtest.
+
+**Entscheidung:** **keep** 3 s kurze Anleitung bei Wiederholung (Standard `minigameRepeatIntroMs: 3000`).
+
+**Offen für Playtest:** Reichen 3 s, um zu sehen, welches Minispiel kommt, und das Handy richtig zu halten? Vermisst jemand die Anleitung beim zweiten Mal (etwa nach langer Pause dazwischen)?
 
 ---
 

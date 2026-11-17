@@ -38,6 +38,7 @@ const content =
       players={config.players}
       seed={config.seed}
       test={config.test}
+      repeat={config.repeat}
     />
   );
 

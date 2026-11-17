@@ -52,7 +52,10 @@ const test = base.extend<{ chaosServer: RunningServer }>({
       joinCode: chaosJoinCode,
       game: {
         minigames: [{ id: INFO.id, playMs: PLAY_MS, scoring: INFO.scoring }],
-        rules: withRules({ pacing: { minigameIntroMs: INTRO_MS } }),
+        // Runde 2 wiederholt das Minispiel (CHAOS-66): kurze Anleitung, hier gleich lang für Ruhe.
+        rules: withRules({
+          pacing: { minigameIntroMs: INTRO_MS, minigameRepeatIntroMs: INTRO_MS },
+        }),
       },
     });
     try {
@@ -133,6 +136,7 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     // Anleitung: Titel, Untertitel, Bedienung mit Symbol und Text, Countdown, Mitspieler.
     const intro = host.getByTestId('minigame-intro');
     await expect(intro).toBeVisible();
+    await expect(intro).toHaveAttribute('data-repeat', 'false');
     await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'intro');
     await expect(host.locator('main.host')).toHaveAttribute('data-minigame', INFO.id);
     await expect(host.getByTestId('minigame-title')).toHaveText(INFO.title);
@@ -200,6 +204,28 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
         return host.getByTestId('board-round').textContent();
       })
       .toContain('2/2');
+
+    // Runde 2: dasselbe Minispiel noch einmal → kurze Anleitung am PC und am Handy (CHAOS-66).
+    const deadline2 = Date.now() + 120_000;
+    while ((await minigameStage(host)) === null) {
+      if (Date.now() > deadline2) throw new Error('Minispiel-Bühne erscheint in Runde 2 nicht');
+      for (const phone of [phone1, phone2]) await answerPrompt(phone);
+      await host.evaluate(() => {
+        window.__chaos?.board?.advance(1000);
+      });
+      await host.waitForTimeout(200);
+    }
+    await expect(intro).toHaveAttribute('data-repeat', 'true');
+    await expect(host.getByTestId('minigame-kicker')).toContainText('Nochmal!');
+    await expect(host.getByTestId('minigame-title')).toHaveText(INFO.title);
+    await expect(host.getByTestId('minigame-instructions')).toHaveCount(0);
+    await expect(intro).not.toContainText(INFO.tagline);
+    await expect(host.getByTestId('minigame-controls')).toBeVisible();
+    await expect(host.getByTestId('minigame-countdown')).toBeVisible();
+    const phoneIntro = phone1.getByTestId('minigame-intro');
+    await expect(phoneIntro).toHaveAttribute('data-repeat', 'true');
+    await expect(phone1.getByTestId('minigame-steps')).toHaveCount(0);
+    await expect(phone1.getByTestId('legend-a')).toBeVisible();
 
     expectNoProblems(hostProblems, 'Host');
     phoneProblems.forEach((problems, index) => {

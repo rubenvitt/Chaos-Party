@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { GameState, MinigamePlacement, MinigameSpec, StepResult } from '../types.ts';
 import { withRules, ZERO_PACING } from './defaults.ts';
 import { createGame, step } from './machine.ts';
-import { DEFAULT_MINIGAME_RESULT_GRACE_MS, PLACEHOLDER_MINIGAME } from './minigame.ts';
+import {
+  DEFAULT_MINIGAME_RESULT_GRACE_MS,
+  minigameIntroMs,
+  PLACEHOLDER_MINIGAME,
+} from './minigame.ts';
 import { loopBoard } from './testBoards.ts';
 import { choose, NAMES, ofType, playerAt, run, start, TEST_RULES, tick } from './testUtils.ts';
 import { toPublicView } from './view.ts';
@@ -14,6 +18,7 @@ const SPECS: readonly MinigameSpec[] = [
 ];
 
 const INTRO = 2_000;
+const REPEAT_INTRO = 800;
 const RESULTS = 3_000;
 
 function game(
@@ -28,7 +33,12 @@ function game(
     {
       diceFaces: [1],
       economy: { minigameRewards: [10, 5, 3, 0] },
-      pacing: { ...ZERO_PACING, minigameIntroMs: INTRO, minigameResultsMs: RESULTS },
+      pacing: {
+        ...ZERO_PACING,
+        minigameIntroMs: INTRO,
+        minigameRepeatIntroMs: REPEAT_INTRO,
+        minigameResultsMs: RESULTS,
+      },
     },
     TEST_RULES,
   );
@@ -101,6 +111,54 @@ describe('Minispiele in den Regeln (M3)', () => {
     let again = start(game({ rounds: 6, players: 2 }), 0).state;
     again = driveTo(again, 'minigame-intro');
     expect(again.minigame?.id).toBe(played[0]);
+  });
+
+  it('zeigt bei Wiederholung in der Partie die kurze Anleitung (CHAOS-66)', () => {
+    let state = start(game({ rounds: 6, players: 2 }), 0).state;
+    const seen: { id: string; repeat: boolean; introMs: number }[] = [];
+    for (let round = 1; round <= 6; round++) {
+      state = driveTo(state, 'minigame-intro');
+      const minigame = state.minigame;
+      if (!minigame) throw new Error('kein Minispiel');
+      seen.push({
+        id: minigame.id,
+        repeat: minigame.repeat,
+        introMs: (state.resumeAt ?? 0) - state.now,
+      });
+      expect(toPublicView(state).minigame?.repeat).toBe(minigame.repeat);
+      state = driveTo(state, 'minigame-play');
+      state = run(state, {
+        type: 'minigame-result',
+        minigameId: minigame.id,
+        round: minigame.round,
+        placements: [
+          { slot: 1, place: 1, score: 5 },
+          { slot: 2, place: 2, score: minigame.id === 'zeit-zocker' ? 9 : 1 },
+        ],
+        at: state.now + 500,
+      }).state;
+    }
+    // Runden 1–3: jedes Minispiel zum ersten Mal, volle Anleitung; danach nur Wiederholungen.
+    expect(seen.map((s) => s.repeat)).toEqual([false, false, false, true, true, true]);
+    expect(seen.map((s) => s.introMs)).toEqual([
+      INTRO,
+      INTRO,
+      INTRO,
+      REPEAT_INTRO,
+      REPEAT_INTRO,
+      REPEAT_INTRO,
+    ]);
+    for (const entry of seen.slice(3)) {
+      expect(seen.slice(0, 3).some((first) => first.id === entry.id)).toBe(true);
+    }
+  });
+
+  it('ohne `minigameRepeatIntroMs` bleibt es bei der vollen Anleitung', () => {
+    const pacing = { ...ZERO_PACING, minigameIntroMs: INTRO };
+    delete (pacing as { minigameRepeatIntroMs?: number }).minigameRepeatIntroMs;
+    expect(minigameIntroMs(pacing, true)).toBe(INTRO);
+    expect(minigameIntroMs({ ...pacing, minigameRepeatIntroMs: 500 }, true)).toBe(500);
+    expect(minigameIntroMs({ ...pacing, minigameRepeatIntroMs: 500 }, false)).toBe(INTRO);
   });
 
   it('übernimmt ein gültiges Ergebnis mit Gleichstand: gleicher Platz, gleiche Münzen', () => {
@@ -221,6 +279,7 @@ describe('Minispiele in den Regeln (M3)', () => {
     let state = start(game({ specs: [] }), 0).state;
     state = driveTo(state, 'minigame-intro');
     expect(state.minigame?.id).toBe(PLACEHOLDER_MINIGAME);
+    expect(state.minigame?.repeat).toBe(false);
     state = driveTo(state, 'minigame-results');
     expect(state.minigame?.placements?.length).toBe(3);
   });

@@ -189,6 +189,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | P5 | Pudding-Gerangel spielen | Kirschfleck als Ziel klar; Kippen/Rempeln/Löffel witzig statt frustrierend; Rückkehr nach Sturz klar | | |
 | P6 | Wackelturm spielen | Wackeln früh sichtbar; Kippen nachvollziehbar (nicht „grundlos“); Klauen witzig statt gemein | | |
 | P6a | Kuckucks-Klatsche spielen (CHAOS-54, nur Knopf A; Vorschau `/host/?local=1&minigame=kuckucks-klatsche&players=4`) | Eigene Tür (Farbe + Symbol) sofort gefunden; Kuckuck vs. Ente/Socke/Blume auf Sofa-Abstand unterscheidbar; weißer Gong-Ring als „jetzt darf jeder“ verstanden; Klauen und Benommenheit witzig statt gemein; fühlt sich „bei mir kam kaum was“ (Türglück) unfair an? Am geteilten iPad: großer A-Knopf je Zone reicht | | |
+| P6b | Minispiel zum zweiten Mal in derselben Partie (CHAOS-66; Vorschau `/host/?local=1&minigame=pump-parade&flow=1&repeat=1`) | PC und Handy/iPad-Zone zeigen „Nochmal!“, Titel und Bedienung ohne Anleitungsschritte; 3 s reichen, um zu erkennen, welches Minispiel kommt, und das Gerät richtig zu halten; niemand vermisst die Anleitung | | |
 | P7 | Eigene Figur im Gedränge finden | In allen Minispielen jederzeit klar, wer man ist (Farbe + Symbol + Figur) | | |
 | P8 | Ergebnisanzeige | Plätze, Punkte, Münzen und Gleichstand sofort klar; 6 s reichen zum Lesen | | |
 | P9 | Ton (Lautsprecher/Fernseher) | Klänge passen, nerven nicht, nicht zu laut; `?volume=` / `?mute=1` wirken | | |
