@@ -138,7 +138,7 @@ final class HostRuntime: ObservableObject {
         guard ready else { return }
         guard !busy else { skipped += 1; return }
         busy = true
-        let now = Date().timeIntervalSince1970 * 1000
+        let now = CACurrentMediaTime() * 1000 // monotonic, as jscore expects
         queue.async {
             let t0 = CACurrentMediaTime()
             _ = self.instance?.invokeMethod("tick", withArguments: [now])
