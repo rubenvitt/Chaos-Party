@@ -1755,9 +1755,28 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 
 **Stand 2026-11-17:** Prototyp und Messreihen-Skript geschrieben, **noch nicht gemessen.** Die CI (Xcode 26.6, SDK 26.5) baut den Spike für macOS, iOS und tvOS ohne Fehler. Das tvOS-SDK 26.5 enthält kein MetalFX, dort ist nur der bilineare Weg übersetzt. Gelaufen ist der Pfad noch nirgends. Die Auswertung des Skripts ist mit Beispiel-Logs geprüft. Nebenbefund zu EXP-017: Die seriellen Offscreen-Werte (720p 33,2 ms ≈ zwei Bildwechsel bei 60 Hz) sind vermutlich an den Anzeigetakt gebunden und unterschätzen die Reserve. Die überlappende Schleife misst das sauberer.
 
-**Ergebnisse:** offen (Ruben misst, Gerätecheckliste §18, Messbogen R16–R19 in [`renderer-spike.md`](renderer-spike.md)).
+**Ergebnisse (17.11.2026, echte Apple TV 4K, tvOS 27.3, Ausgabe 3840×2160 bei 60 Hz, je 20 s, Metal-HUD):** Gemessen von Claude am Mac über `devicectl` (`messreihe-atv.sh` plus Zusatzläufe), Rohdaten im Scratchpad der Sitzung, Zusammenfassung hier und in R16–R20.
 
-**Entscheidung:** offen. Kriterium aus CHAOS-114: 4K-Ausgabe mit ≥ 30 fps stabil, Ziel 60 fps.
+- **MetalFX ist auf der Apple TV nicht verfügbar:** Auf tvOS 27.3 mit A15 scheitert `MTLFXSpatialScaler` (Log: „nicht verfügbar für dieses Gerät/Format“), alle `metalfx`-Varianten liefen bilinear. Ob `supportsDevice` oder das Format `bgra8Unorm_srgb` scheitert, ist offen.
+- **Diagnose bei nativer 4K** (GPU je Bild, Median / p95): alles an 37,4 / 87,5 ms · MSAA aus 28,2 / 63,8 · Gras aus 25,7 / 58,8 · Schatten aus 32,7 / 68,2 · Tonemapping aus 36,9 · IBL aus 38,0 · `material=einfach` 37,1 · `unbeleuchtet` 17,8 / 33,6 · alles aus 6,6 / 7,2 ms (60 fps). Die Kosten verteilen sich auf Beleuchtung/PBR, MSAA und Gras; Tonemapping, IBL und Materialvarianten zählen kaum.
+- **Hochskaliert** (Anzeige-fps, GPU Median / p95):
+
+| Variante | intern | MSAA | im Flug | fps | GPU ms | ausgelassene Takte |
+|---|---|---|---|---|---|---|
+| ARView (Bezug) | nativ | ? | – | 19,0 | 34,5 / 41,6 | – |
+| `hoch-0.5` | 1920×1080 | 4× | 2 | 35,4–35,8 | 22,3 / 47,0 | 558 |
+| `hoch-0.5`, im Flug 3 | 1920×1080 | 4× | 3 | 42,6–44,7 | 21–23,5 / 48–50 | 346–386 |
+| `hoch-0.5`, MSAA aus | 1920×1080 | aus | 2 | 39,9 | 14,6–14,9 / 36 | 453–456 |
+| **`hoch-0.5`, MSAA aus, im Flug 3** | **1920×1080** | **aus** | **3** | **59,9** | **14,4–14,9 / 15,0–31,3** | **2–5** |
+| `hoch-0.667`, MSAA aus, im Flug 3 | 2562×1440 | aus | 3 | 49,2 | 20,8 / 43,2 | 233 |
+| `hoch-0.667` | 2562×1440 | 4× | 2 | 27,7 | 29,2 / 60,9 | 740 |
+| `hoch-0.5`, im Flug 1 | 1920×1080 | 4× | 1 | 12,1 | 53,5 | 1097 |
+
+- **Bestätigung über 60 s** (`--skala=0.5 --msaa=0 --imflug=3`, bilinear): 59,94 fps, 3598 Bilder, größter Bildabstand **16,69 ms**, 5 ausgelassene Takte, 0 nicht angezeigt. Die Zusatzschalter Schatten, Gras, IBL und Tonemapping ändern in dieser Variante nichts (alle 59,9 fps).
+- **Preis:** Von der Übergabe bis zum fertigen Bild vergehen 37,5 ms (p95 40,2 ms), also gut zwei Bilder Verzögerung durch drei Bilder im Flug. Das Bild ist ohne MSAA und mit bilinearer Hochskalierung weicher als die ARView. Wie das am Fernseher aus Sofa-Abstand wirkt, ist Rubens Urteil (Checkliste RK11).
+- Nicht gemacht: Instruments (Metal System Trace, RK12); die Diagnose-Schalter haben die Kostenblöcke schon getrennt.
+
+**Entscheidung:** **keep.** Kriterium aus CHAOS-114 (4K-Ausgabe ≥ 30 fps stabil, Ziel 60) ist erreicht: Intern 1920×1080 ohne MSAA, drei Bilder im Flug, bilinear auf 4K hält **60 fps** mit voller Szene. Das wird die Standard-Grafikstufe des nativen Hosts auf der Apple TV (CHAOS-142, CHAOS-147). Offen: Schärfe-Urteil am Fernseher (RK11), MetalFX auf tvOS (warum nicht verfügbar), Kantenglättung ohne MSAA (z. B. FXAA-Durchgang nach dem Hochskalieren) falls die Kanten stören.
 
 ---
 
