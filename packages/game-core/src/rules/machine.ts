@@ -88,6 +88,12 @@ function assertConfig(config: GameConfig): void {
   if (!Number.isInteger(rules.items.startItems) || rules.items.startItems < 0) {
     throw new RangeError('items.startItems muss eine ganze Zahl ≥ 0 sein');
   }
+  for (const key of ['minigameWinItems', 'minigameLastItems'] as const) {
+    const count = rules.items[key] ?? 0;
+    if (!Number.isInteger(count) || count < 0) {
+      throw new RangeError(`items.${key} muss eine ganze Zahl ≥ 0 sein`);
+    }
+  }
   if (!Number.isInteger(rules.items.sabotageGrowthRounds) || rules.items.sabotageGrowthRounds < 0) {
     throw new RangeError('items.sabotageGrowthRounds muss eine ganze Zahl ≥ 0 sein');
   }

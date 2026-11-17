@@ -120,7 +120,7 @@ function sendMinigame(
   slot: SlotNumber,
   info: Info,
   stage: ControllerMinigameInfo['stage'],
-  result: { place?: number; score?: number } = {},
+  result: Partial<Pick<ControllerMinigameInfo, 'place' | 'score' | 'reward' | 'prizes'>> = {},
 ) {
   const play = stage === 'play';
   fake.send(
@@ -370,6 +370,15 @@ test('Nur Knöpfe (Pump-Parade): kein Joystick, ein großer Knopf; Ergebnis und 
   sendMinigame(fake, 1, PUMPEN, 'results', { place: 3, score: 1234 });
   await expect(page.getByTestId('result-place')).toHaveText('Platz 3!');
   await expect(page.getByTestId('result-score')).toHaveText('1.234 Pumpstöße');
+  await expect(page.getByTestId('result-prize')).toHaveCount(0);
+
+  // Letzter Platz mit Trostpreis (CHAOS-51, EXP-019): Item neben den Münzen.
+  sendMinigame(fake, 1, PUMPEN, 'results', { place: 4, score: 3, reward: 0, prizes: ['trap'] });
+  await expect(page.getByTestId('result-place')).toHaveText('Platz 4!');
+  await expect(page.getByTestId('result-prize')).toHaveAttribute('data-items', 'trap');
+  await expect(page.getByTestId('result-prize')).toHaveText('Trostpreis: Falle');
+  await expectInside(page.getByTestId('minigame-result'), viewportBox(page));
+  await expect(page).toHaveScreenshot('minispiel-trostpreis.png', { mask: screenshotMask(page) });
 
   // Abbruch: kein Platz, keine Punkte, klarer Hinweis.
   sendMinigame(fake, 1, PUMPEN, 'results');

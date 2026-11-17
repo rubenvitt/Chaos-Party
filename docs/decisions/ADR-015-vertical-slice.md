@@ -54,6 +54,7 @@ Host → Server `rematch`, nur wenn das Brettspiel im Endstand ist (sonst `out-o
 
 - `BoardView.minigame.rewards: { slot, coins }[] | null` – tatsächlich ausgezahlte Münzen, `null` vor dem Ergebnis, leer bei Abbruch. Nach einem Host-Neuladen ist die Ergebnisanzeige damit vollständig.
 - Controller-Minispiel-Kontext: `tied`, `aborted` (Pflicht), `reward?` (eigene Münzen im Ergebnis).
+- Seit Nachtrag 4: `rewards[].items?` und Controller-`prizes?` für Items aus dem Ergebnis (Trostpreis).
 - Server → Host **`minigame-result-ack { minigameId, round, accepted, code? }`** auf jedes `minigame-result`. Bei Ablehnung kommt zusätzlich wie bisher `error` (`invalid-result` bzw. `out-of-phase`); der Host kann am `ack` (Runde/ID) erkennen, ob er erneut senden muss.
 
 ### 7. Reconnect
@@ -152,3 +153,12 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 - Nach dem Neuladen sehen Controller `board.paused`, bis die Host-Bühne steht (Joystick/Knöpfe verschwinden so lange). Keine Restzeit geht beim Laden verloren.
 - Ein Server ohne CHAOS-68 wiese `host-ready` als ungültig ab (zählt zu den 20 ungültigen Nachrichten bis zur Trennung). Host und Server kommen aus demselben Build; gemischte Stände sind nicht vorgesehen.
 - Tests: `apps/server/src/hostLoss.integration.test.ts` („Host lädt nach der Rückkehr noch“), `apps/host/src/net/hostConnection.test.ts`, `apps/host/src/minigame/plan.test.ts`, `packages/protocol/src/v4.test.ts`, E2E `m3-minispiel-durchstich.spec.ts` (Figuren 3 s zurückgehalten: Server bleibt pausiert, danach Neustart mit voller Restzeit).
+
+## Nachtrag 4 (2026-11-17, CHAOS-51): Trostpreis im Minispiel-Ergebnis
+
+EXP-019 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.minigameLastItems: 1`). Damit PC und Controller das zeigen können, auch nach einem Neuladen, trägt der Stand die Items:
+
+- `BoardView.minigame.rewards[].items?: ItemKind[]` (1–4, fehlt ohne Item).
+- Controller-Minispiel-Kontext `prizes?: ItemKind[]` (eigene Items aus dem Ergebnis, nur in `results`).
+
+Beide Felder sind optional; die Protokollversion bleibt 4, weil Host, Server und Controller immer aus demselben Build kommen. Die Items kommen zusätzlich wie jedes gezogene Item als `item-gained` nach `minigame-results`.

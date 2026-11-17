@@ -15,6 +15,8 @@
  * (vergebene Figuren mit Besitzer-Slot, optional).
  * v4-Nachtrag (CHAOS-68, additiv, ohne Versionssprung): Host-Nachricht `host-ready` (Szene und
  * Figuren geladen); erst danach setzt der Server eine Auto-Pause nach Host-Verlust fort.
+ * v4-Nachtrag (CHAOS-51, additiv, ohne Versionssprung): Trostpreis im Minispiel-Ergebnis –
+ * `BoardView.minigame.rewards[].items` und Minispiel-Kontext `prizes` (beide optional).
  */
 export const PROTOCOL_VERSION = 4;
 

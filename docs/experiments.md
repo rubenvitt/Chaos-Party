@@ -30,6 +30,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
 | EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
 | EXP-018 | Wachsende Sabotage über die Partiedauer | CHAOS-67 | keep F: Klau 5/Falle 4, **+1 alle 5 Runden**; Klau 6/Falle 5 fest discard (Anfang zu hart) |
+| EXP-019 | Zurückgestellte Balance-Ideen (Würfel 2–7, Trophäen-Ziel, Item nach dem Minispiel, Schild/Fallen) | CHAOS-51 | keep **Trostpreis**: 1 Item für den letzten Minispiel-Platz (neuer Standard); Sieg-Item, W 2–7, Schild gegen Fallen discard; `ahead` iterate; Fallen bleiben sichtbar |
 
 ---
 
@@ -1506,3 +1507,159 @@ EXPERIMENTS=growth pnpm exec vitest run packages/game-core/src/rules/experiments
 Die Aufgabe sah „nach Playtest-Feedback“ vor. Die Sabotage-Frage aus der M4-Abnahme (CHAOS-43, Frage 4) blieb unbeantwortet, weil die Partie auf Rubens Hardware ruckelte. Die Entscheidung beruht deshalb nur auf der Simulation. Sie ist klein, lässt sich mit einem Wert zurücknehmen und gehört in den nächsten Playtest.
 
 **Offen für Playtest:** Fühlt sich das Ende mit 6–8 Münzen Klau spannender an oder gemeiner? Fällt das Wachsen überhaupt auf? Der Host kündigt es bisher nicht an, nur der Controller zeigt den höheren Wert (Idee: CHAOS-120 im Backlog CHAOS-44). Die Falle zahlt den Wert der Runde, in der sie auslöst; wer sie in Runde 5 legt, sieht dort noch „Kostet andere 4 Münzen“, auch wenn sie erst in Runde 6 fünf Münzen bringt.
+
+---
+
+## EXP-019: Zurückgestellte Balance-Ideen aus EXP-001 … EXP-004 mit dem M4-Stand (2026-11-17, CHAOS-51)
+
+**Hypothese / gewünschtes Spielerlebnis:** Bei den M2-Experimenten zurückgestellte Ideen könnten zwei offene Punkte aus M4 verbessern: In kurzen Partien bleiben Spieler ohne Trophäe („tote“ Trophäen hinter allen Figuren), und Sabotage ist zu zweit selten (EXP-013: etwa alle 6 Runden). Gewünscht sind mehr überraschende Wendungen (VISION: „laugh at unexpected reversals“), ohne dass Sabotage gnadenlos wird oder gute Minispieler davonziehen.
+
+**Stand der sieben Ideen aus CHAOS-51:**
+
+| Idee | Herkunft | Stand |
+|---|---|---|
+| Würfel 2–7 für kurze Partien | EXP-001 D | geprüft, Tabelle A |
+| Runden-Voreinstellungen kurz/normal/lang | EXP-001 | **schon erledigt** durch EXP-011 (10/16/20, Standard 10) |
+| Trophäe wandert bevorzugt vor die Spieler | EXP-002 | geprüft, Tabelle B (dazu „vor die Letzten“ als Aufholhilfe, CHAOS-65) |
+| Ökonomie mit echten Minispielen neu bewerten | EXP-002 | **schon erledigt** durch EXP-012 (Preis 15, 10/5/3/0 bleiben) |
+| Item als Bonus für den Minispiel-Sieg | EXP-003 | geprüft, Tabelle C (dazu neu: Item als Trostpreis für den letzten Platz) |
+| Schild auch gegen Fallen; sichtbare vs. versteckte Fallen | EXP-003 | geprüft, Tabelle D |
+| Hinweiston am Controller; längeres Reaktionsfenster als Barrierefreiheit | EXP-004 | keine Balance-Frage, eigene Aufgaben CHAOS-122 und CHAOS-124 (unter CHAOS-44) |
+
+**Varianten (neue Regel-Stellschrauben in `packages/game-core`, fehlen = bisheriges Verhalten):**
+
+- `trophy.placement`: `random` (Stand), `ahead` (die nähere Hälfte der freien Kandidaten, gemessen am kürzesten Weg vorwärts von der nächsten Figur), `ahead-of-last` (dasselbe nur von den Letztplatzierten).
+- `items.minigameWinItems` / `items.minigameLastItems`: so viele zufällige Items für den 1. bzw. den letzten Platz im Minispiel (geteilt: alle; sind alle gleichauf, gibt es keinen letzten Platz). Kapazität wie auf Item-Feldern.
+- `items.shieldBlocksTrap`: ein gehaltener Schild fängt eine fremde Falle automatisch ab (ohne Reaktionsfenster).
+- Bot-Policy `avoidTrapChance` (nur Simulation): Fallen sind sichtbar, Bots meiden an Gabeln zu 75 % Wege mit einer fremden Falle in den nächsten 6 Feldern. Ohne das (Stand) verhalten sich Bots wie bei versteckten Fallen.
+
+**Aufbau:** wie EXP-011 … EXP-013 (Wackelwald, Minispiel-Rotation, Bots `EXPERIMENT_POLICY`), Basis `M4_RULES` = `DEFAULT_RULES` ohne Trostpreis, also mit der wachsenden Sabotage aus EXP-018 (CHAOS-67). Seeds 1–200 je Zeile, 2/3/4 Spieler. Wiederholen (≈ 8 s):
+
+```sh
+EXPERIMENTS=balance pnpm exec vitest run packages/game-core/src/rules/experimentsBalance.test.ts --silent=false
+```
+
+Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6a` (main mit EXP-018), Ergebnisse vom Merge-Commit, der diesen Eintrag auf diese Basis bringt. Ein erster Lauf ohne EXP-018 (Basis `3703994`) ergab dieselben Entscheidungen; die wachsende Sabotage greift erst ab Runde 6.
+
+**Messgrößen:** Trophäen je Partie, Züge je gekaufter Trophäe, Anteil Spieler ohne Trophäe, Sieg per Trophäen, Aufholeffekt (Halbzeit-Führender bzw. -Letzter gewinnt), Sabotagen je Partie und Runde, Verlust durch Sabotage relativ zu den Einnahmen, Vorteil eines Minispiel-Profis (Slot 1 +10 Punkte), Partiedauer.
+
+**Ergebnisse:**
+
+**EXP-019 A Würfel 2–7 mit Rotation (Seeds 1–200 je Zeile)**
+| Runden | Variante | Sp. | min | Felder/Zug | Trophäen/Partie | ohne Trophäe | Sieg per Trophäen | Führender (Hälfte) gewinnt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 5 | A: W6 1–6 (Stand M4) | 2 | 5,7 | 3,8 | 2,45 | 20 % | 74 % | 71 % |
+| 5 | A: W6 1–6 (Stand M4) | 3 | 6,4 | 3,7 | 2,86 | 28 % | 55 % | 44 % |
+| 5 | A: W6 1–6 (Stand M4) | 4 | 7,2 | 3,7 | 3,06 | 37 % | 43 % | 41 % |
+| 5 | B: Würfel 2–7 | 2 | 5,8 | 4,9 | 3,01 | 10 % | 71 % | 62 % |
+| 5 | B: Würfel 2–7 | 3 | 6,6 | 4,8 | 3,42 | 20 % | 57 % | 55 % |
+| 5 | B: Würfel 2–7 | 4 | 7,4 | 4,9 | 3,94 | 26 % | 54 % | 51 % |
+| 10 | A: W6 1–6 (Stand M4) | 2 | 11,1 | 3,7 | 5,01 | 6 % | 85 % | 76 % |
+| 10 | A: W6 1–6 (Stand M4) | 3 | 12,5 | 3,7 | 5,99 | 10 % | 72 % | 59 % |
+| 10 | A: W6 1–6 (Stand M4) | 4 | 13,9 | 3,7 | 6,51 | 15 % | 67 % | 55 % |
+| 10 | B: Würfel 2–7 | 2 | 11,3 | 4,8 | 6,67 | 2 % | 86 % | 76 % |
+| 10 | B: Würfel 2–7 | 3 | 12,8 | 4,7 | 7,82 | 6 % | 70 % | 59 % |
+| 10 | B: Würfel 2–7 | 4 | 14,3 | 4,8 | 8,79 | 7 % | 68 % | 55 % |
+**EXP-019 B Ziel der wandernden Trophäe (Seeds 1–200 je Zeile)**
+| Runden | Variante | Sp. | Trophäen/Partie | Züge je Trophäe | ohne Trophäe | Abstand Erste–Letzte | Sieg per Trophäen | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 5 | A: zufällig (Stand M4) | 2 | 2,45 | 4,1 | 20 % | 1,02 | 74 % | 71 % | 29 % | 50 % |
+| 5 | A: zufällig (Stand M4) | 3 | 2,86 | 5,2 | 28 % | 1,21 | 55 % | 44 % | 23 % | 33 % |
+| 5 | A: zufällig (Stand M4) | 4 | 3,06 | 6,5 | 37 % | 1,33 | 43 % | 41 % | 10 % | 25 % |
+| 5 | B: vor die Spieler | 2 | 2,71 | 3,7 | 16 % | 1,00 | 74 % | 71 % | 29 % | 50 % |
+| 5 | B: vor die Spieler | 3 | 3,19 | 4,7 | 24 % | 1,24 | 56 % | 45 % | 22 % | 33 % |
+| 5 | B: vor die Spieler | 4 | 3,60 | 5,6 | 29 % | 1,35 | 50 % | 38 % | 13 % | 25 % |
+| 5 | C: vor die Letzten | 2 | 2,69 | 3,7 | 16 % | 0,96 | 71 % | 73 % | 27 % | 50 % |
+| 5 | C: vor die Letzten | 3 | 3,06 | 4,9 | 25 % | 1,21 | 60 % | 46 % | 23 % | 33 % |
+| 5 | C: vor die Letzten | 4 | 3,28 | 6,1 | 34 % | 1,35 | 50 % | 37 % | 13 % | 25 % |
+| 10 | A: zufällig (Stand M4) | 2 | 5,01 | 4,0 | 6 % | 1,71 | 85 % | 76 % | 24 % | 50 % |
+| 10 | A: zufällig (Stand M4) | 3 | 5,99 | 5,0 | 10 % | 2,08 | 72 % | 59 % | 14 % | 33 % |
+| 10 | A: zufällig (Stand M4) | 4 | 6,51 | 6,1 | 15 % | 2,21 | 67 % | 55 % | 6 % | 25 % |
+| 10 | B: vor die Spieler | 2 | 5,59 | 3,6 | 3 % | 1,52 | 78 % | 79 % | 22 % | 50 % |
+| 10 | B: vor die Spieler | 3 | 7,08 | 4,2 | 7 % | 2,04 | 73 % | 60 % | 14 % | 33 % |
+| 10 | B: vor die Spieler | 4 | 7,67 | 5,2 | 9 % | 2,14 | 58 % | 55 % | 7 % | 25 % |
+| 10 | C: vor die Letzten | 2 | 5,53 | 3,6 | 3 % | 1,49 | 77 % | 77 % | 23 % | 50 % |
+| 10 | C: vor die Letzten | 3 | 6,54 | 4,6 | 9 % | 2,06 | 70 % | 58 % | 15 % | 33 % |
+| 10 | C: vor die Letzten | 4 | 6,95 | 5,8 | 11 % | 2,07 | 65 % | 55 % | 8 % | 25 % |
+| 20 | A: zufällig (Stand M4) | 2 | 11,71 | 3,4 | 0 % | 2,75 | 91 % | 80 % | 21 % | 50 % |
+| 20 | A: zufällig (Stand M4) | 3 | 14,41 | 4,2 | 0 % | 3,78 | 84 % | 64 % | 11 % | 33 % |
+| 20 | A: zufällig (Stand M4) | 4 | 16,74 | 4,8 | 1 % | 3,79 | 80 % | 55 % | 6 % | 25 % |
+| 20 | B: vor die Spieler | 2 | 12,76 | 3,1 | 0 % | 2,51 | 88 % | 75 % | 26 % | 50 % |
+| 20 | B: vor die Spieler | 3 | 16,91 | 3,5 | 0 % | 3,31 | 75 % | 65 % | 10 % | 33 % |
+| 20 | B: vor die Spieler | 4 | 19,30 | 4,1 | 0 % | 3,27 | 71 % | 52 % | 8 % | 25 % |
+| 20 | C: vor die Letzten | 2 | 12,80 | 3,1 | 0 % | 2,36 | 87 % | 72 % | 28 % | 50 % |
+| 20 | C: vor die Letzten | 3 | 16,05 | 3,7 | 0 % | 3,35 | 81 % | 59 % | 16 % | 33 % |
+| 20 | C: vor die Letzten | 4 | 18,18 | 4,4 | 0 % | 3,26 | 79 % | 55 % | 7 % | 25 % |
+**EXP-019 C Item für den Minispiel-Sieg oder den letzten Platz (Seeds 1–200 je Zeile)**
+| Runden | Variante | Sp. | min | Items/Spieler | Sabotagen/Partie | je Runde | Verlust/Einnahmen | Trophäen/Partie | Führender (Hälfte) gewinnt | Siege Slot 1 | fair 1/n |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: kein Item (Stand M4) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,01 | 76 % | 55 % | 50 % |
+| 10 | A: kein Item (Stand M4) | 3 | 12,5 | 2,4 | 2,86 | 0,29 | 5 % | 5,99 | 59 % | 38 % | 33 % |
+| 10 | A: kein Item (Stand M4) | 4 | 13,9 | 2,4 | 3,92 | 0,39 | 6 % | 6,51 | 55 % | 26 % | 25 % |
+| 10 | B: 1 Item für den Sieg | 2 | 11,3 | 6,3 | 3,53 | 0,35 | 6 % | 5,35 | 74 % | 43 % | 50 % |
+| 10 | B: 1 Item für den Sieg | 3 | 12,8 | 5,3 | 5,18 | 0,52 | 8 % | 6,31 | 65 % | 37 % | 33 % |
+| 10 | B: 1 Item für den Sieg | 4 | 14,3 | 4,7 | 6,82 | 0,68 | 10 % | 6,95 | 59 % | 26 % | 25 % |
+| 10 | L: 1 Item für den letzten Platz | 2 | 11,4 | 6,3 | 3,80 | 0,38 | 7 % | 5,29 | 71 % | 45 % | 50 % |
+| 10 | L: 1 Item für den letzten Platz | 3 | 12,8 | 5,3 | 5,38 | 0,54 | 8 % | 6,29 | 56 % | 37 % | 33 % |
+| 10 | L: 1 Item für den letzten Platz | 4 | 14,3 | 4,7 | 6,69 | 0,67 | 10 % | 7,32 | 55 % | 26 % | 25 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 2 | 11,1 | 2,4 | 1,73 | 0,17 | 3 % | 5,07 | 72 % | 66 % | 50 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 3 | 12,5 | 2,4 | 2,92 | 0,29 | 5 % | 5,96 | 66 % | 53 % | 33 % |
+| 10 | P: Stand, Slot 1 Profi (+10) | 4 | 13,9 | 2,4 | 3,98 | 0,40 | 6 % | 6,57 | 60 % | 43 % | 25 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 11,3 | 6,0 | 3,44 | 0,34 | 7 % | 5,30 | 72 % | 63 % | 50 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,08 | 0,51 | 8 % | 6,42 | 65 % | 53 % | 33 % |
+| 10 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 14,2 | 4,6 | 6,47 | 0,65 | 9 % | 7,01 | 57 % | 50 % | 25 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 11,4 | 6,0 | 3,58 | 0,36 | 7 % | 5,25 | 68 % | 54 % | 50 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 12,8 | 5,2 | 5,15 | 0,51 | 8 % | 6,27 | 59 % | 39 % | 33 % |
+| 10 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 14,3 | 4,7 | 6,75 | 0,67 | 10 % | 7,16 | 53 % | 39 % | 25 % |
+| 20 | A: kein Item (Stand M4) | 2 | 21,8 | 3,7 | 3,22 | 0,16 | 4 % | 11,71 | 80 % | 53 % | 50 % |
+| 20 | A: kein Item (Stand M4) | 3 | 24,6 | 3,8 | 5,29 | 0,26 | 5 % | 14,41 | 64 % | 38 % | 33 % |
+| 20 | A: kein Item (Stand M4) | 4 | 27,5 | 3,8 | 7,08 | 0,35 | 6 % | 16,74 | 55 % | 26 % | 25 % |
+| 20 | B: 1 Item für den Sieg | 2 | 22,5 | 10,6 | 8,56 | 0,43 | 10 % | 12,48 | 75 % | 44 % | 50 % |
+| 20 | B: 1 Item für den Sieg | 3 | 25,5 | 9,0 | 11,68 | 0,58 | 11 % | 15,56 | 66 % | 36 % | 33 % |
+| 20 | B: 1 Item für den Sieg | 4 | 28,4 | 8,0 | 14,38 | 0,72 | 12 % | 18,20 | 57 % | 27 % | 25 % |
+| 20 | L: 1 Item für den letzten Platz | 2 | 22,5 | 10,6 | 8,59 | 0,43 | 10 % | 12,59 | 76 % | 51 % | 50 % |
+| 20 | L: 1 Item für den letzten Platz | 3 | 25,5 | 9,0 | 12,11 | 0,61 | 11 % | 15,68 | 57 % | 31 % | 33 % |
+| 20 | L: 1 Item für den letzten Platz | 4 | 28,4 | 8,0 | 14,41 | 0,72 | 12 % | 18,45 | 52 % | 24 % | 25 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 2 | 21,8 | 3,7 | 3,23 | 0,16 | 4 % | 11,71 | 77 % | 62 % | 50 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 3 | 24,6 | 3,8 | 5,15 | 0,26 | 5 % | 14,52 | 65 % | 45 % | 33 % |
+| 20 | P: Stand, Slot 1 Profi (+10) | 4 | 27,5 | 3,8 | 7,18 | 0,36 | 6 % | 16,86 | 56 % | 43 % | 25 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 2 | 22,4 | 10,1 | 8,13 | 0,41 | 9 % | 12,65 | 80 % | 61 % | 50 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 3 | 25,4 | 8,6 | 11,07 | 0,55 | 10 % | 16,11 | 74 % | 56 % | 33 % |
+| 20 | Q: 1 Item für den Sieg, Slot 1 Profi | 4 | 28,3 | 7,8 | 13,81 | 0,69 | 12 % | 17,98 | 59 % | 59 % | 25 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 2 | 22,4 | 10,0 | 8,32 | 0,42 | 9 % | 12,21 | 75 % | 56 % | 50 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 3 | 25,4 | 8,5 | 11,34 | 0,57 | 11 % | 15,55 | 59 % | 33 % | 33 % |
+| 20 | R: 1 Item für den letzten Platz, Slot 1 Profi | 4 | 28,3 | 7,7 | 14,06 | 0,70 | 12 % | 17,98 | 54 % | 38 % | 25 % |
+**EXP-019 D Schild gegen Fallen, sichtbare Fallen (Seeds 1–200 je Zeile)**
+| Runden | Variante | Sp. | Fallen gelegt | ausgelöst | per Schild abgewehrt | getroffen/gelegt | Schild gegen Klau | Sabotagen/Partie | Verlust/Einnahmen | Spitzenopfer Münzen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 2 | 1,08 | 0,49 | 0,00 | 46 % | 0,17 | 1,73 | 3 % | 4,7 |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 3 | 1,77 | 1,14 | 0,00 | 64 % | 0,23 | 2,86 | 5 % | 7,1 |
+| 10 | A: Schild nur gegen Klau, Fallen egal (Stand M4) | 4 | 2,17 | 1,64 | 0,00 | 75 % | 0,26 | 3,92 | 6 % | 8,3 |
+| 10 | B: Schild auch gegen Fallen | 2 | 1,08 | 0,39 | 0,10 | 46 % | 0,17 | 1,63 | 3 % | 4,4 |
+| 10 | B: Schild auch gegen Fallen | 3 | 1,76 | 0,88 | 0,25 | 64 % | 0,22 | 2,60 | 4 % | 6,5 |
+| 10 | B: Schild auch gegen Fallen | 4 | 2,17 | 1,25 | 0,39 | 75 % | 0,24 | 3,55 | 5 % | 7,8 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 2 | 1,10 | 0,50 | 0,00 | 45 % | 0,18 | 1,68 | 3 % | 4,8 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 3 | 1,70 | 1,07 | 0,00 | 63 % | 0,24 | 2,75 | 5 % | 6,7 |
+| 10 | C: Fallen sichtbar, Bots weichen aus | 4 | 2,21 | 1,53 | 0,00 | 69 % | 0,23 | 3,54 | 5 % | 8,0 |
+| 10 | D: B + C | 2 | 1,10 | 0,41 | 0,09 | 45 % | 0,18 | 1,59 | 3 % | 4,4 |
+| 10 | D: B + C | 3 | 1,70 | 0,81 | 0,26 | 63 % | 0,23 | 2,50 | 4 % | 6,1 |
+| 10 | D: B + C | 4 | 2,19 | 1,20 | 0,33 | 70 % | 0,23 | 3,23 | 5 % | 7,5 |
+
+- **Würfel 2–7 (A):** +33 % Felder je Zug, ein Drittel mehr Trophäen, weniger Spieler ohne Trophäe (10 Runden, 4 Spieler: 15 % → 7 %). Aufholeffekt und Sieg per Trophäen bleiben gleich, die Partie wird kaum länger (+0,2–0,4 min). Seit EXP-011 ist 10 der kürzeste Vorschlag; das Problem der kurzen 5-Runden-Partie gibt es so nicht mehr.
+- **Trophäen-Ziel (B):** „vor die Spieler“ verkürzt die Wartezeit auf eine Trophäe (4 Spieler, 10 Runden: 6,1 → 5,2 Züge je Kauf) und senkt den Anteil ohne Trophäe (15 % → 9 %). Dafür häufen sich Trophäen-Gleichstände, und bei 4 Spielern entscheiden Trophäen seltener (67 % → 58 %). „Vor die Letzten“ hilft beim Aufholen nicht messbar (Halbzeit-Letzter gewinnt 6 % → 8 %, im Rauschen). Als Aufholhilfe für CHAOS-65 taugt das Trophäen-Ziel also nicht.
+- **Item nach dem Minispiel (C):** Beide Varianten verdoppeln die Sabotage (zu zweit 0,17 → 0,35–0,38 je Runde, also etwa alle 2–3 statt alle 6 Runden) bei kleinem Gesamtschaden (Verlust 3–6 % → 7–10 % der Einnahmen bei 10 Runden, bis 12 % bei 20 Runden) und +0,3 min Partiedauer. Der Unterschied liegt bei der Fairness: Das **Sieg-Item (B)** verstärkt Können (Profi bei 4 Spielern, 20 Runden: 43 % → 59 % Siege), der **Trostpreis (L)** dämpft es (43 % → 39 % bei 10 Runden, 43 % → 38 % bei 20 Runden; 3 Spieler 53 % → 39 %). Mit 1000 Seeds (2 und 3 Spieler, 10 Runden) sinkt der Halbzeit-Vorteil mit L leicht (75 % → 72 %, 62 % → 59 %), mit B nicht (75 %, 63 %). Die Abweichung von Slot 1 bei 2 Spielern in der Tabelle (55 % gegen 43–45 %) ist Rauschen: Mit 1000 Seeds liegen A, B und L bei 49–50 %.
+- **Fallen (D):** Ein Schild gegen Fallen fängt etwa ein Viertel der Fallen ab (4 Spieler: 1,64 → 1,25 ausgelöst) und senkt die ohnehin seltene Sabotage um ≈ 10 %. Sichtbare Fallen, denen Bots an Gabeln ausweichen, ändern wenig (Treffer je gelegter Falle 75 % → 69 % bei 4 Spielern): Der Wackelwald hat nur zwei Gabeln, die meisten Fallen liegen auf dem Pflichtweg.
+
+**Entscheidung:**
+- **keep L als neuer Standard:** `items.minigameLastItems: 1` in `DEFAULT_RULES`. Wer im Minispiel Letzte(r) wird, bekommt ein zufälliges Item als **Trostpreis**. Das verdoppelt das Chaos, vor allem zu zweit, ohne den Schaden je Treffer zu ändern, und arbeitet gegen den Vorsprung guter Minispieler. Sichtbar am PC auf der Ergebniskarte („Trostpreis“ mit Item) und am Handy der betroffenen Person („Trostpreis: Falle“); der Server trägt die Items in `view.minigame.rewards[].items` und im Controller-Kontext `minigame.prizes` (Protokoll v4, optionale Felder). Die Endstand-Schnappschüsse der Server-Tests und der Seed für alle Prompt-Arten (1 → 2) sind neu eingetragen (`docs/testing.md`).
+- **discard B** (Sieg-Item): gleich viel Chaos wie L, aber verstärkt Können und Führung.
+- **discard** Würfel 2–7: kein Bedarf mehr seit Standard 10 Runden, und einen W6 versteht jeder (EXP-001).
+- **discard** `ahead-of-last` als Aufholhilfe (wirkt nicht). **iterate** `ahead`: Stellschraube bleibt im Code, Standard bleibt `random`; der Nutzen (weniger Leerläufer ohne Trophäe) steht gegen seltenere Trophäen-Siege bei 4 Spielern. Wieder ansehen, wenn der Playtest „tote“ Trophäen bemängelt.
+- **discard** Schild gegen Fallen als Standard: macht die seltene Sabotage noch seltener und verbraucht den Schild ohne eigene Entscheidung. Stellschraube bleibt für den Fall, dass Sabotage im Playtest als zu hart empfunden wird.
+- **keep sichtbare Fallen:** Der PC zeigt Fallen weiter an (lesbar, „Chaos sichtbar“). Versteckte Fallen brächten auf dem Wackelwald kaum Balance-Gewinn und kosten Lesbarkeit.
+
+**Folgen für andere Experimente:** EXP-011 … EXP-013 und EXP-018 laufen auf `M4_RULES` (ohne Trostpreis); ihre Zahlen beschreiben den Stand vor EXP-019. Mit Trostpreis steigen Items und Sabotagen wie in Tabelle C, die Dauer um ≈ 0,3 min.
+
+**Offen für Playtest:** Fühlt sich der Trostpreis wie ein Trost an oder wie Belohnung fürs Verlieren? Wird die Ergebniskarte mit Item-Zeile noch in den 6 s gelesen? Ist Sabotage zu zweit jetzt spürbar, aber nicht nervig? Bemerkt jemand Trophäen, die lange hinter allen liegen?
+
+**Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.

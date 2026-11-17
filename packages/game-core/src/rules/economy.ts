@@ -79,9 +79,56 @@ export function wanderTrophy(ctx: Ctx, from?: string): void {
   if (index < 0) return;
   const others = trophyCandidates(ctx).filter((id) => !d.trophySpaces.includes(id));
   if (others.length === 0) return;
-  const to = pickOne(ctx.rng, others);
+  const to = pickOne(ctx.rng, wanderTargets(ctx, others));
   d.trophySpaces = d.trophySpaces.map((id, i) => (i === index ? to : id));
   ctx.events.push({ type: 'trophy-moved', from: moving, to });
+}
+
+/**
+ * Schritte vorwärts von `from` bis `to` (mindestens 1: wer auf `to` steht, muss erst eine
+ * Runde laufen). BFS über `next`; unerreichbar = `Infinity`.
+ */
+export function stepsAhead(ctx: Ctx, from: string, to: string): number {
+  const seen = new Set<string>();
+  let frontier = [...(ctx.spaces.get(from)?.next ?? [])];
+  for (let distance = 1; frontier.length > 0; distance++) {
+    if (frontier.includes(to)) return distance;
+    const following: string[] = [];
+    for (const id of frontier) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      for (const next of ctx.spaces.get(id)?.next ?? []) {
+        if (!seen.has(next)) following.push(next);
+      }
+    }
+    frontier = following;
+  }
+  return Infinity;
+}
+
+/**
+ * Mögliche Ziele einer wandernden Trophäe nach `trophy.placement` (CHAOS-51, EXP-019).
+ * `random`: alle freien Felder. `ahead`/`ahead-of-last`: die nähere Hälfte (aufgerundet, bei
+ * gleichem Abstand alle gleich nahen), gemessen am kürzesten Weg vorwärts von der nächsten
+ * Figur (aller bzw. der Letztplatzierten). Verbraucht keinen Zufall.
+ */
+export function wanderTargets(ctx: Ctx, free: readonly string[]): readonly string[] {
+  const placement = ctx.rules.trophy.placement ?? 'random';
+  if (placement === 'random' || free.length <= 1) return free;
+  const ranking = rankPlayers(ctx.d.players);
+  const lastPlace = Math.max(...ranking.map((entry) => entry.place));
+  const measuredFrom = ctx.d.players.filter(
+    (player) =>
+      placement === 'ahead' ||
+      ranking.some((entry) => entry.slot === player.slot && entry.place === lastPlace),
+  );
+  const distance = (id: string): number =>
+    Math.min(...measuredFrom.map((player) => stepsAhead(ctx, player.spaceId, id)));
+  const sorted = free
+    .map((id) => ({ id, distance: distance(id) }))
+    .sort((a, b) => a.distance - b.distance);
+  const cutoff = sorted[Math.ceil(sorted.length / 2) - 1]?.distance ?? Infinity;
+  return sorted.filter((entry) => entry.distance <= cutoff).map((entry) => entry.id);
 }
 
 /** Trophäe auf dem aktuellen Feld des aktiven Spielers kaufen (Prüfung macht der Aufrufer). */

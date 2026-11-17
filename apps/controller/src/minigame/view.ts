@@ -12,6 +12,7 @@ import type {
   Action,
   Button,
   ControllerMinigameInfo,
+  ItemKindName,
   MinigameControlsInfo,
 } from '@chaos-party/protocol';
 import type { SlotContext } from '../state/reducer.ts';
@@ -120,6 +121,8 @@ export type ResultView =
       readonly score: string | null;
       /** „+5 Münzen“, „Keine Münzen“ oder `null`, wenn der Server keine Belohnung schickt. */
       readonly reward: string | null;
+      /** Trostpreis-Items aus dem Ergebnis (CHAOS-51, EXP-019); leer, wenn keine. */
+      readonly prizes: readonly ItemKindName[];
     }
   | { readonly kind: 'aborted'; readonly headline: string; readonly lead: string };
 
@@ -157,6 +160,7 @@ export function describeResult(minigame: ControllerMinigameInfo): ResultView {
     cheer: tied && place === 1 ? 'Gemeinsam gewonnen!' : (CHEERS[place] ?? 'Gut gespielt!'),
     score: minigame.score === undefined ? null : formatScore(minigame.score, minigame.scoreUnit),
     reward: rewardText(minigame.reward),
+    prizes: [...(minigame.prizes ?? [])],
   };
 }
 

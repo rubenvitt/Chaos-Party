@@ -4,7 +4,8 @@
  * und Ergebnisanzeige ohne Server angeschaut und fotografiert werden können. Rein.
  *
  * Münzen im Ergebnis: die Standardregeln (`DEFAULT_RULES.economy.minigameRewards`) – im echten
- * Spiel kommen sie vom Server.
+ * Spiel kommen sie vom Server. Trostpreis (CHAOS-51, EXP-019): Der letzte Platz bekommt
+ * `DEFAULT_RULES.items.minigameLastItems` Items, hier fest `LOCAL_PRIZE` statt gezogen.
  */
 import { DEFAULT_BOARD, DEFAULT_RULES } from '@chaos-party/game-core';
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
@@ -12,6 +13,7 @@ import {
   defaultCharacterFor,
   PLAYER_SLOTS,
   type BoardView,
+  type ItemKindName,
   type SlotNumber,
 } from '@chaos-party/protocol';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
@@ -21,6 +23,8 @@ import type { MinigameStageName } from './plan.ts';
 export const LOCAL_INTRO_MS = 8_000;
 /** Runde des lokalen Minispiels. */
 export const LOCAL_ROUND = 1;
+/** Fester Trostpreis im lokalen Ablauf (im Spiel zieht der Server ihn zufällig). */
+export const LOCAL_PRIZE: ItemKindName = 'shield';
 
 export interface LocalFlowState {
   readonly view: BoardView;
@@ -86,19 +90,24 @@ export function localView(
         stage === 'results' && result ? result.placements.map((entry) => ({ ...entry })) : null,
       highlights: stage === 'results' && result ? [...(result.highlights ?? [])] : [],
       aborted: stage === 'results' && !result,
-      rewards:
-        stage === 'results'
-          ? result
-            ? result.placements.map((entry) => ({
-                slot: entry.slot,
-                coins: DEFAULT_RULES.economy.minigameRewards[entry.place - 1] ?? 0,
-              }))
-            : []
-          : null,
+      rewards: stage === 'results' ? (result ? localRewardEntries(result) : []) : null,
     },
     paused: false,
     endedEarly: false,
   };
+}
+
+/** Belohnungen wie vom Server: Münzen nach Platz, Trostpreis für den letzten Platz. */
+function localRewardEntries(result: MinigameResultPayload) {
+  const lastPlace = Math.max(...result.placements.map((entry) => entry.place));
+  const prizes = DEFAULT_RULES.items.minigameLastItems ?? 0;
+  return result.placements.map((entry) => ({
+    slot: entry.slot,
+    coins: DEFAULT_RULES.economy.minigameRewards[entry.place - 1] ?? 0,
+    ...(entry.place === lastPlace && lastPlace > 1 && prizes > 0
+      ? { items: Array.from({ length: Math.min(prizes, 4) }, () => LOCAL_PRIZE) }
+      : {}),
+  }));
 }
 
 /** Münzen je Slot nach Platz (Standardregeln). */

@@ -11,6 +11,7 @@ import {
   RESULTS_LEAD,
   type ControlLegendItem,
 } from '../minigame/view.ts';
+import { ITEM_INFO } from '../board/items.ts';
 import { LOOK_AT_SCREEN } from '../board/status.ts';
 import { Icon } from './icons.tsx';
 
@@ -141,6 +142,24 @@ export function MinigameResult({
             <p className="result-reward" data-testid="result-reward">
               <Icon name="coin" size={compact ? 22 : 28} />
               <b className="ui-text">{view.reward}</b>
+            </p>
+          )}
+          {view.prizes.length > 0 && (
+            <p
+              className="result-reward result-prize"
+              data-testid="result-prize"
+              data-items={view.prizes.join(' ')}
+            >
+              {view.prizes.map((item, i) => (
+                <Icon
+                  key={`${item}-${String(i)}`}
+                  name={ITEM_INFO[item].icon}
+                  size={compact ? 22 : 28}
+                />
+              ))}
+              <b className="ui-text">
+                Trostpreis: {view.prizes.map((item) => ITEM_INFO[item].name).join(', ')}
+              </b>
             </p>
           )}
           <p className="minigame-lead ui-text">{RESULTS_LEAD}</p>

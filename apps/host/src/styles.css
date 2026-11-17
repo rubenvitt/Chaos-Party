@@ -1553,6 +1553,32 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
+/* Trostpreis (CHAOS-51, EXP-019): zweite Zeile unter Name bis Münzen. */
+.minigame-rank-prize {
+  grid-column: 2 / -1;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 24px;
+}
+
+.minigame-rank-prize-label {
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: #1b1530;
+  color: #fff;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.minigame-rank-prize-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .minigame-highlights {
   display: flex;
   flex-direction: column;

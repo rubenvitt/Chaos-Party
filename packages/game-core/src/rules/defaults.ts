@@ -29,6 +29,10 @@ export const DEFAULT_RULES: RuleSet = {
     // mit den Minispiel-Münzen; feste Werte bissen im letzten Drittel nur noch halb so stark.
     sabotageGrowthRounds: 5,
     trapTrigger: 'pass',
+    // EXP-019 (CHAOS-51): Trostpreis – wer im Minispiel Letzte(r) wird, bekommt ein Item.
+    // Verdoppelt die Sabotage (zu zweit etwa alle 2–3 statt alle 6 Runden) und dämpft den
+    // Vorsprung guter Minispieler, statt ihn wie ein Sieg-Item zu verstärken.
+    minigameLastItems: 1,
   },
   pacing: {
     turnStartMs: 1200,

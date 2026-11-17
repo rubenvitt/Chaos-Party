@@ -3,7 +3,12 @@
  * Stand des Servers (`view.minigame.placements`), nie der lokale Runner. Rein, unit-getestet.
  */
 import type { MinigameInfo, MinigameResult } from '@chaos-party/minigame-sdk';
-import { PLAYER_SLOTS, type BoardView, type SlotNumber } from '@chaos-party/protocol';
+import {
+  PLAYER_SLOTS,
+  type BoardView,
+  type ItemKindName,
+  type SlotNumber,
+} from '@chaos-party/protocol';
 import { playerName } from '../board/texts.ts';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
 import { characterName } from './plan.ts';
@@ -23,6 +28,11 @@ export interface ResultRow {
    * Neuladen), sonst aus den Server-Ereignissen; `null`, wenn unbekannt.
    */
   readonly coins: number | null;
+  /**
+   * Items aus dem Ergebnis (Trostpreis für den letzten Platz, CHAOS-51/EXP-019), aus
+   * `view.minigame.rewards`; leer, wenn keine.
+   */
+  readonly items: readonly ItemKindName[];
   /** Teilt sich den Platz mit mindestens einem anderen Spieler. */
   readonly tied: boolean;
 }
@@ -73,6 +83,7 @@ export function resultsDisplay(
       color: PLAYER_SLOTS[entry.slot].color,
       symbol: PLAYER_SLOTS[entry.slot].symbol,
       coins: coinsOf(entry.slot),
+      items: [...(viewRewards?.find((reward) => reward.slot === entry.slot)?.items ?? [])],
       tied: placements.some((other) => other.slot !== entry.slot && other.place === entry.place),
     }));
   const winners = rows.filter((row) => row.place === 1).map((row) => row.name);
