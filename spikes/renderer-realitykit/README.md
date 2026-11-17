@@ -180,11 +180,13 @@ Startet `xctrace` die App so nicht, geht es auch in der Instruments-App: Apple T
 
 **Erwartung (Hypothese, nicht gemessen):** Bei 0,5 fallen die Pixelkosten auf etwa ein Viertel. Ist die ARView wirklich pixelgebunden, liegt die Szene dann deutlich unter 16,7 ms, plus etwa 1–2 ms für MetalFX bei 4K. Die Offscreen-Werte von CHAOS-78 sprechen nicht dagegen: 720p seriell 33 ms entspricht genau zwei Bildwechseln. Vermutlich wartete jede serielle Runde auf den Takt der Anzeige; erst die überlappende Schleife zeigt die echte Reserve.
 
-**Bekannte Risiken (ungeprüft, kein Mac im Container beim Schreiben):**
+**Ergebnis auf der echten Apple TV 4K (17.11., EXP-020, R20):** `--hochskalieren=1 --skala=0.5 --skalierer=bilinear --msaa=0 --imflug=3` hält bei 4K-Ausgabe 60 fps mit voller Szene. MetalFX ist auf tvOS 27.3 (A15) nicht verfügbar, die App fällt auf bilinear zurück. `RealityRenderer` verträgt drei Bilder im Flug ohne sichtbare Fehler.
+
+**Bekannte Risiken (beim Schreiben ungeprüft):**
 
 - Der Code ist **gebaut, aber nie gelaufen:** Die CI (Xcode 26.6) übersetzt ihn für macOS, iOS und tvOS. Ob die Schleife ein Bild zeigt, ist ungeprüft; zuerst `--hochskalieren=1` am Mac starten (RK8).
 - MetalFX gibt es auf tvOS erst ab **27.2**, und nur, wenn das tvOS-SDK von Xcode es enthält (`#if canImport(MetalFX)`). Sonst fällt der Pfad still auf bilinear zurück; `SPIKE-ERGEBNIS` nennt den tatsächlichen `skalierer`. Weil `RealityRenderer` auf tvOS ab 26.0 läuft, MetalFX aber erst ab 27.2, sollte der Linker MetalFX schwach einbinden. Startet die App auf tvOS < 27.2 nicht, fehlt `-weak_framework MetalFX`.
-- Ob `RealityRenderer` mehrere Bilder gleichzeitig verträgt (`--imflug=2/3`), ist unbekannt. Bei Fehlern oder Bildfehlern `--imflug=1` vergleichen.
+- Ob `RealityRenderer` mehrere Bilder gleichzeitig verträgt (`--imflug=2/3`), war unbekannt. Auf der Apple TV läuft `--imflug=3` stabil (17.11.); `--imflug=1` bricht auf 12 fps ein.
 - MetalFX bekommt `bgra8Unorm_srgb` mit `colorProcessingMode = .linear`. Wirkt das Bild zu hell oder zu dunkel, `.perceptual` probieren.
 - `--ibl=0` setzt nur keine Lichtressource. Ob RealityKit dann wirklich ohne IBL rendert oder ein Standardlicht nimmt, ist offen.
 
