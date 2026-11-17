@@ -31,6 +31,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
 | EXP-018 | Wachsende Sabotage über die Partiedauer | CHAOS-67 | keep F: Klau 5/Falle 4, **+1 alle 5 Runden**; Klau 6/Falle 5 fest discard (Anfang zu hart) |
 | EXP-019 | Zurückgestellte Balance-Ideen (Würfel 2–7, Trophäen-Ziel, Item nach dem Minispiel, Schild/Fallen) | CHAOS-51 | keep **Trostpreis**: 1 Item für den letzten Minispiel-Platz (neuer Standard); Sieg-Item, W 2–7, Schild gegen Fallen discard; `ahead` iterate; Fallen bleiben sichtbar |
+| EXP-022 | Aufholhilfe für Zurückliegende | CHAOS-65 | keep T: Trophäe wandert vor die Letzten (`trophy.placement: 'nearest-to-last'`, Standard); iterate Rückenwind (abschaltbar, aus); Rabatt, Finale-Fieber, Bonus-Trophäen, „weg von der Spitze“ discard |
 
 ---
 
@@ -1109,6 +1110,8 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 
 **Für später (CHAOS-44):** Aufholhilfe für die Letzten (z. B. Trophäe wandert bevorzugt vor die Hintersten), falls der Playtest den Halbzeit-Vorteil als zu stark empfindet.
 
+**Nachtrag 2026-11-17 (CHAOS-65):** Aufholhilfen simuliert in [EXP-022](#exp-022-aufholhilfe-für-zurückliegende-2026-11-17-chaos-65). Neuer Standard: Die Trophäe wandert vor die Letzten. Neu gerechnete EXP-012-Tabellen fallen darum anders aus als oben.
+
 ---
 
 ## EXP-013: Sabotage-Häufigkeit und Item-Stärke über lange Partien (2026-11-15, CHAOS-40)
@@ -1723,6 +1726,9 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 
 **Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.
 
+**Nachtrag 2026-11-17 (CHAOS-65):** Das genaue Trophäen-Ziel „vor die Letzten“ (`nearest-to-last`) wirkt mit 1000 Seeds deutlich; die nähere Hälfte (`ahead-of-last`) etwa halb so stark. Neuer Standard ist `nearest-to-last`, siehe [EXP-022](#exp-022-aufholhilfe-für-zurückliegende-2026-11-17-chaos-65).
+
+
 ---
 
 ## EXP-020: Apple TV bei 4K-Ausgabe – interne Auflösung, Hochskalierung, Profilierung (2026-11-17, CHAOS-114)
@@ -1775,3 +1781,120 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 **Entscheidung:** keep B. `scene/prepareGradually.ts` (Abschnitte ≈ 12 ms, Bildpause dazwischen, Runden für unfertige Schritte), Podest mit `show()`/`hide()` und ohne Render-Schleife bis zum Einhängen, Finale baut es zu Beginn der Zählung auf einem unsichtbaren Parkplatz gleicher Größe. C verworfen (teurer). Der verbleibende Block bis ≈ 1 s während der Zählung (Rest in `whenReadyAsync`: Tiefenkarte, Schein, Nachbearbeitung) trifft nur die 2D-Zählung, nicht den Übergang.
 
 **Offen (nur auf echter Hardware):** Standbild beim Übergang auf Rubens PC (Gerätecheckliste LS3). Die Minispiel-Bühne baut weiterhin am Stück (KI-25).
+---
+
+## EXP-022: Aufholhilfe für Zurückliegende (2026-11-17, CHAOS-65)
+
+**Hypothese / gewünschtes Spielerlebnis:** Wer zur Halbzeit führt, soll im Vorteil sein, aber nicht fast sicher gewinnen. Laut EXP-012 gewinnt der alleinige Halbzeit-Führende bei 10 Runden 59–73 % der Partien (fair 25–50 %), und 7–13 % der Spieler bleiben ohne Trophäe. Eine Aufholhilfe soll Comebacks häufiger machen, ohne dass der Trophäen-Sieg (Produktsäule) verwässert oder Können in Minispielen nichts mehr zählt. Eine Trostmünze (EXP-012, Variante D) half nicht. Erwartung: Hilfen am Brett (wo die Trophäe hinwandert) wirken stärker als kleine Münzbeträge.
+
+**Varianten** (Basis = aktueller Standard ohne Aufholhilfe, also mit wachsender Sabotage aus EXP-018 und Trostpreis aus EXP-019):
+- A: Basis, Trophäe wandert zufällig.
+- T: **Trophäe wandert vor die Letzten** (`trophy.placement: 'nearest-to-last'`): Eine gekaufte oder vom Wirbel bewegte Trophäe springt auf genau das freie Trophäenfeld, das vor der bzw. dem Letzten am nächsten liegt. Keine neue Anzeige nötig.
+- H: die **nähere Hälfte** der freien Felder vor den Letzten (`'ahead-of-last'` aus EXP-019), zum Vergleich.
+- T2: Trophäe wandert **weg von der Spitze** (`'away-from-leader'`): auf das freie Feld, das von Platz 1 am weitesten entfernt ist.
+- R: **Rabatt** (`catchUp.discount`): Preis 10 statt 15 ab 2 Trophäen Rückstand. Bräuchte einen Preis je Spieler in der Anzeige.
+- W / W3: **Rückenwind** (`catchUp.tailwind`): Nach jedem Minispiel außer dem letzten 2 (3) Münzen je Trophäe Rückstand, höchstens 6 (9). Bräuchte einen sichtbaren Moment („Rückenwind +4“).
+- F: **Finale-Fieber** (`catchUp.finale`): In den letzten 3 Runden zählen Minispiel-Münzen doppelt.
+- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf.
+- TW, T2W, TW3: Kombinationen.
+
+**Objektive Messgrößen:** Siegquote des alleinigen Halbzeit-Führenden bzw. -Letzten (gegen fair 1/n), Trophäen je Partie, Anteil Spieler ohne Trophäe, Sieg per Trophäen (statt Münzen), Trophäen-Abstand Platz 1 zu 2, Siegquote eines Minispiel-Profis (Slot 1, +10 von 40 Punkten, wie EXP-012 S; eigener Lauf je Zeile).
+
+**Subjektive Playtest-Fragen (für Ruben):** Merkt jemand, dass die Trophäe den Letzten entgegenkommt? Wirkt das wie Glück („die Trophäe hat Mitleid“) oder wie Schummeln? Fühlt sich ein Comeback verdient an? Ist ein knapper Endstand spannender, oder nervt es, wenn die Münzen öfter entscheiden?
+
+**Testumgebung:** Node 22.23, Linux-Container, Branch `claude/confident-bardeen-lui8oc`, Basis `main` `0e34732` (mit EXP-018 und EXP-019). Brett Wackelwald, Rotation mit vier Minispielen, Bots wie EXP-012 (`EXPERIMENT_POLICY`). **Seeds 1–1000** je Zeile (mit 200 Seeds schwankt die Führenden-Quote um ±4 Punkte, die Effekte liegen bei 5–15). Dauer ≈ 2 min:
+
+```sh
+EXPERIMENTS=catchup pnpm exec vitest run packages/game-core/src/rules/experimentsCatchUp.test.ts --silent=false
+```
+
+Code: Varianten in `packages/game-core/src/rules/experimentsCatchUp.ts`. Regeln in `economy.ts`: `wanderTargets` (Trophäen-Ziel), `trophyPrice` (Rabatt), `applyTailwind` (Rückenwind). Außerdem `minigame.ts` (Finale-Fieber) und `machine.ts` (Zeitpunkt Rückenwind). Tests in `catchUp.test.ts`. Ein erster Lauf vor EXP-018/019 (Basis `3703994`) ergab dieselbe Rangfolge (A 75/62/56 %, T 66/56/54 %).
+
+**Ergebnisse:**
+
+| Runden | Variante | Sp. | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n | Trophäen/Partie | ohne Trophäe | Sieg per Trophäen | Abstand P1–P2 | Profi gewinnt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Basis (keine Aufholhilfe) | 2 | 72 % | 28 % | 50 % | 5,39 | 4 % | 85 % | 1,73 | 57 % |
+| 10 | A: Basis (keine Aufholhilfe) | 3 | 59 % | 15 % | 33 % | 6,44 | 9 % | 74 % | 1,21 | 44 % |
+| 10 | A: Basis (keine Aufholhilfe) | 4 | 54 % | 7 % | 25 % | 7,13 | 12 % | 66 % | 0,89 | 40 % |
+| 10 | T: Trophäe wandert vor die Letzten | 2 | 64 % | 36 % | 50 % | 6,57 | 1 % | 76 % | 1,34 | 56 % |
+| 10 | T: Trophäe wandert vor die Letzten | 3 | 57 % | 18 % | 33 % | 8,05 | 2 % | 68 % | 1,00 | 46 % |
+| 10 | T: Trophäe wandert vor die Letzten | 4 | 51 % | 10 % | 25 % | 8,72 | 3 % | 63 % | 0,83 | 47 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 2 | 68 % | 33 % | 50 % | 5,84 | 2 % | 80 % | 1,59 | 55 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 3 | 59 % | 15 % | 33 % | 7,01 | 5 % | 76 % | 1,21 | 43 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 4 | 52 % | 8 % | 25 % | 7,50 | 9 % | 66 % | 0,91 | 43 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 2 | 61 % | 39 % | 50 % | 4,95 | 3 % | 73 % | 1,14 | 54 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 3 | 46 % | 19 % | 33 % | 6,49 | 5 % | 61 % | 0,77 | 42 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 4 | 43 % | 10 % | 25 % | 7,27 | 7 % | 51 % | 0,59 | 38 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 2 | 71 % | 29 % | 50 % | 5,41 | 4 % | 85 % | 1,73 | 56 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 3 | 55 % | 16 % | 33 % | 6,46 | 9 % | 72 % | 1,19 | 44 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 4 | 52 % | 8 % | 25 % | 7,21 | 12 % | 65 % | 0,87 | 40 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 2 | 69 % | 31 % | 50 % | 5,41 | 4 % | 85 % | 1,74 | 56 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 3 | 54 % | 17 % | 33 % | 6,51 | 9 % | 72 % | 1,19 | 43 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 4 | 48 % | 10 % | 25 % | 7,37 | 12 % | 64 % | 0,88 | 37 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 2 | 69 % | 31 % | 50 % | 5,42 | 4 % | 85 % | 1,74 | 55 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 3 | 52 % | 18 % | 33 % | 6,52 | 9 % | 72 % | 1,19 | 42 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 4 | 46 % | 11 % | 25 % | 7,46 | 12 % | 67 % | 0,91 | 36 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 2 | 72 % | 28 % | 50 % | 5,45 | 4 % | 86 % | 1,78 | 57 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 3 | 57 % | 15 % | 33 % | 6,51 | 9 % | 74 % | 1,25 | 43 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 4 | 53 % | 7 % | 25 % | 7,28 | 12 % | 67 % | 0,95 | 38 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 2 | 68 % | 32 % | 50 % | 5,39 | 1 % | 85 % | 2,01 | 76 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 3 | 53 % | 18 % | 33 % | 6,44 | 3 % | 75 % | 1,35 | 68 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 4 | 46 % | 10 % | 25 % | 7,13 | 5 % | 71 % | 1,12 | 65 % |
+| 10 | TW: T + W | 2 | 62 % | 38 % | 50 % | 6,64 | 1 % | 75 % | 1,35 | 55 % |
+| 10 | TW: T + W | 3 | 52 % | 21 % | 33 % | 8,26 | 2 % | 68 % | 0,99 | 43 % |
+| 10 | TW: T + W | 4 | 45 % | 15 % | 25 % | 9,23 | 3 % | 62 % | 0,80 | 40 % |
+| 10 | T2W: T2 + W | 2 | 60 % | 40 % | 50 % | 4,97 | 3 % | 73 % | 1,16 | 54 % |
+| 10 | T2W: T2 + W | 3 | 45 % | 23 % | 33 % | 6,56 | 5 % | 61 % | 0,77 | 40 % |
+| 10 | T2W: T2 + W | 4 | 39 % | 13 % | 25 % | 7,51 | 8 % | 49 % | 0,56 | 35 % |
+| 10 | TW3: T + W3 | 2 | 62 % | 38 % | 50 % | 6,67 | 1 % | 74 % | 1,35 | 55 % |
+| 10 | TW3: T + W3 | 3 | 51 % | 21 % | 33 % | 8,32 | 2 % | 69 % | 1,02 | 41 % |
+| 10 | TW3: T + W3 | 4 | 42 % | 17 % | 25 % | 9,43 | 3 % | 60 % | 0,77 | 39 % |
+| 20 | A: Basis (keine Aufholhilfe) | 2 | 73 % | 27 % | 50 % | 12,70 | 0 % | 89 % | 2,67 | 54 % |
+| 20 | A: Basis (keine Aufholhilfe) | 3 | 62 % | 13 % | 33 % | 15,90 | 1 % | 84 % | 1,96 | 39 % |
+| 20 | A: Basis (keine Aufholhilfe) | 4 | 52 % | 7 % | 25 % | 18,16 | 1 % | 75 % | 1,32 | 38 % |
+| 20 | T: Trophäe wandert vor die Letzten | 2 | 65 % | 35 % | 50 % | 15,29 | 0 % | 76 % | 1,62 | 55 % |
+| 20 | T: Trophäe wandert vor die Letzten | 3 | 51 % | 20 % | 33 % | 19,25 | 0 % | 77 % | 1,42 | 44 % |
+| 20 | T: Trophäe wandert vor die Letzten | 4 | 51 % | 10 % | 25 % | 21,32 | 0 % | 70 % | 1,13 | 45 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 2 | 70 % | 31 % | 50 % | 13,82 | 0 % | 85 % | 2,36 | 52 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 3 | 58 % | 15 % | 33 % | 17,20 | 0 % | 81 % | 1,71 | 38 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 4 | 53 % | 9 % | 25 % | 19,10 | 0 % | 78 % | 1,38 | 44 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 2 | 61 % | 39 % | 50 % | 11,32 | 0 % | 74 % | 1,41 | 49 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 3 | 44 % | 21 % | 33 % | 15,44 | 0 % | 66 % | 0,94 | 36 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 4 | 36 % | 14 % | 25 % | 18,24 | 0 % | 59 % | 0,73 | 34 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 2 | 72 % | 28 % | 50 % | 12,71 | 0 % | 88 % | 2,67 | 54 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 3 | 59 % | 13 % | 33 % | 15,95 | 1 % | 83 % | 1,95 | 39 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 4 | 48 % | 8 % | 25 % | 18,45 | 1 % | 76 % | 1,31 | 36 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 2 | 71 % | 29 % | 50 % | 12,73 | 0 % | 89 % | 2,69 | 51 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 3 | 58 % | 14 % | 33 % | 16,03 | 1 % | 84 % | 1,97 | 36 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 4 | 46 % | 10 % | 25 % | 18,84 | 1 % | 75 % | 1,36 | 33 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 2 | 71 % | 29 % | 50 % | 12,76 | 0 % | 89 % | 2,70 | 51 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 3 | 57 % | 14 % | 33 % | 16,04 | 1 % | 84 % | 2,00 | 36 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 4 | 46 % | 11 % | 25 % | 19,07 | 1 % | 76 % | 1,41 | 31 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 2 | 74 % | 26 % | 50 % | 12,72 | 0 % | 89 % | 2,69 | 54 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 3 | 61 % | 12 % | 33 % | 15,93 | 1 % | 84 % | 1,99 | 39 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 4 | 51 % | 7 % | 25 % | 18,25 | 1 % | 76 % | 1,36 | 38 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 2 | 71 % | 28 % | 50 % | 12,70 | 0 % | 89 % | 2,88 | 69 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 3 | 59 % | 14 % | 33 % | 15,90 | 0 % | 84 % | 2,02 | 61 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 4 | 49 % | 9 % | 25 % | 18,16 | 0 % | 76 % | 1,44 | 61 % |
+| 20 | TW: T + W | 2 | 64 % | 36 % | 50 % | 15,45 | 0 % | 79 % | 1,69 | 52 % |
+| 20 | TW: T + W | 3 | 49 % | 23 % | 33 % | 19,86 | 0 % | 75 % | 1,37 | 38 % |
+| 20 | TW: T + W | 4 | 35 % | 18 % | 25 % | 22,74 | 0 % | 69 % | 1,10 | 37 % |
+| 20 | T2W: T2 + W | 2 | 58 % | 42 % | 50 % | 11,37 | 0 % | 75 % | 1,41 | 47 % |
+| 20 | T2W: T2 + W | 3 | 44 % | 23 % | 33 % | 15,56 | 0 % | 66 % | 0,95 | 35 % |
+| 20 | T2W: T2 + W | 4 | 33 % | 17 % | 25 % | 18,82 | 0 % | 58 % | 0,73 | 30 % |
+| 20 | TW3: T + W3 | 2 | 64 % | 36 % | 50 % | 15,54 | 0 % | 80 % | 1,69 | 51 % |
+| 20 | TW3: T + W3 | 3 | 46 % | 24 % | 33 % | 20,03 | 0 % | 76 % | 1,40 | 36 % |
+| 20 | TW3: T + W3 | 4 | 34 % | 19 % | 25 % | 23,34 | 0 % | 69 % | 1,11 | 35 % |
+
+- **Rabatt (R) und Finale-Fieber (F) wirken kaum** (≤ 4 Punkte, meist im Rauschen). Wer weit hinten liegt, hat selten genug Münzen und steht selten an einer Trophäe; doppelte Minispiel-Münzen gehen genauso oft an die Führenden.
+- **Rückenwind (W, W3)** hilft vor allem zu viert (54 → 48 bzw. 46 %), zu zweit wenig (72 → 69 %).
+- **Trophäe vor die Letzten (T)** ist der stärkste Hebel ohne neue Anzeige: zu zweit 72 → 64 %, zu dritt 59 → 57 %, zu viert 54 → 51 % (bei 20 Runden 73/62/52 → 65/51/51 %). Der Nebeneffekt ist erwünscht: Ohne Trophäe bleiben nur noch 1–3 % statt 4–12 % der Spieler, je Partie werden 1,2–1,6 Trophäen mehr gekauft. Die Münzen entscheiden etwas öfter (Sieg per Trophäen 85/74/66 → 76/68/63 %), der Profi gewinnt gleich oft oder etwas öfter.
+- **Die nähere Hälfte (H, EXP-019)** wirkt nur etwa halb so stark (68/59/52 %, ohne Trophäe 2/5/9 %). Das erklärt, warum EXP-019 mit 200 Seeds keinen messbaren Aufholeffekt sah: Unter mehreren nahen Feldern landet die Trophäe oft vor jemand anderem.
+- **T2 (weg von der Spitze)** dämpft stärker (61/46/43 %), lässt aber zu viert in jeder zweiten Partie die Münzen entscheiden (Sieg per Trophäen 51 %, Abstand P1–P2 0,59 Trophäen). Das schwächt den Trophäen-Sieg.
+- **Bonus-Trophäen (X)** dämpfen mäßig (68/53/46 %), belohnen aber vor allem Minispiel-Können: Der Profi gewinnt 65–76 % statt 40–57 %. Das ist eine Können-Prämie, keine Aufholhilfe.
+- **Kombinationen:** TW 62/52/45 %, TW3 62/51/42 %, T2W 60/45/39 %. Rückenwind ergänzt T vor allem zu viert (20 Runden: TW 35 %).
+
+**Entscheidung:** **keep T** als neuer Standard (`trophy.placement: 'nearest-to-last'` in `packages/game-core/src/rules/defaults.ts`). Begründung: Die Hilfe ist unaufdringlich (die Trophäe wandert schon immer, nur das Ziel ist nicht mehr zufällig), braucht keine neue Anzeige und keine Protokolländerung und hilft genau dort, wo Frust entsteht: Kaum noch jemand geht ohne Trophäe nach Hause. Der Halbzeit-Führende bleibt im Vorteil (zu zweit 64 % statt fair 50 %), Comebacks werden aber häufiger. Minispiel-Können zählt weiter. Die schwächere Form H (EXP-019) bleibt als Stellschraube. **iterate W** (Rückenwind) als nächster Hebel für 3–4 Spieler: bleibt als abschaltbare Stellschraube `catchUp.tailwind` im Regelwerk, Standard aus, weil er erst mit einer sichtbaren Ansage am PC verständlich wäre (CHAOS-125). **discard** R, F, X und T2: R und F wirkungslos; X belohnt Können statt Rückstand; T2 schwächt den Trophäen-Sieg. Die Stellschrauben `catchUp.discount`, `catchUp.finale` und `placement: 'away-from-leader'` bleiben für spätere Experimente im Regelwerk (Standard aus).
+
+**Offen für Playtest:** Fällt das Entgegenkommen der Trophäe auf, und stört es? Ist der Halbzeit-Vorteil zu dritt und zu viert (57 bzw. 51 %) noch zu stark? Dann zuerst Rückenwind mit Ansage (TW: 52/45 %). Entscheiden die Münzen jetzt zu oft?

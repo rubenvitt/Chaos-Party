@@ -5,6 +5,7 @@
 import type { GamePhase, ItemKind, PromptKind, PromptOption, Slot } from '../types.ts';
 import { sabotageAmount } from './economy.ts';
 import { activePlayer, playerOf, spaceOf, type Ctx } from './internal.ts';
+import { trophyPrice } from './economy.ts';
 import {
   coinsText,
   ITEM_LABELS,
@@ -174,7 +175,7 @@ export function openTrophyPrompt(ctx: Ctx, t: number): void {
       kind: 'trophy',
       title: TEXT.trophyTitle,
       options: [
-        { id: BUY_OPTION, label: TEXT.trophyBuy, detail: coinsText(ctx.rules.trophy.price) },
+        { id: BUY_OPTION, label: TEXT.trophyBuy, detail: coinsText(trophyPrice(ctx, player.slot)) },
         { id: SKIP_OPTION, label: TEXT.trophySkip },
       ],
       defaultOption: SKIP_OPTION,

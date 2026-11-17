@@ -17,7 +17,7 @@ import type {
   Slot,
   StepResult,
 } from '../types.ts';
-import { rankPlayers } from './economy.ts';
+import { applyTailwind, rankPlayers } from './economy.ts';
 import {
   closeDraft,
   openDraft,
@@ -299,6 +299,7 @@ function resume(ctx: Ctx, t: number): void {
       expireMinigame(ctx, t);
       return;
     case 'minigame-results':
+      if (d.round < d.rounds) applyTailwind(ctx);
       ctx.events.push({ type: 'round-ended', round: d.round });
       schedule(ctx, 'round-end', t, pacing.roundEndMs);
       return;

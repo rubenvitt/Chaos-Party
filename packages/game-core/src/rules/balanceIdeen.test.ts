@@ -27,7 +27,8 @@ import {
 
 describe('Standardregeln bleiben unverändert', () => {
   it('die neuen Stellschrauben fehlen in DEFAULT_RULES', () => {
-    expect(DEFAULT_RULES.trophy.placement).toBeUndefined();
+    // CHAOS-65 (EXP-022) setzt das Trophäen-Ziel als Aufholhilfe auf `nearest-to-last`.
+    expect(DEFAULT_RULES.trophy.placement).toBe('nearest-to-last');
     expect(DEFAULT_RULES.items.minigameWinItems).toBeUndefined();
     expect(DEFAULT_RULES.items.minigameLastItems).toBe(1);
     expect(DEFAULT_RULES.items.shieldBlocksTrap).toBeUndefined();

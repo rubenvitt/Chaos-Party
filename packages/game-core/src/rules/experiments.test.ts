@@ -61,6 +61,8 @@ describe('Experimente: Grundlagen', () => {
         minigameRepeatIntroMs: 3000,
         minigameResultsMs: 6000,
       },
+      // CHAOS-65 (EXP-022): Aufholhilfe, kein Teil der Experimente EXP-001 … EXP-004.
+      trophy: { ...CHOICE_RULES.trophy, placement: 'nearest-to-last' },
     }).toEqual(DEFAULT_RULES);
     expect(kinds(CHOICE_BOARD)).toEqual(kinds(WACKELWALD));
   });

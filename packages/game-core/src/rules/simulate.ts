@@ -15,6 +15,7 @@ import type {
   GameState,
   ItemKind,
   MinigameSpec,
+  PlayerState,
   Prompt,
   RankingEntry,
   RuleSet,
@@ -165,6 +166,8 @@ export interface SimulationResult {
   readonly midRanking: readonly RankingEntry[] | null;
   /** Gespielte Minispiele (ohne Platzhalter: echte mit Ergebnis). */
   readonly minigamesPlayed: number;
+  /** Spielerzustand am Ende (Statistik, Minispiel-Siege) für nachgelagerte Wertungsvarianten. */
+  readonly finalPlayers: readonly PlayerState[];
   /** Minispiele mit geteiltem 1. Platz. */
   readonly minigameSharedWins: number;
   /** Trophäen Platz 1 minus Platz 2 (`null` bei einem Spieler). */
@@ -546,6 +549,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     ranking,
     midRanking,
     minigamesPlayed,
+    finalPlayers: state.players,
     minigameSharedWins,
     trophyGap: first && second ? first.trophies - second.trophies : null,
     trophiesBought,

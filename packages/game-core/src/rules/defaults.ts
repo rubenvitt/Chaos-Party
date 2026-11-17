@@ -1,11 +1,12 @@
-import type { Pacing, RuleSet } from '../types.ts';
+import type { CatchUpRules, Pacing, RuleSet } from '../types.ts';
 
 /**
  * Standardregeln. Festgelegt per Bot-Simulation in CHAOS-24 (`docs/experiments.md`,
  * EXP-001 … EXP-004; Startwerte davor: `START_RULES` in `experiments.ts`). In M4 (CHAOS-40,
  * EXP-012/013) mit echter Minispiel-Rotation und 10–20 Runden geprüft und unverändert
  * behalten; der Hebel war die Rundenzahl (`apps/server/src/game.ts`). Seit CHAOS-67 (EXP-018)
- * wächst die Sabotage mit der Runde. Ob sich das gut anfühlt, entscheidet der Playtest.
+ * wächst die Sabotage mit der Runde, seit CHAOS-65 (EXP-022) gibt es eine Aufholhilfe. Ob sich
+ * das gut anfühlt, entscheidet der Playtest.
  */
 export const DEFAULT_RULES: RuleSet = {
   diceFaces: [1, 2, 3, 4, 5, 6],
@@ -16,7 +17,9 @@ export const DEFAULT_RULES: RuleSet = {
     minigameRewards: [10, 5, 3, 0],
   },
   // EXP-002: 3 von 6 Kandidaten aktiv, Preis 15 – sonst fallen in 5 Runden kaum Trophäen.
-  trophy: { price: 15, mode: 'wandering', activeCount: 3 },
+  // CHAOS-65 (EXP-022): Eine wandernde Trophäe landet vor den Letzten. Zu zweit gewinnt der
+  // Halbzeit-Führende 64 statt 72 %, kaum noch jemand bleibt ohne Trophäe (1–3 statt 4–12 %).
+  trophy: { price: 15, mode: 'wandering', activeCount: 3, placement: 'nearest-to-last' },
   items: {
     capacity: 3,
     // EXP-003: Start-Item und Fallen beim Darüberlaufen, damit Sabotage überhaupt vorkommt;
@@ -76,6 +79,8 @@ export interface RuleOverrides {
     readonly weights?: Partial<RuleSet['items']['weights']>;
   };
   readonly pacing?: Partial<Pacing>;
+  /** Aufholhilfen: ersetzt einzelne Hilfen (flach zusammengeführt). */
+  readonly catchUp?: CatchUpRules;
 }
 
 export function withRules(overrides: RuleOverrides, base: RuleSet = DEFAULT_RULES): RuleSet {
@@ -89,5 +94,8 @@ export function withRules(overrides: RuleOverrides, base: RuleSet = DEFAULT_RULE
       weights: { ...base.items.weights, ...overrides.items?.weights },
     },
     pacing: { ...base.pacing, ...overrides.pacing },
+    ...(base.catchUp || overrides.catchUp
+      ? { catchUp: { ...base.catchUp, ...overrides.catchUp } }
+      : {}),
   };
 }
