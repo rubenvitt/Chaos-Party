@@ -218,6 +218,25 @@ export function eventText(
   }
 }
 
+/** Große Einblendung in der Bildmitte (Überschrift und Zeile darunter). */
+export interface NoticeText {
+  readonly title: string;
+  readonly detail: string;
+}
+
+/**
+ * Einblendung zu einem Ereignis oder `null`. Bisher nur die wachsende Sabotage (CHAOS-120):
+ * `round-started` mit `sabotage` → „Sabotage wird stärker!“ mit den neuen Werten.
+ */
+export function eventNotice(event: BoardEvent): NoticeText | null {
+  if (event.type !== 'round-started' || !event.sabotage) return null;
+  const { steal, trap } = event.sabotage;
+  return {
+    title: 'Sabotage wird stärker!',
+    detail: `Klau: ${coins(steal)} · Falle: ${coins(trap)}`,
+  };
+}
+
 /** Großes Banner „Blau ist dran!“ zu Zugbeginn, sonst `null`. */
 export function bannerText(view: BoardView | null): string | null {
   if (view?.activeSlot == null || view.gamePhase !== 'turn-start') return null;

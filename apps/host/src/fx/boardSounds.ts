@@ -45,9 +45,11 @@ export function boardEventSound(event: BoardEvent): SoundCue | null {
       return { name: 'pop', options: { pitch: 1.2 } };
     case 'game-ended':
       return { name: 'win' };
+    case 'round-started':
+      // Wachsende Sabotage (CHAOS-120): tiefer Fallen-Klang zur Ansage.
+      return event.sabotage ? { name: 'trap', options: { pitch: 0.8 } } : null;
     // Minispiel-Klänge spielt die Minispiel-Bühne (sie ersetzt das Brett in diesen Phasen).
     case 'game-started':
-    case 'round-started':
     case 'path-chosen':
     case 'moved':
     case 'trophy-moved':

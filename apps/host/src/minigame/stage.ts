@@ -46,6 +46,7 @@ import { createMinigameLook, SOFTWARE_MAX_STEPS, type HostMinigameLook } from '.
 import type { SoundEngine } from '../fx/audio.ts';
 import { createMinigameFx, type FxStats, type HostMinigameFx } from '../fx/minigameFx.ts';
 import { loadHavok } from '../scene/havok.ts';
+import { prepareSceneGradually } from '../scene/prepareGradually.ts';
 
 export type StageStatus = 'loading' | 'ready' | 'error' | 'disposed';
 
@@ -200,9 +201,9 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     if (scene.activeCamera) lighting = await look.finish(scene.activeCamera);
     if (isDisposed()) return;
     // Erst wenn alle Shader/Texturen bereit sind, zeigt das erste Bild die ganze Szene
-    // (Hintergrund der Anleitung, stabile Screenshots).
-    await scene.whenReadyAsync(true);
-    if (isDisposed()) return;
+    // (Hintergrund der Anleitung, stabile Screenshots). Schrittweise statt am Stück
+    // (CHAOS-132, KI-25): Ohne parallele Shader-Übersetzung stand sonst die Anleitung.
+    if (!(await prepareSceneGradually(scene, { isCancelled: isDisposed }))) return;
     status = 'ready';
     if (flags.startRequested) startNow();
     renderOnce();

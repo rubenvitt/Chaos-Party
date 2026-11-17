@@ -81,6 +81,7 @@ import { buildNatureBoard, TILE_TOP, type NatureBoardWorld } from './natureBoard
 import type { MessageTone } from './texts.ts';
 import type { BoardScene, BoardSceneOptions } from './types.ts';
 import { createWebGlEngine, rendererInfo, rendererName } from '../scene/engineFactory.ts';
+import { prepareSceneGradually } from '../scene/prepareGradually.ts';
 
 /** Feste Schrittweite im Testmodus (ms). */
 const TEST_STEP_MS = 1000 / 60;
@@ -302,8 +303,10 @@ export function createBoardScene(
     for (const mesh of casters) lit.addCaster(mesh);
     built = true;
     update(0);
-    await scene.whenReadyAsync(true);
-    if (isDisposed()) throw new Error('Brett-Szene wurde während des Aufbaus entsorgt');
+    // Shader schrittweise (CHAOS-132, KI-25): Nach jedem Minispiel entsteht das Brett neu.
+    if (!(await prepareSceneGradually(scene, { isCancelled: isDisposed }))) {
+      throw new Error('Brett-Szene wurde während des Aufbaus entsorgt');
+    }
     if (testMode) {
       scene.render();
     } else {

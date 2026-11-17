@@ -1,6 +1,6 @@
 # USDZ-Assets für den nativen Apple-Host
 
-Stand 2026-11-17, CHAOS-140, [ADR-019](decisions/ADR-019-nativer-apple-host.md) §5. Experiment: EXP-025 in [`experiments.md`](experiments.md).
+Stand 2026-11-17, CHAOS-140, [ADR-019](decisions/ADR-019-nativer-apple-host.md) §5. Experiment: EXP-026 in [`experiments.md`](experiments.md).
 
 Der native Host (RealityKit, Mac und Apple TV) zeigt dieselben Figuren und dieselbe Brett-Kulisse wie der Babylon-Host. Beides entsteht mit **einem Befehl** aus den Quellen im Repo und wird nicht eingecheckt.
 
@@ -60,7 +60,7 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
   - Brett: alle Feld-Anker genau einmal und auf 1 mm am Ort aus `fields`, alle Instanz-Grundmeshes, eingebettete Texturen
 - **Herkunft:** Jede Textur im Brett-Export muss aus einem Manifest-Asset kommen, das das Artefakt in `from` nennt, oder eine Beschriftung (Wegweiser, „Am Zug“-Pfeil, gezeichnet mit Nunito) sein (`scripts/lib/board-images.mjs`). `pnpm check:assets` prüft die Einträge unter `builds` im Manifest und, wenn gebaut, die Budgets.
 - **Auf dem Mac** zusätzlich `packages/assets/usd/check_realitykit.swift`: RealityKit lädt alles, Achsen, Feld-Anker, `abzeichen`, Länge der Zeitleiste.
-- **Optik:** nur am Mac mit Augen, siehe [Gerätecheckliste](device-test-checklist.md), Abschnitt „USDZ-Assets“.
+- **Optik:** nur am Mac mit Augen, siehe [Gerätecheckliste](device-test-checklist.md), Abschnitt 25 „USDZ-Assets“.
 
 ## Bekannte Grenzen
 

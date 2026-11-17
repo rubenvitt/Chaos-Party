@@ -66,14 +66,18 @@ export const TEXT = {
   braceDetail: 'Nur halber Verlust',
 } as const;
 
-export function itemDetail(item: ItemKind, amount: number): string {
+/**
+ * Zusatzzeile eines Items im Würfel-Prompt. `grows`: Der Wert kann bis zum Auslösen noch
+ * steigen (wachsende Sabotage, CHAOS-120) – dann „ab“ (nur bei der Falle).
+ */
+export function itemDetail(item: ItemKind, amount: number, grows = false): string {
   switch (item) {
     case 'double-dice':
       return 'Zwei Würfel statt einem';
     case 'coin-steal':
       return `Bis zu ${coinsText(amount)} klauen`;
     case 'trap':
-      return `Kostet andere ${coinsText(amount)}`;
+      return `Kostet andere ${grows ? 'ab ' : ''}${coinsText(amount)}`;
     case 'shield':
       return 'Schützt vor Münzklau';
   }
