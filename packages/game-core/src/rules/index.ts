@@ -3,7 +3,14 @@
  * CHAOS-17/19/20/21) und Bot-Simulation für Balance-Experimente (CHAOS-24).
  */
 export { createGame, step } from './machine.ts';
-export { DEFAULT_RULES, ZERO_PACING, withRules, type RuleOverrides } from './defaults.ts';
+export {
+  DEFAULT_RULES,
+  TAILWIND_RULE,
+  ZERO_PACING,
+  withRules,
+  withTailwind,
+  type RuleOverrides,
+} from './defaults.ts';
 export { rankPlayers } from './economy.ts';
 export { stealLoss, type ReactionResult } from './reaction.ts';
 export {

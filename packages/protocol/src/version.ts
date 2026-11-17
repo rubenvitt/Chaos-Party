@@ -25,6 +25,9 @@
  * v4-Nachtrag (CHAOS-124, additiv, ohne Versionssprung): Lobby-Einstellung „Mehr Zeit zum
  * Reagieren“ – `lobby.settings.moreReactionTime` (optional); in `configure` sind `rounds` und
  * `moreReactionTime` optional, mindestens eines ist gesetzt.
+ * v4-Nachtrag (CHAOS-125, additiv, ohne Versionssprung): Münz-Grund `tailwind` (Rückenwind),
+ * `BoardView.minigame.tailwind` und `ControllerBoardInfo.tailwind` (beide optional, ab
+ * `round-end`).
  */
 export const PROTOCOL_VERSION = 4;
 

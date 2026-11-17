@@ -306,11 +306,15 @@ function resume(ctx: Ctx, t: number): void {
     case 'minigame-play':
       expireMinigame(ctx, t);
       return;
-    case 'minigame-results':
-      if (d.round < d.rounds) applyTailwind(ctx);
+    case 'minigame-results': {
+      // CHAOS-125: Rückenwind wird beim Rundenende angesagt (PC-Karte, Controller-Hinweis).
+      const tailwind = d.round < d.rounds ? applyTailwind(ctx) : [];
+      if (tailwind.length > 0 && d.minigame) d.minigame = { ...d.minigame, tailwind };
       ctx.events.push({ type: 'round-ended', round: d.round });
-      schedule(ctx, 'round-end', t, pacing.roundEndMs);
+      const announceMs = tailwind.length > 0 ? (pacing.tailwindMs ?? 0) : 0;
+      schedule(ctx, 'round-end', t, pacing.roundEndMs + announceMs);
       return;
+    }
     case 'round-end':
       if (d.round < d.rounds) startRound(ctx, t);
       else finishGame(ctx);

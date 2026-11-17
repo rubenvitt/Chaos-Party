@@ -124,6 +124,15 @@ export function eventText(
                 tone: 'good',
               }
             : null;
+        case 'tailwind':
+          // CHAOS-125: Aufholhilfe nach dem Minispiel; groß dazu die Karte im Rundenende.
+          return event.delta > 0
+            ? {
+                text: `Rückenwind: ${name(event.slot)} +${coins(event.delta)}`,
+                slot: event.slot,
+                tone: 'good',
+              }
+            : null;
         case 'trophy':
         case 'steal':
         case 'trap':
@@ -216,6 +225,38 @@ export function eventText(
     case 'reaction-opened':
       return null;
   }
+}
+
+/** Eine Zeile der Rückenwind-Ansage: wer, wie viele Münzen. */
+export interface TailwindRow {
+  readonly slot: SlotNumber;
+  readonly name: string;
+  readonly coins: number;
+}
+
+/** Erklärung unter der Überschrift der Rückenwind-Karte. */
+export const TAILWIND_LEAD = 'Wer bei den Trophäen hinten liegt, bekommt Münzen.';
+
+/**
+ * Rückenwind-Ansage im Rundenende (CHAOS-125): wer wie viele Münzen bekommt, die meisten
+ * zuerst. `null` außerhalb von `round-end` oder ohne Rückenwind.
+ */
+export function tailwindRows(view: BoardView | null): readonly TailwindRow[] | null {
+  if (view?.gamePhase !== 'round-end') return null;
+  const bonuses = view.minigame?.tailwind ?? [];
+  if (bonuses.length === 0) return null;
+  return [...bonuses]
+    .sort((a, b) => b.coins - a.coins || a.slot - b.slot)
+    .map((bonus) => ({
+      slot: bonus.slot,
+      name: playerName(view, bonus.slot),
+      coins: bonus.coins,
+    }));
+}
+
+/** „+4 Münzen“ / „+1 Münze“. */
+export function tailwindAmount(amount: number): string {
+  return `+${coins(amount)}`;
 }
 
 /** Große Einblendung in der Bildmitte (Überschrift und Zeile darunter). */

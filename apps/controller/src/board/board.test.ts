@@ -10,7 +10,13 @@ import {
 } from './countdown.ts';
 import { itemOfOption } from './items.ts';
 import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from './prompt.ts';
-import { describeWaiting, placeHeadline, roundLabel, slotName } from './status.ts';
+import {
+  describeWaiting,
+  placeHeadline,
+  roundLabel,
+  slotName,
+  tailwindHeadline,
+} from './status.ts';
 
 const reaction: PromptInfo = {
   id: 5,
@@ -269,6 +275,19 @@ describe('Warte-Anzeige', () => {
       describeWaiting({ ...board, gamePhase: 'round-end', activeSlot: null }, 1, players),
     ).toEqual({ kind: 'watch' });
     expect(describeWaiting(undefined, 1, players)).toEqual({ kind: 'watch' });
+  });
+
+  it('Rückenwind im Rundenende (CHAOS-125): eigene Münzen groß, sonst wie immer', () => {
+    const roundEnd = { ...board, gamePhase: 'round-end' as const, activeSlot: null };
+    expect(describeWaiting({ ...roundEnd, tailwind: 4 }, 1, players)).toEqual({
+      kind: 'tailwind',
+      coins: 4,
+    });
+    expect(describeWaiting(roundEnd, 1, players)).toEqual({ kind: 'watch' });
+    // Außerhalb des Rundenendes zählt das Feld nicht.
+    expect(describeWaiting({ ...board, tailwind: 4 }, 1, players).kind).toBe('other-turn');
+    expect(tailwindHeadline(4)).toBe('Rückenwind: +4 Münzen!');
+    expect(tailwindHeadline(1)).toBe('Rückenwind: +1 Münze!');
   });
 
   it('Runde und Endplatz-Text', () => {

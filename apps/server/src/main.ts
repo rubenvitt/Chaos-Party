@@ -1,3 +1,4 @@
+import { withTailwind } from '@chaos-party/game-core';
 import { existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +16,8 @@ import { formatStartupLines, renderTerminalQr } from './startup.ts';
  * - `PUBLIC_HOST`, `PUBLIC_PORT`: Adresse/Port im QR-Link erzwingen (ADR-007)
  * - `TERMINAL_QR=0`: keinen QR-Code im Terminal zeichnen
  * - `ROUNDS`: Runden des Brettspiels (Standard 10, EXP-011), `SEED`: fester Seed (reproduzierbar)
+ * - `RUECKENWIND=1`: Rückenwind-Münzen für Zurückliegende einschalten (CHAOS-125, EXP-022;
+ *   Standard aus bis zum Playtest)
  */
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -39,6 +42,7 @@ const target = resolveJoinTarget({
 
 const rounds = parseIntegerEnv('ROUNDS', 1, 20);
 const seed = parseIntegerEnv('SEED', 0, 2 ** 31 - 1);
+const tailwind = process.env.RUECKENWIND?.trim() === '1';
 
 const server = createChaosServer({
   staticDir,
@@ -49,11 +53,12 @@ const server = createChaosServer({
   game: {
     ...(rounds === undefined ? {} : { rounds }),
     ...(seed === undefined ? {} : { seed }),
+    ...(tailwind ? { rules: withTailwind() } : {}),
   },
   onGameStart: (info) => {
     // Seed ausgeben: Mit SEED=<Wert> lässt sich dieselbe Partie nachstellen (M2).
     console.log(
-      `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Seed ${String(info.seed)}`,
+      `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Seed ${String(info.seed)}${tailwind ? ', Rückenwind an' : ''}`,
     );
   },
 });

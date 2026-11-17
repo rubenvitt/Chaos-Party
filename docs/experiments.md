@@ -1940,6 +1940,16 @@ Code: Varianten in `packages/game-core/src/rules/experimentsCatchUp.ts`. Regeln 
 
 **Offen für Playtest:** Fällt das Entgegenkommen der Trophäe auf, und stört es? Ist der Halbzeit-Vorteil zu dritt und zu viert (57 bzw. 51 %) noch zu stark? Dann zuerst Rückenwind mit Ansage (TW: 52/45 %). Entscheiden die Münzen jetzt zu oft?
 
+**Nachtrag 2026-11-17 (CHAOS-125): Rückenwind mit Ansage, Standard weiter aus.** Ein Playtest-Ergebnis gibt es noch nicht. Ruben hat entschieden: Die Ansage wird jetzt gebaut, der Standard bleibt aus, bis der Playtest zeigt, dass der Halbzeit-Vorteil zu dritt oder zu viert zu stark ist.
+
+- **Regel unverändert** (W: 2 Münzen je Trophäe Rückstand, höchstens 6, nach jedem Minispiel außer dem letzten). Die Münzen haben jetzt den eigenen Grund `tailwind` statt `event`; die Zahlen aus der Simulation oben gelten weiter.
+- **Am PC:** Im Rundenende erscheint mittig die Karte „Rückenwind!“ mit allen, die Münzen bekommen (meiste zuerst), dazu Münz-Popups an den Figuren und Ticker „Rückenwind: Blau +4 Münzen“. Das Rundenende dauert dann 3,5 s länger (`pacing.tailwindMs`), damit man die Karte lesen kann.
+- **Am Controller:** „Rückenwind: +4 Münzen!“ mit kurzer Erklärung, nur bei denen, die Münzen bekommen (Web und native iPhone-App).
+- **Einschalten für den Playtest:** `RUECKENWIND=1 pnpm start` (Server, `withTailwind()`); dauerhaft einschalten hieße `catchUp: { tailwind: TAILWIND_RULE }` in `DEFAULT_RULES` und die Determinismus-Tests anpassen.
+- **Belege:** `tests/e2e/__screenshots__/host-brett.spec.ts/host-brett-rueckenwind-chromium-linux.png`, `tests/e2e/__screenshots__/controller-brett.spec.ts/brett-rueckenwind-iphone-*-linux.png`.
+
+**Entscheidung:** iterate W (unverändert). Ansage fertig, Standard aus. **Offen für Playtest (mit `RUECKENWIND=1`):** Versteht man die Karte ohne Erklärung? Fühlt es sich fair an oder wie Mitleid? Kippt es zu dritt oder zu viert zu stark zu den Letzten?
+
 ---
 
 ## EXP-023: Krümel-Kehraus überarbeitet – Physik mit festen Ecken statt Absturzlücken (2026-11-17, CHAOS-79)

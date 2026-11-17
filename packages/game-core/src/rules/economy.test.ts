@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RULES, withRules, ZERO_PACING } from './defaults.ts';
+import { DEFAULT_RULES, TAILWIND_RULE, withRules, withTailwind, ZERO_PACING } from './defaults.ts';
 import { rankPlayers } from './economy.ts';
 import { NO_CATCH_UP_RULES } from './experimentsCatchUp.ts';
 
@@ -109,6 +109,7 @@ describe('DEFAULT_RULES und withRules', () => {
         minigamePlayMs: 3000,
         minigameResultsMs: 6000,
         roundEndMs: 1500,
+        tailwindMs: 3500,
         reactionWindowMs: 3000,
         disconnectGraceMs: 15000,
       },
@@ -125,6 +126,7 @@ describe('DEFAULT_RULES und withRules', () => {
     expect(rules.items.weights).toEqual({ ...DEFAULT_RULES.items.weights, shield: 0 });
     expect(rules.pacing.stepMs).toBe(0);
     expect(rules.pacing.reactionWindowMs).toBe(3000);
+    expect(rules.pacing.tailwindMs).toBe(0);
     expect(rules.trophy).toEqual(DEFAULT_RULES.trophy);
     expect(rules.catchUp).toBeUndefined();
   });
@@ -138,5 +140,18 @@ describe('DEFAULT_RULES und withRules', () => {
       finale: { rounds: 3, factor: 2 },
     });
     expect(withRules({}, NO_CATCH_UP_RULES)).not.toHaveProperty('catchUp');
+  });
+
+  it('withTailwind (CHAOS-125): schaltet nur den Rückenwind ein, Standard bleibt aus', () => {
+    expect(DEFAULT_RULES.catchUp?.tailwind).toBeUndefined();
+    const rules = withTailwind();
+    expect(rules.catchUp).toEqual({ tailwind: TAILWIND_RULE });
+    expect(TAILWIND_RULE).toEqual({ perTrophy: 2, max: 6 });
+    expect({ ...rules, catchUp: undefined }).toEqual({ ...DEFAULT_RULES, catchUp: undefined });
+    const finale = withRules({ catchUp: { finale: { rounds: 3, factor: 2 } } });
+    expect(withTailwind(finale).catchUp).toEqual({
+      finale: { rounds: 3, factor: 2 },
+      tailwind: TAILWIND_RULE,
+    });
   });
 });

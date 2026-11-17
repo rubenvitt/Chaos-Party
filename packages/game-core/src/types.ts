@@ -79,6 +79,11 @@ export interface Pacing {
    */
   readonly minigameResultGraceMs?: number;
   readonly roundEndMs: number;
+  /**
+   * Rückenwind-Ansage (CHAOS-125): So viel länger dauert `round-end`, wenn Rückenwind-Münzen
+   * ausgezahlt wurden (PC und Controller zeigen sie an). Fehlt = 0.
+   */
+  readonly tailwindMs?: number;
   /** Dauer des Reaktionsfensters (CHAOS-21). */
   readonly reactionWindowMs: number;
   /** So lange wartet eine Entscheidung auf einen getrennten Spieler, dann Standardoption. */
@@ -99,7 +104,8 @@ export interface CatchUpRules {
   readonly discount?: { readonly behind: number; readonly price: number };
   /**
    * Rückenwind: Nach jedem Minispiel außer dem letzten bekommt jede Person
-   * `perTrophy` × Rückstand Münzen, höchstens `max` (Grund `event`).
+   * `perTrophy` × Rückstand Münzen, höchstens `max` (Grund `tailwind`, CHAOS-125). Am PC und
+   * am Controller angesagt (`MinigameState.tailwind`, `pacing.tailwindMs`).
    */
   readonly tailwind?: { readonly perTrophy: number; readonly max: number };
   /** Finale-Fieber: In den letzten `rounds` Runden zählen Minispiel-Münzen `factor`-fach. */
@@ -248,6 +254,17 @@ export interface MinigameState {
    * `null` davor, leer bei Abbruch. Reihenfolge wie `placements`.
    */
   readonly rewards: readonly MinigameReward[] | null;
+  /**
+   * Rückenwind nach dem Minispiel (CHAOS-125): ausgezahlte Münzen je Slot ab `round-end`, nur
+   * Slots mit Münzen. Fehlt = keiner (Regel aus, letzte Runde, kein Rückstand).
+   */
+  readonly tailwind?: readonly TailwindBonus[];
+}
+
+/** Rückenwind-Münzen eines Slots nach einem Minispiel (CHAOS-125). */
+export interface TailwindBonus {
+  readonly slot: Slot;
+  readonly coins: number;
 }
 
 export interface MinigameReward {
@@ -498,7 +515,8 @@ export type StepResult =
 // Ereignisse (für Host-Animation, Controller-Rückmeldung, Tests und Experimente)
 // ---------------------------------------------------------------------------
 
-export type CoinReason = 'space' | 'event' | 'trophy' | 'steal' | 'trap' | 'minigame';
+/** `tailwind` (CHAOS-125): Rückenwind-Münzen für Zurückliegende nach dem Minispiel. */
+export type CoinReason = 'space' | 'event' | 'trophy' | 'steal' | 'trap' | 'minigame' | 'tailwind';
 
 /** Zufällige Ereignisse auf `event`-Feldern (Auswahl per RNG; Liste bestimmt game-core). */
 export type BoardEventKind = 'coin-rain' | 'gust' | 'swap' | 'trophy-shuffle' | 'lucky-find';
