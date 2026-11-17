@@ -1,0 +1,38 @@
+# CHAOS-138 (ADR-019 W2): Apple TV hostet allein. Erst ./prepare.sh, dann `xcodegen generate`.
+name: ChaosTVHost
+options:
+  bundleIdPrefix: dev.rubeen
+  deploymentTarget:
+    macOS: '26.0'
+    tvOS: '26.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MARKETING_VERSION: '0.1'
+    CURRENT_PROJECT_VERSION: '1'
+targets:
+  ChaosTVHost:
+    type: application
+    supportedDestinations: [macOS, tvOS]
+    sources:
+      - path: app
+        excludes: ['*.js']
+      # Von prepare.sh erzeugt; als Ordner ins Bundle, damit controller/assets/… erhalten bleibt.
+      - path: payload
+        type: folder
+        buildPhase: resources
+        optional: true
+    settings:
+      base:
+        PRODUCT_NAME: ChaosTVHost
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.tvhost
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Chaos Party Host
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Controller im lokalen Netz verbinden sich mit diesem Gerät.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        TARGETED_DEVICE_FAMILY: '3'
+        # Nur lokal signieren: macOS ad hoc, Simulator ohne Team; echte Geräte bekommen das Team auf der Kommandozeile.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: '-'
+        DEVELOPMENT_TEAM: ''
+        'CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]': NO
