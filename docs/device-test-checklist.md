@@ -475,3 +475,20 @@ Automatisch geprüft: JS-Kern im nackten `node:vm`-Kontext (ganze Partie mit Bot
 | AH5 | Bis zum ersten Minispiel weiterspielen | Minispiel als Grundkörper sichtbar, Stick/Knopf am iPhone wirken, danach zurück aufs Brett | | |
 | AH6 | Log nach 2–3 Minuten ansehen | keine `JS-FEHLER`- oder `FEHLER`-Zeilen; `HOST-MESSUNG` mit `js_ms_p95` notieren | | Log-Auszug |
 
+## 23. Notarisierte Mac-App auf einem fremden Mac (für CHAOS-118)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-118 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „Release“
+
+Automatisch geprüft (CI, jeder PR): Archiv mit Hardened Runtime ohne `get-task-allow`, Universal-Binary, Selbsttest der fertigen App (JS-Kern, Havok, Controller-Seite, WebSocket-Beitritt). Im Release-Workflow zusätzlich Notarisierung, Heften und `spctl` („Notarized Developer ID“). **Nicht** geprüft: der Download über einen Browser auf einem Mac, der die App noch nie gesehen hat (Quarantäne-Attribut, Gatekeeper beim ersten Öffnen), und ein Spiel mit echten iPhones aus der heruntergeladenen App.
+
+Voraussetzung: Secrets `MACOS_CERTIFICATE_P12` und `MACOS_CERTIFICATE_PASSWORD` sind gesetzt, der Workflow „Release (Mac-App)“ lief grün und hat einen Release `macos-v…` angelegt.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| MA1 | Auf einem **anderen** Mac (oder anderem Benutzerkonto ohne Xcode-Builds) den Zip vom GitHub-Release mit Safari laden, entpacken, „Chaos Party.app“ nach „Programme“ ziehen | `shasum -a 256` passt zur `.sha256` des Releases | | |
+| MA2 | Doppelklick auf die App | Kein „kann nicht geöffnet werden“ und kein „Entwickler nicht verifiziert“; höchstens die normale Rückfrage „aus dem Internet geladen … Öffnen?“ | | Bildschirmfoto der Rückfrage |
+| MA3 | Terminal: `spctl --assess --type execute -vv "/Applications/Chaos Party.app"` und `xcrun stapler validate "/Applications/Chaos Party.app"` | `accepted`, `source=Notarized Developer ID`; „The validate action worked!“ | | Ausgabe |
+| MA4 | Erster Start: Rückfragen zu lokalem Netzwerk bzw. eingehenden Verbindungen | Erlauben; Fenster „Chaos Party“ mit QR-Code und Link | | |
+| MA5 | Zwei iPhones im selben WLAN: QR-Code scannen, Figur wählen, „Bereit!“, am Mac Return | Partie startet, Würfeln bewegt die Figur, das erste Minispiel läuft und kehrt aufs Brett zurück | | Foto |
+| MA6 | „Über Chaos Party“ bzw. Finder → Informationen | Version passt zum Release-Tag (`macos-v0.1.N` → 0.1.N) | | |
+
