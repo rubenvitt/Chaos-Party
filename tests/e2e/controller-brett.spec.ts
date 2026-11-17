@@ -397,6 +397,28 @@ test('invalid-choice: freundlicher Hinweis, Sperre gelöst, neue Wahl möglich',
   expect(chooses().map((c) => c.option)).toEqual(['buy', 'skip']);
 });
 
+test('Rückenwind im Rundenende: eigene Münzen groß, danach wieder normal (CHAOS-125)', async ({
+  page,
+}, testInfo) => {
+  await joinBoard(page);
+  fake.sendBoard(
+    1,
+    boardInfo({ gamePhase: 'round-end', activeSlot: null, coins: 16, trophies: 0, tailwind: 4 }),
+  );
+
+  const waiting = page.getByTestId('board-waiting');
+  await expect(waiting).toHaveAttribute('data-kind', 'tailwind');
+  await expect(waiting).toContainText('Rückenwind: +4 Münzen!');
+  await expect(waiting).toContainText('Du liegst bei den Trophäen hinten');
+  await expect(page.getByTestId('stat-coins')).toContainText('16');
+  await expectNoScrollOrZoom(page);
+  await beleg(page, 'rueckenwind', testInfo.project.name);
+  await expect(page).toHaveScreenshot('brett-rueckenwind.png', { mask: screenshotMask(page) });
+
+  fake.sendBoard(1, boardInfo({ gamePhase: 'turn-start', activeSlot: 2, coins: 16 }));
+  await expect(waiting).toHaveAttribute('data-kind', 'other-turn');
+});
+
 test('Spielende: eigener Platz groß', async ({ page }, testInfo) => {
   await joinBoard(page);
   fake.sendBoard(1, boardInfo({ gamePhase: 'game-results', activeSlot: null, place: 2 }));

@@ -70,7 +70,16 @@ export const BOARD_EVENT_KINDS = [
   'trophy-shuffle',
   'lucky-find',
 ] as const;
-export const COIN_REASONS = ['space', 'event', 'trophy', 'steal', 'trap', 'minigame'] as const;
+/** `tailwind` (v4-Nachtrag CHAOS-125): Rückenwind-Münzen für Zurückliegende nach dem Minispiel. */
+export const COIN_REASONS = [
+  'space',
+  'event',
+  'trophy',
+  'steal',
+  'trap',
+  'minigame',
+  'tailwind',
+] as const;
 export const BUTTONS = ['a', 'b'] as const;
 export const GESTURE_KINDS = ['swipe-up', 'swipe-down', 'swipe-left', 'swipe-right'] as const;
 /** Was ein Controller-Slot in der aktuellen Phase anbieten soll. */
@@ -583,6 +592,11 @@ export const ControllerBoardInfoSchema = z.strictObject({
   tied: z.boolean().optional(),
   /** v4, nur in `game-results`: Partie wurde vorzeitig beendet. */
   endedEarly: z.boolean().optional(),
+  /**
+   * v4-Nachtrag (CHAOS-125), nur in `round-end`: eigene Rückenwind-Münzen nach dem Minispiel;
+   * fehlt, wenn es keine gab.
+   */
+  tailwind: z.int().positive().optional(),
 });
 
 /** Eigener Stand in der Lobby (v4, CHAOS-36): Figurenwahl und Rundenzahl. */
@@ -808,6 +822,15 @@ export const BoardViewSchema = z.strictObject({
        * leer bei Abbruch). Damit ist die Ergebnisanzeige nach einem Host-Neuladen vollständig.
        */
       rewards: z.array(MinigameRewardSchema).max(MAX_PLAYERS).nullable(),
+      /**
+       * v4-Nachtrag (CHAOS-125), ab `round-end`: Rückenwind-Münzen je Slot (nur Slots mit
+       * Münzen). Fehlt, wenn es keinen Rückenwind gab.
+       */
+      tailwind: z
+        .array(z.strictObject({ slot: SlotSchema, coins: z.int().positive() }))
+        .min(1)
+        .max(MAX_PLAYERS)
+        .optional(),
     })
     .nullable(),
   /** v4: Partie pausiert; Restzeiten stehen still (`remainingMs`, `prompt`, Minispiel). */

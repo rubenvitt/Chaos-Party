@@ -358,13 +358,15 @@ private struct WaitingCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private enum Kind { case otherTurn(Int), ownTurn, minigame, results(Int?), setup, watch }
+    private enum Kind { case otherTurn(Int), ownTurn, minigame, results(Int?), setup, tailwind(Int), watch }
 
     private var kind: Kind {
         guard let board else { return .watch }
         if board.gamePhase == .gameResults { return .results(board.place) }
         if [.minigameIntro, .minigamePlay, .minigameResults].contains(board.gamePhase) { return .minigame }
         if board.gamePhase == .setup { return .setup }
+        // CHAOS-125: own tailwind coins during the round end (board/status.ts).
+        if board.gamePhase == .roundEnd, let coins = board.tailwind, coins > 0 { return .tailwind(coins) }
         guard let active = board.activeSlot else { return .watch }
         return active == ownSlot ? .ownTurn : .otherTurn(active)
     }
@@ -379,6 +381,7 @@ private struct WaitingCard: View {
                 GameIcon(name: "trophy", size: 56)
                 if let place { Text("Platz \(place)").font(.title.bold()) }
             }
+        case .tailwind: GameIcon(name: "coin", size: 84)
         case .setup, .watch: WaitDots()
         }
     }
@@ -391,6 +394,7 @@ private struct WaitingCard: View {
         case .minigame: "Minispiel läuft …"
         case .results(let place): place == nil ? "Spiel vorbei!" : place == 1 ? "Du hast gewonnen!" : "Gut gespielt!"
         case .setup: "Gleich geht’s los …"
+        case .tailwind(let coins): "Rückenwind: +\(coins) \(coins == 1 ? "Münze" : "Münzen")!"
         case .watch: lookAtScreen
         }
     }
@@ -398,6 +402,7 @@ private struct WaitingCard: View {
     private var lead: String? {
         switch kind {
         case .results, .watch: nil
+        case .tailwind: "Du liegst bei den Trophäen hinten – das hilft beim Aufholen."
         default: lookAtScreen
         }
     }

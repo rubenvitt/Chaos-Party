@@ -26,6 +26,9 @@ import {
   promptDetail,
   promptStatus,
   roundText,
+  TAILWIND_LEAD,
+  tailwindAmount,
+  tailwindRows,
 } from './texts.ts';
 
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
@@ -199,6 +202,40 @@ function MinigameOverlay({
   );
 }
 
+/**
+ * Rückenwind-Ansage im Rundenende (CHAOS-125): Wer bei den Trophäen hinten liegt, bekommt
+ * nach dem Minispiel Münzen. Steht mittig über dem Brett, damit die Münz-Popups an den
+ * Figuren sichtbar bleiben.
+ */
+function TailwindCard({ view }: { readonly view: BoardView }) {
+  const rows = tailwindRows(view);
+  if (!rows) return null;
+  return (
+    <section className="board-tailwind" data-testid="board-tailwind" aria-live="polite">
+      <p className="board-overlay-kicker">Aufholhilfe</p>
+      <h2 className="board-tailwind-title">Rückenwind!</h2>
+      <p className="board-tailwind-lead">{TAILWIND_LEAD}</p>
+      <ul className="board-tailwind-rows">
+        {rows.map((row) => (
+          <li
+            key={row.slot}
+            className="board-tailwind-row"
+            data-testid={`board-tailwind-${row.slot}`}
+            style={colorStyle(row.slot)}
+          >
+            <PlayerDot slot={row.slot} />
+            <span className="board-tailwind-name">{row.name}</span>
+            <span className="board-tailwind-value">
+              <CoinIcon size={28} />
+              {tailwindAmount(row.coins)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** DOM-Overlay über dem Brett. `pointer-events: none` wie der Arena-HUD (C5). */
 export function BoardHud({ hud, boardName, connection }: BoardHudProps) {
   const { view } = hud;
@@ -255,6 +292,7 @@ export function BoardHud({ hud, boardName, connection }: BoardHudProps) {
           </div>
         )}
         {view && <StatusLine view={view} seconds={hud.promptSeconds} />}
+        {view && <TailwindCard view={view} />}
         {!view && <div className="hud-status">Warte auf das Spielbrett …</div>}
       </div>
 

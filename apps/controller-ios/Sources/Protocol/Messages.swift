@@ -241,6 +241,8 @@ struct ControllerBoardInfo: Codable, Equatable, Sendable {
     var minigameWins: Int
     var tied: Bool?
     var endedEarly: Bool?
+    /// Own tailwind coins after the minigame, only in `round-end` (CHAOS-125); `nil` = none.
+    var tailwind: Int?
 }
 
 /// `MinigameControlsSchema`: label per control, `nil` (wire `null`) = not offered.

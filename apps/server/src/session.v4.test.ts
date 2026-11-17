@@ -6,6 +6,7 @@
 import { createMessage, type ContextMessage, type SlotNumber } from '@chaos-party/protocol';
 import { rankByScore } from '@chaos-party/minigame-sdk';
 import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
+import { DEFAULT_RULES, withRules, withTailwind } from '@chaos-party/game-core';
 import { describe, expect, it } from 'vitest';
 import { Harness, HOST, INTEGRATION_SEEDS, setupMinigameGame, TICK_MS } from './testHarness.ts';
 
@@ -422,6 +423,45 @@ describe('Trostpreis nach dem Minispiel (CHAOS-51, EXP-019)', () => {
     expect(view?.players.find((p) => p.slot === loser.slot)?.items).toContain(prize);
     expect(context(h, loser.slot).minigame).toMatchObject({ stage: 'results', prizes: [prize] });
     expect(context(h, winner?.slot ?? 1).minigame?.prizes).toBeUndefined();
+    expect(h.errors).toEqual([]);
+  });
+});
+
+describe('Rückenwind-Ansage (CHAOS-125)', () => {
+  it('Rundenende mit Rückenwind: im Stand (minigame.tailwind) und im eigenen Kontext (board.tailwind)', () => {
+    // Billige Trophäen, damit früh jemand vorne liegt; Minispiele verfallen ohne Host-Ergebnis.
+    const rules = withTailwind(
+      withRules({ economy: { startCoins: 40 }, trophy: { price: 5 } }, DEFAULT_RULES),
+    );
+    const h = new Harness(
+      { game: { seed: 5, rounds: 10, rules, minigames: [] } },
+      { useItems: false, reaction: 'brace' },
+      5,
+    );
+    h.host();
+    for (const id of [1, 2, 3]) h.join(id);
+    for (const id of h.controllers.keys()) h.ready(id);
+    h.start();
+    h.runUntil(
+      (x) => x.gamePhase === 'round-end' && Boolean(x.boards.at(-1)?.view.minigame?.tailwind),
+    );
+    const view = h.boards.at(-1)?.view;
+    const tailwind = view?.minigame?.tailwind ?? [];
+    expect(tailwind.length).toBeGreaterThan(0);
+    const top = Math.max(...(view?.players.map((p) => p.trophies) ?? [0]));
+    for (const player of view?.players ?? []) {
+      const coins = tailwind.find((bonus) => bonus.slot === player.slot)?.coins;
+      const expected = Math.min(6, 2 * (top - player.trophies));
+      expect(coins ?? 0).toBe(expected);
+      expect(context(h, player.slot).board?.tailwind).toBe(coins);
+    }
+    const events = h.boards.flatMap((board) => board.events);
+    expect(events.some((e) => e.type === 'coins-changed' && e.reason === 'tailwind')).toBe(true);
+    // Nach dem Rundenende verschwindet die Ansage wieder.
+    h.runUntil((x) => x.gamePhase !== 'round-end');
+    for (const player of view?.players ?? []) {
+      expect(context(h, player.slot).board?.tailwind).toBeUndefined();
+    }
     expect(h.errors).toEqual([]);
   });
 });

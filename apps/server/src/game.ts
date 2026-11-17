@@ -290,6 +290,9 @@ export class BoardGame {
                   ...(reward.items ? { items: [...reward.items] } : {}),
                 }))
               : null,
+            ...(state.minigame.tailwind && state.minigame.tailwind.length > 0
+              ? { tailwind: state.minigame.tailwind.map((bonus) => ({ ...bonus })) }
+              : {}),
           }
         : null,
       paused: state.paused,
@@ -367,6 +370,11 @@ export class BoardGame {
     const player = state.players.find((candidate) => candidate.slot === slot);
     if (!player) return undefined;
     const entry = state.ranking?.find((candidate) => candidate.slot === slot);
+    // CHAOS-125: eigene Rückenwind-Münzen, solange das Rundenende sie ansagt.
+    const tailwind =
+      state.phase === 'round-end'
+        ? state.minigame?.tailwind?.find((bonus) => bonus.slot === slot)?.coins
+        : undefined;
     return {
       gamePhase: state.phase,
       round: state.round,
@@ -378,6 +386,7 @@ export class BoardGame {
       paused: state.paused,
       character: this.characterOf(slot),
       minigameWins: player.minigameWins,
+      ...(tailwind === undefined ? {} : { tailwind }),
       ...(entry === undefined
         ? {}
         : {

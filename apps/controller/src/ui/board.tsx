@@ -12,7 +12,14 @@ import {
 } from '../board/countdown.ts';
 import { ITEM_INFO } from '../board/items.ts';
 import type { ChoiceView } from '../board/prompt.ts';
-import { LOOK_AT_SCREEN, placeHeadline, roundLabel, type WaitingView } from '../board/status.ts';
+import {
+  LOOK_AT_SCREEN,
+  placeHeadline,
+  roundLabel,
+  TAILWIND_LEAD,
+  tailwindHeadline,
+  type WaitingView,
+} from '../board/status.ts';
 import { useAlertTone } from './alertToneContext.ts';
 import { readableTextColor } from './color.ts';
 import { Icon } from './icons.tsx';
@@ -185,6 +192,11 @@ export function WaitingCard({ view, compact = false }: { view: WaitingView; comp
       );
       headline = placeHeadline(view.place);
       lead = null;
+      break;
+    case 'tailwind':
+      mark = <Icon name="coin" size={compact ? 56 : 84} className="waiting-icon" />;
+      headline = tailwindHeadline(view.coins);
+      lead = TAILWIND_LEAD;
       break;
     case 'setup':
       mark = (

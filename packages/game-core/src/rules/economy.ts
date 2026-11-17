@@ -11,6 +11,7 @@ import type {
   RuleSet,
   SabotageLevel,
   Slot,
+  TailwindBonus,
 } from '../types.ts';
 import { playerOf, type Ctx } from './internal.ts';
 
@@ -185,17 +186,24 @@ export function trophyPrice(ctx: Ctx, slot: Slot): number {
 }
 
 /**
- * Aufholhilfe `tailwind` (CHAOS-65): Münzen je Trophäe Rückstand, gedeckelt. Aufrufer:
- * Ende eines Minispiels, nicht in der letzten Runde.
+ * Aufholhilfe `tailwind` (CHAOS-65, CHAOS-125): Münzen je Trophäe Rückstand, gedeckelt, mit
+ * eigenem Grund `tailwind`. Aufrufer: Ende eines Minispiels, nicht in der letzten Runde.
+ * Liefert die ausgezahlten Münzen je Slot (nur Slots mit Münzen, in Spieler-Reihenfolge).
  */
-export function applyTailwind(ctx: Ctx): void {
+export function applyTailwind(ctx: Ctx): TailwindBonus[] {
   const tailwind = ctx.rules.catchUp?.tailwind;
-  if (!tailwind) return;
+  if (!tailwind) return [];
   const bonus = ctx.d.players.map((p) => ({
     slot: p.slot,
     coins: Math.min(tailwind.max, tailwind.perTrophy * trophiesBehind(ctx, p.slot)),
   }));
-  for (const { slot, coins } of bonus) if (coins > 0) changeCoins(ctx, slot, coins, 'event');
+  const paid: TailwindBonus[] = [];
+  for (const { slot, coins } of bonus) {
+    if (coins <= 0) continue;
+    const actual = changeCoins(ctx, slot, coins, 'tailwind');
+    if (actual > 0) paid.push({ slot, coins: actual });
+  }
+  return paid;
 }
 
 /** Trophäe auf dem aktuellen Feld des aktiven Spielers kaufen (Prüfung macht der Aufrufer). */

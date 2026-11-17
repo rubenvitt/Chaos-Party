@@ -23,6 +23,8 @@ export type WaitingView =
   /** Endstand; `place` fehlt, wenn der Server ihn (noch) nicht mitschickt. */
   | { readonly kind: 'results'; readonly place: number | null }
   | { readonly kind: 'setup' }
+  /** Rundenende mit eigenen Rückenwind-Münzen (CHAOS-125). */
+  | { readonly kind: 'tailwind'; readonly coins: number }
   /** Rundenende o. Ä.: niemand ist dran. */
   | { readonly kind: 'watch' };
 
@@ -46,6 +48,9 @@ export function describeWaiting(
   if (board.gamePhase === 'game-results') return { kind: 'results', place: board.place ?? null };
   if (MINIGAME_PHASES.has(board.gamePhase)) return { kind: 'minigame' };
   if (board.gamePhase === 'setup') return { kind: 'setup' };
+  if (board.gamePhase === 'round-end' && board.tailwind !== undefined && board.tailwind > 0) {
+    return { kind: 'tailwind', coins: board.tailwind };
+  }
   const active = board.activeSlot;
   if (active === null) return { kind: 'watch' };
   if (active === ownSlot) return { kind: 'own-turn', slot: active };
@@ -56,6 +61,14 @@ export function describeWaiting(
 export function roundLabel(board: ControllerBoardInfo): string {
   const round = Math.min(Math.max(board.round, 1), Math.max(board.rounds, 1));
   return `Runde ${String(round)}/${String(board.rounds)}`;
+}
+
+/** Erklärung unter „Rückenwind: +4 Münzen!“ (CHAOS-125). */
+export const TAILWIND_LEAD = 'Du liegst bei den Trophäen hinten – das hilft beim Aufholen.';
+
+/** „Rückenwind: +4 Münzen!“ / „Rückenwind: +1 Münze!“. */
+export function tailwindHeadline(coins: number): string {
+  return `Rückenwind: +${String(coins)} ${coins === 1 ? 'Münze' : 'Münzen'}!`;
 }
 
 /** Text zum Endplatz. */

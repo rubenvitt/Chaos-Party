@@ -526,3 +526,15 @@ Voraussetzung: Secrets `MACOS_CERTIFICATE_P12` und `MACOS_CERTIFICATE_PASSWORD` 
 | MA5 | Zwei iPhones im selben WLAN: QR-Code scannen, Figur wählen, „Bereit!“, am Mac Return | Partie startet, Würfeln bewegt die Figur, das erste Minispiel läuft und kehrt aufs Brett zurück | | Foto |
 | MA6 | „Über Chaos Party“ bzw. Finder → Informationen | Version passt zum Release-Tag (`macos-v0.1.N` → 0.1.N) | | |
 
+## 26. Rückenwind-Ansage im Playtest (für CHAOS-125)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-125 · **Bilder:** `tests/e2e/__screenshots__/host-brett.spec.ts/host-brett-rueckenwind-chromium-linux.png`, `tests/e2e/__screenshots__/controller-brett.spec.ts/brett-rueckenwind-iphone-hoch-linux.png`
+
+Automatisch geprüft: Regel und Münz-Grund `tailwind` (`packages/game-core/src/rules/catchUp.test.ts`), Stand und Controller-Kontext über den Server (`apps/server/src/session.v4.test.ts`), Karte am PC und Hinweis am iPhone-Controller im Browser (`host-brett.spec.ts`, `controller-brett.spec.ts`). **Nicht** automatisch prüfbar: ob man die Ansage vom Sofa versteht und ob sich die Hilfe fair anfühlt. Die native iPhone-App ist nur im CI gebaut, nicht auf dem Gerät angesehen.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| RW1 | 3–4 Personen, `RUECKENWIND=1 ROUNDS=10 pnpm start`; Terminal zeigt „Rückenwind an“ | Partie läuft wie gewohnt | | |
+| RW2 | Nach einem Minispiel, sobald jemand mehr Trophäen hat | Karte „Rückenwind!“ mittig am Fernseher, Namen und „+2/+4/+6 Münzen“ lesbar, Münzen erscheinen an den Figuren; danach geht es normal weiter | | Foto |
+| RW3 | Am Handy derer, die Rückenwind bekommen | „Rückenwind: +… Münzen!“ mit Erklärung; die anderen sehen „Schau auf den großen Bildschirm!“ | | Foto |
+| RW4 | Nach der Partie fragen | Versteht man ohne Erklärung, warum es Münzen gab? Fühlt es sich fair an oder wie Mitleid? Kippt es zu stark zu den Letzten? | | Notiz |

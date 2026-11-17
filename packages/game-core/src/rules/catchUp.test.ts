@@ -4,7 +4,7 @@
  * bleibt alles wie vorher (das prüfen zusätzlich die Determinismus-Tests).
  */
 import { describe, expect, it } from 'vitest';
-import type { CatchUpRules, GameState, MinigameSpec, TrophyPlacement } from '../types.ts';
+import type { CatchUpRules, GameState, MinigameSpec, Pacing, TrophyPlacement } from '../types.ts';
 import { withRules, ZERO_PACING } from './defaults.ts';
 import { createGame } from './machine.ts';
 import { loopBoard } from './testBoards.ts';
@@ -130,7 +130,11 @@ describe('Aufholhilfe discount: Rabatt mit Rückstand', () => {
 const SPECS: readonly MinigameSpec[] = [{ id: 'flink-flitzer', playMs: 20_000, scoring: 'higher' }];
 
 /** Partie auf einem Brett ohne Feldwirkung; Slot 1 gewinnt jedes Minispiel. */
-function minigameGame(rounds: number, catchUp: CatchUpRules): GameState {
+function minigameGame(
+  rounds: number,
+  catchUp: CatchUpRules,
+  pacing: Pacing = ZERO_PACING,
+): GameState {
   return createGame({
     board: loopBoard(['start', 'start', 'start', 'start']),
     rules: withRules(
@@ -138,7 +142,7 @@ function minigameGame(rounds: number, catchUp: CatchUpRules): GameState {
         diceFaces: [1],
         economy: { minigameRewards: [10, 5, 3, 0] },
         items: { startItems: 0 },
-        pacing: ZERO_PACING,
+        pacing,
         catchUp,
       },
       TEST_RULES,
@@ -172,27 +176,64 @@ function playRound(state: GameState): {
     ],
     at: s.now + 500,
   });
+  // Steht die Ergebniskarte noch, bis zum Rundenende weiterticken (nicht darüber hinaus).
+  if (result.state.phase !== 'minigame-results') return result;
   const ended = tick(result.state, result.state.resumeAt ?? result.state.now);
   return { state: ended.state, events: [...result.events, ...ended.events] };
 }
 
 describe('Aufholhilfe tailwind: Rückenwind-Münzen nach dem Minispiel', () => {
   it('je Trophäe Rückstand Münzen, gedeckelt; nicht nach dem letzten Minispiel', () => {
-    let s = start(minigameGame(2, { tailwind: { perTrophy: 2, max: 6 } }), 0).state;
+    // Rundenende 1 s, damit der Stand im Rundenende sichtbar bleibt.
+    const pacing: Pacing = { ...ZERO_PACING, roundEndMs: 1000 };
+    let s = start(minigameGame(2, { tailwind: { perTrophy: 2, max: 6 } }, pacing), 0).state;
     s = patchPlayer(s, 1, { trophies: 4 });
     s = patchPlayer(s, 2, { trophies: 3 });
     s = patchPlayer(s, 3, { trophies: 0 });
     const first = playRound(s);
-    const tail = ofType(first.events, 'coins-changed').filter((e) => e.reason === 'event');
+    // CHAOS-125: eigener Grund `tailwind`, damit PC und Controller ihn ansagen können.
+    const tail = ofType(first.events, 'coins-changed').filter((e) => e.reason === 'tailwind');
     expect(tail.map((e) => [e.slot, e.delta])).toEqual([
       [2, 2],
       [3, 6],
     ]);
+    expect(ofType(first.events, 'coins-changed').some((e) => e.reason === 'event')).toBe(false);
     // Rückenwind kommt vor dem Rundenende (zählt im Zwischenstand).
     const types = first.events.map((e) => e.type);
     expect(types.lastIndexOf('coins-changed')).toBeLessThan(types.indexOf('round-ended'));
+    // Im Rundenende steht er im Minispiel-Stand (Anzeige am PC und am Controller).
+    expect(first.state.phase).toBe('round-end');
+    expect(first.state.minigame?.tailwind).toEqual([
+      { slot: 2, coins: 2 },
+      { slot: 3, coins: 6 },
+    ]);
     const last = playRound(first.state);
-    expect(ofType(last.events, 'coins-changed').filter((e) => e.reason === 'event')).toEqual([]);
+    expect(ofType(last.events, 'coins-changed').filter((e) => e.reason === 'tailwind')).toEqual([]);
+    expect(last.state.minigame?.tailwind).toBeUndefined();
+  });
+
+  it('ohne Rückstand kein Eintrag; die Ansage verlängert nur ein Rundenende mit Rückenwind', () => {
+    const pacing: Pacing = { ...ZERO_PACING, roundEndMs: 1000, tailwindMs: 3000 };
+    let s = start(minigameGame(3, { tailwind: { perTrophy: 2, max: 6 } }, pacing), 0).state;
+    const even = playRound(s);
+    expect(even.state.minigame?.tailwind).toBeUndefined();
+    expect((even.state.resumeAt ?? 0) - even.state.now).toBe(1000);
+    s = patchPlayer(even.state, 1, { trophies: 1 });
+    const behind = playRound(s);
+    expect(behind.state.minigame?.tailwind).toEqual([
+      { slot: 2, coins: 2 },
+      { slot: 3, coins: 2 },
+    ]);
+    expect((behind.state.resumeAt ?? 0) - behind.state.now).toBe(4000);
+  });
+
+  it('ohne Regel (Standard) weder Münzen noch Eintrag', () => {
+    const pacing: Pacing = { ...ZERO_PACING, roundEndMs: 1000 };
+    let s = start(minigameGame(2, {}, pacing), 0).state;
+    s = patchPlayer(s, 1, { trophies: 3 });
+    const first = playRound(s);
+    expect(ofType(first.events, 'coins-changed').some((e) => e.reason === 'tailwind')).toBe(false);
+    expect(first.state.minigame?.tailwind).toBeUndefined();
   });
 });
 

@@ -50,6 +50,8 @@ export const DEFAULT_RULES: RuleSet = {
     minigamePlayMs: 3000,
     minigameResultsMs: 6000,
     roundEndMs: 1500,
+    // CHAOS-125: Rundenende mit Rückenwind-Ansage (nur wenn die Regel an ist und Münzen fließen).
+    tailwindMs: 3500,
     reactionWindowMs: 3000,
     disconnectGraceMs: 15000,
   },
@@ -68,7 +70,20 @@ export const ZERO_PACING: Pacing = {
   minigamePlayMs: 0,
   minigameResultsMs: 0,
   roundEndMs: 0,
+  tailwindMs: 0,
 };
+
+/**
+ * Rückenwind (CHAOS-65/CHAOS-125, EXP-022): 2 Münzen je Trophäe Rückstand, höchstens 6, nach
+ * jedem Minispiel außer dem letzten. Standard aus, bis der Playtest entscheidet; der Server
+ * schaltet ihn mit `RUECKENWIND=1` ein (`withTailwind`).
+ */
+export const TAILWIND_RULE: NonNullable<CatchUpRules['tailwind']> = { perTrophy: 2, max: 6 };
+
+/** Regeln mit eingeschaltetem Rückenwind (übrige Aufholhilfen bleiben). */
+export function withTailwind(base: RuleSet = DEFAULT_RULES): RuleSet {
+  return { ...base, catchUp: { ...base.catchUp, tailwind: TAILWIND_RULE } };
+}
 
 /** Regeln mit überschriebenen Teilen (flach je Gruppe zusammengeführt). */
 export interface RuleOverrides {
