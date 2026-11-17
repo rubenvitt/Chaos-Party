@@ -1285,6 +1285,21 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
 - **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
 
+**Nachtrag 2026-11-17 (CHAOS-117): Warum R8 kein Bild hatte.**
+- **Ursache:** Babylons `MultiRenderTarget` registriert nur die WebGL-Variante von `createMultipleRenderTarget`. `webgpuEngine.js` lädt die WebGPU-Variante (`Engines/WebGPU/Extensions/engine.multiRender.js`) nicht mit. Ab Stufe `hoch` baut SSAO2 einen Geometriepuffer mit mehreren Renderzielen; dort bricht der Aufbau des Bretts mit `createMultipleRenderTarget is not a function` ab. Die Render-Schleife startet nie: 0 Bilder, „Schleifen 0“. `mittel`/`niedrig` brachen nicht ab, hingen aber an der zweiten Ursache (Nachtrag unten).
+- **Warum „kein Fehler“:** Die Meldung kommt erst nach dem 30-s-Zeitlimit beim Himmel (zweite Ursache, Nachtrag unten; im Container zunächst fälschlich für Shader-Übersetzung gehalten) als `console.error` („Brett-Szene konnte nicht aufgebaut werden“). Der Messlauf „Partie“ gibt die Konsole der Host-Seite nicht aus.
+- **Fix:** `apps/host/src/scene/engineFactory.ts` lädt die fehlende Erweiterung zusammen mit der WebGPU-Engine (`loadWebGpuEngine`). Ein Unit-Test prüft die Methoden der Mehrfach-Renderziele (`engineFactory.test.ts`; ohne Fix rot).
+- **Nachgestellt im Cloud-Container:** Headless-Chromium 153 mit `--enable-unsafe-webgpu` bietet einen SwiftShader-Adapter, verliert das Gerät aber beim ersten Bild auf einem Canvas („Device was destroyed“), auch ohne Babylon. Zum Nachstellen ersetzte ein Test-Skript (nicht eingecheckt) den Canvas-Kontext durch eine gewöhnliche GPU-Textur. Damit: vor dem Fix `hoch` → Frames 0, Schleifen 0, Fehler wie oben; nach dem Fix `hoch`, `mittel`, `niedrig` und `minimal` → Schleifen 1, Bilder laufen (441 Draw Calls bei `hoch`). Bildabstände aus SwiftShader sagen nichts über echte Hardware; ein Bild ließ sich dort nicht zurücklesen.
+- **Offen:** R8 (Mac) und R2 (PC) auf echter Hardware messen, dabei Aussehen mit WebGL2 vergleichen (Gerätecheckliste).
+
+**Nachtrag 2026-11-17 abends (CHAOS-117, echte Hardware): zweite Ursache und R8.**
+- **Der erste Fix reichte nicht:** Auf dem Mac (M3 Max, Chromium 153, echte GPU) zeichnete das Brett mit `?gpu=webgpu` weiter nicht, in `pnpm perf` 0 Bilder über 124 s. Nur `minimal` lief. Ab `niedrig` lädt das Brett den HDRI-Himmel.
+- **Zweite Ursache:** Unter WebGPU feuert `HDRCubeTexture.onLoadObservable` nie. `loaded()` in `apps/host/src/nature/lighting.ts` wartete deshalb bis zum Zeitlimit von 30 s; dann war die Textur längst fertig, und der Aufbau ging weiter. Gemessen mit Zeitstempeln: Himmel „geladen“ genau bei 31,0 s, danach `whenReadyAsync` in 0,4 s. In der Partie wird das Brett nach jedem Minispiel neu aufgebaut, die Brettphase war meist kürzer als 30 s: deshalb nie ein Bild.
+- **Fix:** `loaded()` fragt `isReady()` alle 20 ms ab, statt auf das Ereignis zu warten (Zeitlimit bleibt). Unit-Test `lighting.test.ts`. Das Brett zeichnet jetzt nach gut 2 s auf allen Stufen.
+- **R8 (Mac, `hoch`, 1920×1080, ohne VSync):** WebGPU 5,7 / 17,5 ms (Median / p95), 103 fps; WebGL2 im selben Durchgang 6,6 / 8,5 ms, 147 fps. WebGPU ist im Median 14 % schneller, im p95 doppelt so langsam (Ruckler). Der Mac war durch andere Prozesse belastet (Last ≈ 7–8), beide Läufe gleich.
+- **Aussehen:** Chromium zeigt unter WebGPU und WebGL2 dasselbe Brett ([WebGPU](screenshots/chaos117-brett-webgpu-mac.jpg), [WebGL2](screenshots/chaos117-brett-webgl2-mac.jpg)). Safari 26 ist ungeprüft: Die Sitzung durfte weder den Bildschirm aufnehmen noch Safari fernsteuern.
+- **Entscheidung:** ADR-016 bleibt: Am Mac bringt WebGPU nicht die geforderten 20 %. Offen bleiben R2 am PC (CHAOS-131) und Safari (RS1).
+
 ---
 
 ## EXP-016: Kuckucks-Klatsche überarbeitet – Arcade nur mit Knopf A (2026-11-16, CHAOS-54)
