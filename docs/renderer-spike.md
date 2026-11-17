@@ -1,6 +1,6 @@
 # Renderer-Spike: Anleitung und Messbogen (CHAOS-75)
 
-**Stand:** 2026-11-16 · **Aufgabe:** CHAOS-75 · **Entwurf:** [ADR-016](decisions/ADR-016-renderer.md) · **Experiment:** [EXP-015](experiments.md#exp-015-renderer-alternativen--webgpu-webassembly-nativ-2026-11-16-chaos-75)
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75 (abgeschlossen), PC-Zeilen R1–R6: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md), angenommen am 2026-11-17 · **Experiment:** [EXP-015](experiments.md#exp-015-renderer-alternativen--webgpu-webassembly-nativ-2026-11-16-chaos-75)
 
 Drei Kandidaten zeigen **dieselbe Testszene**: das Spielbrett „Wackelwald“ im Natur-Look mit dem Beispiel-Spielstand des lokalen Brett-Modus (4 Figuren, Schatten, Gras, Bäume, Pokale). Gemessen wird der **Bildabstand ohne VSync**, damit die Zahl die Kosten zeigt und nicht die Bildwiederholrate des Bildschirms.
 
@@ -121,7 +121,7 @@ Im Browser gelten dieselben Namen als Query (`?variante=webgpu&gras=0.25&schatte
 
 ## 5. Messbogen
 
-Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen.
+Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. Die PC-Zeilen R1–R6 laufen über CHAOS-131. R2 (WebGPU) erst messen, wenn CHAOS-117 behoben ist.
 
 | # | Rechner | Kandidat | Browser/API | Auflösung | Median | p95 | Bemerkung |
 |---|---|---|---|---|---|---|---|
