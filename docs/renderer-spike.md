@@ -51,7 +51,7 @@ Ergebnis: Zeile `brett` in der Konsolentabelle bzw. `perf-results/partie-webgl.j
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch`
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch&gpu=webgpu`
 
-30 s warten, in der Messanzeige „Alle Szenen kopieren“. Unter WebGPU übersetzt Babylon beim ersten Start alle Shader neu; bis das Brett das erste Bild zeigt, können einige Sekunden vergehen (Messanzeige: „Schleifen 0“, danach 1). Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
+30 s warten, in der Messanzeige „Alle Szenen kopieren“. Unter WebGPU zeigt das Brett das erste Bild nach gut 2 s (Messanzeige: erst „Schleifen 0“, danach 1; CHAOS-117). Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
 
 ## 2. Kandidat 2: Bevy (Rust) als WebAssembly im Browser
 
