@@ -108,6 +108,23 @@ RELEASE_DRY_RUN=1 apps/apple-host/scripts/release-macos.sh
   - `MACOS_CERTIFICATE_PASSWORD`: Passwort dieser `.p12`
   - `APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`: dieselben wie für TestFlight (CHAOS-115); `notarytool` braucht mindestens die Rolle „Developer“.
 
+## TestFlight (Apple TV, CHAOS-151)
+
+Die App kommt als „Chaos Party“ mit der Bundle-ID `dev.rubeen.chaosparty.tv` über TestFlight auf die Apple TV (vorher stand dort der RealityKit-Spike, CHAOS-119). `project.yml` signiert weiterhin nur lokal; [`scripts/testflight.sh`](scripts/testflight.sh) setzt Bundle-ID, Team und Signatur auf der Kommandozeile, baut nur für tvOS (Gerät) und prüft vorher und im Archiv, dass die Nutzlast (JS-Kern, Havok, Controller) drinsteckt.
+
+- **CI:** [`.github/workflows/testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) läuft bei jedem Push auf `main`, der diesen Ordner oder etwas aus der Nutzlast ändert (`apps/server/src`, `apps/host/src`, `apps/controller`, `packages/*`, Lockfile; ohne `*.md` und Tests), und lässt sich manuell starten (Actions → „TestFlight (Apple TV)“ → Run workflow). Secrets wie bei der Controller-App (`APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`).
+- **Mac-App:** kommt signiert und notarisiert aus dem Workflow „Release (Mac-App)“ (Abschnitt „Release“, CHAOS-118), nicht aus diesem.
+- **Lokal** mit dem in Xcode angemeldeten Account (ruft `prepare.sh` selbst auf):
+
+  ```bash
+  XCODE_ACCOUNT=1 apps/apple-host/scripts/testflight.sh
+  XCODE_ACCOUNT=1 UPLOAD=0 apps/apple-host/scripts/testflight.sh   # nur .ipa, kein Upload
+  ```
+
+- **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I apps/apple-host/scripts/tv-icons.py` aus dem Icon der Controller-App.
+- **Nicht übernommen:** die Messvarianten-Auswahl des Spikes (CHAOS-147). Der Host hat den hochskalierten 4K-Pfad noch nicht; er kommt mit CHAOS-142. Die USDZ-Assets aus CHAOS-140 kommen in die Nutzlast, sobald die App sie lädt; `prepare.sh` ist dafür die einzige Stelle, TestFlight übernimmt sie dann ohne eigene Änderung.
+- **Gerätetest:** [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §20, Schritte TH1–TH4.
+
 ## Harness (nur macOS)
 
 ```sh
@@ -124,6 +141,6 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 
 - Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full`, Beispielnachrichten aktuell.
 - macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur).
-
 - macOS-Job, letzter Schritt: `release-macos.sh` als Probelauf (ad hoc signiert, Hardened Runtime, Selbsttest der fertigen App).
-- Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“). TestFlight für tvOS: CHAOS-119/CHAOS-151.
+- Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“).
+- Workflow „TestFlight (Apple TV)“: tvOS-Archiv zu TestFlight (Abschnitt „TestFlight“, CHAOS-151).

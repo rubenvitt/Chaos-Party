@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Archiviert die Apple-TV-App signiert und lädt sie zu TestFlight hoch (CHAOS-119).
-# Aufbau wie apps/controller-ios/scripts/testflight.sh (CHAOS-115).
+# Archiviert den nativen Apple-Host (ADR-019) für tvOS signiert und lädt ihn zu TestFlight hoch
+# (CHAOS-151, vorher der RealityKit-Spike seit CHAOS-119). Aufbau wie
+# apps/controller-ios/scripts/testflight.sh (CHAOS-115).
 #
-# Bis der native Host steht (ADR-019), ist die Apple-TV-App der RealityKit-Spike mit der
-# Testszene. Er erscheint als „Chaos Party“ mit der Bundle-ID dev.rubeen.chaosparty.tv; der
-# App-Eintrag muss in App Store Connect existieren. Das Projekt selbst signiert nur lokal
-# (project.yml); Bundle-ID, Team und Signatur überschreibt dieses Skript auf der Kommandozeile.
+# Die App erscheint als „Chaos Party“ mit der Bundle-ID dev.rubeen.chaosparty.tv; der App-Eintrag
+# muss in App Store Connect existieren. project.yml signiert nur lokal (dev.rubeen.chaosparty.host);
+# Bundle-ID, Team und Signatur überschreibt dieses Skript auf der Kommandozeile.
 #
-# Voraussetzung: die Testszene in assets/export/ (README, Abschnitt „Assets“). Ohne sie
-# bricht das Skript ab, damit kein leeres Bundle bei TestFlight landet.
+# Die Nutzlast (JS-Kern, Havok, Lizenztexte, Browser-Controller) legt ../prepare.sh an. Fehlt ein
+# Teil, bricht das Skript ab, damit keine App ohne Spiel bei TestFlight landet.
 #
 # Umgebung:
 #   ASC_KEY_ID, ASC_ISSUER_ID   Pflicht (CI); lokal mit XCODE_ACCOUNT=1 nicht nötig
@@ -16,6 +16,8 @@
 #   ASC_KEY_PATH                Standard ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 #   BUILD_NUMBER                Standard UTC-Zeitstempel JJJJMMTT.HHMM (steigt mit jedem Lauf)
 #   UPLOAD=0                    nur archivieren und exportieren (.ipa), nicht hochladen
+#   SKIP_PREPARE=1              vorhandenes payload/ nehmen, prepare.sh nicht aufrufen
+#   SKIP_BUILD=1                an prepare.sh durchgereicht: vorhandene Builds statt neu bauen
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -34,18 +36,22 @@ fi
 # Zwei Zahlen statt einer, damit jede Komponente in 32 Bit passt.
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d.%H%M)}"
 
+if [[ "${SKIP_PREPARE:-0}" != 1 ]]; then
+  ./prepare.sh
+fi
+
+# Ohne diese Dateien startet die App, hostet aber kein Spiel (HostRuntime lädt sie aus dem Bundle).
 missing=0
-for f in brett.szene.json brett.instanzen.json brett.usdz \
-  figuren/robot.usdz figuren/cactus.usdz figuren/raccoon.usdz figuren/sock.usdz; do
-  [[ -s "assets/export/$f" ]] || { echo "Testszene unvollständig: assets/export/$f fehlt" >&2; missing=1; }
+for f in chaos-host.js HavokPhysics.wasm LICENSE.txt THIRD-PARTY-NOTICES.txt controller/index.html; do
+  [[ -s "payload/$f" ]] || { echo "Nutzlast unvollständig: payload/$f fehlt" >&2; missing=1; }
 done
 if [[ "$missing" == 1 ]]; then
-  echo "Erzeugen (Repo-Wurzel): node scripts/fetch-lookdev-assets.mjs && node scripts/spike-export-board.mjs && spikes/renderer-realitykit/convert/convert.sh" >&2
+  echo "Erzeugen: apps/apple-host/prepare.sh" >&2
   exit 1
 fi
 
 OUT="build/testflight"
-ARCHIVE="$OUT/ChaosTV.xcarchive"
+ARCHIVE="$OUT/ChaosHost.xcarchive"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
@@ -72,19 +78,23 @@ cat > "$OUT/ExportOptions.plist" <<PLIST
 </plist>
 PLIST
 
-echo "Build $BUILD_NUMBER ($BUNDLE_ID)"
+echo "Build $BUILD_NUMBER ($BUNDLE_ID), Nutzlast $(du -sh payload | cut -f1)"
 
 xcodegen generate
 
-# Nur für tvOS (Gerät); macOS und iOS bleiben lokal signierte Benchmarks.
-xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike -configuration Release \
+# Nur für tvOS (Gerät); die Mac-App kommt mit Notarisierung in CHAOS-118.
+xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost -configuration Release \
   -destination 'generic/platform=tvOS' -archivePath "$ARCHIVE" \
   PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-  INFOPLIST_KEY_CFBundleDisplayName="Chaos Party" \
-  TARGETED_DEVICE_FAMILY=3 \
   DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   "${AUTH[@]}" archive
+
+# Die Nutzlast muss im Archiv stecken; ein leerer Ordner fiele sonst erst auf der Apple TV auf.
+APP="$ARCHIVE/Products/Applications/ChaosHost.app"
+for f in payload/chaos-host.js payload/HavokPhysics.wasm payload/controller/index.html; do
+  [[ -s "$APP/$f" ]] || { echo "Archiv ohne $f: $APP" >&2; exit 1; }
+done
 
 # Der Export lädt bei destination=upload direkt zu App Store Connect hoch; die Plattform
 # (appletvos) kommt aus dem Archiv, ein eigenes `altool --type appletvos` ist nicht nötig.

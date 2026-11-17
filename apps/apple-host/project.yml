@@ -21,6 +21,9 @@ targets:
         type: folder
         buildPhase: resources
         optional: true
+      # tvOS-Icons und Top-Shelf-Bilder für TestFlight (CHAOS-119/151, scripts/tv-icons.py).
+      - path: app-tv/Assets.xcassets
+        destinationFilters: [tvOS]
     settings:
       base:
         PRODUCT_NAME: ChaosHost
@@ -30,8 +33,13 @@ targets:
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Controller im lokalen Netz verbinden sich mit diesem Gerät.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         TARGETED_DEVICE_FAMILY: '3'
+        'ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvos*]': 'App Icon & Top Shelf Image'
+        'ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvsimulator*]': 'App Icon & Top Shelf Image'
+        # Nur Standard-Verschlüsselung des Systems: keine Exportfrage bei jedem TestFlight-Upload.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         # Nur lokal signieren: macOS ad hoc, Simulator ohne Team; echte Geräte bekommen das Team auf der Kommandozeile.
-        # Signierte Mac-App mit Notarisierung: scripts/release-macos.sh (CHAOS-118); TestFlight für tvOS: CHAOS-119.
+        # Signierte Mac-App mit Notarisierung: scripts/release-macos.sh (CHAOS-118); TestFlight für tvOS
+        # (scripts/testflight.sh, CHAOS-151) setzt Bundle-ID dev.rubeen.chaosparty.tv, Team und Signatur auf der Kommandozeile.
         # Hardened Runtime immer am Mac, damit jeder lokale und CI-Build so läuft wie die notarisierte App
         # (JavaScriptCore ohne JIT-Berechtigung, ADR-019 §7; geprüft mit `ChaosHost --selftest`).
         'ENABLE_HARDENED_RUNTIME[sdk=macosx*]': YES

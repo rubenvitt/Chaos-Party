@@ -432,11 +432,13 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 | WT2 | Ereignis „Tausch!“ | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat | | |
 | WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil | | |
 
-## 20. Apple-TV-App über TestFlight (für CHAOS-119)
+## 20. Apple-TV-App über TestFlight (für CHAOS-119, CHAOS-151)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9) · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9), CHAOS-151 (TH1–TH4) · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „TestFlight“; für TV4–TV9 [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md)
 
-Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Testszene (Look-Dev-Texturen, Brett-Export, USDZ mit bpy) unter Linux erzeugt. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
+Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Nutzlast (`prepare.sh`) unter Linux gebaut, Abbruch des Skripts bei fehlender Nutzlast. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
+
+Seit CHAOS-151 ist der neueste Build der native Host (`apps/apple-host`), nicht mehr der RealityKit-Spike. TV1–TV3 gelten unverändert. TV4–TV9 betreffen die älteren Spike-Builds; sie bleiben in der TestFlight-App unter den älteren Builds installierbar, bis sie ablaufen (90 Tage nach dem Upload).
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
@@ -449,6 +451,10 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV7 | „Hochskaliert ×0,5, MetalFX“ wählen | Brett erscheint neu, HUD-Zeile 1 „Variante: Hochskaliert ×0,5, MetalFX (Menü)“; nach ca. 23 s Ergebnis mit `"spike":"CHAOS-114"`, fps notieren (unter tvOS < 27.2 steht dort `bilinear`) | | Foto, fps |
 | TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
 | TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
+| TH1 | GitHub: Actions → „TestFlight (Apple TV)“ → Run workflow auf `main` (oder ein Push, der `apps/apple-host` ändert) | Lauf grün, Log zeigt „Nutzlast 7–8M“ und endet mit „Hochgeladen: Build …“ | | Link zum Lauf |
+| TH2 | Apple TV: TestFlight-App, neuesten Build von „Chaos Party“ installieren und starten; Frage nach dem lokalen Netzwerk, falls sie kommt, erlauben | Lobby mit QR-Code, Link `http://<ATV-IP>:8787/?code=…` und Spielerliste; Icon mit Parallaxe wie bisher | | Foto |
+| TH3 | Rechner aus dem WLAN nehmen oder ausschalten. iPhone (Safari, gleiches WLAN): QR-Code am Fernseher scannen | Controller lädt von der Apple TV, Figurenwahl erscheint; auf dem Fernseher steht der Spieler in der Liste | | Foto |
+| TH4 | Zweites iPhone tritt bei, beide „Bereit!“, auf der Siri Remote „Partie starten“ wählen | Brett (noch Grundkörper) erscheint, Würfeln am iPhone bewegt die Figur | | |
 
 ## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)
 

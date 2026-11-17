@@ -48,20 +48,10 @@ xcrun devicectl device process launch --device <ID> --console --terminate-existi
 
 Für die Apple TV dasselbe mit `generic/platform=tvOS` und `Release-appletvos`. Vorher die Apple TV mit Xcode koppeln (Apple TV: Einstellungen → Fernbedienungen und Geräte → Remote-App und Geräte; Mac: Xcode → Window → Devices and Simulators).
 
-### TestFlight (Apple TV, CHAOS-119)
+### TestFlight (Apple TV, CHAOS-119 → CHAOS-151)
 
-Bis der native Host steht ([ADR-019](../../docs/decisions/ADR-019-nativer-apple-host.md)), ist dieser Spike die Apple-TV-App in TestFlight: Name „Chaos Party“, Bundle-ID `dev.rubeen.chaosparty.tv`, Team wie bei der Controller-App. `project.yml` signiert weiterhin nur lokal; [`scripts/testflight.sh`](scripts/testflight.sh) überschreibt Bundle-ID, Anzeigenamen, Team und Signatur auf der Kommandozeile und baut nur für tvOS (Gerät).
+Von CHAOS-119 bis CHAOS-151 war dieser Spike die Apple-TV-App in TestFlight („Chaos Party“, `dev.rubeen.chaosparty.tv`). Seitdem lädt der Workflow [`testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) unter derselben Bundle-ID den nativen Host hoch ([`apps/apple-host`](../../apps/apple-host/README.md), Abschnitt „TestFlight“); Skript und tvOS-Icons liegen jetzt dort. Die früheren Spike-Builds bleiben bis zu ihrem Ablauf (90 Tage nach dem Upload) in der TestFlight-App unter den älteren Builds installierbar, etwa für die Messvarianten unten (CHAOS-114). Lokal startet der Spike weiter über Xcode bzw. `devicectl` (oben).
 
-- **CI:** [`.github/workflows/testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) läuft bei jedem Push auf `main`, der diesen Ordner ändert (ohne `*.md`), und lässt sich manuell starten (Actions → „TestFlight (Apple TV)“ → Run workflow). Der Job erzeugt die Testszene selbst (Look-Dev-Texturen, `spike-export-board.mjs`, `convert.sh`, zusammen ca. 10 Minuten) und nutzt dieselben Secrets wie die Controller-App (`APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`).
-- **Voraussetzung:** Der App-Eintrag für `dev.rubeen.chaosparty.tv` (Plattform tvOS) existiert in App Store Connect. Die App-ID legt Xcode beim ersten Archivieren über den API-Key selbst an (`-allowProvisioningUpdates`).
-- **Lokal** mit dem in Xcode angemeldeten Account, Testszene vorher erzeugen:
-
-  ```bash
-  XCODE_ACCOUNT=1 spikes/renderer-realitykit/scripts/testflight.sh
-  XCODE_ACCOUNT=1 UPLOAD=0 spikes/renderer-realitykit/scripts/testflight.sh   # nur .ipa, kein Upload
-  ```
-
-- **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I scripts/tv-icons.py` aus dem Icon der Controller-App.
 - **Messvariante ohne Mac (CHAOS-147):** Aus TestFlight startet die App ohne Startparameter. Auf der Apple TV öffnet **Play/Pause** (oder ein Klick auf das Touchpad) ein Menü mit den Varianten aus `messreihe-atv.sh`: nativ (ARView), hochskaliert ×0,5 und ×0,667, jeweils mit MetalFX oder bilinear. Die Wahl startet Szene und Messung neu und bleibt in `UserDefaults` gespeichert; die erste HUD-Zeile zeigt die aktive Variante und woher sie kommt (Standard, gespeichert, Menü, Startparameter). Standard bleibt die ARView, bis EXP-020 gemessen ist.
 - **Vorrang:** Ist beim Start auch nur ein `--`-Parameter gesetzt (Xcode, `devicectl`, `messreihe-atv.sh`), gilt die gespeicherte Wahl nicht; die Messreihe läuft also unverändert. Eine Wahl im Menü ersetzt nur `hochskalieren`, `skala` und `skalierer`, übrige Startparameter bleiben.
 - **Prüfung der Logik:** `swiftc app/Settings.swift app/Variants.swift tests/main.swift -o build/variants-check && build/variants-check` (läuft auch in der CI).
