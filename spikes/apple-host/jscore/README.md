@@ -69,6 +69,14 @@ dauern. `renderState` im Minispiel kostet am meisten (Körper + JSON, 9–16 KiB
 - Promises in JSC: Mikrotasks laufen nach jedem Aufruf aus Swift. Abgelehnte Promises meldet JSC
   nicht, darum hat jeder Promise-Weg ein explizites `catch` → `env.log`.
 
+## Uhr und Koordinaten
+
+- `tick(nowMs)`: Jede monotone ms-Uhr passt (z. B. `CACurrentMediaTime() * 1000`). Der Kern zählt ab
+  dem ersten `tick` von 0. Epoch-Zeit (`Date()`) läuft auch, kann aber springen (NTP); Rücksprünge
+  werden ignoriert, Vorsprünge lassen Fristen ablaufen.
+- Koordinaten sind roh aus Babylon/game-core: linkshändig, y oben, x rechts, z nach hinten. Für
+  RealityKit (rechtshändig) z spiegeln: `z → -z`, Quaternion `(x, y, z, w) → (-x, -y, z, w)`.
+
 ## renderState: Körper
 
 `pos` = Weltmitte der Bounding-Box, `rot` = Weltrotation (Quaternion x, y, z, w), `size` = lokale

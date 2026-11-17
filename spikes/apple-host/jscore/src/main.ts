@@ -209,6 +209,8 @@ function create(env: HostEnv): ChaosHostInstance {
   let stage: { key: string; headless: HeadlessStage } | null = null;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
+  /** Erster `tick`-Wert: Die Uhr des Kerns zählt ab 0 (Session und Host starten bei 0). */
+  let clockBase: number | null = null;
   const resultSender = createResultSender({ warn: log });
 
   const labelOf = (spaceId: string) =>
@@ -419,7 +421,10 @@ function create(env: HostEnv): ChaosHostInstance {
       flush();
     },
     tick(nowMs) {
-      advanceClock(nowMs);
+      // Beliebige monotone ms-Uhr (z. B. CACurrentMediaTime) wird auf „ab erstem tick“ verschoben;
+      // ein Sprung von 0 auf Epoch-ms hielte sonst den Host für 30 s still und würfe ihn raus.
+      clockBase ??= nowMs;
+      advanceClock(nowMs - clockBase);
       if (now() - lastSessionTickAt >= DEFAULT_TICK_MS) {
         lastSessionTickAt = now();
         apply(session.tick());

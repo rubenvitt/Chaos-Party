@@ -205,7 +205,7 @@ while now < limitMs {
   now += step
   RunLoop.current.run(until: Date())  // GC-Zeitgeber von JSC laufen über die Run-Loop (wie in der App)
   var t = cpuMs()
-  _ = callHost("tick", [now])
+  _ = callHost("tick", [now + 123_456_789])  // großer Startwert wie CACurrentMediaTime()*1000
   let tickMs = cpuMs() - t
   drain()
   for c in controllers { play(c) }
