@@ -89,6 +89,26 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
         }
     }
 
+    /// Consolation prize (CHAOS-51, CHAOS-127): `prizes` decodes; without it the field is `nil`.
+    @Test func minigamePrizesAreDecoded() throws {
+        let withPrize = try ServerMessage.decode(
+            try Fixtures.text("server-to-controller", "context-minigame-results-prize.json"))
+        guard case .context(let context) = withPrize else {
+            Issue.record("kein Kontext")
+            return
+        }
+        #expect(context.minigame?.prizes == [.trap])
+        #expect(context.minigame?.reward == 0)
+
+        let withoutPrize = try ServerMessage.decode(
+            try Fixtures.text("server-to-controller", "context-minigame-results.json"))
+        guard case .context(let plain) = withoutPrize else {
+            Issue.record("kein Kontext")
+            return
+        }
+        #expect(plain.minigame?.prizes == nil)
+    }
+
     /// v4 addendum (CHAOS-66/CHAOS-128): optional `repeat`, missing = full intro.
     @Test func minigameRepeatFlagIsDecoded() throws {
         func minigame(_ name: String) throws -> ControllerMinigameInfo? {
