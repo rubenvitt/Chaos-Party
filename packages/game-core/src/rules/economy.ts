@@ -9,6 +9,7 @@ import type {
   RankingCriterion,
   RankingEntry,
   RuleSet,
+  SabotageLevel,
   Slot,
 } from '../types.ts';
 import { playerOf, type Ctx } from './internal.ts';
@@ -37,6 +38,23 @@ export function sabotageAmount(
   const every = items.sabotageGrowthRounds;
   if (every <= 0) return base;
   return base + Math.floor(Math.max(0, round - 1) / every);
+}
+
+/**
+ * Wächst die Sabotage zu Beginn von `round` (CHAOS-120)? Genau in den Runden
+ * `1 + k · sabotageGrowthRounds` (k ≥ 1), bei `0` nie.
+ */
+export function sabotageGrows(items: RuleSet['items'], round: number): boolean {
+  const every = items.sabotageGrowthRounds;
+  return every > 0 && round > 1 && (round - 1) % every === 0;
+}
+
+/** Klau- und Fallen-Wert einer Runde (für Ansage und Ereignis). */
+export function sabotageLevel(items: RuleSet['items'], round: number): SabotageLevel {
+  return {
+    steal: sabotageAmount(items, 'coin-steal', round),
+    trap: sabotageAmount(items, 'trap', round),
+  };
 }
 
 /** Bis zu `amount` Münzen von `from` an `to` (höchstens Bestand). Liefert die Menge. */

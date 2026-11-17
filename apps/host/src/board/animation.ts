@@ -46,6 +46,9 @@ export const SWAP_FLIGHT_MS = 1000;
  * Ansage plus Flug (≤ 1,4 s) bleiben unter der Server-Pause `spaceEventMs` (1,5 s, ADR-011/7).
  */
 export const FLIGHT_EVENT_MS = 400;
+/** So lange wartet die Regie nach der Ansage „Sabotage wird stärker!“ (CHAOS-120). */
+export const SABOTAGE_NOTICE_PAUSE_MS = 1200;
+
 /** So lange bleibt ein Popup sichtbar (auch wenn die Warteschlange schon weiterläuft). */
 export const POPUP_MS = 1400;
 
@@ -139,8 +142,10 @@ export function planEvent(event: BoardEvent, stepMs: number, style: MoveStyle = 
         popup: popup('shield', event.slot, text, event.result === 'timeout' ? 'bad' : 'good'),
       };
     }
-    case 'game-started':
     case 'round-started':
+      // Wachsende Sabotage (CHAOS-120): kurz innehalten, damit die Ansage vor „… ist dran!“ steht.
+      return { durationMs: event.sabotage ? SABOTAGE_NOTICE_PAUSE_MS : 0, popup: null };
+    case 'game-started':
     case 'turn-started':
     case 'path-chosen':
     case 'reaction-opened':

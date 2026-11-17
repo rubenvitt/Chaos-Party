@@ -2,12 +2,12 @@
  * Regel-Stellschrauben aus CHAOS-24 (EXP-002/EXP-003): mehrere wandernde Trophäen
  * (`trophy.activeCount`), Start-Items (`items.startItems`) und Fallen beim Darüberlaufen
  * (`items.trapTrigger: 'pass'`). Dazu aus CHAOS-67 (EXP-018) die wachsende Sabotage
- * (`items.sabotageGrowthRounds`).
+ * (`items.sabotageGrowthRounds`) samt Ansage im Ereignis `round-started` (CHAOS-120).
  */
 import { describe, expect, it } from 'vitest';
 import type { BoardEventKind, GameState, Slot } from '../types.ts';
 import { withRules } from './defaults.ts';
-import { sabotageAmount } from './economy.ts';
+import { sabotageAmount, sabotageGrows } from './economy.ts';
 import { createGame } from './machine.ts';
 import { loopBoard, TEST_BOARD } from './testBoards.ts';
 import {
@@ -337,6 +337,71 @@ describe('Wachsende Sabotage (items.sabotageGrowthRounds)', () => {
     expect(ofType(r.events, 'trap-triggered')).toEqual([
       { type: 'trap-triggered', slot, owner: other, spaceId: 'l1', amount: 7 },
     ]);
+  });
+
+  it('sabotageGrows: genau in Runde 6, 11, 16 (bei 5), bei 0 nie', () => {
+    const rounds = Array.from({ length: 21 }, (_, r) => r);
+    expect(rounds.filter((r) => sabotageGrows(items(5), r))).toEqual([6, 11, 16]);
+    expect(rounds.filter((r) => sabotageGrows(items(1), r)).slice(0, 3)).toEqual([2, 3, 4]);
+    expect(rounds.filter((r) => sabotageGrows(items(0), r))).toEqual([]);
+  });
+
+  /** `round-started` jeder Runde 2 … `rounds` (Rundenwechsel aus `round-end`). */
+  function roundStarts(sabotageGrowthRounds: number, rounds = 20) {
+    const s0 = startToRoll(
+      newGame({
+        board: loopBoard(['start', 'start']),
+        rounds,
+        rules: { items: { stealAmount: 5, trapAmount: 4, sabotageGrowthRounds } },
+      }),
+    ).state;
+    const started = [];
+    for (let round = 1; round < rounds; round++) {
+      const before = patchState(s0, { round, phase: 'round-end', prompt: null, resumeAt: s0.now });
+      started.push(...ofType(tick(before, s0.now).events, 'round-started'));
+    }
+    return started;
+  }
+
+  it('round-started trägt die neuen Werte genau in den Wachstumsrunden (CHAOS-120)', () => {
+    const started = roundStarts(5);
+    expect(started).toHaveLength(19);
+    expect(started.filter((e) => e.sabotage)).toEqual([
+      { type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5 } },
+      { type: 'round-started', round: 11, sabotage: { steal: 7, trap: 6 } },
+      { type: 'round-started', round: 16, sabotage: { steal: 8, trap: 7 } },
+    ]);
+    // Andere Runden ohne das Feld (nicht `undefined`): additiv im Protokoll.
+    expect(started.find((e) => e.round === 7)).toEqual({ type: 'round-started', round: 7 });
+  });
+
+  it('round-started ohne Ansage bei sabotageGrowthRounds: 0 (CHAOS-120)', () => {
+    expect(roundStarts(0).filter((e) => 'sabotage' in e)).toEqual([]);
+  });
+
+  it('Fallen-Text: „ab“, solange die Sabotage bis zum Partieende noch wächst (CHAOS-120)', () => {
+    const trapDetail = (round: number, rounds: number, sabotageGrowthRounds = 5) => {
+      const s0 = startToRoll(
+        newGame({
+          board: loopBoard(['start', 'start']),
+          rounds,
+          rules: { items: { trapAmount: 4, sabotageGrowthRounds } },
+        }),
+      ).state;
+      const slot = activeSlot(s0);
+      let s = patchPlayer(s0, slot, { items: ['trap'] });
+      s = settle(
+        patchState(s, { round, phase: 'turn-start', prompt: null, resumeAt: s.now }),
+      ).state;
+      return s.prompt?.options.find((o) => o.id === 'item:trap')?.detail;
+    };
+    expect(trapDetail(1, 20)).toBe('Kostet andere ab 4 Münzen');
+    expect(trapDetail(6, 20)).toBe('Kostet andere ab 5 Münzen');
+    // Letzte Wachstumsstufe erreicht bzw. Partie zu kurz: fester Wert.
+    expect(trapDetail(16, 20)).toBe('Kostet andere 7 Münzen');
+    expect(trapDetail(1, 5)).toBe('Kostet andere 4 Münzen');
+    expect(trapDetail(5, 6)).toBe('Kostet andere ab 4 Münzen');
+    expect(trapDetail(1, 20, 0)).toBe('Kostet andere 4 Münzen');
   });
 
   it('wirft bei negativer oder nicht ganzzahliger Zahl', () => {

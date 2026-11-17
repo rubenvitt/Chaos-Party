@@ -233,6 +233,18 @@ export function BoardHud({ hud, boardName, connection }: BoardHudProps) {
       </header>
 
       <div className="board-center">
+        {hud.notice && (
+          <div
+            key={hud.notice.id}
+            className="board-notice"
+            data-testid="board-notice"
+            role="status"
+            aria-live="polite"
+          >
+            <strong className="board-notice-title">{hud.notice.title}</strong>
+            <span className="board-notice-detail">{hud.notice.detail}</span>
+          </div>
+        )}
         {banner && view?.activeSlot != null && (
           <div
             className="board-banner"

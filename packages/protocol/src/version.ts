@@ -20,6 +20,8 @@
  * v4-Nachtrag (CHAOS-66, additiv, ohne Versionssprung): `repeat` (optional) in
  * `BoardView.minigame` und im Minispiel-Kontext des Controllers: Minispiel lief in der Partie
  * schon, das Intro ist kurz (nur Titel und Bedienlegende).
+ * v4-Nachtrag (CHAOS-120, additiv, ohne Versionssprung): `sabotage` (optional) im Ereignis
+ * `round-started` – neue Klau-/Fallenwerte in Runden, in denen die Sabotage wächst.
  */
 export const PROTOCOL_VERSION = 4;
 

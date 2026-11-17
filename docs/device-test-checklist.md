@@ -321,7 +321,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | Wollte die Gruppe direkt noch eine Runde spielen? | |
 | Echte Partiedauer bei 10 Runden (V2) – passt 10 als Standard, oder lieber kürzer/länger? | |
 | Hatte der Führende zur Halbzeit einen uneinholbaren Vorsprung, oder blieb es spannend? | |
-| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8): Fällt das auf, wird das Ende spannender oder gemeiner? | |
+| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8), seit CHAOS-120 mit Ansage am PC („Sabotage wird stärker!“, Abschnitt 21): Fällt das auf, wird das Ende spannender oder gemeiner? | |
 | Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
 | Lieblingsmoment und größtes Ärgernis | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |
@@ -442,3 +442,16 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
 | TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
 | TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |
+
+## 21. Ansage „Sabotage wird stärker!“ (für CHAOS-120)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-120 · **Bild:** [Ansage am PC](screenshots/chaos120-sabotage-ansage.png)
+
+Automatisch geprüft: Ansage nur in Wachstumsrunden (Spielkern-Test, bei `sabotageGrowthRounds: 0` nie), Einblendung am Host mit den neuen Werten, kurze Pause vor „… ist dran!“, nach 4 s wieder weg (`host-brett.spec.ts`, Screenshot `host-brett-sabotage`); Fallen-Text „Kostet andere ab 4 Münzen“, solange die Falle bis zum Partieende noch mehr bringen kann. **Nicht** automatisch prüfbar: ob man die Ansage vom Sofa aus bemerkt und versteht, ob der Klang passt.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| SA1 | Partie mit 10 Runden bis Runde 6 spielen | Zu Beginn von Runde 6 erscheint oben mittig „Sabotage wird stärker!“ mit „Klau: 6 Münzen · Falle: 5 Münzen“, dazu ein tiefer Fallen-Klang; danach „… ist dran!“ | | Foto |
+| SA2 | Runde 2–5 und 7–10 | Keine Ansage, nur „Runde n beginnt!“ in der Meldungsleiste | | |
+| SA3 | Falle im Würfel-Menü am iPhone/iPad, Runde 1–5 | Zusatzzeile „Kostet andere ab 4 Münzen“; in Runde 6–10 (letzte Stufe bei 10 Runden) „Kostet andere 5 Münzen“ | | Foto |
+| SA4 | Gefühl in der Gruppe | Hat jemand die Ansage bemerkt und verstanden? Zu laut, zu leise, zu lang? | | Notiz |
