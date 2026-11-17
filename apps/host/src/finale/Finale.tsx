@@ -30,6 +30,7 @@ import {
 import { CoinIcon, TrophyIcon } from '../board/icons.tsx';
 import type { FinaleSpeed } from '../config.ts';
 import { attachPerf } from '../debug/perf.ts';
+import { markFirstFrame, markScene } from '../debug/sceneMarks.ts';
 import { playerName, winnerText } from '../board/texts.ts';
 import { soundEngine } from '../fx/audio.ts';
 import { CharacterPortrait } from '../lobby/CharacterPortrait.tsx';
@@ -136,14 +137,19 @@ export function Finale({ view, ranking, speed, test, onRematch }: FinaleProps) {
   useEffect(() => {
     const parking = parkingRef.current;
     if (!parking) return;
+    // Standbild-Kennzahl je Szenenwechsel (nur Debug, CHAOS-153): Vorbereitung während der
+    // Zählung bis zum vorab gezeichneten Bild; das Zeigen misst der Siegerbildschirm.
+    markScene('podest', 'aufbau');
     const canvas = document.createElement('canvas');
     canvas.className = 'game-canvas';
     canvas.setAttribute('aria-label', 'Siegerpodest');
     parking.appendChild(canvas);
     const stage = createPodiumStage({ canvas, entries, testMode: test });
+    const stopFirstFrame = markFirstFrame('podest', stage);
     podiumRef.current = stage;
     podiumBox.set({ stage, canvas });
     return () => {
+      stopFirstFrame();
       podiumBox.set(null);
       podiumRef.current = null;
       stage.dispose();
@@ -379,8 +385,10 @@ function WinnerScreen({
     if (!container || !podium) return;
     const { stage, canvas } = podium;
     container.appendChild(canvas);
+    markScene('podest', 'sichtbar');
     stage.show();
     const stopPerf = attachPerf('podest', stage);
+    const stopFirstFrame = markFirstFrame('podest', stage);
     let active = true;
     stage.ready.then(
       () => {
@@ -395,6 +403,7 @@ function WinnerScreen({
     return () => {
       active = false;
       stopPerf();
+      stopFirstFrame();
       stage.hide();
       // Nur ein noch lebendes Podest parken (das Finale entsorgt es sonst selbst).
       if (podiumBox.get() === podium) parking?.appendChild(canvas);

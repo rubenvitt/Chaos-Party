@@ -6,7 +6,8 @@
  * - **strukturell** (immer geprüft, rechnerunabhängig): WebGL-Kontexte und Render-Schleifen je
  *   Szene dürfen nicht steigen; Draw Calls höchstens +10 % (+5).
  * - **zeitlich** (nur mit `PERF_STRICT=1`, gleicher Rechner nötig): Bildabstand p95 und
- *   Render-Zeit p95 höchstens +25 % (+4 ms bzw. +2 ms), Heap-Höchstwert +20 % (+10 MB).
+ *   Render-Zeit p95 höchstens +25 % (+4 ms bzw. +2 ms), Heap-Höchstwert +20 % (+10 MB);
+ *   längster Block je Szenenwechsel (CHAOS-153) höchstens +50 % (+250 ms bzw. +150 ms).
  */
 import {
   compareToBaseline,
@@ -14,6 +15,7 @@ import {
   type Tolerance,
 } from '../../packages/metrics/src/index.ts';
 import type { ScenePerf } from '../../apps/host/src/debug/perfMonitor.ts';
+import type { TransitionSummary } from '../../apps/host/src/debug/transitions.ts';
 
 export const STRUCTURAL: Readonly<Record<string, Tolerance>> = {
   contextsMax: { relative: 0, absolute: 0 },
@@ -25,6 +27,17 @@ export const TIMING: Readonly<Record<string, Tolerance>> = {
   frameP95: { relative: 0.25, absolute: 4 },
   renderP95: { relative: 0.25, absolute: 2 },
   heapMaxMB: { relative: 0.2, absolute: 10 },
+};
+
+/**
+ * Standbild je Szenenwechsel (CHAOS-153), zeitlich: Long Tasks unter SwiftShader schwanken
+ * stärker als Bildabstände (EXP-025: Brett → Minispiel 0,74–1,87 s im selben Stand), daher
+ * weitere Toleranz. Der Median über die Vorkommen ist das robustere Signal, der Höchstwert
+ * fängt einen einzelnen Rückfall (z. B. Shader wieder am Stück).
+ */
+export const TRANSITION_TIMING: Readonly<Record<string, Tolerance>> = {
+  longestMedianMs: { relative: 0.5, absolute: 150 },
+  longestMaxMs: { relative: 0.5, absolute: 250 },
 };
 
 export type FlatMetrics = Record<string, number | null>;
@@ -59,6 +72,25 @@ export function flatten(scene: ScenePerf): FlatMetrics {
   };
 }
 
+/** Kennzahlen je Szenenwechsel als flache Werte (Schlüssel = Übergang, z. B. „brett → minispiel“). */
+export function flattenTransitions(
+  summaries: readonly TransitionSummary[],
+): Record<string, FlatMetrics> {
+  return Object.fromEntries(
+    summaries.map((s) => [
+      s.label,
+      {
+        count: s.count,
+        incomplete: s.incomplete,
+        longestMedianMs: s.longestMedianMs,
+        longestMaxMs: s.longestMaxMs,
+        blockedMedianMs: s.blockedMedianMs,
+        waitMedianMs: s.waitMedianMs,
+      },
+    ]),
+  );
+}
+
 export interface SceneComparison {
   readonly scene: string;
   readonly results: readonly (RegressionResult & { readonly kind: 'strukturell' | 'zeitlich' })[];
@@ -83,6 +115,19 @@ export function compareScenes(
       ],
     };
   });
+}
+
+/** Vergleicht jeden Szenenwechsel der Messung mit demselben Übergang der Baseline (zeitlich). */
+export function compareTransitions(
+  baseline: Readonly<Record<string, FlatMetrics>>,
+  current: Readonly<Record<string, FlatMetrics>>,
+): SceneComparison[] {
+  return Object.keys(current).map((label) => ({
+    scene: label,
+    results: compareToBaseline(baseline[label] ?? {}, current[label] ?? {}, TRANSITION_TIMING).map(
+      (r) => ({ ...r, kind: 'zeitlich' as const }),
+    ),
+  }));
 }
 
 function fmt(value: number | null | undefined, digits = 1): string {
@@ -112,6 +157,23 @@ export function sceneTable(scenes: Readonly<Record<string, FlatMetrics>>): strin
       fmt(m.renderLoopsMax, 0),
       fmt(m.heapMaxMB),
       fmt(m.textureMB),
+    ].join(' | '),
+  );
+  return [head, sep, ...rows.map((row) => `| ${row} |`)].join('\n');
+}
+
+/** Markdown-Tabelle: längster Block (Long Task) je Szenenwechsel. */
+export function transitionTable(transitions: Readonly<Record<string, FlatMetrics>>): string {
+  const head =
+    '| Übergang | n (ohne erstes Bild) | längster Block Median / max ms | blockiert Median ms | Aufbau→erstes Bild Median ms |';
+  const sep = '|---|---|---|---|---|';
+  const rows = Object.entries(transitions).map(([label, m]) =>
+    [
+      label,
+      `${fmt(m.count, 0)} (${fmt(m.incomplete, 0)})`,
+      `${fmt(m.longestMedianMs, 0)} / ${fmt(m.longestMaxMs, 0)}`,
+      fmt(m.blockedMedianMs, 0),
+      fmt(m.waitMedianMs, 0),
     ].join(' | '),
   );
   return [head, sep, ...rows.map((row) => `| ${row} |`)].join('\n');
