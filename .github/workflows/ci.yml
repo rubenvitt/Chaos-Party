@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -67,7 +67,7 @@ jobs:
 
       - name: Playwright-Browser aus dem Cache
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
@@ -86,7 +86,7 @@ jobs:
 
       - name: E2E-Ergebnisse hochladen
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-ergebnisse
           path: |
@@ -102,11 +102,11 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -136,6 +136,15 @@ jobs:
       - name: Controller-Tests (Simulator, mit echtem Server)
         if: hashFiles('apps/controller-ios/project.yml') != ''
         run: apps/controller-ios/scripts/run-tests.sh
+
+      # CHAOS-147: Startparameter vor gespeicherter Messvariante, Menüwahl, Speicherung.
+      - name: Renderer-Spike Varianten prüfen
+        if: hashFiles('spikes/renderer-realitykit/tests/main.swift') != ''
+        working-directory: spikes/renderer-realitykit
+        run: |
+          mkdir -p build
+          swiftc app/Settings.swift app/Variants.swift tests/main.swift -o build/variants-check
+          build/variants-check
 
       - name: Renderer-Spike bauen (macOS, iOS, tvOS, ohne Signatur)
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
