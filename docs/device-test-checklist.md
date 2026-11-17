@@ -447,7 +447,18 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
 | TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
 
-## 21. Rückenwind-Ansage im Playtest (für CHAOS-125)
+## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-127 · **Bild:** [`chaos127-iphone-minigameConsolation.jpg`](screenshots/chaos127-iphone-minigameConsolation.jpg) (Beispielzustand im Simulator, aus CI)
+
+Automatisch geprüft (CI „Native Apps“, Simulator): Die App dekodiert `minigame.prizes` aus der Fixture, die Texte stimmen mit dem Browser-Controller überein („Trostpreis: Falle“), der Beispielzustand `-sample minigameConsolation` wird fotografiert. **Nicht** automatisch geprüft: das echte Ergebnis einer Partie auf einem iPhone mit der TestFlight-App.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| NT1 | Partie mit der nativen App auf einem iPhone, dort im Minispiel klar Letzte(r) werden | Ergebnis zeigt unter den Münzen das Item-Symbol und „Trostpreis: …“ mit dem Item-Namen; die anderen Controller zeigen keinen Trostpreis | | Foto |
+| NT2 | VoiceOver an, Ergebnis vorlesen lassen | „Trostpreis: …“ wird als eine Zeile vorgelesen, das Symbol nicht extra | | |
+
+## 22. Rückenwind-Ansage im Playtest (für CHAOS-125)
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-125 · **Bilder:** `tests/e2e/__screenshots__/host-brett.spec.ts/host-brett-rueckenwind-chromium-linux.png`, `tests/e2e/__screenshots__/controller-brett.spec.ts/brett-rueckenwind-iphone-hoch-linux.png`
 
