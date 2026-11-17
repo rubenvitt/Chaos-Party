@@ -57,7 +57,7 @@ Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` a
 | `sekunden` | 20 | Messdauer. Ist der Wert gesetzt, beendet sich die App danach (außer mit `--bleiben=1`). |
 | `aufwaermen` | 3 | Sekunden zwischen fertig geladener Szene und Messbeginn. |
 | `gras` | 1 | Anteil der Gras- und Blumeninstanzen, gleichmäßig ausgedünnt wie bei Bevy. |
-| `schatten` | 1 | Sonnenschatten (automatische Projektion, 80 m, ab Version 27 zwei Kaskaden). |
+| `schatten` | 1 | Sonnenschatten (automatische Projektion, 80 m, ab Version 27 zwei Kaskaden; nur mit Xcode 27, siehe unten). |
 | `breite`/`hoehe` | 1920/1080 | Bildpunkte: auf macOS die Fenstergröße, mit `--durchsatz=1` die Größe der Offscreen-Textur. |
 | `durchsatz` | 0 | `1` misst offscreen mit `RealityRenderer` ohne vsync, siehe unten. |
 | `msaa` | 4 | Nur offscreen steuerbar (`0` oder `4`). Die ARView entscheidet selbst. |
@@ -81,6 +81,7 @@ Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` a
 - **`--durchsatz=1`:** Dieselbe Szene läuft mit `RealityRenderer` in eine Textur, Bild für Bild nacheinander (warten auf `onComplete`), ohne vsync und unabhängig vom Fenster. Die Bildzeit ist CPU plus GPU ohne Überlappung, also eine obere Schranke. `ARView.__frameTime()` und `__getStatisticsStringForSingleOption(.frameTimeStatistics)` liefern unter macOS nur Nullen. **GPU-Zeit je Bild** liefert der Metal-Performance-HUD: auf Geräten mit `xcrun devicectl device process launch … --environment-variables '{"MTL_HUD_ENABLED":"1","MTL_HUD_LOG_ENABLED":"1"}' --console …` schreibt er je Sekunde eine Zeile `metal-HUD: n, Speicher, Speicher, Bildabstand, GPU-Zeit, Bildabstand, GPU-Zeit, …` (Paare in ms). Für mehr Tiefe bleibt Instruments (Metal System Trace).
 - **Mehrere Argumente in zsh:** Eine Variable mit `--a=1 --b=2` kommt ohne `${=var}` als **ein** Argument an (`Parameter:`-Zeile prüfen).
 - **Nicht steuerbar:** Größe der Schattenkarte, MSAA in der ARView, und die Zahl der Kaskaden vor Version 27.
+- **Kaskaden nur mit Xcode 27:** `shadow.cascades` gibt es erst in den SDKs 27. Der Code steht deshalb hinter `#if compiler(>=6.4)` (Swift 6.4 kommt mit Xcode 27). Mit Xcode 26.x, etwa auf dem CI-Runner `macos-26`, entsteht ein Build ohne Kaskaden. Messungen deshalb mit Xcode 27 bauen (CHAOS-130).
 - **Simulatorwerte sind keine Messungen,** nur Funktionsproben. Der Simulator rendert über die Mac-GPU und taktet mit 60 Hz.
 
 ### Ergebnisse (16.11.2026, MacBook Pro M3 Max, Mac15,9, 120-Hz-Display)
