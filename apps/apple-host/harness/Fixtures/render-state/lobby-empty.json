@@ -1,0 +1,10 @@
+{
+  "phase": "lobby",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "players": []
+  },
+  "board": null,
+  "minigame": null
+}

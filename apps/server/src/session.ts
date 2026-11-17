@@ -128,6 +128,14 @@ export const DEFAULT_TIMEOUTS: Readonly<SessionTimeouts> = {
 /** Nach so vielen ungültigen Nachrichten wird eine Verbindung geschlossen. */
 export const DEFAULT_MAX_INVALID_MESSAGES = 20;
 
+/**
+ * Takt, in dem `Session.tick()` Timeouts prüft (CHAOS-12, ADR-009) und das Brettspiel
+ * weiterlaufen lässt (Pacing, Reaktionsfenster; M2, ADR-011). 100 ms: Fristen und
+ * Animationstakt bleiben spürbar genau, die Last ist vernachlässigbar. Gilt für den
+ * `ws`-Adapter (`socket.ts`) und den Apple-Host (`apps/apple-host`).
+ */
+export const DEFAULT_TICK_MS = 100;
+
 export interface SessionOptions {
   /** Join-Code (4–8 Zeichen `A–Z0–9`), vom Aufrufer erzeugt oder vorgegeben. */
   joinCode: string;

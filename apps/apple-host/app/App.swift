@@ -3,13 +3,13 @@ import CoreImage.CIFilterBuiltins
 import RealityKit
 import SwiftUI
 
-// CHAOS-138 (ADR-019 W2): Das Apple TV hostet die Partie allein; iPhones/iPads bleiben Controller.
+// ADR-019: Mac oder Apple TV hosten die Partie allein; iPhones/iPads bleiben Controller (CHAOS-138, CHAOS-139).
 @main
-struct ChaosTVHostApp: App {
+struct ChaosHostApp: App {
     @StateObject private var runtime = HostRuntime()
 
     var body: some SwiftUI.Scene {
-        WindowGroup("Chaos Party – Apple-TV-Host") {
+        WindowGroup("Chaos Party") {
             ZStack(alignment: .topLeading) {
                 StageView(runtime: runtime).ignoresSafeArea()
                 OverlayView(overlay: runtime.overlay) { runtime.command("start") }

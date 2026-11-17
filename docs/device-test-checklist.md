@@ -459,3 +459,19 @@ Automatisch geprüft (CI „Native Apps“, Simulator): Die App dekodiert `minig
 |---|---|---|---|---|
 | NT1 | Partie mit der nativen App auf einem iPhone, dort im Minispiel klar Letzte(r) werden | Ergebnis zeigt unter den Münzen das Item-Symbol und „Trostpreis: …“ mit dem Item-Namen; die anderen Controller zeigen keinen Trostpreis | | Foto |
 | NT2 | VoiceOver an, Ergebnis vorlesen lassen | „Trostpreis: …“ wird als eine Zeile vorgelesen, das Symbol nicht extra | | |
+
+## 22. Nativer Apple-Host am Mac (für CHAOS-139)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-139 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitte „Bauen“ und „Prüfen“
+
+Automatisch geprüft: JS-Kern im nackten `node:vm`-Kontext (ganze Partie mit Bots), in der CI zusätzlich der Swift-Harness in JavaScriptCore und der Build für macOS und tvOS. **Nicht** geprüft: ob die App am Mac startet und ein echtes iPhone per QR beitritt. Die Darstellung besteht noch aus Grundkörpern (echte Grafik: CHAOS-142/148/149).
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| AH1 | Mac: `cd apps/apple-host && ./prepare.sh && xcodegen generate`, dann für `platform=macOS` bauen und `ChaosHost.app` starten | Fenster „Chaos Party“ mit QR-Code, Link und „Bereit – Controller scannen den QR-Code“; im Log `JOIN-URL http://<Mac-IP>:8787/?code=…` | | Log-Zeile |
+| AH2 | macOS fragt beim ersten Start nach dem lokalen Netzwerk bzw. der Firewall | Erlauben; danach liefert `curl -s -o /dev/null -w '%{http_code}' 'http://<Mac-IP>:8787/?code=<CODE>'` vom selben WLAN `200` | | |
+| AH3 | iPhone (Safari, gleiches WLAN): QR-Code am Mac scannen | Controller lädt, Figurenwahl erscheint; in der App steht der Spieler in der Liste | | Foto |
+| AH4 | Zweiter Spieler (zweites iPhone oder privates Browserfenster am Mac), beide „Bereit!“, am Mac Return („Partie starten“) | Brett aus Scheiben und Kugeln erscheint, Würfeln am iPhone bewegt die Figur | | |
+| AH5 | Bis zum ersten Minispiel weiterspielen | Minispiel als Grundkörper sichtbar, Stick/Knopf am iPhone wirken, danach zurück aufs Brett | | |
+| AH6 | Log nach 2–3 Minuten ansehen | keine `JS-FEHLER`- oder `FEHLER`-Zeilen; `HOST-MESSUNG` mit `js_ms_p95` notieren | | Log-Auszug |
+
