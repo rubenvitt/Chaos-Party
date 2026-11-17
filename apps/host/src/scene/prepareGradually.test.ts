@@ -158,14 +158,19 @@ function fakeLoader() {
 describe('shaderSourceLoaders / preloadShaderSources (CHAOS-132)', () => {
   const base = fakeLoader();
   const standard = fakeLoader();
+  // Wie Babylon-Materialien: Lader statisch an der Klasse, Name am Objekt.
   class BaseMaterial {
     static _ShaderLoader = base;
+    name = 'basis';
   }
   class DerivedMaterial extends BaseMaterial {}
   class StandardLike {
     static _ShaderLoader = standard;
+    name = 'standard';
   }
-  class PlainMaterial {}
+  class PlainMaterial {
+    name = 'ohne Lader';
+  }
 
   it('findet je Klasse einen Lader, auch aus der Oberklasse, ohne Doppelte', () => {
     const loaders = shaderSourceLoaders([
@@ -184,6 +189,7 @@ describe('shaderSourceLoaders / preloadShaderSources (CHAOS-132)', () => {
     const one = fakeLoader();
     class A {
       static _ShaderLoader = one;
+      name = 'a';
     }
     await preloadShaderSources([new A(), new A()], 0);
     await preloadShaderSources([new A()], 0);
@@ -193,6 +199,7 @@ describe('shaderSourceLoaders / preloadShaderSources (CHAOS-132)', () => {
   it('übergeht Materialien ohne gültigen Lader', async () => {
     class Broken {
       static _ShaderLoader = { getLoadCallback: 'nein' };
+      name = 'kaputt';
     }
     expect(shaderSourceLoaders([new Broken(), new PlainMaterial()])).toEqual([]);
     await expect(preloadShaderSources([new Broken()], 0)).resolves.toBeUndefined();
