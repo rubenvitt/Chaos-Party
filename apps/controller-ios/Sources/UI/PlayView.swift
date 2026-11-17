@@ -304,6 +304,24 @@ private struct PadButton: View {
 
 // MARK: - Minigame intro and result (minigame/view.ts, ui/minigame.tsx)
 
+/// Texts of the minigame card (port of `MinigameIntro`). If the minigame already ran this match
+/// (`repeat`, CHAOS-66/CHAOS-128), the intro is short: kicker „Nochmal!“, title and controls,
+/// no tagline and no steps (the intro lasts only 3 s then).
+struct MinigameCardText: Equatable {
+    static let repeatKicker = "Nochmal!"
+
+    let kicker: String
+    let tagline: String?
+    let instructions: [String]
+
+    init(_ minigame: ControllerMinigameInfo) {
+        let short = minigame.stage == .intro && minigame.`repeat` == true
+        kicker = minigame.stage == .results ? minigame.title : short ? Self.repeatKicker : "Minispiel"
+        tagline = short ? nil : minigame.tagline
+        instructions = short ? [] : minigame.instructions
+    }
+}
+
 struct MinigameCard: View {
     let minigame: ControllerMinigameInfo
 
@@ -311,7 +329,7 @@ struct MinigameCard: View {
         ScrollView {
             VStack(spacing: 16) {
                 Label {
-                    Text(minigame.stage == .results ? minigame.title : "Minispiel")
+                    Text(MinigameCardText(minigame).kicker)
                 } icon: {
                     GameIcon(name: "star", size: 24)
                 }
@@ -328,18 +346,23 @@ struct MinigameCard: View {
     }
 
     @ViewBuilder private var intro: some View {
+        let text = MinigameCardText(minigame)
         Text(minigame.title).font(.largeTitle.bold()).multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
-        Text(minigame.tagline).font(.title3).foregroundStyle(Palette.dim).multilineTextAlignment(.center)
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(minigame.instructions.enumerated()), id: \.offset) { index, line in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("\(index + 1).").font(.headline).foregroundStyle(Palette.sun)
-                    Text(line).font(.body.weight(.semibold))
+        if let tagline = text.tagline {
+            Text(tagline).font(.title3).foregroundStyle(Palette.dim).multilineTextAlignment(.center)
+        }
+        if !text.instructions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(text.instructions.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("\(index + 1).").font(.headline).foregroundStyle(Palette.sun)
+                        Text(line).font(.body.weight(.semibold))
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         let legend: [(String, String, String)] = [
             minigame.controls.joystick.map { ("stick", "Joystick", $0) },
             minigame.controls.a.map { ("A", "Knopf A", $0) },

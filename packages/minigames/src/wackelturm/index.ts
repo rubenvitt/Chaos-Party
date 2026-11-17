@@ -37,6 +37,7 @@ import type {
   MinigameModule,
   MinigamePlayer,
 } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { WACKELTURM_INFO } from './info.ts';
 import {
   createWackelturm,
@@ -460,15 +461,17 @@ export class Wackelturm implements Minigame {
     const masters = this.masters;
     if (!masters) throw new Error('Vorlagen fehlen');
     const keep = <T extends { dispose(): void }>(item: T): T => (track ? this.own(item) : item);
-    const base = keep(masters.base.createInstance(`${name}-boden`));
+    const base = keep(markVisual(masters.base.createInstance(`${name}-boden`), 'toertchen'));
     base.parent = parent;
     const frosting = masters.frosting.map((mesh, index) => {
-      const instance = keep(mesh.createInstance(`${name}-guss-${String(index)}`));
+      const instance = keep(
+        markVisual(mesh.createInstance(`${name}-guss-${String(index)}`), 'toertchen-guss', index),
+      );
       instance.parent = base;
       instance.position.y = PIECE_HEIGHT * 0.5;
       return instance;
     });
-    const gold = keep(masters.gold.createInstance(`${name}-gold`));
+    const gold = keep(markVisual(masters.gold.createInstance(`${name}-gold`), 'toertchen-gold'));
     gold.parent = base;
     gold.position.y = PIECE_HEIGHT * 0.5;
     return { base, frosting, gold };
@@ -598,6 +601,7 @@ export class Wackelturm implements Minigame {
           0.16 + ring * 0.13,
           nest.z + Math.sin(angle) * radius,
         );
+        markVisual(instance, 'haufen', `${String(player.slot)}-${String(index)}`);
         instance.scaling.setAll(0.7);
         instance.setEnabled(false);
         heap.push(instance);
@@ -614,8 +618,15 @@ export class Wackelturm implements Minigame {
         scene,
       ),
     );
+    markVisual(ring, 'spielerring', player.slot);
     ring.material = this.material(scene, color, { emissive: 0.4 });
-    const tower = this.own(new TransformNode(`wackel-turm-${String(player.slot)}`, scene));
+    const tower = this.own(
+      markVisual(
+        new TransformNode(`wackel-turm-${String(player.slot)}`, scene),
+        'turm',
+        player.slot,
+      ),
+    );
     const pieces = Array.from({ length: params.maxStack }, (_, index) => {
       const piece = this.createPiece(`wackel-turm-${String(player.slot)}-${String(index)}`, tower);
       piece.base.position.y = index * PIECE_HEIGHT;
@@ -623,6 +634,7 @@ export class Wackelturm implements Minigame {
       return piece;
     });
     const crown = this.own(new TransformNode(`wackel-krone-${String(player.slot)}`, scene));
+    markVisual(crown, 'krone', player.slot);
     crown.parent = tower;
     const crownMaterial = this.material(scene, GOLD, { emissive: 0.5 });
     const band = this.own(
@@ -704,6 +716,7 @@ export class Wackelturm implements Minigame {
     const masters = this.masters;
     if (!ctx || !masters) return;
     const root = new TransformNode(`wackel-goldstueck-${String(id)}`, ctx.scene);
+    markVisual(root, 'goldstueck', id);
     root.position.set(x, 0.35, z);
     const piece = this.createPiece(`wackel-goldstueck-${String(id)}-t`, root, false);
     this.showPiece(piece, 'gold', 0);
@@ -734,6 +747,7 @@ export class Wackelturm implements Minigame {
     for (let index = 0; index < shown; index++) {
       const name = `wackel-kruemel-${String(this.debrisCounter++)}`;
       const root = new TransformNode(name, ctx.scene);
+      markVisual(root, 'kruemel', name);
       root.position.set(runner.x, TOWER_BASE + index * PIECE_HEIGHT, runner.z);
       const piece = this.createPiece(`${name}-t`, root, false);
       this.showPiece(piece, 'normal', index);

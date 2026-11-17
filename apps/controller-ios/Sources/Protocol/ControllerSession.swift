@@ -421,6 +421,16 @@ extension ControllerState {
             phase: .board, layout: .board, actions: [], board: board(.minigameIntro, activeSlot: nil),
             minigame: sampleMinigame))
 
+    /// Second run of the same minigame (CHAOS-128): short intro.
+    static let minigameIntroRepeatSample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.`repeat` = true
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [], board: board(.minigameIntro, activeSlot: nil),
+                minigame: minigame))
+    }()
+
     static let minigamePlaySample: ControllerState = {
         var minigame = sampleMinigame
         minigame.stage = .play
