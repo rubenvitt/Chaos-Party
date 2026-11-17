@@ -89,6 +89,25 @@ curl -s -o /dev/null -w '%{http_code}\n' --path-as-is 'http://<ip>:<port>/../../
 
 Danach im Browser `http://<ip>:<port>/?code=<CODE>` öffnen (zweiter Spieler in einem privaten Fenster), Figur wählen, „Bereit!“, in der App „Partie starten“. Gerätetest: [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §22.
 
+### Release (signiert und notarisiert, CHAOS-118)
+
+`scripts/release-macos.sh` baut die Mac-App so, wie sie auf einen fremden Mac geht: Archiv als Universal-Binary (arm64 + x86_64), Developer-ID-Signatur mit Hardened Runtime und Zeitstempel, ohne `get-task-allow`. Danach Selbsttest der fertigen App, Notarisierung mit `notarytool` (App-Store-Connect-API-Key), Heften, Gatekeeper-Prüfung (`spctl`: „Notarized Developer ID“) und Zip `build/release/Chaos-Party-<Version>-macOS.zip` mit „Chaos Party.app“ und `.sha256`.
+
+```sh
+# lokal, Zertifikat „Developer ID Application“ im Anmelde-Schlüsselbund, API-Key unter ~/.appstoreconnect/private_keys/
+ASC_KEY_ID=<KEY-ID> ASC_ISSUER_ID=<ISSUER> VERSION=0.1.0 apps/apple-host/scripts/release-macos.sh
+# ohne Zertifikat (wie die CI bei jedem PR): ad hoc signiert, Hardened Runtime, Selbsttest, keine Notarisierung
+RELEASE_DRY_RUN=1 apps/apple-host/scripts/release-macos.sh
+```
+
+- **Selbsttest** `ChaosHost.app/Contents/MacOS/ChaosHost --selftest` (`app/SelfTest.swift`, nur macOS): ohne Fenster laden JS-Kern und Havok, der Listener liefert `/?code=…` als HTML aus, ein WebSocket-Client aus Network.framework tritt bei und bekommt `welcome`, dazu 300 Ticks ohne Problemzeile im Log. Exit 0 mit `SELBSTTEST OK`, sonst 1 mit dem fehlenden Schritt. Er belegt, dass JavaScriptCore und WebAssembly unter der Hardened Runtime **ohne** JIT-Berechtigung laufen (ADR-019 §7).
+- **Hardened Runtime** ist in `project.yml` für macOS immer an, damit jeder lokale Build sich so verhält wie die notarisierte App.
+- **Workflow** [`release-macos.yml`](../../.github/workflows/release-macos.yml): bei jedem Push auf `main`, der App, Server, Host-Rolle, Controller oder `packages/` ändert, dazu manuell. Version `MARKETING_VERSION` aus `project.yml` plus Laufnummer (`0.1.42`), Tag `macos-v0.1.42`, Vorabversion, solange der Host Grundkörper zeichnet (`PRERELEASE` im Workflow).
+- **Secrets** (Repository → Settings → Secrets → Actions):
+  - `MACOS_CERTIFICATE_P12`: base64 der `.p12` mit dem Zertifikat „Developer ID Application“ **samt privatem Schlüssel** (Schlüsselbundverwaltung → Zertifikat und Schlüssel markieren → exportieren; dann `base64 -i developer-id.p12 | pbcopy`)
+  - `MACOS_CERTIFICATE_PASSWORD`: Passwort dieser `.p12`
+  - `APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`: dieselben wie für TestFlight (CHAOS-115); `notarytool` braucht mindestens die Rolle „Developer“.
+
 ## Harness (nur macOS)
 
 ```sh
@@ -106,4 +125,5 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 - Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full`, Beispielnachrichten aktuell.
 - macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur).
 
-Signierte Mac-App mit Notarisierung: CHAOS-118. TestFlight für tvOS: CHAOS-119 (stellt später vom RealityKit-Spike auf diese App um).
+- macOS-Job, letzter Schritt: `release-macos.sh` als Probelauf (ad hoc signiert, Hardened Runtime, Selbsttest der fertigen App).
+- Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“). TestFlight für tvOS: CHAOS-119/CHAOS-151.

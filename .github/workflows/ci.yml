@@ -211,3 +211,13 @@ jobs:
               -destination "$destination" -configuration Release \
               -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
           done
+
+      # Mac-Release ohne Secrets probeweise (CHAOS-118): dasselbe Skript wie release-macos.yml, aber ad hoc
+      # signiert. Prüft Archiv, Hardened Runtime, Entitlements und den Selbsttest der fertigen App (JS-Kern,
+      # Havok, HTTP, WebSocket-Beitritt). Nur Notarisierung und Heften laufen erst im Release-Workflow.
+      - name: Apple-Host – Mac-Release probeweise (ad hoc, Hardened Runtime, Selbsttest)
+        if: hashFiles('apps/apple-host/scripts/release-macos.sh') != ''
+        env:
+          RELEASE_DRY_RUN: '1'
+          SKIP_PREPARE: '1'
+        run: apps/apple-host/scripts/release-macos.sh

@@ -31,7 +31,10 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         TARGETED_DEVICE_FAMILY: '3'
         # Nur lokal signieren: macOS ad hoc, Simulator ohne Team; echte Geräte bekommen das Team auf der Kommandozeile.
-        # Signierte Mac-App (Notarisierung): CHAOS-118; TestFlight für tvOS: CHAOS-119.
+        # Signierte Mac-App mit Notarisierung: scripts/release-macos.sh (CHAOS-118); TestFlight für tvOS: CHAOS-119.
+        # Hardened Runtime immer am Mac, damit jeder lokale und CI-Build so läuft wie die notarisierte App
+        # (JavaScriptCore ohne JIT-Berechtigung, ADR-019 §7; geprüft mit `ChaosHost --selftest`).
+        'ENABLE_HARDENED_RUNTIME[sdk=macosx*]': YES
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: '-'
         DEVELOPMENT_TEAM: ''
