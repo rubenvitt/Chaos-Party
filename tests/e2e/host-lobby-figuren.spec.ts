@@ -3,7 +3,8 @@
  *
  * Synthetische Controller (`LobbyBot`) treten bei und wählen Figuren per `pick-character`;
  * der Host zeigt je Spieler Porträt und Namen der gewählten Figur bzw. „wählt noch …“,
- * stellt die Rundenzahl per `configure` ein (Maus und Tastatur) und startet. Auf dem Brett
+ * stellt die Rundenzahl und „Mehr Zeit zum Reagieren“ (CHAOS-124) per `configure` ein (Maus und
+ * Tastatur) und startet. Auf dem Brett
  * stehen danach die gewählten Figuren (Testhaken `getPawnCharacters`).
  */
 import type { Page } from '@playwright/test';
@@ -46,6 +47,7 @@ const lobbyMask = (page: Page) => [
       '.lobby-free-text',
       '.lobby-rounds legend',
       '.lobby-rounds-option',
+      '.lobby-toggle-text',
       '.player-symbol',
       '.lobby-free-symbol',
       '.start-button',
@@ -121,6 +123,25 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(page.getByTestId('rounds-20')).toHaveAttribute('aria-pressed', 'true');
       expect(session.snapshot().rounds).toBe(20);
 
+      // „Mehr Zeit zum Reagieren“ (CHAOS-124): Standard aus; per Maus an, per Tastatur
+      // (Leertaste) aus und wieder an. Der Schalter zeigt den Server-Stand.
+      const moreTime = page.getByTestId('more-reaction-time');
+      await expect(moreTime).toHaveAttribute('role', 'switch');
+      await expect(moreTime).toHaveAttribute('aria-checked', 'false');
+      await expect(moreTime).toContainText('3 s');
+      expect(session.snapshot().moreReactionTime).toBe(false);
+      await moreTime.click();
+      await expect(moreTime).toHaveAttribute('aria-checked', 'true');
+      await expect(moreTime).toContainText('5 s');
+      expect(session.snapshot().moreReactionTime).toBe(true);
+      await moreTime.focus();
+      await page.keyboard.press('Space');
+      await expect(moreTime).toHaveAttribute('aria-checked', 'false');
+      expect(session.snapshot().moreReactionTime).toBe(false);
+      await page.keyboard.press('Space');
+      await expect(moreTime).toHaveAttribute('aria-checked', 'true');
+      await moreTime.blur();
+
       // Umwählen setzt „bereit“ zurück (ADR-015) – der Host zeigt es sofort.
       bots[0]?.pick('cactus');
       await expect(card(1)).toHaveAttribute('data-character', 'cactus');
@@ -152,6 +173,8 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(main).toHaveAttribute('data-scene', 'ready');
       await page.waitForFunction(() => window.__chaos?.board?.ready === true);
       expect(session.snapshot().game?.state.rounds).toBe(20);
+      // Die Partie läuft mit dem längeren Reaktionsfenster.
+      expect(session.snapshot().game?.state.config.rules.pacing.reactionWindowMs).toBe(5_000);
       // Brett zeigt die gewählten Figuren; Slot 3 bekam beim Start seine freie Standardfigur.
       await stepFrames(page, 2);
       expect(await page.evaluate(() => window.__chaos?.board?.getPawnCharacters())).toEqual({

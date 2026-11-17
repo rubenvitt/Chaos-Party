@@ -1,7 +1,7 @@
 /**
- * Headless-Minispiel-Bühne für den Apple-Host (CHAOS-138, ADR-019 W2): wie
- * `apps/host/src/minigame/stage.ts`, aber mit NullEngine statt Canvas, ohne Rendern, Klang
- * und Look. Swift zeichnet die Körper aus `bodies()` selbst (RealityKit).
+ * Headless-Minispiel-Bühne für den Apple-Host (ADR-019 §3): wie `apps/host/src/minigame/stage.ts`,
+ * aber mit NullEngine statt Canvas, ohne Rendern, Klang und Look. Swift zeichnet die Körper aus
+ * `bodies()` selbst (RealityKit).
  */
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer.js';
@@ -23,17 +23,7 @@ import {
   type MinigameRunner,
   type RunnerResult,
 } from '@chaos-party/minigame-sdk/babylon';
-
-export type BodyShape = 'sphere' | 'box' | 'cylinder';
-
-export interface Body {
-  readonly id: string;
-  readonly shape: BodyShape;
-  readonly pos: [number, number, number];
-  readonly rot: [number, number, number, number];
-  readonly size: [number, number, number];
-  readonly color: string;
-}
+import type { Body, BodyShape } from './contract.ts';
 
 export interface HeadlessStageOptions {
   readonly module: MinigameModule;

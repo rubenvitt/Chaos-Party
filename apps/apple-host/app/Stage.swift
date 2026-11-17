@@ -21,7 +21,9 @@ final class Stage {
         "sphere": .generateSphere(radius: 0.5), "box": .generateBox(size: 1), "cylinder": .generateCylinder(height: 1, radius: 0.5),
     ]
     private static let slotColors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308"]
-    private static let kindColors = ["plus": "#4ade80", "minus": "#f87171", "event": "#a78bfa", "item": "#fbbf24"]
+    private static let kindColors = [
+        "start": "#e2e8f0", "coins-plus": "#4ade80", "coins-minus": "#f87171", "event": "#a78bfa", "item": "#fbbf24", "trophy": "#f59e0b",
+    ]
 
     init(view: ARView) {
         view.environment.background = .color(PlatformColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))

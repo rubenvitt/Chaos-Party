@@ -379,6 +379,8 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 
 **Entscheidung:** **keep 3000 ms.** Bei typischen Reaktionszeiten gelingen ≥ 95 %, die Zeitkosten sind vernachlässigbar, und der Druckmoment bleibt kurz. **iterate** nach dem Playtest: Liegt die gemessene Reaktionszeit im Median über ≈ 2 s, auf 3500 ms erhöhen.
 
+**Nachtrag (2026-11-17, CHAOS-124):** Standard bleibt 3000 ms. Für langsamere Reaktionen gibt es die Lobby-Option „Mehr Zeit zum Reagieren“ mit **5000 ms** (Barrierefreiheit, keine Balance-Variante; ADR-015 Nachtrag 5). Begründung aus dem Modell oben, nur aus der Verteilung gerechnet und ohne neue Simulation: Für das Profil „abgelenkt“ (Median 2,3 s, σ 0,45) liegt der Anteil unter der Frist bei 3 s bei 72 % (Simulation: 69 %), bei 4 s bei 89 % und bei 5 s bei 96 %. Mit 5 s gelingt also auch einer deutlich langsameren Person fast jede Reaktion. Zeit kostet das nur, wenn niemand reagiert: höchstens +2 s je Fenster. Ob 5 s reichen, prüft die Gerätecheckliste §23 (RT1–RT4).
+
 **Offen für Playtest:** Ob Menschen das Fenster bemerken, lässt sich nur am echten Gerät beurteilen. Dafür am besten die echten Reaktionszeiten mitschreiben (Vorschlag als Folgeaufgabe).
 
 **Für später (CHAOS-44):** Kurzer Hinweiston am Controller beim Angriff (iOS kann nicht vibrieren). Längeres Fenster als Barrierefreiheits-Option.
@@ -2084,7 +2086,7 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 
 **Hypothese:** Nach ADR-019 (W2) kann die Apple TV eine Partie ohne Rechner hosten. Session-Server, game-core, Host-Rolle und Minispiele samt Havok laufen als ein JS-Bündel in JavaScriptCore; Swift übernimmt Netzwerk und Darstellung. Erwartet: Die JS-Last bleibt deutlich unter dem Bild-Budget von 16,7 ms.
 
-**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`):
+**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`; seit CHAOS-139 als Produktcode unter [`apps/apple-host`](../apps/apple-host/README.md)):
 - **JS-Kern `jscore/`:** ein Bündel mit 4,8 MB plus `HavokPhysics.wasm`.
   - `Session` aus `apps/server` und `connectHost` aus `apps/host`, beide unverändert.
   - Die Minispiele laufen headless mit Babylon-NullEngine und Havok, instanziiert synchron über `instantiateWasm`.

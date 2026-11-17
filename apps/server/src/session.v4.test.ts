@@ -167,7 +167,11 @@ describe('Figurenwahl (CHAOS-36)', () => {
 describe('Rundenzahl (CHAOS-36)', () => {
   it('lobby trägt Einstellungen; configure ändert sie für PC und Controller; Start nutzt sie', () => {
     const h = lobbyHarness(2);
-    expect(h.lobby?.settings).toEqual({ rounds: 2, roundPresets: [10, 16, 20] });
+    expect(h.lobby?.settings).toEqual({
+      rounds: 2,
+      roundPresets: [10, 16, 20],
+      moreReactionTime: false,
+    });
     h.configure(8);
     expect(h.lobby?.settings.rounds).toBe(8);
     expect(context(h, 1).lobby?.rounds).toBe(8);

@@ -37,6 +37,8 @@ chaos-party/
     host/                 # PC game: Babylon.js canvas + React UI
     controller/           # Mobile browser controller, shared-iPad modes
     server/               # Local authoritative session / WebSocket server
+    controller-ios/       # Native controller app (ADR-017)
+    apple-host/           # Native Mac/Apple TV host: TS core in JavaScriptCore + SwiftUI/RealityKit (ADR-019)
   packages/
     game-core/            # Pure rules, seeded RNG, scoring, turn state
     protocol/             # Typed, versioned messages and validation

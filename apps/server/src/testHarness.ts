@@ -231,6 +231,11 @@ export class Harness {
     this.send(HOST, createMessage('configure', { rounds }));
   }
 
+  /** Lobby-Schalter „Mehr Zeit zum Reagieren“ (CHAOS-124). */
+  configureReactionTime(moreReactionTime: boolean): void {
+    this.send(HOST, createMessage('configure', { moreReactionTime }));
+  }
+
   pause(): void {
     this.send(HOST, createMessage('pause', {}));
   }

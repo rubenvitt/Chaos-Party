@@ -137,7 +137,15 @@ Gesucht ist ein Weg, auf dem die Apple TV allein hostet, der Mac dasselbe kann u
 - **Wenn der hochskalierte Pfad 30 fps bei 4K nicht erreicht:** Grafikstufe oder Szene für die Apple TV anpassen.
 - **Wenn Babylon Native, Bevy oder Godot tvOS offiziell unterstützen:** einen gemeinsamen Renderer mit dem PC prüfen.
 
-## Nachtrag 1 (2026-11-17): Eine Variante, alle Minispiele auf jedem Host
+## Nachtrag 1 (2026-11-17, CHAOS-139): Spike im Produktcode
+
+- **Ort:** Der Spike `spikes/apple-host` ist jetzt das Workspace-Paket [`apps/apple-host`](../../apps/apple-host/README.md) (`@chaos-party/apple-host`): JS-Kern in `src/`, Swift-App in `app/` (ein Ziel für macOS und tvOS, `dev.rubeen.chaosparty.host`), Harness in `harness/`. `pnpm build` erzeugt `dist/chaos-host.js` und `dist/HavokPhysics.wasm` samt Lizenzhinweisen (ADR-018).
+- **Schritt 3 (Transportschicht) entfällt:** `Session` war schon transportunabhängig (`ConnectionId`/`Outgoing`, `ws`-Adapter in `apps/server/src/socket.ts`). Einzige Änderung am Server: `DEFAULT_TICK_MS` liegt jetzt in `session.ts`, damit das Bündel `socket.ts` (und damit `ws`) nicht braucht.
+- **§6 Beispielnachrichten:** Die Host-Rolle läuft im JS-Kern selbst; Swift reicht das Controller-Protokoll nur durch. Der Vertrag, den Swift versteht, ist deshalb `renderState` (plus `HostEnv`/`ChaosHostInstance`). Er steht als zod-Schema in `apps/apple-host/src/contract.ts`; Beispiele je Phase erzeugt `scripts/export-apple-host-fixtures.mjs`, der Swift-Harness dekodiert sie mit dem `RenderState` der App.
+- **§7 CI:** Der Linux-Job prüft das Bündel in einem nackten `node:vm`-Kontext (Unit-Test bis zum ersten Minispiel, `bots --full` mit ganzer Partie) und dessen Größe (`pnpm check:bundle`). Der Job „Native Apps“ spielt die ganze Partie im Swift-Harness in JavaScriptCore (`JSC_useJIT=false`) und baut die App für macOS und tvOS.
+- **Noch nicht übernommen:** der hochskalierte 4K-Pfad (CHAOS-114) und die Render-Schleife des RealityKit-Spikes. Die App zeichnet weiter Grundkörper über die `ARView`; beides kommt mit der echten Grafik (CHAOS-142, CHAOS-148).
+
+## Nachtrag 2 (2026-11-17): Eine Variante, alle Minispiele auf jedem Host
 
 Ruben (Chat, CHAOS-137): „ich habe nur DIE EINE Variante, deshalb alle Minispiele in allen Versionen verfügbar“.
 
@@ -145,4 +153,3 @@ Ruben (Chat, CHAOS-137): „ich habe nur DIE EINE Variante, deshalb alle Minispi
 - **Folge für Entscheidung 3:** Eine eigene Swift-Darstellung je Minispiel skaliert nicht auf den geplanten Katalog (CHAOS-80, ~200 Spiele). Die Darstellung im nativen Host läuft deshalb über die **Rollen-Kennzeichnung** (`markVisual`/`visualOf` aus `packages/minigame-sdk`, CHAOS-149). Swift hält eine Bibliothek von Darstellungen je Rolle, die Minispiele derselben Familie teilen. Eigener Swift-Code je Minispiel nur, wo eine Rolle nicht reicht.
 - **Folge für die Minispiel-Fabrik:** Ein Minispiel ist erst fertig, wenn es auch im Apple-Host mit echter Grafik läuft (Definition of Done je Minispiel, [`docs/minigames/README.md` §5.3](../minigames/README.md)).
 - Der Nachweis bleibt der Gesamtlauf mit allen Minispielen der Rotation (CHAOS-146).
-
