@@ -377,11 +377,11 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75, PC-Zeilen: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
-Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, WebGPU überhaupt (die Software-GPU der Cloud verliert das Gerät beim ersten Bild), Bevy nativ mit Fenster, Apple TV.
+Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, das Aussehen unter WebGPU (die Software-GPU der Cloud verliert das Gerät beim ersten Bild; den Aufbau des Bretts unter WebGPU prüft seit CHAOS-117 nur ein Test-Skript mit Ersatz-Canvas, siehe EXP-015), Bevy nativ mit Fenster, Apple TV.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RS1 | Brett mit `&gpu=webgpu` in Chrome/Edge am PC und in Safari 26 am Mac | Messanzeige nennt „WebGPU …“, Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift) | | |
+| RS1 | Brett mit `&gpu=webgpu&qualitaet=hoch` in Chrome/Edge am PC und in Safari 26 am Mac (nach CHAOS-117 neu prüfen) | Messanzeige nennt „WebGPU …“ und nach einigen Sekunden „Schleifen 1“, Frames steigen; Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift, SSAO) | | |
 | RS2 | Messbogen R1–R3, R7–R8 (Babylon WebGL2 vs. WebGPU) | Bildabstand je Variante; Vorteil von WebGPU in % | | |
 | RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
 | RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |

@@ -51,7 +51,7 @@ Ergebnis: Zeile `brett` in der Konsolentabelle bzw. `perf-results/partie-webgl.j
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch`
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch&gpu=webgpu`
 
-30 s warten, in der Messanzeige „Alle Szenen kopieren“. Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
+30 s warten, in der Messanzeige „Alle Szenen kopieren“. Unter WebGPU übersetzt Babylon beim ersten Start alle Shader neu; bis das Brett das erste Bild zeigt, können einige Sekunden vergehen (Messanzeige: „Schleifen 0“, danach 1). Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
 
 ## 2. Kandidat 2: Bevy (Rust) als WebAssembly im Browser
 
@@ -121,7 +121,7 @@ Im Browser gelten dieselben Namen als Query (`?variante=webgpu&gras=0.25&schatte
 
 ## 5. Messbogen
 
-Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. Die PC-Zeilen R1–R6 laufen über CHAOS-131. R2 (WebGPU) erst messen, wenn CHAOS-117 behoben ist.
+Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. Die PC-Zeilen R1–R6 laufen über CHAOS-131. R2 und R8 (WebGPU) sind seit dem Fix aus CHAOS-117 (17.11.) messbar.
 
 | # | Rechner | Kandidat | Browser/API | Auflösung | Median | p95 | Bemerkung |
 |---|---|---|---|---|---|---|---|
@@ -132,7 +132,7 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. Die
 | R5 | PC | Bevy WebAssembly | Chrome/Edge, WebGL2 | 1920×1080 | | | |
 | R6 | PC | Bevy nativ | DX12/Vulkan | 1920×1080 und `niedrig`-Paar | | | |
 | R7 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGL2 | 1920×1080 | 8,4 | 11,2 | 17.11., MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz; `pnpm perf -g Partie`, Zeile `brett`, 117 fps, Render 7,8 ms |
-| R8 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGPU | 1920×1080 | – | – | 17.11.: **nicht messbar.** Die WebGPU-Engine startet (Messanzeige: „WebGPU metal-3“), aber das Brett zeichnet nie ein Bild: 0 Bilder, keine Render-Schleife, kein Fehler in der Konsole. Fehler im Spike-Pfad, siehe EXP-015 |
+| R8 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGPU | 1920×1080 | | | **Neu messen.** 17.11. vormittags nicht messbar: Die WebGPU-Engine startete („WebGPU metal-3“), das Brett zeichnete aber nie ein Bild (0 Bilder, keine Render-Schleife). Ursache und Fix: CHAOS-117, siehe EXP-015 (Nachtrag) |
 | R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | 12,8 | 13,6 | 17.11., Chromium 153 ohne VSync, 78 fps; Gegenprobe WebGL2: 39,9 / 41,1 ms (25 fps) |
 | R10 | Mac | Bevy nativ | Metal | 1920×1080 | 3,8 | 4,8 | 17.11., **offscreen** (`--fenster=0`), 258 fps; `niedrig`-Paar 1600×900: 2,7 / 3,3 ms. Im Fenster rastet Bevy auf dem 60-Hz-Monitor trotz `vsync=0` bei 16,7 ms ein |
 | R11 | PC/Mac | wie R1/R2/R6 | | 3840×2160 | | | 4K am Fernseher. **Mac 17.11.:** Babylon WebGL2 `hoch` 19,3 / 27,5 ms (49 fps; rendert höchstens 2560×1440); Bevy nativ offscreen 7,1 / 11,1 ms; RealityKit ARView 60 fps, GPU 7,3 / 13,1 ms (Metal-HUD) |
