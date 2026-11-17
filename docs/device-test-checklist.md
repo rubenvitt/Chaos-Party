@@ -393,7 +393,7 @@ Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Sz
 |---|---|---|---|---|
 | RK1 | Mac: `ChaosRenderSpike --sekunden=30` mit sichtbarem Fenster, sonst nichts laufen lassen (kein GeForce NOW, kein Vollbild-Spiel) | `SPIKE-ERGEBNIS` mit Median ≈ 8,3 ms (120 Hz); p95 eintragen (R13) | | |
 | RK2 | Mac: dasselbe mit `--durchsatz=1` (R14) und `--breite=3840 --hoehe=2160` | Offscreen-Bildzeit 1080p und 4K | | |
-| RK3 | Xcode: Team eintragen (ob ein kostenloser Apple-Account für tvOS-Geräte reicht, prüfen; Profile gelten dann 7 Tage), App auf die Apple TV spielen | App startet, Brett mit Gras, Figuren, Schatten | | |
-| RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | | |
+| RK3 | Xcode: Team eintragen (ob ein kostenloser Apple-Account für tvOS-Geräte reicht, prüfen; Profile gelten dann 7 Tage), App auf die Apple TV spielen | App startet, Brett mit Gras, Figuren, Schatten | ok (17.11., bezahltes Team, Apple TV per Xcode gekoppelt, Build mit `-destination id=<UDID> -allowProvisioningDeviceRegistration`) | `devicectl` install/launch, `SPIKE-ERGEBNIS` |
+| RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p: offen | EXP-017 |
 | RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | | |
 | RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | | |

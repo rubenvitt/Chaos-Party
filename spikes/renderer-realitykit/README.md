@@ -76,7 +76,8 @@ Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` a
 
 - **ARView (Standard):** gemessen werden die Abstände von `SceneEvents.Update`. RealityKit rendert immer vsync-gebunden. Liegt der Median beim Bildwechselintervall (8,33 ms bei 120 Hz, 16,67 ms bei 60 Hz), ist die Reserve **unbekannt**.
 - **macOS drosselt verdeckte Fenster auf etwa 10 Hz** (andere Space, Vollbild-App im Vordergrund). Ein Median um 100 ms bedeutet also „Fenster nicht sichtbar“ und ist kein Messwert. Die App holt sich zwar nach vorn, schützt sich aber nicht gegen einen späteren Wechsel. `NSWindow.occlusionState` war als Anzeige dafür unzuverlässig.
-- **`--durchsatz=1`:** Dieselbe Szene läuft mit `RealityRenderer` in eine Textur, Bild für Bild nacheinander (warten auf `onComplete`), ohne vsync und unabhängig vom Fenster. Die Bildzeit ist CPU plus GPU ohne Überlappung, also eine obere Schranke. Ein reiner GPU-Zeitwert ist nicht erreichbar: `ARView.__frameTime()` und `__getStatisticsStringForSingleOption(.frameTimeStatistics)` liefern unter macOS nur Nullen, und an die Metal-Command-Buffer kommt man über RealityKit nicht heran. Für GPU-Zeiten bleibt Instruments (Metal System Trace).
+- **`--durchsatz=1`:** Dieselbe Szene läuft mit `RealityRenderer` in eine Textur, Bild für Bild nacheinander (warten auf `onComplete`), ohne vsync und unabhängig vom Fenster. Die Bildzeit ist CPU plus GPU ohne Überlappung, also eine obere Schranke. `ARView.__frameTime()` und `__getStatisticsStringForSingleOption(.frameTimeStatistics)` liefern unter macOS nur Nullen. **GPU-Zeit je Bild** liefert der Metal-Performance-HUD: auf Geräten mit `xcrun devicectl device process launch … --environment-variables '{"MTL_HUD_ENABLED":"1","MTL_HUD_LOG_ENABLED":"1"}' --console …` schreibt er je Sekunde eine Zeile `metal-HUD: n, Speicher, Speicher, Bildabstand, GPU-Zeit, Bildabstand, GPU-Zeit, …` (Paare in ms). Für mehr Tiefe bleibt Instruments (Metal System Trace).
+- **Mehrere Argumente in zsh:** Eine Variable mit `--a=1 --b=2` kommt ohne `${=var}` als **ein** Argument an (`Parameter:`-Zeile prüfen).
 - **Nicht steuerbar:** Größe der Schattenkarte, MSAA in der ARView, und die Zahl der Kaskaden vor Version 27.
 - **Simulatorwerte sind keine Messungen,** nur Funktionsproben. Der Simulator rendert über die Mac-GPU und taktet mit 60 Hz.
 
@@ -95,6 +96,20 @@ Während der Messungen lief GeForce NOW im Hintergrund. Die Werte sind deshalb n
 Die ARView hält bei voller Szene 120 Hz im Median, das p95 zeigt aber einzelne verpasste Bilder. Die Reserve über 120 Hz bleibt unbekannt; das Ergebnis ist also nur eine Untergrenze. Dieser Lauf war der einzige mit sichtbarem Fenster und entstand, bevor Himmelskuppeln und Dunst ausgeblendet wurden. Beide liegen hinter `far`, der Unterschied sollte also klein sein. Weitere ARView-Läufe am Mac waren durch die Fensterdrosselung unbrauchbar (Median ≈ 103 ms) und fehlen in der Tabelle.
 
 Offscreen kostet ein Bild nacheinander gemessen 14–21 ms. Der Grundwert streut zwischen den Läufen schon um 16,8–21,3 ms, jede Variante wurde nur einmal gemessen. Über dieses Rauschen hinaus zeigt nur „Schatten aus“ einen Unterschied; Grasanteil und MSAA lassen sich davon nicht trennen. Die Offscreen-Werte sind **nicht mit Bevys Bildabstand bei `vsync=0` vergleichbar**: Bevy überlappt die Bilder (Pipelining), diese Schleife wartet jedes Bild ab. Mit Bevy vergleichbar ist nur der ARView-Wert.
+
+**Echte Apple TV 4K (3. Generation, A15), 17.11.2026, Ausgabe 3840×2160 bei 60 Hz, volle Szene:**
+
+| Pfad | Auflösung | Median | p95 | fps | GPU je Bild (Metal-HUD) |
+|---|---|---|---|---|---|
+| ARView | 3840×2160 | 51,1 ms | 59,4 ms | 20,0 | 34,7 ms |
+| ARView `--gras=0` | 3840×2160 | – | – | 20,0 | 34,8 ms |
+| ARView `--schatten=0` | 3840×2160 | – | – | 20,0 | 34,7 ms |
+| offscreen, MSAA 4× | 3840×2160 | 117,3 ms | 137,2 ms | 8,4 | – |
+| offscreen, MSAA 4× | 1920×1080 | 41,9 ms | 50,2 ms | 23,9 | – |
+| offscreen, MSAA aus | 1920×1080 | 34,3 ms | 84,0 ms | 22,7 | – |
+| offscreen, MSAA 4× | 1280×720 | 33,2 ms | 33,8 ms | 30,3 | – |
+
+Die ARView zeigt 20 fps, weil 34,7 ms GPU-Zeit knapp über 33,3 ms liegen (vsync rastet auf 60/3 ein). Gras und Schatten ändern nichts, die Auflösung sehr viel (offscreen 4K ≈ 2,8× 1080p): Die Apple TV ist bei 4K **pixelgebunden**. Mit 1080p-Ausgabe (Apple TV: Einstellungen → Video und Audio → Format) ist ein deutlich besseres Ergebnis zu erwarten, gemessen ist es noch nicht. `contentScaleFactor` an der ARView zu senken hatte keine messbare Wirkung und ist wieder entfernt.
 
 **Echtes iPhone 16 Pro** (nur Benchmark, kein Host), 2622×1206, volle Szene: Median 16,68 ms, p95 17,4 ms, max 20,6 ms, 60,0 fps. Die ARView bleibt bei 60 Hz, auch mit `--bildrate=120` und `CADisableMinimumFrameDurationOnPhone` (getestet, wieder entfernt).
 
