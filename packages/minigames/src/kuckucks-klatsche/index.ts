@@ -41,6 +41,7 @@ import type {
   MinigameModule,
   MinigamePlayer,
 } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { kuckucksKlatscheHighlights } from './highlights.ts';
 import { KUCKUCKS_KLATSCHE_INFO } from './info.ts';
 import { FINTE_KINDS, KuckucksKlatscheLogic, type FinteKind, type KuckuckEvent } from './logic.ts';
@@ -537,7 +538,7 @@ export class KuckucksKlatsche implements Minigame {
   }
 
   private buildHouse(scene: Scene, width: number): void {
-    const house = this.track(new TransformNode('kuckuck-haus', scene));
+    const house = this.track(markVisual(new TransformNode('kuckuck-haus', scene), 'kuckucksuhr'));
     house.position.set(0, 0, HOUSE_Z);
     this.house = house;
     const bodyH = 3.75;
@@ -670,7 +671,7 @@ export class KuckucksKlatsche implements Minigame {
       mark.rotation.z = -a;
     }
     const hand = (name: string, length: number, thickness: number, z: number) => {
-      const pivot = this.track(new TransformNode(name, scene));
+      const pivot = this.track(markVisual(new TransformNode(name, scene), 'zeiger', name));
       pivot.parent = house;
       pivot.position.set(0, faceY, frontZ - z);
       const bar = this.mesh(
@@ -773,9 +774,10 @@ export class KuckucksKlatsche implements Minigame {
     );
     glow.rotation.x = Math.PI / 2;
     glow.position.set(x, DOOR_Y, z - 0.08);
+    markVisual(glow, 'tuer-leuchten', slot);
     glow.setEnabled(false);
     // Türflügel am linken Scharnier.
-    const hinge = this.track(new TransformNode(name('scharnier'), scene));
+    const hinge = this.track(markVisual(new TransformNode(name('scharnier'), scene), 'tuer', slot));
     hinge.position.set(x - DOOR_RADIUS, DOOR_Y, z - 0.08);
     const leaf = this.mesh(
       CreateCylinder(
@@ -812,7 +814,7 @@ export class KuckucksKlatsche implements Minigame {
       if (flat.material) flat.material.backFaceCulling = false;
     }
     // Bewohner auf einer Feder: Kuckuck und drei Finten, je einer sichtbar.
-    const perch = this.track(new TransformNode(name('feder'), scene));
+    const perch = this.track(markVisual(new TransformNode(name('feder'), scene), 'feder', slot));
     perch.position.set(x, DOOR_Y - 0.1, z + 0.25);
 
     const spring = this.mesh(
@@ -824,9 +826,15 @@ export class KuckucksKlatsche implements Minigame {
     spring.rotation.x = Math.PI / 2;
     spring.position.set(0, -0.12, 0.55);
     const occupants = new Map<OccupantKind, TransformNode>();
-    occupants.set('kuckuck', this.buildCuckoo(scene, perch, name('kuckuck')));
+    occupants.set(
+      'kuckuck',
+      markVisual(this.buildCuckoo(scene, perch, name('kuckuck')), 'kuckuck', slot),
+    );
     for (const kind of FINTE_KINDS) {
-      occupants.set(kind, this.buildFinte(scene, perch, name(kind), kind));
+      occupants.set(
+        kind,
+        markVisual(this.buildFinte(scene, perch, name(kind), kind), `finte-${kind}`, slot),
+      );
     }
     for (const node of occupants.values()) node.setEnabled(false);
     perch.setEnabled(false);
@@ -1024,9 +1032,12 @@ export class KuckucksKlatsche implements Minigame {
       null,
       { emissive: 0.3 },
     );
+    markVisual(ring, 'spielerring', slot);
     ring.position.set(home.x, 0.06, home.z);
     // Fliegenklatsche: Stiel und gitterartiges Blatt in Slot-Farbe.
-    const swatter = this.track(new TransformNode(`kuckuck-klatsche-${String(slot)}`, scene));
+    const swatter = this.track(
+      markVisual(new TransformNode(`kuckuck-klatsche-${String(slot)}`, scene), 'klatsche', slot),
+    );
     const handle = this.mesh(
       CreateCylinder(
         `kuckuck-klatsche-stiel-${String(slot)}`,
