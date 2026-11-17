@@ -37,6 +37,7 @@ import type {
   MinigameModule,
   MinigamePlayer,
 } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { KRUEMEL_KEHRAUS_INFO } from './info.ts';
 import {
   allCorners,
@@ -247,6 +248,7 @@ export class KruemelKehraus implements Minigame {
         scene,
       );
       hitbox.position.set(0, TUNING.ballRadius + 0.02, 0);
+      markVisual(hitbox, 'wollknaeuel');
       hitbox.material = materials.wool;
       buildWoolStripes(scene, hitbox, this.disposables, materials.dark);
       const aggregate = new PhysicsAggregate(
@@ -460,6 +462,7 @@ export class KruemelKehraus implements Minigame {
       scene,
     );
     hitbox.isVisible = false;
+    markVisual(hitbox, gold ? 'goldkruemel' : 'kruemel', index);
     if (start) hitbox.position.set(start.x, radius + 0.02, start.z);
     else hitbox.position.set(300 + index * 3, -50, 0);
     hitbox.rotationQuaternion = Quaternion.Identity();

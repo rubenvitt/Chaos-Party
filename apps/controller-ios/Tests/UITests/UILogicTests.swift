@@ -108,6 +108,35 @@ import Testing
         #expect(layout.buttons.map(\.button) == [.a])
     }
 
+    @Test func minigameIntroShowsFullInstructions() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .intro
+        let text = MinigameCardText(minigame)
+        #expect(text.kicker == "Minispiel")
+        #expect(text.tagline == "Wer pumpt am schnellsten?")
+        #expect(text.instructions == minigame.instructions)
+        minigame.`repeat` = false
+        #expect(MinigameCardText(minigame) == text)
+    }
+
+    /// CHAOS-128: like the browser controller, a repeat shows kicker, title and controls only.
+    @Test func repeatedMinigameIntroIsShort() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .intro
+        minigame.`repeat` = true
+        let text = MinigameCardText(minigame)
+        #expect(text.kicker == "Nochmal!")
+        #expect(text.tagline == nil)
+        #expect(text.instructions.isEmpty)
+    }
+
+    @Test func resultsKickerIsTheTitleEvenOnRepeat() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .results
+        minigame.`repeat` = true
+        #expect(MinigameCardText(minigame).kicker == "Pump-Rennen")
+    }
+
     @Test func rollPromptHasDiceMainAndItemExtra() throws {
         let prompt = try #require(ControllerState.rollPromptSample.ownPrompt(1))
         let layout = PromptLayout(prompt.info)

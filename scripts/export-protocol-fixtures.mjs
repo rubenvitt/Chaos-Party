@@ -224,6 +224,13 @@ const serverToController = {
     board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
     minigame: minigame(),
   }),
+  'context-minigame-intro-repeat': context({
+    phase: 'board',
+    layout: 'board',
+    actions: [],
+    board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
+    minigame: minigame({ repeat: true }),
+  }),
   'context-minigame-play': context({
     phase: 'board',
     layout: 'joystick-buttons',
