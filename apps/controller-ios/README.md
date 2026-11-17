@@ -84,3 +84,17 @@ demselben Projekt.
 
 Die CI hat kein Xcode; die Swift-Tests laufen nur lokal. Ändert sich das Protokoll-Schema:
 `node scripts/export-protocol-fixtures.mjs` im Repo neu ausführen.
+
+## TestFlight (CI)
+
+Wie bei Lichtung: `.github/workflows/testflight.yml` archiviert die App bei jedem Push auf `main`, der `apps/controller-ios/` ändert, signiert automatisch über den App-Store-Connect-API-Key und lädt sie zu TestFlight hoch (`scripts/testflight.sh`). Manuell startbar über „Run workflow“.
+
+Voraussetzungen:
+
+- Repository-Secrets `APPLE_API_KEY` (Key-ID), `APPLE_API_KEY_P8` (Inhalt der `.p8`, Klartext) und `APPLE_API_ISSUER` (Issuer-ID); der Key braucht die Rolle Admin.
+- App-Eintrag für `dev.rubeen.chaosparty.controller` in App Store Connect.
+
+Lokal hochladen mit dem in Xcode angemeldeten Account: `XCODE_ACCOUNT=1 scripts/testflight.sh`.
+
+App-Icon: `Sources/App/Assets.xcassets/AppIcon.appiconset/icon-1024.png`, am 17.11.2026 mit dem Bildgenerator von Codex (OpenAI) erzeugt, eigenes Motiv ohne Vorlage.
+

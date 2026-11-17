@@ -51,12 +51,16 @@ targets:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: Chaos Party verbindet sich mit dem Spiel-PC in deinem WLAN.
         NSCameraUsageDescription: Die Kamera liest den QR-Code vom Fernseher, damit du dem Spiel beitrittst.
+        # Nur Standard-Verschlüsselung des Systems: keine Exportfrage bei jedem TestFlight-Upload.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_NAME: ChaosController
         PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.controller
         TARGETED_DEVICE_FAMILY: '1,2'
-        # Nur lokal signieren; für das echte Gerät Team in Xcode wählen (wie CHAOS-78).
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Team wie in Lichtung/Zunder; signiert automatisch (lokal Xcode-Account, CI App-Store-Connect-API-Key).
+        DEVELOPMENT_TEAM: H95J852PKP
         CODE_SIGN_STYLE: Automatic
         'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': NO
   ChaosControllerTests:
