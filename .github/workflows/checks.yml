@@ -1,0 +1,25 @@
+name: Checks
+
+# Einziger Pflicht-Check im Ruleset für main (wie in lichtung). Wartet auf alle Checks,
+# die ein PR auslöst, und schlägt fehl, sobald einer fehlschlägt. So kann Auto-Merge
+# erst mergen, wenn CI, native Apps usw. grün sind.
+on:
+  pull_request:
+
+permissions:
+  checks: read
+
+jobs:
+  all:
+    name: Alle Checks grün
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: poseidon/wait-for-status-checks@v0.7.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Den anderen Workflows Zeit geben, ihre Check Runs anzulegen.
+          delay: 30s
+          # Der macOS-Job (native Apps) braucht bis zu 45 Minuten.
+          timeout: 5400s
+          # Wer `ignore` setzt, muss den eigenen Job selbst nennen.
+          ignore: Alle Checks grün
