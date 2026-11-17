@@ -403,6 +403,7 @@ Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Sz
 | RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p entfällt: Ruben bleibt bei 4K-Ausgabe (17.11.) | EXP-017 |
 | RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | entfällt: ADR-019 wählt W2 (Apple TV hostet allein); der Protokollweg ist dort auf der echten Apple TV gezeigt (CHAOS-138, Partie bis ins Minispiel) | EXP-024 |
 | RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | verschoben: Der Look wird mit der echten Brett-Grafik im Apple-Host beurteilt (CHAOS-148, Figuren direkt als USDZ aus bpy, ADR-019 §5) | |
+| RK7 | Mac oder Apple TV mit `--server=ws://<pc>:8787/ws`, Partie mit Controllern bis aufs Brett, dann die App beenden und neu starten (CHAOS-121) | Am PC-Server pausiert die Partie beim Abriss; sobald Brett und Figuren wieder stehen, läuft sie ohne 30 s Wartezeit weiter. Log: `Server: host-ready gesendet`. Figuren stehen auf ihren Feldern | | Log-Auszug |
 
 ## 18. Apple TV bei 4K: interne Auflösung und Hochskalierung (für CHAOS-114)
 
