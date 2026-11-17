@@ -45,7 +45,7 @@ Nur wenn Ruben sie **ausdrücklich** gibt (im Chat oder als Zunder-Kommentar). S
 
 ### APPROVED
 1. `add_comment` am Gate: „**<Datum>, APPROVED durch Ruben:** „<Zitat>““ plus Ergebnis der Gerätechecks, soweit er sie genannt hat.
-2. Gate `update_task status: done` → der Server gibt das nächste Epic und seine ersten Aufgaben frei.
+2. Gate `update_task status: done`. Die Aufgaben des nächsten Meilensteins hängen in Zunder nicht am Gate (keine Abhängigkeit an Ruben, siehe `CLAUDE.md`); sie werden erst durch diese Entscheidung startbar.
 3. `docs/acceptance/M<n>.md`: Decision und Gerätecheck-Ergebnisse eintragen; `docs/progress.md` auf den nächsten Meilenstein stellen.
 4. Epic des Meilensteins auf `done` setzen.
 5. Die jetzt freien Aufgaben des nächsten Meilensteins nennen; erst auf Rubens Zeichen anfangen, außer er hat Weiterarbeiten schon erlaubt.
@@ -57,7 +57,7 @@ Nur wenn Ruben sie **ausdrücklich** gibt (im Chat oder als Zunder-Kommentar). S
 
 ### BLOCKED
 1. Kommentar am Gate mit Zitat und Grund.
-2. `waiting_on` auf den, der entscheiden muss (meist „Ruben“), ggf. `blocker-eskalieren` für die kleinste offene Frage.
+2. Gate bleibt `open`, kein `waiting_on`. Die offene Frage als Kommentar, ggf. `blocker-eskalieren` für die kleinste offene Frage.
 
 ## Don'ts
 
