@@ -5,7 +5,8 @@
 //
 //   swift spikes/apple-host/jscore/harness/main.swift [full]
 //
-// Achtung: macOS-JSC hat einen JIT; die Zeiten sagen nichts über tvOS (dort ohne JIT).
+// Die Zeiten sind CPU-Zeit dieses Threads. JSC lief hier faktisch ohne JIT (siehe README); ein
+// Apple TV hat einen langsameren Kern, die Zahlen sind also eine Untergrenze für tvOS.
 import Foundation
 import JavaScriptCore
 import Security
@@ -252,11 +253,20 @@ while now < limitMs {
   if full && phase == "final" { out("[\(Int(now)) ms] Endstand erreicht"); break }
 }
 
-out("\nCPU-Zeit je Tick (macOS-JSC mit JIT – nur funktional, nicht tvOS-repräsentativ):")
+out("\nCPU-Zeit je Tick (macOS-JSC, faktisch ohne JIT; Apple TV langsamer):")
 for key in tickStats.keys.sorted() {
   out("  \(key): tick \(tickStats[key]!.text); renderState \(renderStats[key]!.text)")
 }
 out("Virtuelle Spielzeit \(Int(now / 1000)) s, Server-Fehler an Controller: \(errorsFromServer), JS-Ausnahmen: \(jsErrors)")
-let ok = minigameAccepted && resultsSeenAfterAccept && jsErrors == 0 && (!full || lastPhase == "final")
+// Fehler, die der Kern nur loggt (die Partie liefe trotzdem bis zum Ende weiter).
+let problems = logLines.filter { line in
+  ["Fehler", "ERROR", "fehlgeschlagen", "Laufzeit wertet", "nicht mehr gebraucht", "abgelehnt",
+   "noch nicht geladen"].contains { line.contains($0) }
+}
+let built = logLines.filter { $0.contains("aufgebaut") }.count
+let accepted = logLines.filter { $0.contains("angenommen") }.count
+out("Minispiele aufgebaut: \(built), Ergebnisse angenommen: \(accepted), Problemzeilen: \(problems.count)")
+for line in problems.prefix(10) { out("  PROBLEM \(line.prefix(200))") }
+let ok = problems.isEmpty && accepted >= 1 && (!full || built == accepted) && minigameAccepted && resultsSeenAfterAccept && jsErrors == 0 && (!full || lastPhase == "final")
 out(ok ? "ERGEBNIS: OK" : "ERGEBNIS: NICHT OK (Ergebnis angenommen: \(minigameAccepted), Ergebnisanzeige: \(resultsSeenAfterAccept))")
 exit(ok ? 0 : 1)

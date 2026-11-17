@@ -16,8 +16,28 @@ pnpm exec tsc -p spikes/apple-host/jscore              # Typprüfung
 Der Harness lädt das Bündel in ein `JSContext` (macOS), spielt mit zwei Controllern über echte
 Protokoll-Nachrichten (join, pick-character, ready, choose, move/press, heartbeat), startet per
 `hostCommand('start')` und gibt Phasenwechsel, `renderState`-Auszüge und die CPU-Zeit je Tick aus.
-Die Uhr ist virtuell (60 Ticks je Spielsekunde ohne Warten). **macOS-JSC hat einen JIT** – die Zeiten
-sind nur funktional, auf tvOS (ohne JIT) gelten andere Zahlen.
+Die Uhr ist virtuell (60 Ticks je Spielsekunde ohne Warten). Gemessen wird die CPU-Zeit des Threads.
+
+**JIT:** Im Harness läuft JSC auf macOS faktisch ohne JIT. Eine Zählschleife (3·10⁷ Runden) braucht
+in JSC 2,6 s, mit `node --jitless` 3,0 s und mit node samt JIT 0,5 s (alles auf derselben, stark
+ausgelasteten Maschine). `JSC_useJIT=false` ändert nichts. Die Zahlen sind damit näher an tvOS als
+erwartet. Ein Apple-TV-Kern ist aber langsamer, auf tvOS ist also mit höheren Zeiten zu rechnen.
+
+## Messwerte (macOS, 17.11.2026, Maschine stark ausgelastet)
+
+Ganze Partie (`full`): 10 Runden, 10 Minispiele aus der Rotation (Sockenregen, Pudding-Gerangel,
+Wackelturm, Kuckucks-Klatsche), 10 von 10 Ergebnissen angenommen, Endstand erreicht, keine
+JS-Ausnahmen. CPU-Zeit je Aufruf, Ø / max:
+
+| Abschnitt | `tick` | `renderState` |
+|---|---|---|
+| Brett | 0,06 / 32 ms | 0,06 / 4 ms |
+| Minispiel-Intro | 0,7 / 960 ms | 0,8 / 48 ms |
+| Minispiel-Spiel (50–100 Körper) | 0,4 / 26 ms | 3,0 / 22 ms |
+
+Die Spitze im Intro ist der Aufbau der Bühne (NullEngine, Szene, `prepare`, Havok-Welt). Er läuft
+synchron in einem `tick` und hält den Swift-Hauptthread an. Auf tvOS kann das über eine Sekunde
+dauern. `renderState` im Minispiel kostet am meisten (Körper + JSON, 9–16 KiB je Bild).
 
 ## Aufbau
 

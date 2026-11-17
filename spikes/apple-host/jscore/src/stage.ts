@@ -138,11 +138,11 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     },
     advance(seconds) {
       runner.advance(seconds);
+      // Wie ein gerendertes Bild im Browser-Host: neue Render-ID nach den Schritten, sonst liefert
+      // `computeWorldMatrix()` die Matrix aus dem ersten Aufruf (je Render-ID höchstens einmal).
+      scene.incrementRenderId();
     },
     bodies() {
-      // Wie ein gerendertes Bild: neue Render-ID, sonst liefert `computeWorldMatrix()` die
-      // Matrix aus dem ersten Aufruf (Babylon rechnet je Render-ID höchstens einmal).
-      scene.incrementRenderId();
       const out: Body[] = [];
       for (const mesh of scene.meshes) {
         if (!mesh.isEnabled() || !mesh.isVisible || mesh.visibility === 0) continue;
