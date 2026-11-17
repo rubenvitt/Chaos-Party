@@ -12,3 +12,7 @@ spikes/renderer-bevy/assets/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
 .claude/
+# Generierter Fixture-Korpus der nativen Controller-App (scripts/export-protocol-fixtures.mjs).
+apps/controller-ios/Tests/Fixtures/
+# Xcode-Asset-Kataloge (Contents.json) schreibt Xcode selbst; nicht von Prettier umformatieren.
+*.xcassets/

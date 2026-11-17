@@ -38,7 +38,7 @@ if (violations.length > 0) {
 
 console.log(`Lizenzen ok: ${String(total)} Laufzeit-Pakete, alle auf der Positivliste.`);
 
-// Lizenzhinweise im Build (CHAOS-69, ADR-017): Jeder vorhandene Build muss die GPL und
+// Lizenzhinweise im Build (CHAOS-69, ADR-018): Jeder vorhandene Build muss die GPL und
 // aktuelle Drittlizenz-Hinweise enthalten, damit er weitergegeben werden darf.
 const notices = checkNotices();
 if (notices.problems.length > 0) {

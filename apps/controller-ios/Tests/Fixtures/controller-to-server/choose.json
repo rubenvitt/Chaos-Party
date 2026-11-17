@@ -1,0 +1,8 @@
+{
+  "v": 4,
+  "type": "choose",
+  "slot": 1,
+  "seq": 3,
+  "promptId": 7,
+  "option": "item:double-dice"
+}

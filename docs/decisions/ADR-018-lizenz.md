@@ -1,4 +1,4 @@
-# ADR-017: Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build
+# ADR-018: Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build
 
 **Status:** Angenommen (Rubens Entscheidung, 2026-11-17)
 **Datum:** 2026-11-17
@@ -48,8 +48,9 @@ Laufzeit-Abhängigkeiten heute: Apache-2.0 (Babylon.js), MIT (Havok, React, ws, 
 **Negativ / Risiken**
 - **Quellcode-Pflicht der GPL:** Wer einen Build weitergibt, muss den passenden Quellcode anbieten. Die Hinweise verweisen auf `https://github.com/rubenvitt/chaos-party`. Das reicht nur, solange das Repository öffentlich ist und den weitergegebenen Stand enthält (Tag oder Commit). **Das Repository öffentlich zu stellen bleibt Rubens Schritt.**
 - Beiträge Dritter fallen unter GPL-3.0-only. Ein späterer Lizenzwechsel bräuchte dann deren Zustimmung (oder eine Beitragsvereinbarung).
+- **App Store und TestFlight:** Die native Controller-App (`apps/controller-ios`, CHAOS-115, ADR-017) soll über TestFlight verteilt werden. Die Nutzungsbedingungen des App Store legen Nutzern Einschränkungen auf, die die GPL verbietet. Das stört nicht, solange **nur Ruben** Urheber des Codes in der App ist: Als Rechteinhaber ist er an seine eigene Lizenz nicht gebunden und darf die App zusätzlich unter anderen Bedingungen verteilen. Kommt fremder GPL-Code in die App, etwa angenommene Beiträge, braucht es vorher eine Beitragsvereinbarung oder eine App-Store-Ausnahme in der Lizenz. Die App nutzt heute nur Apple-Frameworks und eigenen Code, keine fremden Swift-Pakete.
 - Die Quelldateien tragen keinen Lizenzkopf je Datei; `LICENSE`, die `package.json`-Felder und das README gelten fürs ganze Repository.
 
 ## Überprüfung
 
-Neu bewerten, wenn eine Abhängigkeit mit GPL-unverträglicher Lizenz dazukommen soll (die Positivliste in `scripts/check-licenses.mjs` verhindert das bis zur Prüfung), wenn das Spiel in einen App-Store soll (Apple-Store-Bedingungen und GPL vertragen sich schlecht, relevant für tvOS/CHAOS-74) oder wenn Fremdbeiträge angenommen werden sollen.
+Neu bewerten, wenn eine Abhängigkeit mit GPL-unverträglicher Lizenz dazukommen soll (die Positivliste in `scripts/check-licenses.mjs` verhindert das bis zur Prüfung), wenn Fremdbeiträge in Apps einfließen sollen, die über App Store/TestFlight verteilt werden (Controller-App CHAOS-115, tvOS CHAOS-74) oder wenn Fremdbeiträge angenommen werden sollen.

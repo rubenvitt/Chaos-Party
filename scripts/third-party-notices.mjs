@@ -1,4 +1,4 @@
-// Lizenzhinweise für einen weitergegebenen Build (CHAOS-69, ADR-017).
+// Lizenzhinweise für einen weitergegebenen Build (CHAOS-69, ADR-018).
 //
 // Chaos Party steht unter GPL-3.0-only. Wer einen fertigen Build (`apps/*/dist`) weitergibt,
 // muss den GPL-Text beilegen und die Lizenzen der gebündelten Pakete nennen (Apache-2.0 für
