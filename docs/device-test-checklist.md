@@ -189,7 +189,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | P5 | Pudding-Gerangel spielen | Kirschfleck als Ziel klar; Kippen/Rempeln/Löffel witzig statt frustrierend; Rückkehr nach Sturz klar | | |
 | P6 | Wackelturm spielen | Wackeln früh sichtbar; Kippen nachvollziehbar (nicht „grundlos“); Klauen witzig statt gemein | | |
 | P6a | Kuckucks-Klatsche spielen (CHAOS-54, nur Knopf A; Vorschau `/host/?local=1&minigame=kuckucks-klatsche&players=4`) | Eigene Tür (Farbe + Symbol) sofort gefunden; Kuckuck vs. Ente/Socke/Blume auf Sofa-Abstand unterscheidbar; weißer Gong-Ring als „jetzt darf jeder“ verstanden; Klauen und Benommenheit witzig statt gemein; fühlt sich „bei mir kam kaum was“ (Türglück) unfair an? Am geteilten iPad: großer A-Knopf je Zone reicht | | |
-| P6b | Minispiel zum zweiten Mal in derselben Partie (CHAOS-66; Vorschau `/host/?local=1&minigame=pump-parade&flow=1&repeat=1`) | PC und Handy/iPad-Zone zeigen „Nochmal!“, Titel und Bedienung ohne Anleitungsschritte; 3 s reichen, um zu erkennen, welches Minispiel kommt, und das Gerät richtig zu halten; niemand vermisst die Anleitung | | |
+| P6b | Minispiel zum zweiten Mal in derselben Partie (CHAOS-66; Vorschau `/host/?local=1&minigame=pump-parade&flow=1&repeat=1`) | PC und Handy/iPad-Zone zeigen „Nochmal!“, Titel und Bedienung ohne Anleitungsschritte, auch die native Controller-App (CHAOS-128; Simulator-Vorschau `-sample minigameIntroRepeat`); 3 s reichen, um zu erkennen, welches Minispiel kommt, und das Gerät richtig zu halten; niemand vermisst die Anleitung | | |
 | P6c | Krümel-Kehraus spielen (CHAOS-79, Stick + A; Vorschau `/host/?local=1&minigame=kruemel-kehraus&players=4`) | Eigenes Mauseloch (Torbogen + Symbol in Slot-Farbe) sofort gefunden, mit 3 Personen auch die Kerbe hinten in der Mitte (fühlt sie sich gleichwertig an?); Krümel schieben fühlt sich steuerbar an (nicht zu glitschig, nicht zu träge); Goldkrümel sofort erkannt; Gerangel um Gold witzig statt zäh; Keksregen am Ende als Finale verstanden; „Krümel in fremdes Loch geschoben“ lustig statt ärgerlich; mit 2 Personen (diagonale Ecken) genug los? | | |
 | P7 | Eigene Figur im Gedränge finden | In allen Minispielen jederzeit klar, wer man ist (Farbe + Symbol + Figur) | | |
 | P8 | Ergebnisanzeige | Plätze, Punkte, Münzen und Gleichstand sofort klar; 6 s reichen zum Lesen | | |
@@ -410,10 +410,10 @@ Automatisch geprüft ist nur der Build: Die CI (Xcode 26.6) baut für macOS, iOS
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RK7 | Mac: `xcodegen generate`, Release für macOS und tvOS bauen | baut ohne Fehler; sonst Fehlermeldung an CHAOS-114 | | Build-Log |
+| RK7 | Mac: `xcodegen generate`, Release für macOS und tvOS bauen | baut ohne Fehler; sonst Fehlermeldung an CHAOS-114 | ok (17.11., Xcode 27, tvOS-Gerät) | Build-Log |
 | RK8 | Mac: `ChaosRenderSpike --hochskalieren=1 --sekunden=20` und `--skalierer=bilinear` | Bild erscheint, `SPIKE-ERGEBNIS` mit `"spike":"CHAOS-114"`, `skalierer` `metalfx-spatial` bzw. `bilinear` | | Log |
-| RK9 | Apple TV: tvOS-Version notieren (Einstellungen → Allgemein → Info); MetalFX braucht ≥ 27.2 | Version notiert | | |
-| RK10 | Apple TV: `./messreihe-atv.sh <ID> 20` (alle Varianten, ca. 10 Min.) | `zusammenfassung.tsv`; Ziel: `hoch-0.5-metalfx` ≥ 30 fps stabil, besser 60 (R16–R19) | | TSV + Logs |
+| RK9 | Apple TV: tvOS-Version notieren (Einstellungen → Allgemein → Info); MetalFX braucht ≥ 27.2 | Version notiert | tvOS 27.3 (24K5298d); MetalFX trotzdem **nicht verfügbar**, Rückfall bilinear | `SPIKE-ERGEBNIS` `os` |
+| RK10 | Apple TV: `./messreihe-atv.sh <ID> 20` (alle Varianten, ca. 10 Min.) | `zusammenfassung.tsv`; Ziel: `hoch-0.5-metalfx` ≥ 30 fps stabil, besser 60 (R16–R19) | ok (17.11., Claude per `devicectl`): Standardvarianten 12–45 fps; **`--skala=0.5 --msaa=0 --imflug=3` hält 60 fps** (R20) | EXP-020 |
 | RK11 | Apple TV: `--hochskalieren=1 --bild=…` für 0,5 und 0,667 sowie die ARView am Fernseher ansehen | Schärfe aus Sofa-Abstand vertretbar? Schilder lesbar, Gras nicht matschig | | Bilder, Eindruck |
 | RK12 | Instruments: Metal System Trace je einmal ARView und `--hochskalieren=1 --skala=1` | größte GPU-Durchgänge mit Dauer notiert | | `.trace` oder Bildschirmfoto |
 
@@ -431,7 +431,7 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 
 ## 20. Apple-TV-App über TestFlight (für CHAOS-119)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119 · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9) · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „TestFlight“
 
 Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Testszene (Look-Dev-Texturen, Brett-Export, USDZ mit bpy) unter Linux erzeugt. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
 
@@ -442,6 +442,10 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
 | TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
 | TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |
+| TV6 | Apple TV (CHAOS-147): App aus TestFlight starten, Play/Pause auf der Siri Remote drücken | Menü „Messvariante“ mit fünf Einträgen, Häkchen bei „Nativ (ARView)“; Menü-Taste schließt es | | Foto |
+| TV7 | „Hochskaliert ×0,5, MetalFX“ wählen | Brett erscheint neu, HUD-Zeile 1 „Variante: Hochskaliert ×0,5, MetalFX (Menü)“; nach ca. 23 s Ergebnis mit `"spike":"CHAOS-114"`, fps notieren (unter tvOS < 27.2 steht dort `bilinear`) | | Foto, fps |
+| TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
+| TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
 
 ## 21. Ansage „Sabotage wird stärker!“ (für CHAOS-120)
 

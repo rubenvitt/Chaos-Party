@@ -140,9 +140,10 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. Die
 | R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 16,7 | 17,8 | 17.11., 60-Hz-Monitor, am VSync-Deckel (60 fps); **GPU je Bild 6,3 ms, p95 9,4 ms** (Metal-HUD). Vorläufiger Wert vom 16.11. (120 Hz, mit GeForce NOW): 8,30 / 17,0 |
 | R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,6 | 33,5 | 17.11.; 4K: 49,6 / 50,9 ms. Bilder nacheinander gemessen (CPU + GPU ohne Überlappung), nicht mit R10 vergleichbar |
 | R15 | iPhone 16 Pro (nur Benchmark) | RealityKit (§3b) ARView | Metal | 2622×1206 | 16,68 | 17,4 | 16.11., echtes Gerät, volle Szene; ARView bleibt bei 60 Hz (auch mit `--bildrate=120`), max 20,6 ms |
-| R16 | Apple TV 4K (3. Gen., A15) | RealityKit hochskaliert, intern 1920×1080 + MetalFX (`hoch-0.5-metalfx`) | Metal | 3840×2160 (intern 1920×1080) | | | CHAOS-114, EXP-020: Anzeige-fps, GPU je Bild (HUD), Skalierer laut `SPIKE-ERGEBNIS` |
-| R17 | Apple TV 4K | wie R16, bilinear (`hoch-0.5-bilinear`) | Metal | 3840×2160 (intern 1920×1080) | | | |
-| R18 | Apple TV 4K | intern 2560×1440 + MetalFX (`hoch-0.667-metalfx`) | Metal | 3840×2160 (intern 2560×1440) | | | |
-| R19 | Apple TV 4K | Diagnose nativ 4K (`diag-4k*`, alle sechs) | Metal | 3840×2160 | | | GPU je Bild je Schalter: MSAA, Tonemapping, IBL, Materialien, alles aus |
+| R16 | Apple TV 4K (3. Gen., A15) | RealityKit hochskaliert, intern 1920×1080 + MetalFX (`hoch-0.5-metalfx`) | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 50,0 | 17.11.: **MetalFX auf tvOS 27.3 nicht verfügbar, lief bilinear**; 35,4 fps, GPU 22,3 / 47,0 ms (EXP-020) |
+| R17 | Apple TV 4K | wie R16, bilinear (`hoch-0.5-bilinear`) | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 50,0 | 17.11.: 35,8 fps, GPU 22,4 / 46,7 ms |
+| R18 | Apple TV 4K | intern 2560×1440 + MetalFX (`hoch-0.667-metalfx`) | Metal | 3840×2160 (intern 2560×1440) | 33,4 | 66,7 | 17.11.: bilinear (kein MetalFX), 27,7 fps, GPU 29,2 / 60,9 ms; mit MSAA aus und 3 im Flug 49,2 fps |
+| R19 | Apple TV 4K | Diagnose nativ 4K (`diag-4k*`, alle sechs) | Metal | 3840×2160 | 33,4 | 100 | 17.11., GPU Median je Schalter: alles an 37,4 · MSAA aus 28,2 · Gras aus 25,7 · Schatten aus 32,7 · Tonemapping aus 36,9 · IBL aus 38,0 · unbeleuchtet 17,8 · alles aus 6,6 ms (EXP-020) |
+| R20 | Apple TV 4K | **intern 1920×1080, MSAA aus, 3 im Flug, bilinear** | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 16,68 | 17.11., 60 s: **59,94 fps**, max 16,69 ms, GPU 14,9 / 31,3 ms, 5 ausgelassene Takte; Übergabe → fertig 37,5 ms. Standard für den tvOS-Host (EXP-020) |
 
 Außerdem: Sieht Bevy gleichwertig aus (ja/nein, Bildschirmfotos)? Spürbare Ladezeit (Bevy-WASM lädt ≈ 27 MB Szene plus das Programm)?

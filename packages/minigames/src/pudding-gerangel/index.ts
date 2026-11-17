@@ -41,6 +41,7 @@ import type {
   MinigameModule,
   MinigamePlayer,
 } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { PUDDING_GERANGEL_INFO } from './info.ts';
 import {
   approachAngle,
@@ -205,6 +206,7 @@ export class PuddingGerangel implements Minigame {
       scene,
     );
     platterBox.isVisible = false;
+    markVisual(platterBox, 'pudding');
     platterBox.position.y = -TUNING.thickness / 2;
     platterBox.rotationQuaternion = Quaternion.Identity();
     this.platter = this.kinematic(platterBox, PhysicsShapeType.CYLINDER, TUNING.friction);
@@ -223,6 +225,7 @@ export class PuddingGerangel implements Minigame {
       scene,
     );
     spoonBox.isVisible = false;
+    markVisual(spoonBox, 'loeffel');
     const spoonStart = this.spoonTransform();
     spoonBox.position.copyFrom(spoonStart.position);
     spoonBox.rotationQuaternion = spoonStart.rotation.clone();
