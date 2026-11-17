@@ -264,6 +264,9 @@ struct ControllerMinigameInfo: Codable, Equatable, Sendable {
     var tied: Bool
     var aborted: Bool
     var reward: Int?
+    /// v4 addendum (CHAOS-66, optional): the minigame already ran this match, so the intro
+    /// shows title and controls only. Missing = `false` (full instructions).
+    var `repeat`: Bool?
 }
 
 /// Element of `ControllerLobbyInfoSchema.takenBy`.
