@@ -170,8 +170,10 @@ export function finishMinigame(
     placements: sorted,
     aborted: false,
   });
+  const finale = ctx.rules.catchUp?.finale;
+  const factor = finale && d.round > d.rounds - finale.rounds ? finale.factor : 1;
   const rewards = sorted.map((entry) => {
-    const reward = ctx.rules.economy.minigameRewards[entry.place - 1] ?? 0;
+    const reward = (ctx.rules.economy.minigameRewards[entry.place - 1] ?? 0) * factor;
     // Siege zählen sofort (drittes Wertungskriterium, CHAOS-37); Gleichstand auf 1 für alle.
     if (entry.place === 1) playerOf(ctx, entry.slot).minigameWins += 1;
     return { slot: entry.slot, coins: changeCoins(ctx, entry.slot, reward, 'minigame') };

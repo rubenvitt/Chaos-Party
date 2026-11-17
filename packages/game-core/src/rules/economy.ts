@@ -117,6 +117,9 @@ export function wanderTargets(ctx: Ctx, free: readonly string[]): readonly strin
   if (placement === 'random' || free.length <= 1) return free;
   const ranking = rankPlayers(ctx.d.players);
   const lastPlace = Math.max(...ranking.map((entry) => entry.place));
+  if (placement === 'nearest-to-last' || placement === 'away-from-leader') {
+    return extremeTargets(ctx, free, placement === 'away-from-leader' ? 1 : lastPlace);
+  }
   const measuredFrom = ctx.d.players.filter(
     (player) =>
       placement === 'ahead' ||
@@ -131,18 +134,64 @@ export function wanderTargets(ctx: Ctx, free: readonly string[]): readonly strin
   return sorted.filter((entry) => entry.distance <= cutoff).map((entry) => entry.id);
 }
 
+/**
+ * `nearest-to-last` bzw. `away-from-leader` (CHAOS-65, EXP-022): die freien Felder mit der
+ * kürzesten Strecke vor einer Person auf Platz `place` (Letzte) bzw. der längsten Strecke von
+ * der Spitze (`place` = 1). Ohne erreichbares Feld alle.
+ */
+function extremeTargets(ctx: Ctx, free: readonly string[], place: number): readonly string[] {
+  const awayFromLeader = place === 1;
+  const anchors = rankPlayers(ctx.d.players)
+    .filter((entry) => entry.place === place)
+    .map((entry) => playerOf(ctx, entry.slot).spaceId);
+  const scored = free
+    .map((id) => ({ id, distance: Math.min(...anchors.map((from) => stepsAhead(ctx, from, id))) }))
+    .filter((entry) => entry.distance < Infinity);
+  if (scored.length === 0) return free;
+  const pick = awayFromLeader ? Math.max : Math.min;
+  const best = pick(...scored.map((entry) => entry.distance));
+  return scored.filter((entry) => entry.distance === best).map((entry) => entry.id);
+}
+
+/** Rückstand zur Spitze in Trophäen (0 für die Spitze). */
+export function trophiesBehind(ctx: Ctx, slot: Slot): number {
+  const top = Math.max(...ctx.d.players.map((p) => p.trophies));
+  return top - playerOf(ctx, slot).trophies;
+}
+
+/** Trophäenpreis für diesen Spieler (Aufholhilfe `discount`, CHAOS-65). */
+export function trophyPrice(ctx: Ctx, slot: Slot): number {
+  const discount = ctx.rules.catchUp?.discount;
+  if (discount && trophiesBehind(ctx, slot) >= discount.behind) return discount.price;
+  return ctx.rules.trophy.price;
+}
+
+/**
+ * Aufholhilfe `tailwind` (CHAOS-65): Münzen je Trophäe Rückstand, gedeckelt. Aufrufer:
+ * Ende eines Minispiels, nicht in der letzten Runde.
+ */
+export function applyTailwind(ctx: Ctx): void {
+  const tailwind = ctx.rules.catchUp?.tailwind;
+  if (!tailwind) return;
+  const bonus = ctx.d.players.map((p) => ({
+    slot: p.slot,
+    coins: Math.min(tailwind.max, tailwind.perTrophy * trophiesBehind(ctx, p.slot)),
+  }));
+  for (const { slot, coins } of bonus) if (coins > 0) changeCoins(ctx, slot, coins, 'event');
+}
+
 /** Trophäe auf dem aktuellen Feld des aktiven Spielers kaufen (Prüfung macht der Aufrufer). */
 export function buyTrophy(ctx: Ctx, slot: Slot): void {
   const player = playerOf(ctx, slot);
   const spaceId = player.spaceId;
-  changeCoins(ctx, slot, -ctx.rules.trophy.price, 'trophy');
+  changeCoins(ctx, slot, -trophyPrice(ctx, slot), 'trophy');
   player.trophies += 1;
   ctx.events.push({ type: 'trophy-bought', slot, spaceId });
   wanderTrophy(ctx, spaceId);
 }
 
 export function canAffordTrophy(ctx: Ctx, slot: Slot): boolean {
-  return playerOf(ctx, slot).coins >= ctx.rules.trophy.price;
+  return playerOf(ctx, slot).coins >= trophyPrice(ctx, slot);
 }
 
 type Rankable = Pick<PlayerState, 'slot' | 'trophies' | 'coins'> & {

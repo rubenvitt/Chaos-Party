@@ -31,6 +31,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
 | EXP-018 | Wachsende Sabotage über die Partiedauer | CHAOS-67 | keep F: Klau 5/Falle 4, **+1 alle 5 Runden**; Klau 6/Falle 5 fest discard (Anfang zu hart) |
 | EXP-019 | Zurückgestellte Balance-Ideen (Würfel 2–7, Trophäen-Ziel, Item nach dem Minispiel, Schild/Fallen) | CHAOS-51 | keep **Trostpreis**: 1 Item für den letzten Minispiel-Platz (neuer Standard); Sieg-Item, W 2–7, Schild gegen Fallen discard; `ahead` iterate; Fallen bleiben sichtbar |
+| EXP-022 | Aufholhilfe für Zurückliegende | CHAOS-65 | keep T: Trophäe wandert vor die Letzten (`trophy.placement: 'nearest-to-last'`, Standard); iterate Rückenwind (abschaltbar, aus); Rabatt, Finale-Fieber, Bonus-Trophäen, „weg von der Spitze“ discard |
 
 ---
 
@@ -1109,6 +1110,8 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 
 **Für später (CHAOS-44):** Aufholhilfe für die Letzten (z. B. Trophäe wandert bevorzugt vor die Hintersten), falls der Playtest den Halbzeit-Vorteil als zu stark empfindet.
 
+**Nachtrag 2026-11-17 (CHAOS-65):** Aufholhilfen simuliert in [EXP-022](#exp-022-aufholhilfe-für-zurückliegende-2026-11-17-chaos-65). Neuer Standard: Die Trophäe wandert vor die Letzten. Neu gerechnete EXP-012-Tabellen fallen darum anders aus als oben.
+
 ---
 
 ## EXP-013: Sabotage-Häufigkeit und Item-Stärke über lange Partien (2026-11-15, CHAOS-40)
@@ -1723,6 +1726,9 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 
 **Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.
 
+**Nachtrag 2026-11-17 (CHAOS-65):** Das genaue Trophäen-Ziel „vor die Letzten“ (`nearest-to-last`) wirkt mit 1000 Seeds deutlich; die nähere Hälfte (`ahead-of-last`) etwa halb so stark. Neuer Standard ist `nearest-to-last`, siehe [EXP-022](#exp-022-aufholhilfe-für-zurückliegende-2026-11-17-chaos-65).
+
+
 ---
 
 ## EXP-020: Apple TV bei 4K-Ausgabe – interne Auflösung, Hochskalierung, Profilierung (2026-11-17, CHAOS-114)
@@ -1775,3 +1781,263 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 **Entscheidung:** keep B. `scene/prepareGradually.ts` (Abschnitte ≈ 12 ms, Bildpause dazwischen, Runden für unfertige Schritte), Podest mit `show()`/`hide()` und ohne Render-Schleife bis zum Einhängen, Finale baut es zu Beginn der Zählung auf einem unsichtbaren Parkplatz gleicher Größe. C verworfen (teurer). Der verbleibende Block bis ≈ 1 s während der Zählung (Rest in `whenReadyAsync`: Tiefenkarte, Schein, Nachbearbeitung) trifft nur die 2D-Zählung, nicht den Übergang.
 
 **Offen (nur auf echter Hardware):** Standbild beim Übergang auf Rubens PC (Gerätecheckliste LS3). Die Minispiel-Bühne baut weiterhin am Stück (KI-25).
+
+---
+
+## EXP-022: Aufholhilfe für Zurückliegende (2026-11-17, CHAOS-65)
+
+**Hypothese / gewünschtes Spielerlebnis:** Wer zur Halbzeit führt, soll im Vorteil sein, aber nicht fast sicher gewinnen. Laut EXP-012 gewinnt der alleinige Halbzeit-Führende bei 10 Runden 59–73 % der Partien (fair 25–50 %), und 7–13 % der Spieler bleiben ohne Trophäe. Eine Aufholhilfe soll Comebacks häufiger machen, ohne dass der Trophäen-Sieg (Produktsäule) verwässert oder Können in Minispielen nichts mehr zählt. Eine Trostmünze (EXP-012, Variante D) half nicht. Erwartung: Hilfen am Brett (wo die Trophäe hinwandert) wirken stärker als kleine Münzbeträge.
+
+**Varianten** (Basis = aktueller Standard ohne Aufholhilfe, also mit wachsender Sabotage aus EXP-018 und Trostpreis aus EXP-019):
+- A: Basis, Trophäe wandert zufällig.
+- T: **Trophäe wandert vor die Letzten** (`trophy.placement: 'nearest-to-last'`): Eine gekaufte oder vom Wirbel bewegte Trophäe springt auf genau das freie Trophäenfeld, das vor der bzw. dem Letzten am nächsten liegt. Keine neue Anzeige nötig.
+- H: die **nähere Hälfte** der freien Felder vor den Letzten (`'ahead-of-last'` aus EXP-019), zum Vergleich.
+- T2: Trophäe wandert **weg von der Spitze** (`'away-from-leader'`): auf das freie Feld, das von Platz 1 am weitesten entfernt ist.
+- R: **Rabatt** (`catchUp.discount`): Preis 10 statt 15 ab 2 Trophäen Rückstand. Bräuchte einen Preis je Spieler in der Anzeige.
+- W / W3: **Rückenwind** (`catchUp.tailwind`): Nach jedem Minispiel außer dem letzten 2 (3) Münzen je Trophäe Rückstand, höchstens 6 (9). Bräuchte einen sichtbaren Moment („Rückenwind +4“).
+- F: **Finale-Fieber** (`catchUp.finale`): In den letzten 3 Runden zählen Minispiel-Münzen doppelt.
+- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf.
+- TW, T2W, TW3: Kombinationen.
+
+**Objektive Messgrößen:** Siegquote des alleinigen Halbzeit-Führenden bzw. -Letzten (gegen fair 1/n), Trophäen je Partie, Anteil Spieler ohne Trophäe, Sieg per Trophäen (statt Münzen), Trophäen-Abstand Platz 1 zu 2, Siegquote eines Minispiel-Profis (Slot 1, +10 von 40 Punkten, wie EXP-012 S; eigener Lauf je Zeile).
+
+**Subjektive Playtest-Fragen (für Ruben):** Merkt jemand, dass die Trophäe den Letzten entgegenkommt? Wirkt das wie Glück („die Trophäe hat Mitleid“) oder wie Schummeln? Fühlt sich ein Comeback verdient an? Ist ein knapper Endstand spannender, oder nervt es, wenn die Münzen öfter entscheiden?
+
+**Testumgebung:** Node 22.23, Linux-Container, Branch `claude/confident-bardeen-lui8oc`, Basis `main` `0e34732` (mit EXP-018 und EXP-019). Brett Wackelwald, Rotation mit vier Minispielen, Bots wie EXP-012 (`EXPERIMENT_POLICY`). **Seeds 1–1000** je Zeile (mit 200 Seeds schwankt die Führenden-Quote um ±4 Punkte, die Effekte liegen bei 5–15). Dauer ≈ 2 min:
+
+```sh
+EXPERIMENTS=catchup pnpm exec vitest run packages/game-core/src/rules/experimentsCatchUp.test.ts --silent=false
+```
+
+Code: Varianten in `packages/game-core/src/rules/experimentsCatchUp.ts`. Regeln in `economy.ts`: `wanderTargets` (Trophäen-Ziel), `trophyPrice` (Rabatt), `applyTailwind` (Rückenwind). Außerdem `minigame.ts` (Finale-Fieber) und `machine.ts` (Zeitpunkt Rückenwind). Tests in `catchUp.test.ts`. Ein erster Lauf vor EXP-018/019 (Basis `3703994`) ergab dieselbe Rangfolge (A 75/62/56 %, T 66/56/54 %).
+
+**Ergebnisse:**
+
+| Runden | Variante | Sp. | Führender (Hälfte) gewinnt | Letzter (Hälfte) gewinnt | fair 1/n | Trophäen/Partie | ohne Trophäe | Sieg per Trophäen | Abstand P1–P2 | Profi gewinnt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Basis (keine Aufholhilfe) | 2 | 72 % | 28 % | 50 % | 5,39 | 4 % | 85 % | 1,73 | 57 % |
+| 10 | A: Basis (keine Aufholhilfe) | 3 | 59 % | 15 % | 33 % | 6,44 | 9 % | 74 % | 1,21 | 44 % |
+| 10 | A: Basis (keine Aufholhilfe) | 4 | 54 % | 7 % | 25 % | 7,13 | 12 % | 66 % | 0,89 | 40 % |
+| 10 | T: Trophäe wandert vor die Letzten | 2 | 64 % | 36 % | 50 % | 6,57 | 1 % | 76 % | 1,34 | 56 % |
+| 10 | T: Trophäe wandert vor die Letzten | 3 | 57 % | 18 % | 33 % | 8,05 | 2 % | 68 % | 1,00 | 46 % |
+| 10 | T: Trophäe wandert vor die Letzten | 4 | 51 % | 10 % | 25 % | 8,72 | 3 % | 63 % | 0,83 | 47 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 2 | 68 % | 33 % | 50 % | 5,84 | 2 % | 80 % | 1,59 | 55 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 3 | 59 % | 15 % | 33 % | 7,01 | 5 % | 76 % | 1,21 | 43 % |
+| 10 | H: nähere Hälfte vor den Letzten (EXP-019) | 4 | 52 % | 8 % | 25 % | 7,50 | 9 % | 66 % | 0,91 | 43 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 2 | 61 % | 39 % | 50 % | 4,95 | 3 % | 73 % | 1,14 | 54 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 3 | 46 % | 19 % | 33 % | 6,49 | 5 % | 61 % | 0,77 | 42 % |
+| 10 | T2: Trophäe wandert weg von der Spitze | 4 | 43 % | 10 % | 25 % | 7,27 | 7 % | 51 % | 0,59 | 38 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 2 | 71 % | 29 % | 50 % | 5,41 | 4 % | 85 % | 1,73 | 56 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 3 | 55 % | 16 % | 33 % | 6,46 | 9 % | 72 % | 1,19 | 44 % |
+| 10 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 4 | 52 % | 8 % | 25 % | 7,21 | 12 % | 65 % | 0,87 | 40 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 2 | 69 % | 31 % | 50 % | 5,41 | 4 % | 85 % | 1,74 | 56 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 3 | 54 % | 17 % | 33 % | 6,51 | 9 % | 72 % | 1,19 | 43 % |
+| 10 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 4 | 48 % | 10 % | 25 % | 7,37 | 12 % | 64 % | 0,88 | 37 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 2 | 69 % | 31 % | 50 % | 5,42 | 4 % | 85 % | 1,74 | 55 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 3 | 52 % | 18 % | 33 % | 6,52 | 9 % | 72 % | 1,19 | 42 % |
+| 10 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 4 | 46 % | 11 % | 25 % | 7,46 | 12 % | 67 % | 0,91 | 36 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 2 | 72 % | 28 % | 50 % | 5,45 | 4 % | 86 % | 1,78 | 57 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 3 | 57 % | 15 % | 33 % | 6,51 | 9 % | 74 % | 1,25 | 43 % |
+| 10 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 4 | 53 % | 7 % | 25 % | 7,28 | 12 % | 67 % | 0,95 | 38 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 2 | 68 % | 32 % | 50 % | 5,39 | 1 % | 85 % | 2,01 | 76 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 3 | 53 % | 18 % | 33 % | 6,44 | 3 % | 75 % | 1,35 | 68 % |
+| 10 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 4 | 46 % | 10 % | 25 % | 7,13 | 5 % | 71 % | 1,12 | 65 % |
+| 10 | TW: T + W | 2 | 62 % | 38 % | 50 % | 6,64 | 1 % | 75 % | 1,35 | 55 % |
+| 10 | TW: T + W | 3 | 52 % | 21 % | 33 % | 8,26 | 2 % | 68 % | 0,99 | 43 % |
+| 10 | TW: T + W | 4 | 45 % | 15 % | 25 % | 9,23 | 3 % | 62 % | 0,80 | 40 % |
+| 10 | T2W: T2 + W | 2 | 60 % | 40 % | 50 % | 4,97 | 3 % | 73 % | 1,16 | 54 % |
+| 10 | T2W: T2 + W | 3 | 45 % | 23 % | 33 % | 6,56 | 5 % | 61 % | 0,77 | 40 % |
+| 10 | T2W: T2 + W | 4 | 39 % | 13 % | 25 % | 7,51 | 8 % | 49 % | 0,56 | 35 % |
+| 10 | TW3: T + W3 | 2 | 62 % | 38 % | 50 % | 6,67 | 1 % | 74 % | 1,35 | 55 % |
+| 10 | TW3: T + W3 | 3 | 51 % | 21 % | 33 % | 8,32 | 2 % | 69 % | 1,02 | 41 % |
+| 10 | TW3: T + W3 | 4 | 42 % | 17 % | 25 % | 9,43 | 3 % | 60 % | 0,77 | 39 % |
+| 20 | A: Basis (keine Aufholhilfe) | 2 | 73 % | 27 % | 50 % | 12,70 | 0 % | 89 % | 2,67 | 54 % |
+| 20 | A: Basis (keine Aufholhilfe) | 3 | 62 % | 13 % | 33 % | 15,90 | 1 % | 84 % | 1,96 | 39 % |
+| 20 | A: Basis (keine Aufholhilfe) | 4 | 52 % | 7 % | 25 % | 18,16 | 1 % | 75 % | 1,32 | 38 % |
+| 20 | T: Trophäe wandert vor die Letzten | 2 | 65 % | 35 % | 50 % | 15,29 | 0 % | 76 % | 1,62 | 55 % |
+| 20 | T: Trophäe wandert vor die Letzten | 3 | 51 % | 20 % | 33 % | 19,25 | 0 % | 77 % | 1,42 | 44 % |
+| 20 | T: Trophäe wandert vor die Letzten | 4 | 51 % | 10 % | 25 % | 21,32 | 0 % | 70 % | 1,13 | 45 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 2 | 70 % | 31 % | 50 % | 13,82 | 0 % | 85 % | 2,36 | 52 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 3 | 58 % | 15 % | 33 % | 17,20 | 0 % | 81 % | 1,71 | 38 % |
+| 20 | H: nähere Hälfte vor den Letzten (EXP-019) | 4 | 53 % | 9 % | 25 % | 19,10 | 0 % | 78 % | 1,38 | 44 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 2 | 61 % | 39 % | 50 % | 11,32 | 0 % | 74 % | 1,41 | 49 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 3 | 44 % | 21 % | 33 % | 15,44 | 0 % | 66 % | 0,94 | 36 % |
+| 20 | T2: Trophäe wandert weg von der Spitze | 4 | 36 % | 14 % | 25 % | 18,24 | 0 % | 59 % | 0,73 | 34 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 2 | 72 % | 28 % | 50 % | 12,71 | 0 % | 88 % | 2,67 | 54 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 3 | 59 % | 13 % | 33 % | 15,95 | 1 % | 83 % | 1,95 | 39 % |
+| 20 | R: Rabatt: Preis 10 ab 2 Trophäen Rückstand | 4 | 48 % | 8 % | 25 % | 18,45 | 1 % | 76 % | 1,31 | 36 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 2 | 71 % | 29 % | 50 % | 12,73 | 0 % | 89 % | 2,69 | 51 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 3 | 58 % | 14 % | 33 % | 16,03 | 1 % | 84 % | 1,97 | 36 % |
+| 20 | W: Rückenwind: 2 Münzen je Trophäe Rückstand, max. 6 | 4 | 46 % | 10 % | 25 % | 18,84 | 1 % | 75 % | 1,36 | 33 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 2 | 71 % | 29 % | 50 % | 12,76 | 0 % | 89 % | 2,70 | 51 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 3 | 57 % | 14 % | 33 % | 16,04 | 1 % | 84 % | 2,00 | 36 % |
+| 20 | W3: Rückenwind: 3 Münzen je Trophäe Rückstand, max. 9 | 4 | 46 % | 11 % | 25 % | 19,07 | 1 % | 76 % | 1,41 | 31 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 2 | 74 % | 26 % | 50 % | 12,72 | 0 % | 89 % | 2,69 | 54 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 3 | 61 % | 12 % | 33 % | 15,93 | 1 % | 84 % | 1,99 | 39 % |
+| 20 | F: Finale-Fieber: letzte 3 Runden Minispiel-Münzen ×2 | 4 | 51 % | 7 % | 25 % | 18,25 | 1 % | 76 % | 1,36 | 38 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 2 | 71 % | 28 % | 50 % | 12,70 | 0 % | 89 % | 2,88 | 69 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 3 | 59 % | 14 % | 33 % | 15,90 | 0 % | 84 % | 2,02 | 61 % |
+| 20 | X: Bonus-Trophäen: Minispiel-Ass + Pechvogel | 4 | 49 % | 9 % | 25 % | 18,16 | 0 % | 76 % | 1,44 | 61 % |
+| 20 | TW: T + W | 2 | 64 % | 36 % | 50 % | 15,45 | 0 % | 79 % | 1,69 | 52 % |
+| 20 | TW: T + W | 3 | 49 % | 23 % | 33 % | 19,86 | 0 % | 75 % | 1,37 | 38 % |
+| 20 | TW: T + W | 4 | 35 % | 18 % | 25 % | 22,74 | 0 % | 69 % | 1,10 | 37 % |
+| 20 | T2W: T2 + W | 2 | 58 % | 42 % | 50 % | 11,37 | 0 % | 75 % | 1,41 | 47 % |
+| 20 | T2W: T2 + W | 3 | 44 % | 23 % | 33 % | 15,56 | 0 % | 66 % | 0,95 | 35 % |
+| 20 | T2W: T2 + W | 4 | 33 % | 17 % | 25 % | 18,82 | 0 % | 58 % | 0,73 | 30 % |
+| 20 | TW3: T + W3 | 2 | 64 % | 36 % | 50 % | 15,54 | 0 % | 80 % | 1,69 | 51 % |
+| 20 | TW3: T + W3 | 3 | 46 % | 24 % | 33 % | 20,03 | 0 % | 76 % | 1,40 | 36 % |
+| 20 | TW3: T + W3 | 4 | 34 % | 19 % | 25 % | 23,34 | 0 % | 69 % | 1,11 | 35 % |
+
+- **Rabatt (R) und Finale-Fieber (F) wirken kaum** (≤ 4 Punkte, meist im Rauschen). Wer weit hinten liegt, hat selten genug Münzen und steht selten an einer Trophäe; doppelte Minispiel-Münzen gehen genauso oft an die Führenden.
+- **Rückenwind (W, W3)** hilft vor allem zu viert (54 → 48 bzw. 46 %), zu zweit wenig (72 → 69 %).
+- **Trophäe vor die Letzten (T)** ist der stärkste Hebel ohne neue Anzeige: zu zweit 72 → 64 %, zu dritt 59 → 57 %, zu viert 54 → 51 % (bei 20 Runden 73/62/52 → 65/51/51 %). Der Nebeneffekt ist erwünscht: Ohne Trophäe bleiben nur noch 1–3 % statt 4–12 % der Spieler, je Partie werden 1,2–1,6 Trophäen mehr gekauft. Die Münzen entscheiden etwas öfter (Sieg per Trophäen 85/74/66 → 76/68/63 %), der Profi gewinnt gleich oft oder etwas öfter.
+- **Die nähere Hälfte (H, EXP-019)** wirkt nur etwa halb so stark (68/59/52 %, ohne Trophäe 2/5/9 %). Das erklärt, warum EXP-019 mit 200 Seeds keinen messbaren Aufholeffekt sah: Unter mehreren nahen Feldern landet die Trophäe oft vor jemand anderem.
+- **T2 (weg von der Spitze)** dämpft stärker (61/46/43 %), lässt aber zu viert in jeder zweiten Partie die Münzen entscheiden (Sieg per Trophäen 51 %, Abstand P1–P2 0,59 Trophäen). Das schwächt den Trophäen-Sieg.
+- **Bonus-Trophäen (X)** dämpfen mäßig (68/53/46 %), belohnen aber vor allem Minispiel-Können: Der Profi gewinnt 65–76 % statt 40–57 %. Das ist eine Können-Prämie, keine Aufholhilfe.
+- **Kombinationen:** TW 62/52/45 %, TW3 62/51/42 %, T2W 60/45/39 %. Rückenwind ergänzt T vor allem zu viert (20 Runden: TW 35 %).
+
+**Entscheidung:** **keep T** als neuer Standard (`trophy.placement: 'nearest-to-last'` in `packages/game-core/src/rules/defaults.ts`). Begründung: Die Hilfe ist unaufdringlich (die Trophäe wandert schon immer, nur das Ziel ist nicht mehr zufällig), braucht keine neue Anzeige und keine Protokolländerung und hilft genau dort, wo Frust entsteht: Kaum noch jemand geht ohne Trophäe nach Hause. Der Halbzeit-Führende bleibt im Vorteil (zu zweit 64 % statt fair 50 %), Comebacks werden aber häufiger. Minispiel-Können zählt weiter. Die schwächere Form H (EXP-019) bleibt als Stellschraube. **iterate W** (Rückenwind) als nächster Hebel für 3–4 Spieler: bleibt als abschaltbare Stellschraube `catchUp.tailwind` im Regelwerk, Standard aus, weil er erst mit einer sichtbaren Ansage am PC verständlich wäre (CHAOS-125). **discard** R, F, X und T2: R und F wirkungslos; X belohnt Können statt Rückstand; T2 schwächt den Trophäen-Sieg. Die Stellschrauben `catchUp.discount`, `catchUp.finale` und `placement: 'away-from-leader'` bleiben für spätere Experimente im Regelwerk (Standard aus).
+
+**Offen für Playtest:** Fällt das Entgegenkommen der Trophäe auf, und stört es? Ist der Halbzeit-Vorteil zu dritt und zu viert (57 bzw. 51 %) noch zu stark? Dann zuerst Rückenwind mit Ansage (TW: 52/45 %). Entscheiden die Münzen jetzt zu oft?
+
+---
+
+## EXP-023: Krümel-Kehraus überarbeitet – Physik mit festen Ecken statt Absturzlücken (2026-11-17, CHAOS-79)
+
+**Anlass:** CHAOS-79 hält die drei übrigen in M3 verworfenen Konzepte als Kandidaten fest. Nach Rubens Freigabe des Minispiel-Ausbaus (CHAOS-80/82) ist mehr Vielfalt ausdrücklich gewünscht. Gewählt wurde **Krümel-Kehraus**: Aufzieh-Takt ist als MG-090 „Aufzieh-Wettlauf“ in Familien-Welle 9 eingeplant (CHAOS-102), Geysir-Gier in Welle 11 (CHAOS-104). Krümel-Kehraus kam nirgends vor, und Physik ist laut Katalog eine Lücke (CHAOS-93). Bisher gab es nur ein Physik-Minispiel (Pudding-Gerangel).
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein Schiebe-Physikspiel wird lesbar und fair, wenn die Kritik aus EXP-006 behoben ist: **feste Ziele in den Ecken** statt Lücken im Rand, **niemand fällt herunter**, **weniger Krümel**. Die Erkenntnisse aus EXP-016 helfen gegen Zufall und Gleichstand: **sichtbares Glück** (Goldkrümel, Krümel fallen an zufälligen Stellen neu herein) gibt Schwächeren Chancen und senkt Gleichstände, und ein **Eindringling-Test** sucht dominante Störstrategien. Erwartung vorher: weniger Gleichstände als B (28–31 %), ein schwacher Bot gewinnt gelegentlich, keine Stürze, keine Strategie schlägt das normale Schieben.
+
+**Was aus EXP-006 und EXP-016 übernommen wurde:**
+- *EXP-006, B:* 10 Krümel, 4 Lücken und ein Knäuel waren unübersichtlich, Bots fielen 7–16-mal je Runde durch die eigene Lücke, 28–38 % geteilte Siege. Deshalb jetzt ein rechteckiges Holzblech mit hohem Rand und ein Mauseloch je Person in einer **festen Ecke**. Die Öffnung ist schräg, ein Sturz in Slot-Farbe liegt darüber: Krümel passen darunter durch, Figuren nicht. Statt 10 liegen 6 Krümel aus, das Knäuel ist nur noch eine Variante (R6).
+- *EXP-016:* Türglück hat Schwächeren geholfen und Gleichstände gesenkt. Hier entsteht Glück, weil getroffene Krümel nach 0,7 s an einer zufälligen Stelle von oben neu hereinfallen, und durch einen **Goldkrümel** (zählt 3), der nach 6 s erscheint und 6 s nach jedem Treffer wiederkommt. Als sichtbares Finale wie „Mitternacht“ dient der **Keksregen**: In den letzten 8 s zerbröselt ein Riesenkeks, 6 Krümel fallen im Kreis um die Mitte. Den Eindringling-Test gibt es auch hier.
+
+**Regeln (gewählte Fassung R3, `KRUEMEL_RULES` in `packages/minigames/src/kruemel-kehraus/logic.ts`):**
+- Blech 14 × 9 m, Rand 1 m hoch (dahinter eine unsichtbare Kollisionswand bis 3,2 m). Löcher bei 2 Personen in diagonalen Ecken, bei 4 in allen Ecken. Bei 3 Personen vorn links, vorn rechts und als 90°-Kerbe mitten in der Rückwand (gespiegelte Ecke, siehe „Ecken-Fairness“). Geschlossene Ecken sind abgeschrägt.
+- Neue Krümel fallen bei 2 und 4 Personen irgendwo in die Innenfläche, bei 3 Personen in ein Feld um z = 0,8 (6 × 3,2 m), damit alle drei Löcher gleich oft treffen.
+- Ein Krümel zählt für die Person der Ecke, sobald seine Mitte hinter der Schräge liegt, egal wer ihn geschoben hat. Krümel in fremden Löchern sind ein Geschenk an diese Person (Höhepunkt „schob 3 Krümel in fremde Löcher“).
+- Stick = Laufen, A = Rempeln. Bewegung und Rempler sind dieselben wie bei Pudding-Gerangel (`PAWN`). Ein Rempler schießt Krümel weg und schubst Figuren, es gibt keinen Führungsbonus.
+- 30 s, Punkte = Krümel (Gold 3).
+
+**Varianten** (alle auf der **echten Spiellogik**, Varianten = Regel-Sätze; B ist der alte Prototyp aus EXP-006 mit denselben Bots):
+- B: alt (runder Tisch, 10 Krümel, Lücken im Rand, Knäuel)
+- R1: Blech, Ecken-Löcher, 6 Krümel · R2: R1 + Goldkrümel · **R3: R2 + Keksregen (gewählt)**
+- R4/R5: R3 mit 4 bzw. 9 Krümeln · R6: R3 + Wollknäuel (alle 5 s quer übers Blech gekickt)
+
+**Objektive Messgrößen:** Punkte des Siegers, Abstand Platz 1–2 (relativ), Gleichstand auf Platz 1, Führungswechsel, Comeback (Sieger führte nach 2/3 der Zeit nicht allein), Siegquote eines schwachen Bots (Platz reihum, geteilte Siege anteilig) gegen den fairen Anteil 1/n, Treffer je Runde, Krümel in fremden Löchern, Rempler, Stürze, Instabilitäten (NaN, Durchtunneln, Körper außerhalb des Blechs, Reste nach `dispose()`), Höchsttempo, Rechenzeit je Schritt. Dazu knappe Besetzungen (Duell normal gegen etwas schwächer, 4× normal), die Siegquote je Ecke unter gleich Starken und der Eindringling-Test aus EXP-016: eine Strategie gegen zwei normale Bots (3 Spieler, alle Können normal, Platz reihum), Faktor > 1 schlägt die normale Spielweise.
+
+**Bots:** Können-Stufen aus EXP-006 (`SKILLS`: normal, etwas schwächer, schwach: Neuplanung alle 10/14/24 Schritte, Zielstreuung 0,25/0,35/0,6 rad, Rempelneigung 0,6/0,45/0,3). Strategie „normal“: Krümel mit dem besten Verhältnis aus Weg und Lochabstand wählen (Gold zählt als 2,5 m näher), sich dahinter stellen und Richtung eigenes Loch schieben, an Wänden entlang statt hinein. Bei guter Linie wird der Krümel mit einem Rempler geschossen. Drückt jemand am selben Krümel dagegen, wird gerempelt. Eindringlinge: *Torsteher* (stellt sich vor das Loch der führenden anderen Person), *Dauerrempler* (schiebt normal, rempelt aber, sobald es geht), *Raufbold* (jagt und rempelt die führende Person statt Krümel zu schieben). Bots sehen nur, was ein Mensch am Fernseher sieht. Ihre Werte sind Annahmen, nicht gemessen.
+
+**Testumgebung:** Node 22, Vitest, Havok (WASM) mit NullEngine, Linux-Container, fester Schritt 1/60 s. Seeds 1–150 je Zeile, 30 s je Partie. Wegen eines Speicherlecks im Headless-Harness (siehe unten) läuft die Messung in Teilen, jeder Teil in einem eigenen Prozess (gesamt ≈ 25 min bei 3 parallelen Prozessen):
+
+```sh
+EXPERIMENTS=1 KRUEMEL_SEEDS=150 KRUEMEL_TABLES=main KRUEMEL_ONLY=R3 pnpm exec vitest run packages/minigames/src/prototypes/physics/experimentKruemel --silent=false
+```
+
+`KRUEMEL_TABLES` = `main`, `close`, `seat`, `intruder` (Standard: alle), `KRUEMEL_ONLY` = Varianten-IDs. Code: `packages/minigames/src/prototypes/physics/kruemelKehrausBot.ts` (Bots), `experimentKruemel.ts` (Varianten und Tabellen). Ohne `EXPERIMENTS=1` läuft nur ein Smoke-Test (Teil von `pnpm test`). Rauschen: Bei 150 Seeds liegt der Standardfehler einer Quote um 20 % bei ≈ 3 Prozentpunkten, um 50 % bei ≈ 4, der eines Siegfaktors bei ≈ 0,1.
+
+**Ergebnisse:**
+
+**EXP-023 Krümel-Kehraus alt gegen neu, ein schwacher Bot reihum (30 s, Seeds 1–150 je Zeile)**
+
+| Variante | Sp. | Punkte P1 | Abstand 1–2 | Gleichstand P1 | Führungswechsel | Comeback | Siege schwach | fair | Treffer/Runde | fremde Löcher | Rempler | Stürze | instabil | max m/s | ms/Schritt |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B: alt (EXP-006): runder Tisch, 10 Krümel, Lücken, Knäuel | 2 | 5,5 | 28 % | 18 % | 0,6 | 15 % | 22 % | 50 % | 9,4 | 0,0 | 0,0 | 5,6 | 0 | 14,5 | 0,04 |
+| B: alt (EXP-006): runder Tisch, 10 Krümel, Lücken, Knäuel | 3 | 6,2 | 16 % | 30 % | 1,3 | 27 % | 12 % | 33 % | 15,1 | 0,0 | 0,0 | 8,0 | 0 | 15,6 | 0,05 |
+| B: alt (EXP-006): runder Tisch, 10 Krümel, Lücken, Knäuel | 4 | 6,9 | 15 % | 31 % | 1,6 | 28 % | 7 % | 25 % | 21,3 | 0,0 | 0,0 | 12,1 | 0 | 15,8 | 0,06 |
+| R1: Blech, Ecken-Löcher, 6 Krümel | 2 | 7,1 | 28 % | 5 % | 0,5 | 10 % | 5 % | 50 % | 12,1 | 0,0 | 0,5 | 0,0 | 0 | 14,2 | 0,04 |
+| R1: Blech, Ecken-Löcher, 6 Krümel | 3 | 7,0 | 17 % | 31 % | 1,1 | 21 % | 5 % | 33 % | 17,1 | 0,2 | 6,0 | 0,0 | 0 | 16,3 | 0,05 |
+| R1: Blech, Ecken-Löcher, 6 Krümel | 4 | 7,4 | 16 % | 29 % | 1,5 | 21 % | 1 % | 25 % | 22,2 | 1,0 | 22,6 | 0,0 | 0 | 18,1 | 0,06 |
+| R2: R1 + Goldkrümel (3) | 2 | 9,0 | 42 % | 5 % | 0,9 | 21 % | 22 % | 50 % | 10,2 | 0,3 | 3,8 | 0,0 | 0 | 14,3 | 0,04 |
+| R2: R1 + Goldkrümel (3) | 3 | 7,1 | 33 % | 10 % | 1,3 | 31 % | 11 % | 33 % | 11,3 | 0,9 | 20,9 | 0,0 | 0 | 16,9 | 0,05 |
+| R2: R1 + Goldkrümel (3) | 4 | 8,2 | 25 % | 17 % | 1,8 | 30 % | 7 % | 25 % | 17,9 | 2,0 | 35,3 | 0,0 | 0 | 18,3 | 0,06 |
+| R3: R2 + Keksregen (gewählt) | 2 | 9,1 | 41 % | 7 % | 0,9 | 22 % | 22 % | 50 % | 10,5 | 0,3 | 3,6 | 0,0 | 0 | 14,3 | 0,05 |
+| R3: R2 + Keksregen (gewählt) | 3 | 7,3 | 32 % | 15 % | 1,3 | 24 % | 10 % | 33 % | 11,7 | 0,9 | 20,2 | 0,0 | 0 | 17,2 | 0,06 |
+| R3: R2 + Keksregen (gewählt) | 4 | 8,5 | 24 % | 15 % | 1,8 | 29 % | 6 % | 25 % | 18,9 | 2,0 | 33,5 | 0,0 | 0 | 18,8 | 0,07 |
+| R4: R3 mit 4 Krümeln | 2 | 8,5 | 45 % | 7 % | 0,8 | 15 % | 16 % | 50 % | 9,2 | 0,3 | 4,7 | 0,0 | 0 | 14,6 | 0,04 |
+| R4: R3 mit 4 Krümeln | 3 | 7,0 | 33 % | 12 % | 1,2 | 32 % | 13 % | 33 % | 11,0 | 0,9 | 21,6 | 0,0 | 0 | 20,3 | 0,05 |
+| R4: R3 mit 4 Krümeln | 4 | 7,6 | 23 % | 23 % | 1,9 | 29 % | 9 % | 25 % | 16,2 | 2,0 | 37,8 | 0,0 | 0 | 18,2 | 0,05 |
+| R5: R3 mit 9 Krümeln | 2 | 9,6 | 40 % | 6 % | 0,9 | 21 % | 20 % | 50 % | 11,3 | 0,3 | 3,2 | 0,0 | 0 | 14,2 | 0,06 |
+| R5: R3 mit 9 Krümeln | 3 | 8,1 | 30 % | 16 % | 1,5 | 27 % | 10 % | 33 % | 13,9 | 0,9 | 17,2 | 0,0 | 0 | 19,6 | 0,07 |
+| R5: R3 mit 9 Krümeln | 4 | 9,4 | 21 % | 15 % | 2,1 | 36 % | 7 % | 25 % | 22,5 | 1,8 | 27,7 | 0,0 | 0 | 17,4 | 0,07 |
+| R6: R3 + Wollknäuel | 2 | 9,0 | 42 % | 7 % | 0,9 | 21 % | 19 % | 50 % | 10,3 | 0,3 | 3,3 | 0,0 | 0 | 14,1 | 0,05 |
+| R6: R3 + Wollknäuel | 3 | 7,6 | 31 % | 17 % | 1,4 | 27 % | 13 % | 33 % | 12,7 | 0,9 | 17,5 | 0,0 | 0 | 16,8 | 0,06 |
+| R6: R3 + Wollknäuel | 4 | 8,3 | 20 % | 27 % | 2,1 | 31 % | 7 % | 25 % | 19,3 | 1,8 | 29,9 | 0,0 | 0 | 19,3 | 0,06 |
+
+Spalten: *Abstand 1–2* = (Punkte P1 − P2) / Punkte P1. *Siege schwach* = Siegquote des schwachen Bots (Platz reihum). *Treffer/Runde* = Krümel in Löchern (Gold zählt als 1 Treffer). *fremde Löcher* = Krümel, die zuletzt jemand anderes berührt hat. *Stürze* nur bei B (dort fällt man durch die Lücken). *instabil* = Summe aus NaN, Durchtunneln, Körpern außerhalb des Blechs und Resten nach `dispose()` über alle 150 Runden.
+
+**EXP-023 Knappe Besetzungen (Seeds 1–150)**
+
+| Variante | Duell: Siege etwas schwächer | Duell: Gleichstand | 4× normal: Abstand 1–2 | 4× normal: Gleichstand P1 | 4× normal: Führungswechsel | 4× normal: Comeback |
+| --- | --- | --- | --- | --- | --- | --- |
+| B: alt (EXP-006): runder Tisch, 10 Krümel, Lücken, Knäuel | 48 % | 25 % | 15 % | 31 % | 1,9 | 25 % |
+| R1: Blech, Ecken-Löcher, 6 Krümel | 30 % | 29 % | 12 % | 39 % | 2,1 | 31 % |
+| R2: R1 + Goldkrümel (3) | 42 % | 7 % | 21 % | 17 % | 2,2 | 32 % |
+| R3: R2 + Keksregen (gewählt) | 42 % | 11 % | 19 % | 21 % | 2,3 | 31 % |
+| R4: R3 mit 4 Krümeln | 40 % | 14 % | 23 % | 16 % | 1,9 | 30 % |
+| R5: R3 mit 9 Krümeln | 37 % | 15 % | 18 % | 18 % | 2,5 | 41 % |
+| R6: R3 + Wollknäuel | 39 % | 12 % | 20 % | 21 % | 2,2 | 37 % |
+
+**EXP-023 Eindringling gegen 2× normal (3 Sp., alle Können normal, Siegfaktor; 1,00 = fair; Seeds 1–150)**
+
+| Variante | normal | Torsteher | Dauerrempler | Raufbold |
+| --- | --- | --- | --- | --- |
+| R1: Blech, Ecken-Löcher, 6 Krümel | 1,03 | 0,00 | 0,83 | 0,00 |
+| R2: R1 + Goldkrümel (3) | 0,77 | 0,01 | 1,12 | 0,03 |
+| R3: R2 + Keksregen (gewählt) | 0,87 | 0,02 | 0,90 | 0,02 |
+| R4: R3 mit 4 Krümeln | 1,01 | 0,02 | 1,43 | 0,04 |
+| R5: R3 mit 9 Krümeln | 0,88 | 0,03 | 1,15 | 0,01 |
+| R6: R3 + Wollknäuel | 0,92 | 0,02 | 1,21 | 0,00 |
+
+**EXP-023 Siegquote je Loch, alle Bots normal (R3, Seeds 1–150; bei 3 Personen: vorn links, vorn rechts, hinten Mitte)**
+
+| Sp. | vorn links | 2. Loch | 3. Loch | 4. Loch | fair |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 51 % | 49 % | – | – | 50 % |
+| 3 | 34 % | 31 % | 35 % | – | 33 % |
+| 4 | 25 % | 26 % | 23 % | 26 % | 25 % |
+
+Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn links, vorn rechts, hinten Mitte; 4 Personen vorn links, hinten rechts, vorn rechts, hinten links.
+
+**Ecken-Fairness bei drei Personen (Iteration, R3, alle Bots normal):** Die erste Fassung nutzte drei der vier Ecken.
+
+| Aufstellung (3 Sp.) | Seeds | Siege Loch 1 / 2 / 3 | Bemerkung |
+| --- | --- | --- | --- |
+| vorn links, hinten rechts, vorn rechts; hinten links zu | 150 | 59 % / 14 % / 27 % | vorn links hat keinen nahen Nachbarn |
+| dasselbe, hinten links als neutrales Loch („Hausmaus frisst“) | 90 | 60 % / 15 % / 25 % | kaum ein Krümel landete dort, keine Wirkung |
+| vorn links, vorn rechts, Loch in der geraden Rückwand | 90 | 43–51 % / 45–53 % / 3–4 % | ohne Wände, die zur Öffnung leiten, trifft man kaum |
+| … Rückwand-Loch als 90°-Kerbe, Fallfeld um z = −1,7 / −1,1 / −0,5 | 90 | 49/49/1 · 41/48/11 · 41/45/14 % | geometrisch gleich weit wäre z ≈ −1,1 |
+| … Fallfeld um z = 0,2 / **0,8** / 1,4 | 90 | 37/34/28 · **37/29/35** · 20/24/56 % | Punkte bei 0,8: 5,9 / 5,8 / 6,0 |
+| **gewählt: Kerbe + Fallfeld z = 0,8** | 150 | **34 % / 31 % / 35 %** | Tabelle oben |
+
+(Die 90-Seed-Läufe der Kerbe liefen nach einer Korrektur: Die Notfall-Grenze „Körper außerhalb des Blechs“ lag zuerst vor der Kerbe und nahm dem hinteren Loch seine Treffer.)
+
+**Auswertung:**
+- **Gegen den alten Prototyp (B):** Niemand fällt mehr herunter (B: 5,6–12,1 Stürze je Runde), die Rechnung bleibt stabil (0 Instabilitäten in allen Läufen, höchstens 20 m/s, ≈ 0,05 ms je Schritt). B wirkt fair für Schwache (22 % im Duell), aber nur, weil es zufällig ist: 18–31 % geteilte Siege, und im knappen Duell gewinnt der etwas Schwächere 48 %, also so oft wie der Bessere.
+- **Feste Ecken allein (R1)** machen das Spiel sauber, aber streng: Der schwache Bot gewinnt nur noch 1–5 %, unter vier Gleichstarken teilen sich 39 % der Runden den Sieg (je Krümel 1 Punkt, wenige Treffer).
+- **Goldkrümel (R2) ist der wirksamste Hebel**, wie das Türglück in EXP-016: Gleichstände unter vier Gleichstarken sinken von 39 % auf 17 %, im Duell gewinnt der etwas Schwächere 42 % statt 30 %, der schwache Bot im Duell 22 % statt 5 %. Gold sammelt alle zu einem sichtbaren Gerangel (Rempler je Runde 4 → 21–35).
+- **Keksregen (R3 gegen R2)** ändert die Zahlen kaum (alles innerhalb des Rauschens; Gleichstände 4× normal 21 % gegen 17 %). Er bleibt als sichtbares Finale, wie „Mitternacht“ und der Schleudergang. Ob er sich lohnt, klärt der Playtest; Stellschraube `rainMs: null`.
+- **Krümelzahl:** Mit 4 Krümeln (R4) lohnt sich Dauerrempeln (Faktor 1,43), weil man um wenige Krümel rangelt. 9 Krümel (R5) bringen mehr Führungswechsel und Comebacks (4× normal: 2,5 Wechsel, 41 %), mit Keksregen liegen am Ende aber 15 Krümel auf dem Blech – genau die Unübersichtlichkeit aus EXP-006. 6 Krümel sind der Kompromiss.
+- **Wollknäuel (R6)** bringt nichts Messbares außer mehr Gleichständen bei 4 Personen (27 %) und einem Vorteil fürs Dauerrempeln (1,21). Verworfen, wie in EXP-006.
+- **Eindringling:** Torsteher und Raufbold gewinnen praktisch nie (0,00–0,04): Wer andere stört, statt selbst zu schieben, verliert. Ihr Opfer verliert ebenfalls, die dritte Person gewinnt (Königsmacher-Effekt, an echten Tischen eher lustig). Dauerrempeln ist in R3 nicht besser als normales Spiel (0,90).
+- **Ecken-Fairness:** Bei 2 und 4 Personen sind alle Löcher gleich gut (49–51 % bzw. 23–26 %). Bei 3 Personen war die erste Aufstellung klar unfair (59 / 14 / 27 %). Die Kerbe in der Rückwand mit verschobenem Fallfeld gleicht das aus (34 / 31 / 35 %). Der Ausgleich ist an Bots kalibriert; bei Menschen kann sich der Punkt verschieben (Stellschraube `drop3Z`).
+- **Chancen für Schwache bleiben klein:** In R3 gewinnt der schwache Bot 22 % im Duell, aber 10 % bzw. 6 % bei 3 bzw. 4 Personen (fair: 33 % bzw. 25 %). Mit anderen Minispielen ist das nur grob vergleichbar, weil die Besetzungen anders waren (dort Neuling gegen Profi: Sockenregen 3–5 %, Kuckucks-Klatsche 8–16 %). Physik belohnt Geschick; Aufholhilfen gehören zu CHAOS-65.
+- **Gerangel um Gold kann zäh werden:** In einzelnen Läufen jagen alle drei Bots nur das Gold, normale Krümel bleiben liegen (z. B. 3 Sp., Seed 3: 6 Treffer statt ≈ 12). Ob das Menschen genauso tun und ob es sich zäh anfühlt, klärt der Playtest.
+
+**Entscheidung:** **keep R3** als „Krümel-Kehraus“ (`kruemel-kehraus`, Physik, 30 s, Stick + Rempeln), in Katalog und Rotation (fünftes Minispiel).
+- **Gründe:** Die Kritik aus EXP-006 ist behoben (keine Stürze, feste Ecken, 6 statt 10 Krümel). Gleichstände liegen unter denen von B, Störstrategien lohnen sich nicht, alle Löcher sind bei 2–4 Personen gleich gut. Es ist das zweite Physik-Spiel neben Pudding-Gerangel, mit anderem Ziel: Gegenstände befördern statt Platz halten.
+- **discard:** R1 (zu viele Gleichstände, Schwache chancenlos), R4 (Dauerrempeln lohnt), R6 (Knäuel ohne Nutzen). R5 und R2 bleiben Stellschrauben (`crumbs`, `rainMs`).
+- **Nebenbefund:** Der Headless-Harness verliert je Lauf 1,5–3,6 MB, auch bei anderen Minispielen; die Messung brach nach ≈ 1 500 Läufen ab. Folgeaufgabe CHAOS-126 (wichtig für die Bot-Fairness-Vorlage CHAOS-84).
+
+**Umsetzung:** `packages/minigames/src/kruemel-kehraus/` (`logic.ts` rein, `index.ts` Babylon/Havok-Ansicht im Natur-Look, `visuals.ts`, Tests). Krümel und Gold sind dynamische Kugeln, Figuren dynamische Kapseln mit gesperrter Drehung (wie Pudding-Gerangel), Rand und Stürze statisch. Zwei Fehler fand erst die Messung: Körper, die in `prepare` versetzt werden, übernimmt Havok nicht (die Startkrümel lagen auf dem Parkplatz hinter einer Ecke und zählten sofort; jetzt entstehen sie am Zielort, Regressionstest „ohne Eingaben keine Punkte“). Und eine Figur, die auf einem Krümel steht und gerempelt wird, kam über den 1 m hohen Rand (jetzt unsichtbare Kollisionswand bis 3,2 m, Krümel steigen höchstens mit 2,5 m/s). Belegbilder: `docs/screenshots/chaos79-kruemel-kehraus.jpg` (4 Spieler, Gerangel um den Goldkrümel, Banner „Ein Goldkrümel!“), Screenshot-Baseline `tests/e2e/__screenshots__/m3-minispiele-bild.spec.ts/minispiel-kruemel-kehraus-chromium-linux.png`. Vorschau: `/host/?local=1&minigame=kruemel-kehraus&players=4` (mit `players=3` die Kerbe).
+
+**Offen für Playtest (Ruben, Gerätecheckliste P6c):**
+1. Findet jede Person ihr Mauseloch sofort (Torbogen und Symbol in Slot-Farbe)? Auch bei drei Personen die Kerbe hinten?
+2. Fühlt sich das Schieben steuerbar an, oder rollen die Krümel zu leicht weg bzw. kleben am Fuß?
+3. Ist das Gerangel um den Goldkrümel witzig oder zäh? Stört es, dass normale Krümel dann liegen bleiben?
+4. Wird der Keksregen als Finale verstanden, und bringt er etwas? Falls nicht: `rainMs: null` (R2).
+5. Krümel in fremden Löchern: lustig oder ärgerlich?
+6. Bei drei Personen: Fühlt sich das hintere Loch gleichwertig an? (An Bots kalibriert, `drop3Z`.)
+7. Die Bot-Werte sind Annahmen, keine Messung. Echte Menschen rempeln öfter und gezielter.
+
+**Für später:** Aufzieh-Takt und Geysir-Gier gehen im Minispiel-Ausbau auf (MG-090 in CHAOS-102, Abgleich Geysir-Gier in CHAOS-104). Für MG-008 „Laubbläser-Liga“ (Blätter in die eigene Ecke) ist der Unterschied zu Krümel-Kehraus zu schärfen (Katalog-Hinweis).

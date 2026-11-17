@@ -177,7 +177,7 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches, nachgebauter Ser
 
 **Stand:** 2026-11-15 · **Aufgabe:** CHAOS-3 · **Gate:** CHAOS-35 (nur Ruben) · **Anleitung:** [m3-demo.md](m3-demo.md)
 
-Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels headless (`packages/minigames`), Brett ↔ Minispiel über den Server (`apps/server/src/boardGame.integration.test.ts`), Bild jedes Minispiels mit festem Seed (`tests/e2e/m3-minispiele-bild.spec.ts`), Bühne mit echten Seiten (`tests/e2e/m3-minispiel-durchstich.spec.ts`). Diese Liste prüft, was nur Menschen am echten PC/Fernseher beurteilen können. Mit 2–4 Personen, `ROUNDS=4 pnpm start` (jedes Minispiel einmal; bis CHAOS-54 waren es drei).
+Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels headless (`packages/minigames`), Brett ↔ Minispiel über den Server (`apps/server/src/boardGame.integration.test.ts`), Bild jedes Minispiels mit festem Seed (`tests/e2e/m3-minispiele-bild.spec.ts`), Bühne mit echten Seiten (`tests/e2e/m3-minispiel-durchstich.spec.ts`). Diese Liste prüft, was nur Menschen am echten PC/Fernseher beurteilen können. Mit 2–4 Personen, `ROUNDS=5 pnpm start` (jedes Minispiel einmal; bis CHAOS-54 waren es drei, bis CHAOS-79 vier).
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
@@ -190,6 +190,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | P6 | Wackelturm spielen | Wackeln früh sichtbar; Kippen nachvollziehbar (nicht „grundlos“); Klauen witzig statt gemein | | |
 | P6a | Kuckucks-Klatsche spielen (CHAOS-54, nur Knopf A; Vorschau `/host/?local=1&minigame=kuckucks-klatsche&players=4`) | Eigene Tür (Farbe + Symbol) sofort gefunden; Kuckuck vs. Ente/Socke/Blume auf Sofa-Abstand unterscheidbar; weißer Gong-Ring als „jetzt darf jeder“ verstanden; Klauen und Benommenheit witzig statt gemein; fühlt sich „bei mir kam kaum was“ (Türglück) unfair an? Am geteilten iPad: großer A-Knopf je Zone reicht | | |
 | P6b | Minispiel zum zweiten Mal in derselben Partie (CHAOS-66; Vorschau `/host/?local=1&minigame=pump-parade&flow=1&repeat=1`) | PC und Handy/iPad-Zone zeigen „Nochmal!“, Titel und Bedienung ohne Anleitungsschritte; 3 s reichen, um zu erkennen, welches Minispiel kommt, und das Gerät richtig zu halten; niemand vermisst die Anleitung | | |
+| P6c | Krümel-Kehraus spielen (CHAOS-79, Stick + A; Vorschau `/host/?local=1&minigame=kruemel-kehraus&players=4`) | Eigenes Mauseloch (Torbogen + Symbol in Slot-Farbe) sofort gefunden, mit 3 Personen auch die Kerbe hinten in der Mitte (fühlt sie sich gleichwertig an?); Krümel schieben fühlt sich steuerbar an (nicht zu glitschig, nicht zu träge); Goldkrümel sofort erkannt; Gerangel um Gold witzig statt zäh; Keksregen am Ende als Finale verstanden; „Krümel in fremdes Loch geschoben“ lustig statt ärgerlich; mit 2 Personen (diagonale Ecken) genug los? | | |
 | P7 | Eigene Figur im Gedränge finden | In allen Minispielen jederzeit klar, wer man ist (Farbe + Symbol + Figur) | | |
 | P8 | Ergebnisanzeige | Plätze, Punkte, Münzen und Gleichstand sofort klar; 6 s reichen zum Lesen | | |
 | P9 | Ton (Lautsprecher/Fernseher) | Klänge passen, nerven nicht, nicht zu laut; `?volume=` / `?mute=1` wirken | | |
@@ -218,7 +219,7 @@ Automatisch gemessen wird nur im Headless-Chromium mit Software-Rendering (Swift
 | ID | Schritt | Erwartung / was notieren | Ergebnis | Nachweis |
 |---|---|---|---|---|
 | PF0 | Testumgebung: PC (Betriebssystem, CPU, GPU), Browser + Version, Monitor/Fernseher (Auflösung, Bildwiederholrate), Fenster/Vollbild, Netz (WLAN/Kabel) | vollständig ausgefüllt; die Host-Zeile nennt GPU und Render-Auflösung | | |
-| PF1 | Ganze Partie mit 4 Spielern (`ROUNDS=4 pnpm start`, jedes Minispiel einmal; seit CHAOS-54 vier Minispiele), Host mit `?debug=1`; am Siegerbildschirm „Alle Szenen kopieren“ | Zeilen für `lobby`, `brett`, alle vier Minispiele, `finale`, `podest`; Text einfügen | | |
+| PF1 | Ganze Partie mit 4 Spielern (`ROUNDS=5 pnpm start`, jedes Minispiel einmal; seit CHAOS-79 fünf Minispiele), Host mit `?debug=1`; am Siegerbildschirm „Alle Szenen kopieren“ | Zeilen für `lobby`, `brett`, alle fünf Minispiele, `finale`, `podest`; Text einfügen | | |
 | PF2 | Bildrate je Szene aus PF1: fps und Bildabstand p95 je Szene | Werte notieren; gefühlt flüssig (1–5) je Szene; Ruckler wann? | | |
 | PF3 | Eingabe→Frame im Minispiel und Brett→Frame auf dem Brett (aus PF1) | Median/p95 notieren (misst bis Ende des JS-Renderings, ohne GPU/Bildschirm, ADR-010) | | |
 | PF4 | WebGL-Kontexte und Render-Schleifen (aus PF1) | `finale` und `podest`: „Kontexte max 2“, „Schleifen max 1“ (Brett pausiert hinter dem Finale); jede andere Szene 1 Kontext, 1 Schleife | | |

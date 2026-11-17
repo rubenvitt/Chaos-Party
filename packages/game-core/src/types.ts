@@ -86,7 +86,25 @@ export interface Pacing {
 }
 
 /** Ziel einer wandernden Trophäe (`RuleSet.trophy.placement`). */
-export type TrophyPlacement = 'random' | 'ahead' | 'ahead-of-last';
+export type TrophyPlacement =
+  'random' | 'ahead' | 'ahead-of-last' | 'nearest-to-last' | 'away-from-leader';
+
+/**
+ * Aufholhilfen für Zurückliegende mit Münzen (CHAOS-65, EXP-022). Jede fehlt = aus. „Spitze“ =
+ * höchste Trophäenzahl am Tisch; „Rückstand“ = Spitze minus eigene Trophäen. Das Ziel der
+ * wandernden Trophäe als Aufholhilfe steuert `trophy.placement`.
+ */
+export interface CatchUpRules {
+  /** Trophäenpreis `price` für alle mit mindestens `behind` Trophäen Rückstand. */
+  readonly discount?: { readonly behind: number; readonly price: number };
+  /**
+   * Rückenwind: Nach jedem Minispiel außer dem letzten bekommt jede Person
+   * `perTrophy` × Rückstand Münzen, höchstens `max` (Grund `event`).
+   */
+  readonly tailwind?: { readonly perTrophy: number; readonly max: number };
+  /** Finale-Fieber: In den letzten `rounds` Runden zählen Minispiel-Münzen `factor`-fach. */
+  readonly finale?: { readonly rounds: number; readonly factor: number };
+}
 
 export interface RuleSet {
   /** Würfelseiten; jede gleich wahrscheinlich (Verteilung per Experiment). */
@@ -115,7 +133,10 @@ export interface RuleSet {
      * Nur bei `wandering`: wohin eine Trophäe wandert (CHAOS-51, EXP-019). `random` (fehlt =
      * `random`): gleichverteilt auf ein freies Feld. `ahead`: bevorzugt vor die Spieler, also
      * auf die nähere Hälfte der freien Felder, gemessen am kürzesten Weg vorwärts von irgendeiner
-     * Figur. `ahead-of-last`: wie `ahead`, gemessen nur von den Letztplatzierten (Aufholhilfe).
+     * Figur. `ahead-of-last`: wie `ahead`, gemessen nur von den Letztplatzierten.
+     * `nearest-to-last` (CHAOS-65, EXP-022): genau das freie Feld, das vor einer bzw. einem
+     * Letzten am nächsten liegt. `away-from-leader` (EXP-022): das freie Feld, das von der
+     * Spitze (Platz 1) am weitesten entfernt liegt. Gleich weit: Seed entscheidet.
      */
     readonly placement?: TrophyPlacement;
   };
@@ -160,6 +181,8 @@ export interface RuleSet {
     readonly shieldBlocksTrap?: boolean;
   };
   readonly pacing: Pacing;
+  /** Aufholhilfen mit Münzen (CHAOS-65); fehlt = keine. */
+  readonly catchUp?: CatchUpRules;
 }
 
 export interface GamePlayerConfig {

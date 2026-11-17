@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RULES, withRules, ZERO_PACING } from './defaults.ts';
 import { rankPlayers } from './economy.ts';
+import { NO_CATCH_UP_RULES } from './experimentsCatchUp.ts';
 
 describe('rankPlayers', () => {
   it('sortiert nach Trophäen, dann Münzen', () => {
@@ -82,11 +83,11 @@ describe('rankPlayers', () => {
 });
 
 describe('DEFAULT_RULES und withRules', () => {
-  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004, EXP-018, EXP-019) und M3-Minispielzeiten', () => {
+  it('enthält die per Experiment festgelegten Werte (CHAOS-24, EXP-001 … EXP-004, EXP-018 … EXP-022) und M3-Minispielzeiten', () => {
     expect(DEFAULT_RULES).toEqual({
       diceFaces: [1, 2, 3, 4, 5, 6],
       economy: { startCoins: 10, coinsPlus: 3, coinsMinus: 3, minigameRewards: [10, 5, 3, 0] },
-      trophy: { price: 15, mode: 'wandering', activeCount: 3 },
+      trophy: { price: 15, mode: 'wandering', activeCount: 3, placement: 'nearest-to-last' },
       items: {
         capacity: 3,
         startItems: 1,
@@ -125,5 +126,17 @@ describe('DEFAULT_RULES und withRules', () => {
     expect(rules.pacing.stepMs).toBe(0);
     expect(rules.pacing.reactionWindowMs).toBe(3000);
     expect(rules.trophy).toEqual(DEFAULT_RULES.trophy);
+    expect(rules.catchUp).toBeUndefined();
+  });
+
+  it('Aufholhilfen mit Münzen: Überschreiben führt flach zusammen, ohne Basis und Angabe fehlt die Gruppe', () => {
+    const rules = withRules({ catchUp: { tailwind: { perTrophy: 2, max: 6 } } });
+    expect(rules.catchUp).toEqual({ tailwind: { perTrophy: 2, max: 6 } });
+    const both = withRules({ catchUp: { finale: { rounds: 3, factor: 2 } } }, rules);
+    expect(both.catchUp).toEqual({
+      tailwind: { perTrophy: 2, max: 6 },
+      finale: { rounds: 3, factor: 2 },
+    });
+    expect(withRules({}, NO_CATCH_UP_RULES)).not.toHaveProperty('catchUp');
   });
 });
