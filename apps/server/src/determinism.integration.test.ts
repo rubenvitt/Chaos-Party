@@ -32,7 +32,7 @@ const SNAPSHOTS = [
       { slot: 2, place: 2, trophies: 0, coins: 34, minigameWins: 2, decidedBy: 'trophies' },
     ],
     stats: [
-      [1, 'robot', { coinsEarned: 26, coinsLost: 17, spacesMoved: 6, itemsUsed: 1 }],
+      [1, 'robot', { coinsEarned: 26, coinsLost: 2, spacesMoved: 6, itemsUsed: 1 }],
       [2, 'cactus', { coinsEarned: 27, coinsLost: 3, spacesMoved: 16, itemsUsed: 1 }],
     ],
   },
@@ -47,7 +47,7 @@ const SNAPSHOTS = [
     ],
     stats: [
       [1, 'robot', { coinsEarned: 24, coinsLost: 0, spacesMoved: 14, itemsUsed: 3 }],
-      [2, 'cactus', { coinsEarned: 26, coinsLost: 21, spacesMoved: 9, itemsUsed: 1 }],
+      [2, 'cactus', { coinsEarned: 26, coinsLost: 6, spacesMoved: 9, itemsUsed: 1 }],
       [3, 'raccoon', { coinsEarned: 27, coinsLost: 0, spacesMoved: 15, itemsUsed: 3 }],
     ],
   },

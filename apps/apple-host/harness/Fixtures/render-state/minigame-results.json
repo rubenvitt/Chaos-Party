@@ -1,0 +1,202 @@
+{
+  "phase": "minigame",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "players": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "color": "#0072B2",
+        "connected": true,
+        "ready": true,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "color": "#E69F00",
+        "connected": true,
+        "ready": true,
+        "character": "sock"
+      }
+    ]
+  },
+  "board": {
+    "round": 3,
+    "rounds": 10,
+    "activeSlot": null,
+    "spaces": [
+      {
+        "id": "s00",
+        "x": 0,
+        "z": 0,
+        "kind": "start"
+      },
+      {
+        "id": "s01",
+        "x": 2.4,
+        "z": 0.5,
+        "kind": "coins-plus"
+      },
+      {
+        "id": "s02",
+        "x": 4.6,
+        "z": 1.6,
+        "kind": "coins-minus"
+      },
+      {
+        "id": "s03",
+        "x": 6.2,
+        "z": 3.4,
+        "kind": "event"
+      },
+      {
+        "id": "s04",
+        "x": 6.8,
+        "z": 5.8,
+        "kind": "item"
+      },
+      {
+        "id": "s05",
+        "x": 5.9,
+        "z": 8.1,
+        "kind": "trophy"
+      }
+    ],
+    "pawns": [
+      {
+        "slot": 1,
+        "spaceId": "s03",
+        "x": 5.95,
+        "z": 3.4,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "spaceId": "s03",
+        "x": 6.45,
+        "z": 3.4,
+        "character": "sock"
+      }
+    ],
+    "messages": [
+      "Anna würfelt eine 4.",
+      "Anna bekommt 3 Münzen.",
+      "Ben ist am Zug."
+    ]
+  },
+  "minigame": {
+    "id": "pudding-gerangel",
+    "stage": "results",
+    "elapsedMs": 60000,
+    "bodies": [
+      {
+        "id": "buehne#12",
+        "shape": "cylinder",
+        "pos": [
+          0,
+          -0.25,
+          0
+        ],
+        "rot": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "size": [
+          12,
+          0.5,
+          12
+        ],
+        "color": "#F4D35E"
+      },
+      {
+        "id": "figur-1-koerper#40",
+        "shape": "cylinder",
+        "pos": [
+          -2.1,
+          0.8,
+          1.3
+        ],
+        "rot": [
+          0,
+          0.383,
+          0,
+          0.924
+        ],
+        "size": [
+          0.8,
+          1.6,
+          0.8
+        ],
+        "color": "#0072B2"
+      },
+      {
+        "id": "figur-2-koerper#44",
+        "shape": "cylinder",
+        "pos": [
+          1.7,
+          0.8,
+          -0.4
+        ],
+        "rot": [
+          0,
+          -0.259,
+          0,
+          0.966
+        ],
+        "size": [
+          0.8,
+          1.6,
+          0.8
+        ],
+        "color": "#E69F00"
+      },
+      {
+        "id": "kirsche#57",
+        "shape": "sphere",
+        "pos": [
+          0.2,
+          0.3,
+          2.9
+        ],
+        "rot": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "size": [
+          0.6,
+          0.6,
+          0.6
+        ],
+        "color": "#D7263D"
+      },
+      {
+        "id": "kiste#61",
+        "shape": "box",
+        "pos": [
+          3.5,
+          0.5,
+          3.5
+        ],
+        "rot": [
+          0.05,
+          0.2,
+          -0.03,
+          0.978
+        ],
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "color": "#8D6E63"
+      }
+    ],
+    "hud": "0 s · Anna 5 · Ben 2"
+  }
+}
