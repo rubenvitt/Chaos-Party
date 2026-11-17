@@ -40,6 +40,22 @@ struct Settings {
     var quitAfterMeasurement: Bool { raw["sekunden"] != nil && !flag("bleiben", false) }
     /// Undokumentierte ARView-Schalter: automatische Bildrate aus, Wunschrate setzen (z. B. 120).
     var preferredFrameRate: Float? { raw["bildrate"].flatMap(Float.init) }
+
+    // CHAOS-114: hochskalierter Pfad und Diagnose-Schalter.
+    /// Eigene Render-Schleife: `RealityRenderer` in interner Auflösung, hochskaliert auf die volle Anzeige (`UpscaleLoop`).
+    var upscale: Bool { flag("hochskalieren", false) }
+    /// Interne Auflösung als Anteil der Anzeige je Achse: 0,5 = 1920×1080 bei 4K, 0,667 = 2560×1440, 1 = nativ.
+    var scale: Double { min(1, max(0.25, num("skala", 0.5))) }
+    /// `metalfx` (MetalFX Spatial, auf tvOS erst ab 27.2) oder `bilinear` (eigener Shader).
+    var scaler: String { raw["skalierer"] ?? "metalfx" }
+    /// Bilder gleichzeitig in Arbeit (1–3). 1 = streng nacheinander wie `--durchsatz=1`.
+    var framesInFlight: Int { Int(min(3, max(1, num("imflug", 2)))) }
+    /// Nur `RealityRenderer` (offscreen, hochskaliert): Tonemapping aus.
+    var toneMapping: Bool { flag("tonemapping", true) }
+    /// Himmelslicht (IBL). `0` lässt die Lichtressource weg.
+    var ibl: Bool { flag("ibl", true) }
+    /// `voll` (Standard), `einfach` (ein PBR-Material ohne Texturen für alles) oder `unbeleuchtet` (UnlitMaterial).
+    var materials: String { raw["material"] ?? "voll" }
 }
 
 /// Beschreibung der Testszene aus dem Babylon-Export (`brett.szene.json`, rechtshändig, y oben).

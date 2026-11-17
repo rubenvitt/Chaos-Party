@@ -15,6 +15,8 @@ import UIKit
 ///   liegt der Median beim Bildwechselintervall, ist die Reserve unbekannt.
 /// - `--durchsatz=1`: dieselbe Szene mit `RealityRenderer` offscreen in eine Textur (`breite`×`hoehe`), Bild für
 ///   Bild nacheinander ohne vsync. Die Bildzeit ist CPU + GPU je Bild ohne Überlappung (obere Schranke).
+/// - `--hochskalieren=1` (CHAOS-114): `RealityRenderer` in interner Auflösung, hochskaliert auf die Anzeige
+///   (`UpscaleLoop`). Gemessen werden die Abstände der wirklich angezeigten Bilder (`presentedTime`).
 @MainActor
 final class Meter: ObservableObject {
     @Published var hud = "lädt …"
@@ -27,14 +29,23 @@ final class Meter: ObservableObject {
     private var instances = 0
     private var done = false
     private weak var view: ARView?
+    /// Ansicht des jeweiligen Pfads (ARView oder `MetalLayerView`), für die Bildwiederholrate der Anzeige.
+    private weak var screenView: PlatformView?
+    private var loop: UpscaleLoop?
+    private var lastPresented: CFTimeInterval?
+    private var upscaleGPU: [Double] = []
+    private var latencies: [Double] = []
+    private var dropped = 0
 
-    func log(_ text: String) {
+    /// Ohne Actor-Bindung: wird auch aus Metal-Abschlussblöcken aufgerufen.
+    nonisolated func log(_ text: String) {
         print(text)
         logger.log("\(text, privacy: .public)")
     }
 
     func start(_ view: ARView) {
         self.view = view
+        screenView = view
         if let rate = settings.preferredFrameRate {
             view.__enableAutomaticFrameRate = false
             view.__preferredFrameRate = rate
@@ -60,8 +71,10 @@ final class Meter: ObservableObject {
                 #else
                 view.environment.background = .color(UIColor(cgColor: built.clearColor))
                 #endif
-                view.environment.lighting.resource = built.sky
-                view.environment.lighting.intensityExponent = built.skyExponent
+                if settings.ibl {
+                    view.environment.lighting.resource = built.sky
+                    view.environment.lighting.intensityExponent = built.skyExponent
+                }
                 readyAt = CACurrentMediaTime()
                 subscription = view.scene.subscribe(to: SceneEvents.Update.self) { [weak self] event in
                     MainActor.assumeIsolated { self?.tick(event.deltaTime) }
@@ -103,13 +116,7 @@ final class Meter: ObservableObject {
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else { throw SpikeError.missing("Textur") }
         let output = try RealityRenderer.CameraOutput(.singleProjection(colorTexture: texture))
-        let renderer = try RealityRenderer()
-        renderer.entities.append(built.root)
-        renderer.activeCamera = built.camera
-        renderer.lighting.resource = built.sky
-        renderer.lighting.intensityExponent = built.skyExponent
-        renderer.cameraSettings.colorBackground = .color(built.clearColor)
-        renderer.cameraSettings.antialiasing = settings.msaa >= 2 ? .multisample4X : .none
+        let renderer = try makeRealityRenderer(built, settings)
 
         let begin = CACurrentMediaTime()
         var last = begin
@@ -134,21 +141,95 @@ final class Meter: ObservableObject {
         finish(renderer: "realitykit-realityrenderer-offscreen", size: (width, height))
     }
 
+    // MARK: hochskaliert (CHAOS-114)
+
+    func startUpscaled(_ view: MetalLayerView) {
+        screenView = view
+        log("Parameter: \(settings.raw)")
+        Task {
+            do {
+                let built = try await SceneBuilder(settings: settings, log: log).build()
+                instances = built.instances
+                loop = try UpscaleLoop(view: view, built: built, settings: settings, log: log) { [weak self] event in
+                    self?.record(event)
+                }
+                readyAt = CACurrentMediaTime()
+            } catch {
+                hud = "Fehler: \(error)"
+                log("FEHLER \(error)")
+            }
+        }
+        if let server = settings.server { HostClient.shared.connect(server, log: log) }
+    }
+
+    private func record(_ event: UpscaleLoop.Event) {
+        guard let readyAt, !done else { return }
+        let now = CACurrentMediaTime()
+        if now - readyAt < settings.warmup {
+            hud = String(format: "aufwärmen … (%d Instanzen)", instances)
+            if case .presented(let at) = event { lastPresented = at }
+            return
+        }
+        switch event {
+        case .presented(let at):
+            if let last = lastPresented, at > last { samples.append((at - last) * 1000) }
+            lastPresented = at
+        case .frame(let gpu, let latency):
+            upscaleGPU.append(gpu)
+            latencies.append(latency)
+            return
+        case .dropped:
+            dropped += 1
+            return
+        }
+        let started = startedAt ?? now
+        startedAt = started
+        if samples.count % 15 == 0 { showProgress(elapsed: now - started) }
+        guard now - started >= settings.seconds, let loop else { return }
+        let gpu = upscaleGPU.sorted(), lat = latencies.sorted()
+        let extra: [String: Any] = [
+            "intern": [loop.internalSize.0, loop.internalSize.1],
+            "skala": settings.scale,
+            "skalierer": loop.scalerName,
+            "imflug": settings.framesInFlight,
+            "hochskalieren_gpu_ms_median": percentile(gpu, 0.5),
+            "hochskalieren_gpu_ms_p95": percentile(gpu, 0.95),
+            "uebergabe_bis_fertig_ms_median": percentile(lat, 0.5),
+            "uebergabe_bis_fertig_ms_p95": percentile(lat, 0.95),
+            "ausgelassene_takte": loop.busyTicks,
+            "nicht_angezeigt": dropped,
+        ]
+        if settings.screenshot != nil {
+            loop.capture { [weak self] texture in
+                Task { @MainActor in self?.saveCapture(texture) }
+            }
+        } else {
+            loop.stop()
+        }
+        finish(renderer: "realitykit-realityrenderer-hochskaliert", size: loop.outputSize, extra: extra)
+    }
+
+    private func saveCapture(_ texture: MTLTexture) {
+        loop?.stop()
+        if let path = settings.screenshot, let image = cgImage(from: texture) { write(image, to: path) }
+    }
+
     private func showProgress(elapsed: Double) {
         let median = percentile(samples.sorted(), 0.5)
+        let mode = settings.upscale ? String(format: " hochskaliert ×%.2f", settings.scale) : settings.throughput ? " offscreen" : ""
         hud = String(format: "RealityKit%@  Bildzeit Median %.2f ms (%.0f fps)  %.0f/%.0f s",
-                     settings.throughput ? " offscreen" : "", median, 1000 / median, elapsed, settings.seconds)
+                     mode, median, 1000 / median, elapsed, settings.seconds)
     }
 
     private var displayHz: Int {
         #if os(macOS)
-        view?.window?.screen?.maximumFramesPerSecond ?? 0
+        screenView?.window?.screen?.maximumFramesPerSecond ?? 0
         #else
-        view?.window?.screen.maximumFramesPerSecond ?? 0
+        screenView?.window?.screen.maximumFramesPerSecond ?? 0
         #endif
     }
 
-    private func finish(renderer: String, size: (Int, Int)) {
+    private func finish(renderer: String, size: (Int, Int), extra: [String: Any] = [:]) {
         done = true
         let sorted = samples.sorted()
         #if os(macOS)
@@ -163,8 +244,10 @@ final class Meter: ObservableObject {
         #else
         let simulator = false
         #endif
-        let report: [String: Any] = [
-            "spike": "CHAOS-78",
+        let ownRenderer = settings.throughput || settings.upscale
+        var report: [String: Any] = [
+            "spike": settings.upscale ? "CHAOS-114" : "CHAOS-78",
+            "os": ProcessInfo.processInfo.operatingSystemVersionString,
             "renderer": renderer,
             "plattform": platform,
             "simulator": simulator,
@@ -177,14 +260,18 @@ final class Meter: ObservableObject {
             "bildabstand_ms_p95": percentile(sorted, 0.95),
             "bildabstand_ms_max": sorted.last ?? .nan,
             "instanzen": instances,
-            "vsync": settings.throughput ? "aus (offscreen, seriell)" : "immer (ARView)",
+            "vsync": settings.upscale ? "Anzeige (CAMetalLayer, presentedTime)"
+                : settings.throughput ? "aus (offscreen, seriell)" : "immer (ARView)",
             "einstellungen": [
                 "sekunden": settings.seconds, "aufwaermen": settings.warmup, "gras": settings.grass,
                 "schatten": settings.shadows, "schattenkarte": "nicht steuerbar",
-                "msaa": settings.throughput ? (settings.msaa >= 2 ? 4 : 0) as Any : "nicht steuerbar",
+                "msaa": ownRenderer ? (settings.msaa >= 2 ? 4 : 0) as Any : "nicht steuerbar",
                 "bildrate": settings.preferredFrameRate.map { Double($0) as Any } ?? NSNull(),
+                "tonemapping": ownRenderer ? settings.toneMapping as Any : "nicht steuerbar",
+                "ibl": settings.ibl, "material": settings.materials,
             ] as [String: Any],
         ]
+        report.merge(extra) { _, new in new }
         let json = (try? JSONSerialization.data(withJSONObject: sanitized(report), options: [.sortedKeys]))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
         log("SPIKE-ERGEBNIS \(json)")
@@ -194,7 +281,8 @@ final class Meter: ObservableObject {
     }
 
     private func saveScreenshotAndQuit() async {
-        if let path = settings.screenshot, let view, !settings.throughput {
+        if settings.upscale { try? await Task.sleep(for: .seconds(1)) }   // Bildschirmfoto kommt aus dem nächsten Bild
+        if let path = settings.screenshot, let view, !settings.throughput, !settings.upscale {
             let image = await withCheckedContinuation { cont in view.snapshot(saveToHDR: false) { cont.resume(returning: $0) } }
             #if os(macOS)
             let cg = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
