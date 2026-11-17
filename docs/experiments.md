@@ -2041,3 +2041,45 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 7. Die Bot-Werte sind Annahmen, keine Messung. Echte Menschen rempeln öfter und gezielter.
 
 **Für später:** Aufzieh-Takt und Geysir-Gier gehen im Minispiel-Ausbau auf (MG-090 in CHAOS-102, Abgleich Geysir-Gier in CHAOS-104). Für MG-008 „Laubbläser-Liga“ (Blätter in die eigene Ecke) ist der Unterschied zu Krümel-Kehraus zu schärfen (Katalog-Hinweis).
+
+---
+
+## EXP-024: Apple TV hostet allein – TypeScript-Kern in JavaScriptCore (2026-11-17, CHAOS-138)
+
+**Hypothese:** Nach ADR-019 (W2) kann die Apple TV eine Partie ohne Rechner hosten. Session-Server, game-core, Host-Rolle und Minispiele samt Havok laufen als ein JS-Bündel in JavaScriptCore; Swift übernimmt Netzwerk und Darstellung. Erwartet: Die JS-Last bleibt deutlich unter dem Bild-Budget von 16,7 ms.
+
+**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`):
+- **JS-Kern `jscore/`:** ein Bündel mit 4,8 MB plus `HavokPhysics.wasm`.
+  - `Session` aus `apps/server` und `connectHost` aus `apps/host`, beide unverändert.
+  - Die Minispiele laufen headless mit Babylon-NullEngine und Havok, instanziiert synchron über `instantiateWasm`.
+  - Polyfills: `setTimeout`, `performance`, `structuredClone`, `global`, `node:crypto`.
+- **App `app/`** für tvOS und macOS:
+  - JavaScriptCore mit monotoner Uhr
+  - ein `NWListener` auf Port 8787 für HTTP (Browser-Controller) und WebSocket `/ws`; das WebSocket-Protokoll ist selbst geschrieben, weil ein Listener sonst keine normalen Seiten liefern kann
+  - Lobby mit QR-Code
+  - RealityKit-Darstellung mit Grundkörpern statt echter Grafik
+
+**Ergebnisse:**
+
+- **macOS, JavaScriptCore ohne JIT, Harness:** eine ganze Partie mit 10 Runden. Alle vier Minispiele der Rotation liefen headless (drei davon mit Havok), 10 von 10 Ergebnissen wurden angenommen, ohne JS-Ausnahme.
+- **Echte Apple TV 4K (A15, tvOS 27, 4K-Ausgabe):**
+  - Die Controller-Seite liegt vom Mac aus unter `http://<tv-ip>:8787` (200).
+  - WebSocket-Handshake über das LAN geht.
+  - Ein Controller trat bei, die Partie lief bis ins Minispiel `wackelturm` mit 138 Körpern.
+  - Ein Dialog fürs lokale Netzwerk war nicht nötig: Für eingehende Verbindungen fragt tvOS nicht.
+
+| Phase | Bildabstand Median / p95 | JS je Bild (`tick` + `renderState`) Median / p95 / max | ausgelassene Ticks |
+|---|---|---|---|
+| Lobby | 16,68 / 16,8 ms | 0,20 / 0,37 / 3,7 ms | – |
+| Brett | 16,68 / 16,8 ms | 0,19 / 0,37 / 6,9 ms | – |
+| Minispiel, 138 Körper | 16,68 / 16,77 ms | 0,75 / 5,0 / **98 ms** | 5 von 600 |
+
+- **Nicht gemessen bzw. offen:**
+  - Die Spitze von 98 ms ist ungeklärt; vermutlich Aufbau der Minispiel-Bühne (am Mac bis 960 ms am Stück) oder Speicherbereinigung.
+  - Kein Beitritt mit der nativen Controller-App.
+  - Speicher über eine ganze Partie.
+  - Pause, Wiederverbindung, Revanche.
+  - Eingabe → Bild nicht gemessen.
+- **Darstellung (Ruben, 17.11.):** „die app ist unspielbar auf dem tv weil das garnicht die echten grafiken sind“. Erwartet für den Spike, der nur Grundkörper zeichnet. Die echte Grafik ist der nächste Schritt.
+
+**Entscheidung:** **keep (W2 bestätigt).** Hosten allein auf der Apple TV ist machbar: Die Spiellogik kostet im Median unter 1 ms je Bild. Weiter geht es mit der echten Darstellung (Brett-Kulisse und Figuren als USDZ, Regie, Minispiel-Grafik) und mit der Bühnen-Spitze (Aufbau verteilen).
