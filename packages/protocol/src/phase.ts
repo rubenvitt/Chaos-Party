@@ -11,6 +11,7 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'ready',
     'heartbeat',
     'host-hello',
+    'host-ready',
     'start',
     // v4 (CHAOS-36): Figurenwahl (Controller) und Rundenzahl (Host).
     'pick-character',
@@ -25,6 +26,7 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'reaction',
     'heartbeat',
     'host-hello',
+    'host-ready',
   ]),
   // Eingaben nur, wenn der Kontext sie anbietet (Minispiel läuft); prüft die Session.
   board: new Set<ClientMessageType>([
@@ -35,6 +37,7 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'release',
     'heartbeat',
     'host-hello',
+    'host-ready',
     'minigame-result',
     // v4 (CHAOS-36/37): Pause, vorzeitiges Ende, Revanche (nur in `game-results`, prüft die Session).
     'pause',

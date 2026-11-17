@@ -3,10 +3,11 @@
  *
  * Verliert der Host (PC-Tab) die Verbindung – Neuladen, Absturz, eingefrorener Tab –, pausiert
  * die Session die Partie selbst: keine Frist läuft ab, kein Minispiel wird abgebrochen, keine
- * Eingabe geht verloren an einen fehlenden Host. Kommt ein Host zurück, setzt die Session eine
- * solche Auto-Pause fort und schickt ihm den vollständigen Stand (Lobby + Brett mit Restzeiten
- * und Minispiel-Stand). Eine Pause, die der Host selbst ausgelöst hat, bleibt bis `resume`.
- * Künstliche Uhr, feste Seeds.
+ * Eingabe geht verloren an einen fehlenden Host. Kommt ein Host zurück, schickt die Session ihm
+ * den vollständigen Stand (Lobby + Brett mit Restzeiten und Minispiel-Stand), noch pausiert;
+ * erst sein `host-ready` (Szene und Figuren geladen, CHAOS-68) setzt die Auto-Pause fort, als
+ * Rückfall nach `hostReadyMs`. Eine Pause, die der Host selbst ausgelöst hat, bleibt bis `resume`.
+ * Künstliche Uhr, feste Seeds. `h.host()` meldet `host-ready` sofort (Szene ohne Ladezeit).
  */
 import { createMessage, type SlotNumber } from '@chaos-party/protocol';
 import { rankByScore } from '@chaos-party/minigame-sdk';
@@ -23,6 +24,7 @@ import {
   setupMinigameGame,
   TICK_MS,
 } from './testHarness.ts';
+import { DEFAULT_TIMEOUTS } from './session.ts';
 
 const ROTATION = rotationInfos().map((info) => info.id);
 
@@ -293,5 +295,165 @@ describe('Host-Verbindungsverlust (CHAOS-38)', () => {
     const lossy = run(true);
     expect(lossy.losses).toBe(2);
     expect(lossy.types).toEqual(run(false).types);
+  });
+});
+
+describe('Host lädt nach der Rückkehr noch (CHAOS-68)', () => {
+  it('Reload im Zug: die automatische Phase steht, bis der Host bereit ist; danach dieselbe Restzeit', () => {
+    const h = setupGame(3, INTEGRATION_SEEDS.three, { rounds: 2 });
+    // Mitten im Zug: gewürfelt, Laufen/Feldwirkung stehen als zeitgesteuerte Übergänge an.
+    h.runUntil((x) => x.events.some((e) => e.type === 'dice-rolled'));
+    const stateAtLoss = h.session.snapshot().game?.state;
+    if (stateAtLoss?.resumeAt === null || stateAtLoss?.resumeAt === undefined) {
+      throw new Error('kein Übergang geplant');
+    }
+    // Pausiert wird zum zuletzt verarbeiteten Zeitpunkt (`state.now`, CHAOS-38).
+    const remainingAtLoss = stateAtLoss.resumeAt - stateAtLoss.now;
+    const phaseAtLoss = stateAtLoss.phase;
+    const eventsBefore = h.events.length;
+
+    h.reloadHost({ ready: false });
+    // Host ist da und hat den Stand – noch pausiert, solange er lädt.
+    expect(h.session.snapshot()).toMatchObject({
+      hostConnected: true,
+      pausedBy: 'host-lost',
+      awaitingHostReady: true,
+    });
+    expect(lastView(h)).toMatchObject({ paused: true, gamePhase: phaseAtLoss });
+    // Laden dauert 20 s: kein Übergang, kein Ereignis.
+    idle(h, 20_000);
+    expect(h.session.snapshot().game?.state.phase).toBe(phaseAtLoss);
+    expect(h.events.length).toBe(eventsBefore);
+
+    h.hostReady();
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: null, awaitingHostReady: false });
+    expect(lastView(h).paused).toBe(false);
+    const resumeAt = h.session.snapshot().game?.state.resumeAt;
+    expect(resumeAt).toBe(h.clock + remainingAtLoss);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    assertContiguousEvents(h);
+    expect(h.events.some((e) => e.type === 'player-auto')).toBe(false);
+    expect(h.errors).toEqual([]);
+  });
+
+  it('Reload im Minispiel: Spielzeit steht während des Ladens, Restzeit danach vollständig', () => {
+    const id = ROTATION[0] ?? 'pump-parade';
+    const h = setupMinigameGame(id, 2, INTEGRATION_SEEDS.two, 1);
+    h.runUntil((x) => x.gamePhase === 'minigame-play');
+    idle(h, 2_000);
+    const playStartedAt = h.session.snapshot().game?.state.minigame?.playStartedAt ?? h.clock;
+    const elapsedAtLoss = h.clock - playStartedAt;
+
+    h.reloadHost({ ready: false });
+    expect(lastView(h)).toMatchObject({ paused: true, gamePhase: 'minigame-play' });
+    expect(lastView(h).minigame?.elapsedMs).toBe(elapsedAtLoss);
+    // Bühne lädt 8 s (Shader, Figuren): Controller-Eingaben werden weiter abgewiesen.
+    idle(h, 8_000);
+    const c1 = h.controllerOf(1);
+    h.send(c1.id, createMessage('press', { slot: 1, seq: ++c1.seq, button: 'a' }));
+    expect(h.errors.at(-1)).toEqual({ to: c1.id, code: 'paused' });
+    h.errors.length = 0;
+    expect(h.session.snapshot().game?.state.phase).toBe('minigame-play');
+
+    h.hostReady();
+    const view = lastView(h);
+    expect(view).toMatchObject({ paused: false, gamePhase: 'minigame-play' });
+    // Keine Restzeit ging beim Laden verloren.
+    expect(view.minigame?.elapsedMs).toBe(elapsedAtLoss);
+    expect(h.contexts.get(1)?.context.layout).toBe('joystick-buttons');
+
+    const sent = new Set<number>();
+    const startedAt = new Map<number, number>();
+    const pressed = new Map<SlotNumber, number>();
+    h.runUntil(
+      (x) => x.gamePhase === 'minigame-results',
+      10_000,
+      (x) => {
+        pressInMinigame(x, pressed);
+        playMinigameAsHost(x, { sent, startedAt });
+      },
+    );
+    expect(h.acks.at(-1)).toMatchObject({ accepted: true });
+    expect(lastView(h).minigame?.aborted).toBe(false);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    assertContiguousEvents(h);
+  });
+
+  it('Rückfall: ohne host-ready setzt der Server nach hostReadyMs selbst fort', () => {
+    const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 1 });
+    h.runUntil((x) => x.openPrompt('roll') !== null);
+    h.reloadHost({ ready: false });
+    idle(h, DEFAULT_TIMEOUTS.hostReadyMs - 1_000);
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: 'host-lost', awaitingHostReady: true });
+    idle(h, 2_000);
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: null, awaitingHostReady: false });
+    expect(lastView(h).paused).toBe(false);
+    // Ein spätes host-ready ändert nichts mehr.
+    h.hostReady();
+    expect(h.errors).toEqual([]);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    assertContiguousEvents(h);
+  });
+
+  it('Host geht beim Laden wieder verloren: Pause bleibt, auch über die Rückfallfrist hinaus', () => {
+    const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 1 });
+    h.runUntil((x) => x.openPrompt('roll') !== null);
+    h.reloadHost({ ready: false });
+    h.dropHost();
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: 'host-lost', awaitingHostReady: false });
+    idle(h, DEFAULT_TIMEOUTS.hostReadyMs + 10_000);
+    expect(h.session.snapshot().game?.state.paused).toBe(true);
+    h.host({ ready: false });
+    expect(lastView(h).paused).toBe(true);
+    h.hostReady();
+    expect(lastView(h).paused).toBe(false);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    assertContiguousEvents(h);
+    expect(h.errors).toEqual([]);
+  });
+
+  it('Host pausiert selbst, während er noch lädt: seine Pause bleibt auch nach host-ready', () => {
+    const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 1 });
+    h.runUntil((x) => x.openPrompt('roll') !== null);
+    h.reloadHost({ ready: false });
+    h.pause();
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: 'host', awaitingHostReady: false });
+    h.hostReady();
+    idle(h, DEFAULT_TIMEOUTS.hostReadyMs + 1_000);
+    expect(h.session.snapshot().pausedBy).toBe('host');
+    expect(lastView(h).paused).toBe(true);
+    expect(h.errors).toEqual([]);
+    h.resume();
+    expect(lastView(h).paused).toBe(false);
+    h.runToEnd();
+    expect(h.gamePhase).toBe('game-results');
+    assertContiguousEvents(h);
+  });
+
+  it('„Weiter“ während des Ladens setzt sofort fort', () => {
+    const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 1 });
+    h.runUntil((x) => x.openPrompt('roll') !== null);
+    h.reloadHost({ ready: false });
+    h.resume();
+    expect(h.session.snapshot()).toMatchObject({ pausedBy: null, awaitingHostReady: false });
+    expect(lastView(h).paused).toBe(false);
+    h.hostReady();
+    expect(h.errors).toEqual([]);
+  });
+
+  it('host-ready ohne Auto-Pause (Lobby, laufende Partie, eigene Pause) ändert nichts', () => {
+    const h = setupGame(2, INTEGRATION_SEEDS.two, { rounds: 1 });
+    h.runUntil((x) => x.openPrompt('roll') !== null);
+    const boardsBefore = h.boards.length;
+    h.hostReady();
+    expect(h.boards.length).toBe(boardsBefore);
+    h.pause();
+    h.hostReady();
+    expect(h.session.snapshot().pausedBy).toBe('host');
+    expect(h.errors).toEqual([]);
   });
 });

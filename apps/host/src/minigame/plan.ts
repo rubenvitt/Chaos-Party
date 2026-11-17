@@ -59,7 +59,9 @@ export function remainingPlayMs(view: BoardView, receivedAt: number, now: number
   const minigame = view.minigame;
   if (!minigame) return 0;
   const elapsed = minigame.elapsedMs ?? 0;
-  const sinceReceive = minigame.elapsedMs === null ? 0 : Math.max(0, now - receivedAt);
+  // In der Pause (auch der Auto-Pause beim Neuladen, CHAOS-68) läuft keine Spielzeit.
+  const sinceReceive =
+    minigame.elapsedMs === null || view.paused ? 0 : Math.max(0, now - receivedAt);
   return Math.max(0, Math.round(minigame.playMs - elapsed - sinceReceive));
 }
 

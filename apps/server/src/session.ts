@@ -18,7 +18,8 @@
  * M4 (ADR-015): Figurenwahl und Rundenzahl in der Lobby, Pause/Fortsetzen/Beenden und
  * Revanche (zurück in die Lobby) sowie die Bestätigung von Minispiel-Ergebnissen. Verliert der
  * Host im laufenden Brettspiel die Verbindung, pausiert die Session die Partie selbst
- * (Auto-Pause, CHAOS-38) und setzt sie fort, sobald wieder ein Host da ist.
+ * (Auto-Pause, CHAOS-38) und setzt sie fort, sobald wieder ein Host da ist und Szene und
+ * Figuren geladen hat (`host-ready`, CHAOS-68).
  */
 import {
   CHARACTER_IDS,
@@ -108,6 +109,12 @@ export interface SessionTimeouts {
   hostSilenceMs: number;
   /** In der Lobby bleibt der Slot eines getrennten Controllers so lange reserviert. */
   lobbyGraceMs: number;
+  /**
+   * Rückfall für die Auto-Pause (CHAOS-68): Meldet ein zurückgekehrter Host so lange nach
+   * `host-hello` kein `host-ready`, setzt der Server trotzdem fort (Host ohne die Nachricht,
+   * Szene lädt nie fertig).
+   */
+  hostReadyMs: number;
 }
 
 export const DEFAULT_TIMEOUTS: Readonly<SessionTimeouts> = {
@@ -115,6 +122,7 @@ export const DEFAULT_TIMEOUTS: Readonly<SessionTimeouts> = {
   controllerSilenceMs: 15_000,
   hostSilenceMs: 30_000,
   lobbyGraceMs: 60_000,
+  hostReadyMs: 30_000,
 };
 
 /** Nach so vielen ungültigen Nachrichten wird eine Verbindung geschlossen. */
@@ -212,6 +220,11 @@ export interface SessionSnapshot {
    * weil der Host die Verbindung verlor, CHAOS-38) oder `null` (keine Pause).
    */
   pausedBy: PauseCause | null;
+  /**
+   * Auto-Pause wartet auf `host-ready` des zurückgekehrten Hosts (CHAOS-68): Host ist wieder
+   * verbunden, lädt aber noch Szene und Figuren.
+   */
+  awaitingHostReady: boolean;
 }
 
 /** Auslöser einer Pause (nur Server-intern und Diagnose; das Protokoll kennt nur `paused`). */
@@ -272,6 +285,11 @@ export class Session {
   private readonly contextKeys = new Map<SlotNumber, string>();
   /** Auslöser der laufenden Pause (`null` = keine). */
   private pauseCause: PauseCause | null = null;
+  /**
+   * Frist, bis zu der eine Auto-Pause auf `host-ready` des zurückgekehrten Hosts wartet
+   * (CHAOS-68); `null` = es wartet nichts.
+   */
+  private hostReadyDeadline: number | null = null;
 
   /** Gesammelte Aktionen des laufenden Ereignisses. */
   private out: Outgoing[] = [];
@@ -404,6 +422,10 @@ export class Session {
         }
       }
       if (this.phaseValue === 'lobby') this.releaseExpiredSlots(now);
+      if (this.hostReadyDeadline !== null && now >= this.hostReadyDeadline) {
+        // Rückfall (CHAOS-68): Host meldet sich nicht bereit – weiter wie vor CHAOS-68.
+        this.resumeAfterHostLoss();
+      }
       this.game?.apply({ type: 'tick', at: now });
     });
   }
@@ -428,6 +450,7 @@ export class Session {
       game: this.game ? { seed: this.game.seed, state: this.game.state } : null,
       rounds: this.rounds,
       pausedBy: this.game?.paused ? this.pauseCause : null,
+      awaitingHostReady: this.hostReadyDeadline !== null,
     };
   }
 
@@ -504,6 +527,10 @@ export class Session {
         return;
       case 'heartbeat':
         this.send(conn.id, createMessage('heartbeat-ack', { t: message.t }));
+        return;
+      case 'host-ready':
+        // Szene und Figuren geladen (CHAOS-68). Wartet keine Auto-Pause darauf: nichts zu tun.
+        if (this.hostReadyDeadline !== null) this.resumeAfterHostLoss();
         return;
       default:
         break;
@@ -589,9 +616,17 @@ export class Session {
       this.reject(host, 'out-of-phase', 'Kein Spiel läuft');
       return;
     }
+    if (type === 'pause' && game.paused && this.pauseCause === 'host-lost') {
+      // Host pausiert, während die Auto-Pause noch auf sein `host-ready` wartet (CHAOS-68):
+      // daraus wird seine eigene Pause, die bis `resume` bleibt.
+      this.pauseCause = 'host';
+      this.hostReadyDeadline = null;
+      return;
+    }
     const result = game.apply({ type: type === 'end-game' ? 'end' : type, at: this.now() });
     if (result.ok) {
       this.pauseCause = game.paused ? 'host' : null;
+      this.hostReadyDeadline = null;
       return;
     }
     this.reject(
@@ -614,6 +649,7 @@ export class Session {
     const now = this.now();
     this.game = null;
     this.pauseCause = null;
+    this.hostReadyDeadline = null;
     this.phaseValue = 'lobby';
     this.contextKeys.clear();
     for (const player of this.sortedPlayers()) {
@@ -637,7 +673,7 @@ export class Session {
     conn.role = 'host';
     this.hostId = conn.id;
     this.lobbyDirty = true;
-    this.resumeAfterHostLoss();
+    this.awaitHostReady();
     this.sendBoardSnapshot(conn.id);
   }
 
@@ -1007,6 +1043,8 @@ export class Session {
     this.connections.delete(id);
     if (conn.role === 'host' && this.hostId === id) {
       this.hostId = null;
+      // Ging er schon beim Laden wieder verloren, wartet die Auto-Pause auf den nächsten Host.
+      this.hostReadyDeadline = null;
       this.pauseForHostLoss();
     }
     if (conn.role === 'controller') {
@@ -1030,8 +1068,9 @@ export class Session {
    * laufen nicht und Ergebnisse kämen nie an. Darum pausiert die Session eine laufende Partie,
    * sobald der Host weg ist (Neuladen, Absturz, Herzschlag-Timeout). game-core verschiebt beim
    * Fortsetzen alle Fristen; ein laufendes Minispiel wird so nicht abgebrochen. Sobald wieder
-   * ein Host da ist, geht es weiter (`resumeAfterHostLoss`); eine Pause, die der Host selbst
-   * ausgelöst hat, bleibt dagegen bis zu seinem `resume` bestehen.
+   * ein Host da ist und Szene und Figuren geladen hat (`host-ready`, CHAOS-68), geht es weiter
+   * (`resumeAfterHostLoss`); eine Pause, die der Host selbst ausgelöst hat, bleibt dagegen bis
+   * zu seinem `resume` bestehen.
    *
    * Pausiert wird zum zuletzt verarbeiteten Zeitpunkt (`state.now`), nicht zu „jetzt“: Sonst
    * erzeugte der Pause-Schritt Übergänge, die seit dem letzten Takt fällig wurden, und deren
@@ -1046,12 +1085,22 @@ export class Session {
   }
 
   /**
-   * Neuer Host nach einer Auto-Pause: fortsetzen, bevor er den Stand bekommt (ADR-015 Nachtrag).
-   * Er sieht also `paused: false` mit den Restzeiten vom Moment des Abrisses; die Zeit ohne
-   * Host zählt für niemanden. Wie nach einem Reload in M3 startet er ein laufendes Minispiel mit
-   * der Restzeit neu.
+   * Neuer Host nach einer Auto-Pause (CHAOS-68, ADR-015 Nachtrag 3): Er bekommt den Stand noch
+   * pausiert und lädt in Ruhe Brett bzw. Minispiel-Bühne samt Figuren. Erst sein `host-ready`
+   * setzt fort; meldet er sich nicht binnen `hostReadyMs`, setzt `tick` trotzdem fort.
+   */
+  private awaitHostReady(): void {
+    if (!this.game?.paused || this.pauseCause !== 'host-lost') return;
+    this.hostReadyDeadline = this.now() + this.timeouts.hostReadyMs;
+  }
+
+  /**
+   * Auto-Pause beenden, sobald der zurückgekehrte Host bereit ist (`host-ready`) oder die
+   * Rückfallfrist abläuft. Die Restzeiten gelten vom Moment des Abrisses; die Zeit ohne Host
+   * und die Ladezeit zählen für niemanden. Ein laufendes Minispiel läuft mit der Restzeit weiter.
    */
   private resumeAfterHostLoss(): void {
+    this.hostReadyDeadline = null;
     const game = this.game;
     if (!game?.paused || this.pauseCause !== 'host-lost') return;
     const result = game.apply({ type: 'resume', at: this.now() });

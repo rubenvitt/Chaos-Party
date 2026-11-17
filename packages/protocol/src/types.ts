@@ -37,6 +37,7 @@ import type {
   HeartbeatAckMessageSchema,
   HeartbeatMessageSchema,
   HostHelloMessageSchema,
+  HostReadyMessageSchema,
   HostMessageSchema,
   InputIntentSchema,
   InputMessageSchema,
@@ -98,6 +99,7 @@ export type ControllerMessage = z.infer<typeof ControllerMessageSchema>;
 
 // Host → Server
 export type HostHelloMessage = z.infer<typeof HostHelloMessageSchema>;
+export type HostReadyMessage = z.infer<typeof HostReadyMessageSchema>;
 export type StartMessage = z.infer<typeof StartMessageSchema>;
 export type MinigameResultMessage = z.infer<typeof MinigameResultMessageSchema>;
 export type ConfigureMessage = z.infer<typeof ConfigureMessageSchema>;

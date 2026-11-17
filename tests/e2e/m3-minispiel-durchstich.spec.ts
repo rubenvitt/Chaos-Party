@@ -207,7 +207,7 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     });
   });
 
-  test('Host-Neuladen mitten im Spiel: Neustart mit Restzeit; Ergebnis nach Verbindungsabbruch erneut gesendet', async ({
+  test('Host-Neuladen mitten im Spiel: Pause bis die Bühne steht, Neustart mit Restzeit; Ergebnis nach Verbindungsabbruch erneut gesendet', async ({
     page: host,
     chaosServer,
   }) => {
@@ -225,12 +225,41 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     expect(firstLimit).toBeGreaterThan(PLAY_MS - 5_000);
 
     // Neuladen: Die Bühne startet neu, mit der Restzeit laut Server (nicht der vollen Zeit).
+    // Die Figuren (GLB) halten wir zurück, damit die Bühne sicher 3 s lädt: So lange bleibt die
+    // Auto-Pause stehen (CHAOS-68), erst `host-ready` setzt fort – keine Restzeit geht verloren.
+    const session = chaosServer.server.session;
+    let releaseModels: (() => void) | undefined;
+    const modelsHeld = new Promise<void>((resolve) => {
+      releaseModels = resolve;
+    });
+    await host.route(/\.glb(\?|$)/, async (route) => {
+      await modelsHeld;
+      await route.continue();
+    });
     await host.reload();
+    await expect.poll(() => session.snapshot().awaitingHostReady, { timeout: 15_000 }).toBe(true);
+    const atLoss = session.snapshot().game?.state;
+    const startedBefore = atLoss?.minigame?.playStartedAt ?? null;
+    const pausedAt = atLoss?.pausedAt ?? null;
+    if (startedBefore === null || pausedAt === null) throw new Error('Minispiel nicht pausiert');
+    const elapsedAtLoss = pausedAt - startedBefore;
+    await host.waitForTimeout(3_000);
+    expect(session.snapshot()).toMatchObject({ pausedBy: 'host-lost', awaitingHostReady: true });
+    expect(session.snapshot().game?.state.phase).toBe('minigame-play');
+    await expect(host.getByTestId('pause-overlay')).toHaveCount(0);
+
+    releaseModels?.();
     await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'play');
     await waitForRunning(host);
+    await expect.poll(() => session.snapshot().pausedBy).toBeNull();
+    await host.unroute(/\.glb(\?|$)/);
+    // Die Ladezeit zählt als Pause: Startzeitpunkt um mindestens 3 s verschoben.
+    const startedAfter = session.snapshot().game?.state.minigame?.playStartedAt ?? 0;
+    expect(startedAfter - startedBefore).toBeGreaterThanOrEqual(3_000);
     const restarted = await host.evaluate(() => window.__chaosMinigame?.hud() ?? null);
     expect(restarted?.remainingMs).toBeLessThan(PLAY_MS);
-    expect(restarted?.remainingMs).toBeGreaterThan(3_000);
+    // Neustart mit der Restzeit vom Moment des Abrisses (Toleranz für Takt und Bildschritte).
+    expect(restarted?.remainingMs).toBeGreaterThan(PLAY_MS - elapsedAtLoss - 1_500);
     expect(restarted?.scores.every((entry) => entry.score === 0)).toBe(true);
 
     // Bot 2 pumpt dreimal; die Eingaben kommen an der neu geladenen Bühne an.

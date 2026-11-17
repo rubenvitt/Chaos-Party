@@ -9,10 +9,12 @@ spikes/renderer-bevy/target/
 spikes/renderer-bevy/web/pkg-*/
 spikes/renderer-bevy/web/assets/
 spikes/renderer-bevy/assets/
+# Von Xcode geschriebene Asset-Kataloge (Format „author: xcode“); Prettier würde sie gegen Xcode umformatieren.
+*.xcassets/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
 .claude/
 # Generierter Fixture-Korpus der nativen Controller-App (scripts/export-protocol-fixtures.mjs).
 apps/controller-ios/Tests/Fixtures/
-# Xcode-Asset-Kataloge (Contents.json) schreibt Xcode selbst; nicht von Prettier umformatieren.
+# Von Xcode verwaltete Asset-Kataloge (Xcode schreibt sie in eigenem Format zurück).
 *.xcassets/
