@@ -284,6 +284,16 @@ export function App({ config }: AppProps) {
   }, [command, local]);
   const getResultState = useCallback(() => results.state, [results]);
 
+  // Bühne der aktuellen Phase fertig (Szene, Figuren; im Brett auch der erste Stand)?
+  const stageReady = minigameModule ? minigameReady : boardMode ? boardReady : sceneReady;
+  // Erst dann setzt der Server eine Auto-Pause nach dem Neuladen fort (CHAOS-68).
+  const hostReady =
+    !local && session.lobby !== null && stageReady && (!boardMode || latest.view !== null);
+  const reportStageReady = session.setSceneReady;
+  useEffect(() => {
+    reportStageReady(hostReady);
+  }, [reportStageReady, hostReady]);
+
   useEffect(() => {
     playersRef.current = players;
     sceneRef.current?.setPlayers(players);
@@ -293,9 +303,7 @@ export function App({ config }: AppProps) {
     <main
       className="host"
       data-physics={boardMode ? 'off' : physics}
-      data-scene={
-        (minigameModule ? minigameReady : boardMode ? boardReady : sceneReady) ? 'ready' : 'loading'
-      }
+      data-scene={stageReady ? 'ready' : 'loading'}
       data-mode={local ? 'local' : 'server'}
       data-phase={phase}
       data-minigame={minigameModule?.info.id}
@@ -346,7 +354,9 @@ export function App({ config }: AppProps) {
           />
         </>
       )}
-      {!local && boardMode && <PauseControls view={latest.view} onCommand={command} />}
+      {!local && boardMode && (
+        <PauseControls view={latest.view} loading={!stageReady} onCommand={command} />
+      )}
       <PlayerToasts players={players} enabled={!local} />
       {monitor && <DebugOverlay monitor={monitor} getRenderer={getRenderer} testMode={test} />}
       {!local && phase === 'lobby' && session.status !== null && (

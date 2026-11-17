@@ -43,6 +43,11 @@ export interface HostSession {
   readonly command: (command: HostCommand) => boolean;
   /** Letzte Bestätigung eines Minispiel-Ergebnisses (v4, CHAOS-55) oder `null`. */
   readonly resultAck: MinigameResultAckMessage | null;
+  /**
+   * Bühne (Brett bzw. Minispiel samt Figuren) geladen ja/nein (CHAOS-68): `true` meldet dem
+   * Server `host-ready`, der dann eine Auto-Pause nach Host-Verlust fortsetzt. Stabile Referenz.
+   */
+  readonly setSceneReady: (ready: boolean) => void;
 }
 
 /**
@@ -55,6 +60,7 @@ export function useHostSession(url: string | null): HostSession {
   const [feed] = useState(() => createBoardFeed());
   const [results] = useState(() => createResultSender());
   const connectionRef = useRef<HostConnection | null>(null);
+  const sceneReadyRef = useRef(false);
   const [status, setStatus] = useState<ConnectionStatus | null>(url === null ? null : 'connecting');
   const [lobby, setLobby] = useState<LobbyMessage | null>(null);
   const [resultAck, setResultAck] = useState<MinigameResultAckMessage | null>(null);
@@ -91,6 +97,7 @@ export function useHostSession(url: string | null): HostSession {
       },
     });
     connectionRef.current = connection;
+    connection.setSceneReady(sceneReadyRef.current);
     results.setTransport((result) => connection.sendMinigameResult(result));
     return () => {
       connection.close();
@@ -115,6 +122,11 @@ export function useHostSession(url: string | null): HostSession {
     [],
   );
 
+  const setSceneReady = useCallback((ready: boolean) => {
+    sceneReadyRef.current = ready;
+    connectionRef.current?.setSceneReady(ready);
+  }, []);
+
   return {
     status,
     lobby,
@@ -126,5 +138,6 @@ export function useHostSession(url: string | null): HostSession {
     submitMinigameResult,
     command,
     resultAck,
+    setSceneReady,
   };
 }

@@ -13,6 +13,8 @@
  * `minigame-result-ack`, `game-ended.endedEarly`.
  * v4-Nachtrag (CHAOS-40, additiv, ohne Versionssprung): Lobby-Kontext `takenBy`
  * (vergebene Figuren mit Besitzer-Slot, optional).
+ * v4-Nachtrag (CHAOS-68, additiv, ohne Versionssprung): Host-Nachricht `host-ready` (Szene und
+ * Figuren geladen); erst danach setzt der Server eine Auto-Pause nach Host-Verlust fort.
  */
 export const PROTOCOL_VERSION = 4;
 

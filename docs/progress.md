@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; CHAOS-68: nach Host-Neuladen erst fortsetzen, wenn die Bühne steht) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -84,6 +84,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-43 | **M4-Abnahme (Ruben)** | APPROVED 2026-11-16 (trotz Ruckeln, „hakelig langsam“) |
 | CHAOS-73 | Ruckeln auf echter GPU: PCSS-Filterstufe `LOW`, Auflösungsgrenze je Grafikstufe, Automatik merkt sich die Stufe ([EXP-014](experiments.md)) | im PR, Messung an Rubens PC/Fernseher offen |
 | CHAOS-75 (Backlog CHAOS-44) | Renderer-Spike: `?gpu=webgpu` am Brett, Bevy-Prototyp (WebAssembly + nativ) mit exportierter Brett-Szene, Recherche tvOS ([EXP-015](experiments.md), [ADR-016](decisions/ADR-016-renderer.md) Entwurf, [`renderer-spike.md`](renderer-spike.md)) | im PR, Messbogen R1–R11 durch Ruben offen |
+| CHAOS-68 (Backlog CHAOS-44) | Auto-Pause endet erst mit `host-ready` (Bühne samt Figuren geladen), Rückfall nach 30 s; KI-6 behoben ([ADR-015 Nachtrag 3](decisions/ADR-015-vertical-slice.md)) | im PR |
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | im PR, echte Apple TV (R12) und saubere Mac-Messung (R13/R14) offen |
 
 ### Messwerte Performance (CHAOS-39)
