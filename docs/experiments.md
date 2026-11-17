@@ -1410,6 +1410,8 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 
 **Entscheidung:** **iterate** – RealityKit rendert die Szene mit allen Instanzen auf allen Apple-Plattformen. Auf der echten Apple TV 4K reicht es bei 4K-Ausgabe nur für 20 fps; weil Ruben bei 4K-Ausgabe bleibt, muss ein tvOS-Host die Pixelkosten senken: geringere interne Auflösung mit Hochskalierung (z. B. MetalFX, eigene Render-Pipeline statt ARView) und gezielte Profilierung mit Instruments. Danach ADR für den tvOS-Host als Entwurf; Rubens Entscheidung zu CHAOS-74 (Produktsäule) steht aus.
 
+**Nachtrag 2026-11-17:** Weiter in [EXP-020](#exp-020-apple-tv-bei-4k-ausgabe--interne-auflösung-hochskalierung-profilierung-2026-11-17-chaos-114) (CHAOS-114): interne Auflösung mit Hochskalierung und Diagnose-Schalter.
+
 ---
 
 ## EXP-018: Wachsende Sabotage über die Partiedauer (2026-11-17, CHAOS-67)
@@ -1663,6 +1665,34 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 **Offen für Playtest:** Fühlt sich der Trostpreis wie ein Trost an oder wie Belohnung fürs Verlieren? Wird die Ergebniskarte mit Item-Zeile noch in den 6 s gelesen? Ist Sabotage zu zweit jetzt spürbar, aber nicht nervig? Bemerkt jemand Trophäen, die lange hinter allen liegen?
 
 **Für später (CHAOS-44):** Hinweiston am Controller beim Angriff (CHAOS-122) und längeres Reaktionsfenster als Barrierefreiheits-Option (CHAOS-124). `trophy.placement: 'ahead'` nach dem Playtest. Aufholhilfe (CHAOS-65) mit dem Trostpreis neu bewerten. Trostpreis und wachsende Sabotage (EXP-018) zusammen im Playtest beurteilen: Beide machen späte Runden bissiger.
+
+---
+
+## EXP-020: Apple TV bei 4K-Ausgabe – interne Auflösung, Hochskalierung, Profilierung (2026-11-17, CHAOS-114)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben bleibt bei 4K-Ausgabe (17.11.). Die RealityKit-Testszene läuft auf der Apple TV 4K (A15) mit 20 fps, die ARView braucht 34,7 ms GPU je Bild und ist pixelgebunden (EXP-017). Rendert die Szene intern mit 1920×1080 oder 2560×1440 und wird auf 4K hochskaliert, sinken die Pixelkosten auf ¼ bzw. ~45 %. Erwartung: ≥ 30 fps sicher, 60 fps bei 0,5 wahrscheinlich, bei sichtbar weicherem, aber am Fernseher aus Sofa-Abstand vertretbarem Bild. Ruben hat am 17.11. die Apple TV als Host freigegeben (ADR-019, CHAOS-74). Ohne flüssige 4K-Ausgabe erreicht ein tvOS-Host das Ziel aber nicht.
+
+**Varianten** (`spikes/renderer-realitykit`, `--hochskalieren=1`, `messreihe-atv.sh`):
+
+| # | Variante | Erwartete Abwägung |
+|---|---|---|
+| V8 | ARView (Bezug, wie R12) | 20 fps, volle Schärfe |
+| V9 | `RealityRenderer` intern 0,5 (1920×1080) + MetalFX Spatial → 4K | schnellste Variante; weicher, MetalFX schärft nach |
+| V10 | wie V9, bilinear statt MetalFX | billiger als MetalFX, sichtbar weicher; Rückfall für tvOS < 27.2 |
+| V11 | intern 0,667 (2560×1440) + MetalFX | Mittelweg Schärfe/Kosten |
+| V12 | V9/V11 mit MSAA aus | spart Auflösungs-Durchgang; mehr Treppen, die MetalFX teils glättet |
+| V13 | `--imflug=1/2/3` | Überlappung von CPU und GPU gegen Verzögerung |
+| D1–D6 | Diagnose bei nativer 4K (`--skala=1`): MSAA, Tonemapping, IBL, `material=einfach`, `material=unbeleuchtet`, alles aus | zeigt, welcher Kostenblock die 34,7 ms trägt |
+
+**Messgrößen:** Anzeige-fps sowie Median/p95 der angezeigten Bildabstände (`presentedTime`, `SPIKE-ERGEBNIS`); GPU je Bild aus dem Metal-HUD; GPU-Zeit des Hochskalierens; ausgelassene Takte. Instruments (Metal System Trace) für die Aufteilung auf RealityKit-Durchgänge. Subjektiv: Schärfe aus Sofa-Abstand (Schilder, Gras, Figurenränder) gegen ARView, `--bild=…` als Beleg.
+
+**Testumgebung:** Apple TV 4K (3. Gen., A15), Ausgabe 3840×2160 bei 60 Hz, Release-Build, volle Szene (64 246 Instanzen), kein Seed nötig (keine Zufallsanteile).
+
+**Stand 2026-11-17:** Prototyp und Messreihen-Skript geschrieben, **noch nicht gemessen.** Die CI (Xcode 26.6, SDK 26.5) baut den Spike für macOS, iOS und tvOS ohne Fehler. Das tvOS-SDK 26.5 enthält kein MetalFX, dort ist nur der bilineare Weg übersetzt. Gelaufen ist der Pfad noch nirgends. Die Auswertung des Skripts ist mit Beispiel-Logs geprüft. Nebenbefund zu EXP-017: Die seriellen Offscreen-Werte (720p 33,2 ms ≈ zwei Bildwechsel bei 60 Hz) sind vermutlich an den Anzeigetakt gebunden und unterschätzen die Reserve. Die überlappende Schleife misst das sauberer.
+
+**Ergebnisse:** offen (Ruben misst, Gerätecheckliste §18, Messbogen R16–R19 in [`renderer-spike.md`](renderer-spike.md)).
+
+**Entscheidung:** offen. Kriterium aus CHAOS-114: 4K-Ausgabe mit ≥ 30 fps stabil, Ziel 60 fps.
 
 ---
 

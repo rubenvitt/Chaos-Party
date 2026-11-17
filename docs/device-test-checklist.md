@@ -398,3 +398,18 @@ Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Sz
 | RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p entfällt: Ruben bleibt bei 4K-Ausgabe (17.11.) | EXP-017 |
 | RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | | |
 | RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | | |
+
+## 18. Apple TV bei 4K: interne Auflösung und Hochskalierung (für CHAOS-114)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-114 · **Experiment:** [EXP-020](experiments.md) · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md), Abschnitt „Hochskalierter Pfad und Profilierung“
+
+Automatisch geprüft ist nur der Build: Die CI (Xcode 26.6) baut für macOS, iOS und tvOS, mit dem tvOS-SDK 26.5 ohne MetalFX. Alles Weitere braucht Rubens Mac und die echte Apple TV.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| RK7 | Mac: `xcodegen generate`, Release für macOS und tvOS bauen | baut ohne Fehler; sonst Fehlermeldung an CHAOS-114 | | Build-Log |
+| RK8 | Mac: `ChaosRenderSpike --hochskalieren=1 --sekunden=20` und `--skalierer=bilinear` | Bild erscheint, `SPIKE-ERGEBNIS` mit `"spike":"CHAOS-114"`, `skalierer` `metalfx-spatial` bzw. `bilinear` | | Log |
+| RK9 | Apple TV: tvOS-Version notieren (Einstellungen → Allgemein → Info); MetalFX braucht ≥ 27.2 | Version notiert | | |
+| RK10 | Apple TV: `./messreihe-atv.sh <ID> 20` (alle Varianten, ca. 10 Min.) | `zusammenfassung.tsv`; Ziel: `hoch-0.5-metalfx` ≥ 30 fps stabil, besser 60 (R16–R19) | | TSV + Logs |
+| RK11 | Apple TV: `--hochskalieren=1 --bild=…` für 0,5 und 0,667 sowie die ARView am Fernseher ansehen | Schärfe aus Sofa-Abstand vertretbar? Schilder lesbar, Gras nicht matschig | | Bilder, Eindruck |
+| RK12 | Instruments: Metal System Trace je einmal ARView und `--hochskalieren=1 --skala=1` | größte GPU-Durchgänge mit Dauer notiert | | `.trace` oder Bildschirmfoto |

@@ -41,19 +41,25 @@ struct ChaosRenderSpikeApp: App {
 #if os(macOS)
 struct SpikeView: NSViewRepresentable {
     let meter: Meter
-    func makeNSView(context: Context) -> ARView { makeView() }
-    func updateNSView(_ view: ARView, context: Context) {}
+    func makeNSView(context: Context) -> NSView { makeView() }
+    func updateNSView(_ view: NSView, context: Context) {}
 }
 #else
 struct SpikeView: UIViewRepresentable {
     let meter: Meter
-    func makeUIView(context: Context) -> ARView { makeView() }
-    func updateUIView(_ view: ARView, context: Context) {}
+    func makeUIView(context: Context) -> UIView { makeView() }
+    func updateUIView(_ view: UIView, context: Context) {}
 }
 #endif
 
 extension SpikeView {
-    @MainActor func makeView() -> ARView {
+    @MainActor func makeView() -> PlatformView {
+        if meter.settings.upscale {
+            // CHAOS-114: eigene Render-Schleife mit interner Auflösung und Hochskalierung.
+            let view = MetalLayerView(frame: .zero)
+            meter.startUpscaled(view)
+            return view
+        }
         #if os(iOS)
         let view = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         #else

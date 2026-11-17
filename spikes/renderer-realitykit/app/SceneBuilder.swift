@@ -100,6 +100,7 @@ struct SceneBuilder {
             playIdle(figure)
             HostClient.shared.pawns[pawn.slot] = figure
         }
+        if settings.materials != "voll" { overrideMaterials(in: root) }
         return Built(root: root, camera: camera, instances: instanceCount,
                      clearColor: CGColor(red: CGFloat(clear[0]), green: CGFloat(clear[1]), blue: CGFloat(clear[2]), alpha: 1),
                      sky: skyResource, skyExponent: log2(max(meta.sky?.intensity ?? 0.35, 0.01) * Float(settings.skyScale)))
@@ -169,6 +170,35 @@ struct SceneBuilder {
         // Wie Bevy: das Grundmesh selbst ausblenden, nur die Instanzen zeigen.
         if !detached { node.isEnabled = false }
         return (component, local)
+    }
+
+    /// CHAOS-114, Diagnose: alle Materialien durch eines ohne Texturen ersetzen (`--material=einfach|unbeleuchtet`).
+    /// Der Unterschied zur vollen Szene zeigt, was Texturen und Materialvielfalt an Pixelkosten tragen.
+    private func overrideMaterials(in root: Entity) {
+        let replacement: any Material
+        if settings.materials == "unbeleuchtet" {
+            replacement = UnlitMaterial(color: .gray)
+        } else {
+            var pbr = PhysicallyBasedMaterial()
+            pbr.baseColor = .init(tint: .gray)
+            pbr.roughness = 0.8
+            pbr.metallic = 0.0
+            pbr.faceCulling = .none
+            replacement = pbr
+        }
+        var models = 0, slots = 0
+        var stack = [root]
+        while let entity = stack.popLast() {
+            stack += entity.children
+            guard var model = entity.components[ModelComponent.self] else { continue }
+            // Auch Teile ohne Material (Vertexfarben aus dem Konverter, darunter Gras) bekommen das Ersatzmaterial.
+            let count = max(1, model.materials.count)
+            slots += count
+            model.materials = Array(repeating: replacement, count: count)
+            entity.components.set(model)
+            models += 1
+        }
+        log("Materialien ersetzt (\(settings.materials)): \(models) Modelle, \(slots) Material-Slots")
     }
 
     private func playIdle(_ figure: Entity) {
