@@ -57,7 +57,7 @@ import {
 } from '../lighting/moods.ts';
 import { applyNatureLook, type NatureLook } from '../nature/lighting.ts';
 import { NatureMaterials } from '../nature/materials.ts';
-import { createAdaptiveQuality, QUALITY } from '../nature/quality.ts';
+import { createAdaptiveQuality, QUALITY, qualityLabel } from '../nature/quality.ts';
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { MoveStyle } from './animation.ts';
@@ -1080,7 +1080,7 @@ export function createBoardScene(
     getRendererInfo(): RendererInfo {
       return {
         ...rendererInfo(engine),
-        ...(lighting ? { quality: `${lighting.quality}${look.automatic ? ' (auto)' : ''}` } : {}),
+        ...(lighting ? { quality: qualityLabel(lighting.quality, look.automatic) } : {}),
       };
     },
     setRenderPaused(paused) {

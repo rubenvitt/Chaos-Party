@@ -328,7 +328,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 
 **Stand:** 2026-11-15 · **Aufgabe:** CHAOS-62 · **ADR:** [ADR-014](decisions/ADR-014-natur-look.md) · Belege der Automatik: `docs/screenshots/chaos62-*.jpg` (volle Stufe, Software-Rendering, nur Optik, keine Bildrate)
 
-Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“) und die tatsächliche Renderauflösung (seit CHAOS-73 höchstens 2560×1440 bei `hoch`, 1920×1080 bei `mittel`, 1600×900 bei `niedrig`). Stuft die Automatik ab, gilt die Stufe für den Rest der Sitzung (Neuladen setzt sie zurück). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
+Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe und die erkannte Bildwiederholrate („Grafik hoch (auto, 60 Hz)“, CHAOS-76) und die tatsächliche Renderauflösung (seit CHAOS-73 höchstens 2560×1440 bei `hoch`, 1920×1080 bei `mittel`, 1600×900 bei `niedrig`). Stuft die Automatik ab, gilt die Stufe für den Rest der Sitzung (Neuladen setzt sie zurück). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
@@ -339,6 +339,7 @@ Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `min
 | N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
 | N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Lichtverlauf je Runde: Abschnitt 14) | | |
 | N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |
+| N8 | Nur falls ein Bildschirm mit 30 Hz (oder 50 Hz) vorhanden ist, z. B. 4K-Fernseher über HDMI 1.4 (CHAOS-76): Host **ohne** `?qualitaet` und mit `?debug=1` öffnen, Brett 2 min laufen lassen | Debug-Zeile zeigt „Grafik hoch (auto, 30 Hz)“ (bzw. 50 Hz) und bleibt bei `hoch`, solange das Bild flüssig ist; fps um 30. Stuft sie trotzdem ab: Grafikkarte, Hz-Angabe und fps notieren | | |
 
 ## 14. Lichtverlauf je Runde am Fernseher (für CHAOS-56/CHAOS-63)
 

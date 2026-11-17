@@ -32,7 +32,7 @@ import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import type { NatureLook } from '../nature/lighting.ts';
-import { createAdaptiveQuality } from '../nature/quality.ts';
+import { createAdaptiveQuality, qualityLabel } from '../nature/quality.ts';
 import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
 import { createStageLook } from '../nature/stageLook.ts';
 import { loadHavok } from './havok.ts';
@@ -542,9 +542,7 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
         vendor: gl.vendor,
         width: engine.getRenderWidth(),
         height: engine.getRenderHeight(),
-        ...(lighting
-          ? { quality: `${lighting.quality}${settings.automatic ? ' (auto)' : ''}` }
-          : {}),
+        ...(lighting ? { quality: qualityLabel(lighting.quality, settings.automatic) } : {}),
       };
     },
     getPlayerPositions(): PlayerPosition[] {

@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fbm, seeded } from './noise.ts';
 import {
   ADAPT,
+  adaptiveMinFps,
   createAdaptiveQuality,
   isSoftwareRenderer,
   lowerLevel,
   parseQualityLevel,
   QUALITY,
+  qualityLabel,
   QUALITY_LEVELS,
   renderScalingLevel,
   resetSessionQuality,
   sessionQuality,
 } from './quality.ts';
+import { recordFrameInterval, resetSessionRefresh, sessionRefreshHz } from './refreshRate.ts';
 import { parseLookSettings } from './settings.ts';
 import { createTerrain, rimRadius } from './terrain.ts';
 import { bundledNatureAssets, NATURE_TEXTURES } from './assets.ts';
@@ -70,7 +73,15 @@ describe('Gelände', () => {
 });
 
 describe('Grafikstufen', () => {
-  beforeEach(resetSessionQuality);
+  beforeEach(() => {
+    resetSessionQuality();
+    resetSessionRefresh();
+  });
+
+  /** Startmessung auf einem Bildschirm mit `hz` (leere Bilder, leicht zitternd). */
+  function probe(hz: number): void {
+    for (let i = 0; i < 240; i++) recordFrameInterval(1000 / hz + (i % 3) - 1);
+  }
 
   it('werden von hoch nach niedrig billiger', () => {
     const [hoch, mittel, niedrig] = QUALITY_LEVELS.map((l) => QUALITY[l]);
@@ -121,6 +132,7 @@ describe('Grafikstufen', () => {
   }
 
   it('Automatik stuft bei niedriger Bildrate ab, aber erst nach der Anlaufzeit', () => {
+    probe(60);
     const quality = createAdaptiveQuality('hoch', true);
     // Anlaufzeit plus knapp ein Fenster: noch keine Entscheidung.
     expect(run(quality, 30, (ADAPT.settleMs + ADAPT.windowMs) / 1000 - 0.2)).toEqual([]);
@@ -132,6 +144,7 @@ describe('Grafikstufen', () => {
 
   it('Automatik merkt sich die Stufe für die nächste Szene der Sitzung', () => {
     expect(sessionQuality()).toBeNull();
+    probe(60);
     run(createAdaptiveQuality('hoch', true), 30, 8);
     expect(sessionQuality()).toBe('mittel');
     // Feste Stufen ändern die Sitzung nicht.
@@ -154,6 +167,46 @@ describe('Grafikstufen', () => {
     expect(run(fixed, 20, 30)).toEqual([]);
     const paused = createAdaptiveQuality('hoch', true);
     for (let i = 0; i < 100; i++) expect(paused.frame(2000)).toBeNull();
+  });
+
+  it('Schwelle folgt der Bildwiederholrate (CHAOS-76)', () => {
+    expect(adaptiveMinFps(null)).toBe(ADAPT.minFps);
+    expect(adaptiveMinFps(60)).toBe(45);
+    expect(adaptiveMinFps(144)).toBe(45);
+    expect(adaptiveMinFps(50)).toBe(37.5);
+    expect(adaptiveMinFps(30)).toBe(22.5);
+  });
+
+  it('30-Hz-Bildschirm mit schneller GPU bleibt bei hoch (CHAOS-76)', () => {
+    probe(30);
+    expect(sessionRefreshHz()).toBeCloseTo(30, 0);
+    const quality = createAdaptiveQuality('hoch', true);
+    expect(run(quality, 30, 60)).toEqual([]);
+    expect(quality.level).toBe('hoch');
+    expect(qualityLabel(quality.level, true)).toBe('hoch (auto, 30 Hz)');
+    expect(qualityLabel('mittel', false)).toBe('mittel');
+  });
+
+  it('30-Hz-Bildschirm ohne Startmessung: die Szene selbst zeigt die Rate (CHAOS-76)', () => {
+    // Die ersten Bilder der Szene (Anlaufzeit) reichen für die Schätzung.
+    const quality = createAdaptiveQuality('hoch', true);
+    expect(run(quality, 30, 60)).toEqual([]);
+    expect(sessionRefreshHz()).toBeCloseTo(30, 0);
+  });
+
+  it('30-Hz-Bildschirm mit langsamer GPU stuft weiter ab (CHAOS-76)', () => {
+    probe(30);
+    const quality = createAdaptiveQuality('hoch', true);
+    // Jedes zweite Bild verpasst: 15 fps.
+    expect(run(quality, 15, 60)).toEqual(['mittel', 'niedrig']);
+  });
+
+  it('60-Hz-Bildschirm: 30 fps der Szene gelten weiter als zu langsam (CHAOS-76)', () => {
+    probe(60);
+    const quality = createAdaptiveQuality('hoch', true);
+    expect(run(quality, 30, 30)).toEqual(['mittel', 'niedrig']);
+    // Die höchste erkannte Rate gilt; stabile 33 ms der Szene senken sie nicht.
+    expect(sessionRefreshHz()).toBeCloseTo(60, 0);
   });
 });
 

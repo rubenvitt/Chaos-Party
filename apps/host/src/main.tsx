@@ -5,6 +5,7 @@ import { parseHostConfig } from './config.ts';
 import { configureSound, unlockOnFirstGesture } from './fx/audio.ts';
 import { LocalMinigameFlow } from './minigame/LocalMinigameFlow.tsx';
 import { MinigamePreview } from './minigame/MinigamePreview.tsx';
+import { startRefreshProbe } from './nature/refreshRate.ts';
 // Mitgelieferte Schrift (OFL-1.1): gleiche Optik auf allen Geräten und stabile Screenshots.
 import '@fontsource-variable/nunito/wght.css';
 import './styles.css';
@@ -20,6 +21,10 @@ const config = parseHostConfig(window.location.search);
 // einer Nutzer-Geste („Los geht’s!“ in der Lobby oder die erste Taste/der erste Klick).
 const sound = configureSound({ muted: config.mute || config.test, volume: config.volume / 100 });
 if (!sound.muted) unlockOnFirstGesture(sound, window);
+
+// Bildwiederholrate messen, solange noch keine 3D-Szene rendert (CHAOS-76): Die Grafik-Automatik
+// stuft auf einem 30-Hz-Fernseher sonst ab, obwohl die GPU mehr schafft.
+if (!config.test) startRefreshProbe();
 
 const minigame = config.local ? config.minigame : null;
 const content =

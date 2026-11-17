@@ -1158,7 +1158,7 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 3. Die Automatik merkt sich die erreichte Stufe für die Sitzung; Brett und Minispiele danach starten mit ihr.
 4. **WebGPU** (`WebGPUEngine`) nicht gemessen: In Playwrights Chromium gibt es `navigator.gpu` nicht ohne Zusatzschalter, und der Wechsel braucht asynchronen Engine-Start und WGSL-Übersetzung an fünf Stellen. Nach dem Fund ist WebGL nicht der Engpass; WebGPU gehört in den Renderer-Spike CHAOS-75.
 
-**Offen (nur auf echter Hardware):** Rubens PC und Fernseher (Grafikkarte, Browser, Auflösung, Bildwiederholrate), Checkliste PF0–PF10 und N1–N3. Ein Fernseher mit 30 Hz (4K über HDMI 1.4) liegt dauerhaft unter 45 fps und würde bis `niedrig` abstufen; dann `?qualitaet=hoch` setzen.
+**Offen (nur auf echter Hardware):** Rubens PC und Fernseher (Grafikkarte, Browser, Auflösung, Bildwiederholrate), Checkliste PF0–PF10 und N1–N3. Ein Fernseher mit 30 Hz (4K über HDMI 1.4) lag dauerhaft unter 45 fps und stufte bis `niedrig` ab; seit CHAOS-76 folgt die Schwelle der erkannten Bildwiederholrate (ADR-014, Nachtrag CHAOS-76).
 
 
 ## EXP-015: Renderer-Alternativen – WebGPU, WebAssembly, nativ (2026-11-16, CHAOS-75)
