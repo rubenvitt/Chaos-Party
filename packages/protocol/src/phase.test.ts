@@ -15,6 +15,8 @@ const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean, board: b
   reaction: [false, true, false],
   heartbeat: [true, true, true],
   'host-hello': [true, true, true],
+  // v4-Nachtrag (CHAOS-68): Szene geladen; der Server wertet sie nur nach einer Auto-Pause aus.
+  'host-ready': [true, true, true],
   start: [true, false, false],
   choose: [false, false, true],
   'minigame-result': [false, false, true],

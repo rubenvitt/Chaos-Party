@@ -14,3 +14,5 @@ spikes/renderer-bevy/assets/
 .claude/
 # Generierter Fixture-Korpus der nativen Controller-App (scripts/export-protocol-fixtures.mjs).
 apps/controller-ios/Tests/Fixtures/
+# Von Xcode verwaltete Asset-Kataloge (Xcode schreibt sie in eigenem Format zurück).
+*.xcassets/

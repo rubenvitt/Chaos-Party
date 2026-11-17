@@ -412,6 +412,17 @@ export const HostHelloMessageSchema = z.strictObject({
   type: z.literal('host-hello'),
 });
 
+/**
+ * Host hat Szene und Figuren geladen (v4-Nachtrag CHAOS-68, additiv): Erst danach setzt der
+ * Server eine Auto-Pause nach Host-Verlust fort (ADR-015 Nachtrag 3). Der Host schickt sie nach
+ * jedem Wiederverbinden, sobald seine Bühne (Brett bzw. Minispiel) steht; sonst ignoriert der
+ * Server sie.
+ */
+export const HostReadyMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('host-ready'),
+});
+
 export const StartMessageSchema = z.strictObject({
   v: VersionSchema,
   type: z.literal('start'),
@@ -474,6 +485,7 @@ export const MinigameResultMessageSchema = z.strictObject({
 
 const hostOnlyMessageOptions = [
   HostHelloMessageSchema,
+  HostReadyMessageSchema,
   StartMessageSchema,
   MinigameResultMessageSchema,
   ConfigureMessageSchema,

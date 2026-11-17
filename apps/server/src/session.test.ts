@@ -625,6 +625,7 @@ describe('Session: Herzschlag, Timeouts und Token-Politik (CHAOS-12)', () => {
       controllerSilenceMs: 15000,
       hostSilenceMs: 30000,
       lobbyGraceMs: 60000,
+      hostReadyMs: 30000,
     });
   });
 

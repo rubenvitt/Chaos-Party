@@ -49,6 +49,15 @@ describe('Spielzeit und Host-Neuladen', () => {
     expect(remainingPlayMs(minigameView('minigame-intro'), 0, 5000)).toBe(8000);
   });
 
+  it('pausierter Stand (Auto-Pause beim Neuladen, CHAOS-68): Zeit seit Empfang zählt nicht', () => {
+    const view = {
+      ...minigameView('minigame-play', { playMs: 8000, elapsedMs: 2000 }),
+      paused: true,
+    };
+    expect(remainingPlayMs(view, 1000, 9_000)).toBe(6000);
+    expect(planPlay(view, 1000, 9_000)).toEqual({ kind: 'play', timeLimitMs: 6000 });
+  });
+
   it('Intro und normaler Start: volle Spielzeit', () => {
     expect(planPlay(minigameView('minigame-intro'), 0, 3000)).toEqual({
       kind: 'play',

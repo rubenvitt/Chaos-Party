@@ -298,7 +298,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | V23 | Minispiel (Spiel läuft) | Nach Rückkehr wieder Joystick/Knöpfe, Eingaben wirken sofort; iPad: beide Zonen zurück | | | |
 | V24 | Pause | Nach Rückkehr Pause-Bildschirm; nach „Weiter“ am PC normal weiter | | | |
 | V25 | Endstand | Eigener Endstand (Platz, Figur, Trophäen, Münzen) wieder da; „Nochmal spielen“ am PC holt das Gerät in die Lobby | | | |
-| V26 | Host-Tab am PC neu laden mitten im Brett und mitten im Minispiel | Partie pausiert automatisch (Controller zeigen Pause), nach dem Laden geht es weiter; Minispiel startet mit Restzeit | | | |
+| V26 | Host-Tab am PC neu laden mitten im Brett und mitten im Minispiel | Partie pausiert automatisch (Controller zeigen Pause), bis Brett bzw. Minispiel am PC fertig geladen ist; erst dann geht es weiter, ohne Pause-Fenster am PC. Minispiel startet mit der Restzeit vom Moment des Neuladens, auch wenn das Laden länger dauert (CHAOS-68) | | | |
 
 ### 12.6 Pause und Ende am PC
 

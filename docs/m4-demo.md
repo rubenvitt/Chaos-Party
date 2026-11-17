@@ -35,7 +35,7 @@ Am PC `http://localhost:8787/host/` öffnen, am besten im Vollbild auf dem Ferns
 - **Minispiel nach jeder Runde:** 7 s Anleitung am PC und Controller, dann Joystick und beschriftete Knöpfe, danach das eigene Ergebnis mit Münzen (10/5/3/0).
 - **Pause am PC:** Knopf „Pause“ oben links, Taste **P** oder **Esc**. Alle Controller zeigen „Pause – Der PC hat angehalten.“, Countdowns und Minispiele stehen. „Weiter“ (oder Esc) setzt fort, „Partie beenden“ fragt nach und springt zum Finale („vorzeitig beendet“).
 - **Neuladen/Sperrbildschirm am Controller:** Das Gerät kommt mit demselben Platz und derselben Figur zurück. Wer im eigenen Zug länger als ~15 s weg ist, für den wählt das Spiel automatisch.
-- **Host-Tab neu laden:** Die Partie pausiert automatisch, bis der Host wieder verbunden ist, und läuft dann weiter (ein Minispiel mit der Restzeit).
+- **Host-Tab neu laden:** Die Partie pausiert automatisch, bis der Host wieder verbunden ist und Brett bzw. Minispiel samt Figuren geladen hat (CHAOS-68), und läuft dann weiter (ein Minispiel mit der Restzeit vom Moment des Neuladens).
 
 ## Finale und Revanche
 
