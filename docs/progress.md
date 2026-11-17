@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; CHAOS-68: nach Host-Neuladen erst fortsetzen, wenn die Bühne steht) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-17 (M4 freigegeben; CHAOS-69: Projekt ist Open Source unter GPL-3.0-only, ADR-018; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; CHAOS-68: nach Host-Neuladen erst fortsetzen, wenn die Bühne steht) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -156,6 +156,8 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `cd spikes/renderer-bevy && cargo build --release` / `./build-web.sh` | ok (2026-11-16, CHAOS-75, Rust 1.100, Bevy 0.20.1) – Erst-Build ≈ 10 min nativ, ≈ 8 min je WebAssembly-Variante; Messung nur auf echter Hardware ([`renderer-spike.md`](renderer-spike.md)) |
 | `spikes/renderer-realitykit/convert/convert.sh`, `xcodegen generate`, `xcodebuild … -destination 'platform=macOS' / 'generic/platform=iOS Simulator' / 'generic/platform=tvOS Simulator'` | ok (2026-11-16, CHAOS-78, Xcode 27, bpy 5.3.0 mit Python 3.13 über uv) – siehe [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md) |
 | `EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false` | Tabellen für EXP-011 … EXP-013 |
+| `pnpm check` (2026-11-17, CHAOS-69) | ok – 1475 Tests in 125 Dateien; `pnpm build` schreibt `LICENSE.txt` + `THIRD-PARTY-NOTICES.txt` in alle 3 Builds, `check:licenses` meldet „Lizenzhinweise ok: 3 Builds“ (fehlende/veraltete Datei → Fehler, gegengeprüft), 51 Asset-Einträge mit `GPL-3.0-only` |
+| `pnpm notices` | Lizenzhinweise in vorhandene `apps/*/dist` schreiben (läuft am Ende von `pnpm build`, ADR-018) |
 | `pnpm install --frozen-lockfile` | ok |
 | `pnpm check` (typecheck, lint, format, test, build, Lizenzen, Assets) | ok – 1098 Unit-/Integrationstests, 12 Laufzeit-Pakete auf der Positivliste, 22 Asset-Einträge |
 | `pnpm test:e2e --trace off` | ok – 108 Tests in 15 Specs (Desktop, iPhone hoch/quer, iPad quer/hoch), ~3,5 min |
@@ -198,6 +200,7 @@ Details: [`testing.md`](testing.md).
 | [`security-license-review.md`](security-license-review.md) | Sicherheits-, Lizenz- und Secret-Prüfung |
 | [`performance.md`](performance.md) | Messmethode, Messwerte, Schwellen |
 | [`renderer-spike.md`](renderer-spike.md) | Renderer-Spike CHAOS-75: Anleitung und Messbogen |
+| [`../LICENSE`](../LICENSE) | Projektlizenz GPL-3.0-only (Code und eigene Assets, ADR-018, CHAOS-69) |
 | `blockers.md` | nicht nötig (keine Blocker) |
 
 ## Nächste Schritte
@@ -210,6 +213,7 @@ Details: [`testing.md`](testing.md).
 5. Ideen außerhalb von M4 liegen im Backlog CHAOS-44 (u. a. Aufholhilfe, kürzere Anleitungen bei Wiederholung, wachsende Sabotage). CHAOS-50 (neue Partie ohne Server-Neustart) war schon mit „Nochmal spielen“ (CHAOS-37) umgesetzt; der Lebenszyklus-Test spielt jetzt zwei ganze Partien hintereinander und prüft, dass Controller-Verbindungen und Tokens bleiben.
 6. **Mehr Minispiel-Vielfalt (CHAOS-54):** Kuckucks-Klatsche ist überarbeitet (EXP-016) und läuft als viertes Minispiel in der Rotation (`packages/minigames/src/kuckucks-klatsche/`). Es ist das erste Minispiel nur mit Knopf A, gedacht auch für die kleinen Zonen am geteilten iPad. Bei 10 Runden kommt jedes Minispiel jetzt 2–3-mal statt 3–4-mal. Ruben prüft es mit Gerätecheckliste P6a; Bild: `docs/screenshots/chaos54-kuckucks-klatsche.jpg`. Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) bleiben Kandidaten im Backlog (CHAOS-79).
 7. **Minispiel-Ausbau auf ~200 (CHAOS-80):** Ruben möchte rund 200 Minispiele. Konzept steht in [`minigames/README.md`](minigames/README.md) (Fabrik aus Baukasten, gemeinsamen Prüfungen und Trichter) und [`minigames/katalog.md`](minigames/katalog.md) (200 Skizzen MG-001 … MG-200 in 20 Familien). Ruben hat das Konzept-Gate CHAOS-82 am 2026-11-16 freigegeben, mit Auflage: keine Gleichförmigkeit (README §5.5). Neue Spielformen ja, Schnellfeuer als eigene Rundenart, geheime Wahl am iPad seltener. Als Nächstes kommt das Fundament (CHAOS-83 … CHAOS-90).
+8. **Open Source (CHAOS-69, ADR-018):** Ruben hat am 2026-11-17 GPL-3.0-only für Code und eigene Assets gewählt; `LICENSE` liegt im Repo, jeder Build bringt Lizenzhinweise mit. Das Repository öffentlich zu stellen bleibt Rubens Schritt; App Store/TestFlight (Controller-App CHAOS-115, tvOS CHAOS-74) geht, solange nur Ruben Urheber ist; vor fremden Beiträgen in diese Apps braucht es eine Beitragsvereinbarung (ADR-018).
 
 ## Offene Risiken (Kurzfassung)
 

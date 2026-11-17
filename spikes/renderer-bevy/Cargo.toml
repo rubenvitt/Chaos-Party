@@ -3,7 +3,7 @@ name = "chaos-renderer-spike"
 version = "0.0.0"
 edition = "2024"
 publish = false
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-only"
 description = "CHAOS-75: Renderer-Spike – dieselbe Testszene in Bevy (nativ und WebAssembly)."
 
 [dependencies]

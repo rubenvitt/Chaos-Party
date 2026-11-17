@@ -252,7 +252,7 @@ describe('Asset-Prüfung', () => {
       path: 'packages/assets/textures/test.svg',
       description: 'Test-SVG',
       generator: 'packages/assets/blender/portraits-all.sh',
-      license: 'LicenseRef-ChaosParty-Eigenwerk',
+      license: 'GPL-3.0-only',
       budgetBytes: 1024,
     };
     const result = await run({ ...manifest, assets: [...manifest.assets, svg] }, async (dir) => {

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Minispiel-Vertrag: reine Typen, Wertung und Ergebnisprüfung (auch für den Server), Babylon-Laufzeitvertrag für den Host und ein Headless-Testharness.",
+  "license": "GPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
