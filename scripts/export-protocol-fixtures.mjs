@@ -44,7 +44,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'apps/controller-ios/Tests/Fixtures');
 const check = process.argv.includes('--check');
 
-const TOKEN = 'k3Jd9_xQ2-vLm8RtYp4WzA';
+// Offensichtlich erfundener Wert ohne hohe Entropie: Ein zufällig aussehendes Token meldet
+// GitGuardian als Geheimnis ("Generic High Entropy Secret"), und "Alle Checks grün" wird rot.
+const TOKEN = 'test-session-token-0000';
 const SETTINGS = { rounds: 5, roundPresets: [3, 5, 8] };
 const CONTROLS = { joystick: 'Lenken', a: 'Pumpen', b: null };
 
