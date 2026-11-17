@@ -164,15 +164,25 @@ export class Harness {
     this.handle(this.session.connect(id));
   }
 
-  host(): void {
+  /**
+   * Host meldet sich an. Standard: Szene sofort geladen (`host-ready` direkt nach `host-hello`);
+   * mit `{ ready: false }` lädt er noch, bis der Test `hostReady()` aufruft (CHAOS-68).
+   */
+  host(options: { ready?: boolean } = {}): void {
     this.handle(this.session.connect(HOST));
     this.send(HOST, createMessage('host-hello', {}));
+    if (options.ready ?? true) this.hostReady();
+  }
+
+  /** Host hat Szene und Figuren geladen (CHAOS-68). */
+  hostReady(): void {
+    this.send(HOST, createMessage('host-ready', {}));
   }
 
   /** Seiten-Reload am PC: Host-Verbindung weg, neuer Host meldet sich. */
-  reloadHost(): void {
+  reloadHost(options: { ready?: boolean } = {}): void {
     this.dropHost();
-    this.host();
+    this.host(options);
   }
 
   /** Host-Verbindung bricht ab (Tab zu, Netz weg); kein neuer Host. */

@@ -167,6 +167,8 @@ describe('Rollen', () => {
     [createMessage('heartbeat', { t: 0 }), null],
     [createMessage('move', { slot: 1, seq: 0, x: 0, y: 0 }), null],
     [createMessage('start', {}), null],
+    // Erst nach `host-hello` (CHAOS-68); als erste Nachricht keine Rolle.
+    [createMessage('host-ready', {}), null],
   ] as const)('handshakeRole(%j) = %s', (message, role) => {
     expect(handshakeRole(message)).toBe(role);
   });

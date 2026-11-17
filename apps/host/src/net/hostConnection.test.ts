@@ -289,6 +289,46 @@ describe('connectHost', () => {
     expect(Object.keys(createStartMessage({ mode: 'board' }))).toEqual(['v', 'type', 'mode']);
   });
 
+  it('meldet host-ready, sobald die Bühne steht – einmal je Verbindung (CHAOS-68)', () => {
+    const t = setup();
+    const ready = encode(createMessage('host-ready', {}));
+    const readyCount = () => t.last().sent.filter((m) => m === ready).length;
+    // Bühne fertig, bevor die Verbindung steht: nichts senden.
+    t.connection.setSceneReady(true);
+    t.last().open();
+    expect(readyCount()).toBe(0);
+    // Erster Stand vom Server → verbunden → host-ready (protokollgültig, Host-Nachricht).
+    t.last().receive(encode(LOBBY));
+    expect(readyCount()).toBe(1);
+    expect(parseHostMessage(ready)).toEqual({ ok: true, message: createMessage('host-ready', {}) });
+    // Weitere Stände und erneutes true: nicht noch einmal.
+    t.last().receive(encode(LOBBY));
+    t.connection.setSceneReady(true);
+    expect(readyCount()).toBe(1);
+    // Bühne wird neu gebaut (Minispiel ↔ Brett): nach dem Laden wieder melden.
+    t.connection.setSceneReady(false);
+    expect(readyCount()).toBe(1);
+    t.connection.setSceneReady(true);
+    expect(readyCount()).toBe(2);
+    // Wiederverbinden mit stehender Bühne: sofort nach dem ersten Stand melden.
+    t.last().drop();
+    t.fire(2000);
+    t.last().open();
+    expect(t.last().sent).toEqual([encode(createMessage('host-hello', {}))]);
+    t.last().receive(encode(LOBBY));
+    expect(readyCount()).toBe(1);
+  });
+
+  it('meldet host-ready erst, wenn die Bühne nach dem Verbinden fertig wird (Neuladen)', () => {
+    const t = setup();
+    const ready = encode(createMessage('host-ready', {}));
+    t.last().open();
+    t.last().receive(encode(LOBBY));
+    expect(t.last().sent).not.toContain(ready);
+    t.connection.setSceneReady(true);
+    expect(t.last().sent.at(-1)).toBe(ready);
+  });
+
   it('reicht board-Nachrichten weiter und gilt damit als verbunden', () => {
     const boards: unknown[] = [];
     const t = setup({ onBoard: (board) => boards.push(board) });

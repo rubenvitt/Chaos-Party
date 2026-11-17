@@ -6,6 +6,9 @@
  *   (nicht erst nach der Ereignis-Regie) und damit auch nach dem Neuladen des Hosts.
  *   „Weiter“ → `resume`; „Partie beenden“ fragt nach und sendet dann `end-game`.
  * - Tastatur: Fokus liegt auf „Weiter“; P setzt fort, Esc schließt erst die Rückfrage.
+ * - Solange die Bühne lädt (`loading`, z. B. nach dem Neuladen), weder Knopf noch Overlay noch
+ *   Tasten: Die Auto-Pause des Servers endet von selbst, sobald der Host bereit ist (CHAOS-68);
+ *   eine eigene Pause zeigt das Overlay danach.
  */
 import type { BoardView } from '@chaos-party/protocol';
 import { useEffect, useRef, useState } from 'react';
@@ -17,18 +20,20 @@ import './pause.css';
 interface PauseControlsProps {
   /** Neuester Server-Stand (nicht der animierte der Regie). */
   readonly view: BoardView | null;
+  /** Bühne lädt noch (CHAOS-68): nichts anzeigen, Tasten ohne Wirkung. */
+  readonly loading?: boolean;
   readonly onCommand: (command: HostCommand) => boolean;
 }
 
-export function PauseControls({ view, onCommand }: PauseControlsProps) {
+export function PauseControls({ view, loading = false, onCommand }: PauseControlsProps) {
   const [askedToEnd, setConfirming] = useState(false);
   const paused = view?.paused ?? false;
   // Rückfrage gilt nur in der Pause (endet die Pause, ist sie weg).
   const confirming = paused && askedToEnd;
   const pausable = canPause(view);
-  const state = useRef({ view, confirming });
+  const state = useRef({ view, confirming, loading });
   useEffect(() => {
-    state.current = { view, confirming };
+    state.current = { view, confirming, loading };
   });
 
   // Klang beim Wechsel (auch Auto-Pause/Fortsetzen durch den Server), nicht beim ersten Stand.
@@ -43,7 +48,7 @@ export function PauseControls({ view, onCommand }: PauseControlsProps) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.repeat) return;
+      if (event.repeat || state.current.loading) return;
       const action = pauseKeyAction(event.code, state.current);
       if (!action) return;
       event.preventDefault();
@@ -58,7 +63,7 @@ export function PauseControls({ view, onCommand }: PauseControlsProps) {
 
   return (
     <>
-      {pausable && (
+      {pausable && !loading && (
         <button
           type="button"
           className="pause-button"
@@ -75,7 +80,7 @@ export function PauseControls({ view, onCommand }: PauseControlsProps) {
           Pause
         </button>
       )}
-      {paused && (
+      {paused && !loading && (
         <PauseOverlay
           confirming={confirming}
           onResume={() => {

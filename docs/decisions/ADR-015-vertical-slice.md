@@ -54,7 +54,7 @@ Host → Server `rematch`, nur wenn das Brettspiel im Endstand ist (sonst `out-o
 
 - `BoardView.minigame.rewards: { slot, coins }[] | null` – tatsächlich ausgezahlte Münzen, `null` vor dem Ergebnis, leer bei Abbruch. Nach einem Host-Neuladen ist die Ergebnisanzeige damit vollständig.
 - Controller-Minispiel-Kontext: `tied`, `aborted` (Pflicht), `reward?` (eigene Münzen im Ergebnis).
-- Seit Nachtrag 3: `rewards[].items?` und Controller-`prizes?` für Items aus dem Ergebnis (Trostpreis).
+- Seit Nachtrag 4: `rewards[].items?` und Controller-`prizes?` für Items aus dem Ergebnis (Trostpreis).
 - Server → Host **`minigame-result-ack { minigameId, round, accepted, code? }`** auf jedes `minigame-result`. Bei Ablehnung kommt zusätzlich wie bisher `error` (`invalid-result` bzw. `out-of-phase`); der Host kann am `ack` (Runde/ID) erkennen, ob er erneut senden muss.
 
 ### 7. Reconnect
@@ -103,7 +103,7 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 **Entscheidung.**
 - Trennt sich der Host, während das Brettspiel läuft (Phase `board`, nicht im Endstand, nicht schon pausiert), pausiert die **Session** die Partie selbst (game-core `pause`) und merkt sich den Auslöser (`pausedBy: 'host-lost'` im Server-Schnappschuss; das Protokoll bleibt unverändert, Controller und Host sehen wie bei jeder Pause `paused`). Gilt für jeden Abriss: `close`, Missbrauch (4008), Herzschlag-Timeout.
 - Pausiert wird zum **zuletzt verarbeiteten Zeitpunkt** (`state.now`), nicht zum Abrisszeitpunkt: Sonst erzeugt der Pause-Schritt Übergänge, die seit dem letzten Server-Takt fällig wurden, und ihre Ereignisse gingen ohne Host verloren (Fehler im ersten Entwurf, Test „Host-Abriss zwischen zwei Takten“).
-- **Kommt ein Host zurück (`host-hello`), setzt die Session eine Auto-Pause sofort fort**, bevor er den Stand bekommt: `lobby` + `board` mit `paused: false`, unveränderten Restzeiten und Minispiel-Stand (`elapsedMs` vom Moment des Abrisses). Eine Pause, die der Host selbst ausgelöst hat (`pause`), bleibt dagegen über einen Reload bestehen, bis er `resume` schickt.
+- ~~**Kommt ein Host zurück (`host-hello`), setzt die Session eine Auto-Pause sofort fort**~~ (überholt durch Nachtrag 3: erst nach `host-ready`), bevor er den Stand bekommt: `lobby` + `board` mit `paused: false`, unveränderten Restzeiten und Minispiel-Stand (`elapsedMs` vom Moment des Abrisses). Eine Pause, die der Host selbst ausgelöst hat (`pause`), bleibt dagegen über einen Reload bestehen, bis er `resume` schickt.
 - In der Auto-Pause gilt alles aus §3: keine Frist läuft ab (Schonfrist getrennter Spieler zählt ab Pausenbeginn), Controller-Eingaben werden mit `paused` abgewiesen, ein `minigame-result` wird angenommen; ein laufendes Minispiel wird **nicht** abgebrochen, auch wenn der Host länger als Spielzeit + Schonfrist weg ist.
 
 **Begründung für automatisches Fortsetzen** (statt „pausiert bis `resume`“):
@@ -135,7 +135,26 @@ Neu bewerten, wenn Playtests zeigen, dass Umwählen-setzt-ready-zurück stört, 
 
 **Konsequenzen.** Tests: `packages/protocol/src/v4.test.ts`, `apps/server/src/session.v4.test.ts`, `apps/server/src/mixedSetup.integration.test.ts` (iPhone sieht Besitzer auf dem iPad), `apps/controller/src/lobby/view.test.ts`, `apps/controller/src/state/reducer.m4.test.ts`, E2E `controller-m4.spec.ts` und `ipad-m4.spec.ts` („Figur weggeschnappt“).
 
-## Nachtrag 3 (2026-11-17, CHAOS-51): Trostpreis im Minispiel-Ergebnis
+## Nachtrag 3 (2026-11-17, CHAOS-68): Fortsetzen erst, wenn der Host bereit ist
+
+**Kontext.** Nachtrag 1 setzte eine Auto-Pause schon beim `host-hello` fort. Nach einem Neuladen des PC-Tabs lädt die Seite danach aber noch Brett bzw. Minispiel-Bühne samt Figuren (GLB), Licht und Shader – mit Software-Rendering mehrere Sekunden. In dieser Zeit liefen Fristen und Minispiel-Spielzeit schon; die neu aufgebaute Bühne startete mit weniger Restzeit, unter 3 s Rest wurde das Minispiel abgebrochen (KI-6).
+
+**Entscheidung.**
+- **Protokoll (additiv, v4 ohne Versionssprung):** Host-Nachricht `host-ready` (`{ v, type }`), in allen Phasen erlaubt. Der Host schickt sie, sobald die Bühne seiner Phase steht (Brett: `scene.ready` inkl. Figuren und erster Brett-Stand; Minispiel: `stage.ready`; Lobby/Arena: Arena-Szene) – einmal je Verbindung und erneut, wenn eine Bühne neu aufgebaut wurde (`apps/host/src/net/hostConnection.ts`, `setSceneReady`). Changelog in `packages/protocol/src/version.ts`.
+- **Server** (`apps/server/src/session.ts`): Bei `host-hello` nach einer Auto-Pause bleibt die Partie pausiert (`awaitingHostReady: true` im Server-Schnappschuss); der Host bekommt den Stand mit `paused: true`. Erst `host-ready` setzt fort. Wartet keine Auto-Pause, ignoriert der Server `host-ready` ohne Fehler.
+- **Rückfall:** Kommt binnen `hostReadyMs` (30 s, `SessionTimeouts`) kein `host-ready` – älterer Host ohne die Nachricht, Bühne lädt nie fertig –, setzt `tick` trotzdem fort (Verhalten wie vor CHAOS-68).
+- Bricht die Verbindung beim Laden erneut ab, wartet die Auto-Pause auf den nächsten Host (keine Rückfallfrist ohne Host).
+- **Host-Befehle beim Laden:** `resume` setzt sofort fort. `pause` macht aus der Auto-Pause eine eigene Pause des Hosts (`pausedBy: 'host'`), die bis `resume` bleibt; ein späteres `host-ready` ändert daran nichts. Im Host sind Pause-Knopf, -Overlay und Tasten P/Esc ausgeblendet, solange die Bühne lädt (`PauseControls`, `loading`); eine eigene Pause zeigt das Overlay danach wie bisher.
+- Die Minispiel-Bühne rechnet ihre Restzeit aus einem pausierten Stand ohne „Zeit seit Empfang“ (`remainingPlayMs`), damit die Ladezeit auch dort nicht abgezogen wird.
+
+**Betrachtete Alternative:** Host schickt nach dem Laden `resume`. Verworfen: Der Host kann eine Auto-Pause nicht von seiner eigenen Pause unterscheiden (das Protokoll kennt nur `paused`) und würde eine bewusste Pause nach dem Neuladen aufheben; ein neues Feld `pausedBy` im Stand wäre ebenso additiv, aber breiter.
+
+**Konsequenzen.**
+- Nach dem Neuladen sehen Controller `board.paused`, bis die Host-Bühne steht (Joystick/Knöpfe verschwinden so lange). Keine Restzeit geht beim Laden verloren.
+- Ein Server ohne CHAOS-68 wiese `host-ready` als ungültig ab (zählt zu den 20 ungültigen Nachrichten bis zur Trennung). Host und Server kommen aus demselben Build; gemischte Stände sind nicht vorgesehen.
+- Tests: `apps/server/src/hostLoss.integration.test.ts` („Host lädt nach der Rückkehr noch“), `apps/host/src/net/hostConnection.test.ts`, `apps/host/src/minigame/plan.test.ts`, `packages/protocol/src/v4.test.ts`, E2E `m3-minispiel-durchstich.spec.ts` (Figuren 3 s zurückgehalten: Server bleibt pausiert, danach Neustart mit voller Restzeit).
+
+## Nachtrag 4 (2026-11-17, CHAOS-51): Trostpreis im Minispiel-Ergebnis
 
 EXP-018 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.minigameLastItems: 1`). Damit PC und Controller das zeigen können, auch nach einem Neuladen, trägt der Stand die Items:
 
@@ -143,4 +162,3 @@ EXP-018 macht ein Item für den letzten Minispiel-Platz zum Standard (`items.min
 - Controller-Minispiel-Kontext `prizes?: ItemKind[]` (eigene Items aus dem Ergebnis, nur in `results`).
 
 Beide Felder sind optional; die Protokollversion bleibt 4, weil Host, Server und Controller immer aus demselben Build kommen. Die Items kommen zusätzlich wie jedes gezogene Item als `item-gained` nach `minigame-results`.
-

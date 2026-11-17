@@ -6,6 +6,11 @@
  * erneut. Nach dem Wiederverbinden schickt der Server sofort die aktuelle `lobby`
  * (Phase und Spieler), damit ist der Stand wiederhergestellt.
  *
+ * Bereitschaft (CHAOS-68): Sobald die App meldet, dass ihre Bühne (Brett bzw. Minispiel samt
+ * Figuren) steht (`setSceneReady(true)`), schickt die Verbindung `host-ready` – einmal je
+ * Verbindung, nach jedem Wiederverbinden erneut. Erst damit setzt der Server eine Auto-Pause
+ * nach Host-Verlust fort; so geht beim Neuladen keine Zeit verloren.
+ *
  * Herzschlag (CHAOS-12, ADR-009): alle 5 s `heartbeat`; der Server trennt einen Host
  * nach 30 s Stille. Kommt umgekehrt 15 s lang keine Server-Nachricht (Antworten auf
  * den Herzschlag), gilt die Verbindung als tot und wird neu aufgebaut. Wird die Seite
@@ -161,6 +166,11 @@ export interface HostConnection {
   sendMinigameResult(result: MinigameResultPayload): boolean;
   /** Sendet einen Steuerbefehl (v4); `false`, wenn gerade keine Verbindung besteht. */
   sendCommand(command: HostCommand): boolean;
+  /**
+   * Bühne geladen ja/nein (CHAOS-68). `true` schickt `host-ready`, sobald verbunden – einmal
+   * je Verbindung bzw. erneut nach einem `false` dazwischen.
+   */
+  setSceneReady(ready: boolean): void;
   /** Trennt endgültig (kein neuer Versuch). */
   close(): void;
 }
@@ -198,6 +208,18 @@ export function connectHost(
   let heartbeatTimer: unknown;
   let watchdogTimer: unknown;
   let closed = false;
+  let sceneReady = false;
+  /** Verbindung, auf der `host-ready` für den aktuellen Bühnenstand schon ging. */
+  let readySentOn: SocketLike | undefined;
+
+  /** `host-ready` senden, wenn die Bühne steht und diese Verbindung es noch nicht hat. */
+  const sendReadyIfDue = () => {
+    const current = socket;
+    if (!sceneReady || status !== 'connected' || current?.readyState !== OPEN) return;
+    if (readySentOn === current) return;
+    readySentOn = current;
+    current.send(encode(createMessage('host-ready', {})));
+  };
 
   const stopLiveness = () => {
     if (heartbeatTimer !== undefined) clearTimer(heartbeatTimer);
@@ -305,11 +327,13 @@ export function connectHost(
         case 'lobby':
           setStatus('connected');
           handlers.onLobby?.(message);
+          sendReadyIfDue();
           break;
         case 'board':
           // Kommt nur nach angenommenem `host-hello`; zählt wie `lobby` als verbunden.
           setStatus('connected');
           handlers.onBoard?.(message);
+          sendReadyIfDue();
           break;
         case 'input':
           handlers.onInput?.(message.intent, message.at);
@@ -371,6 +395,14 @@ export function connectHost(
       if (socket?.readyState !== OPEN || status !== 'connected') return false;
       socket.send(encode(createHostCommandMessage(command)));
       return true;
+    },
+    setSceneReady(ready) {
+      sceneReady = ready;
+      if (!ready) {
+        readySentOn = undefined;
+        return;
+      }
+      sendReadyIfDue();
     },
     close() {
       closed = true;

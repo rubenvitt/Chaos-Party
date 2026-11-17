@@ -1,6 +1,6 @@
 # Fortschritt
 
-**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; 2026-11-17 CHAOS-51: Trostpreis-Item für den letzten Minispiel-Platz als neuer Standard, EXP-018) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
+**Stand:** 2026-11-16 (M4 freigegeben; CHAOS-73: Grafik-Engpass auf echter GPU gefunden und behoben, Messung an Rubens PC offen; CHAOS-75: Renderer-Spike mit Prototypen und ADR-016-Entwurf, Messung durch Ruben offen; CHAOS-54: viertes Minispiel „Kuckucks-Klatsche“ in der Rotation, EXP-016; CHAOS-78: native RealityKit-App für macOS/tvOS, iPhone/iPad als Benchmark, EXP-017; CHAOS-68: nach Host-Neuladen erst fortsetzen, wenn die Bühne steht; 2026-11-17 CHAOS-51: Trostpreis-Item für den letzten Minispiel-Platz als neuer Standard, EXP-018) · **Aktueller Meilenstein:** M4 – Vollständiger Vertical Slice (`CHAOS-4`)
 
 Aufgabenstatus im Detail führt Zunder (Projekt „Chaos Party“, `CHAOS-…`). Diese Datei ist der dauerhafte Schnappschuss im Repo: Meilensteinstand, geprüfte Befehle, nächste Schritte.
 
@@ -84,6 +84,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-43 | **M4-Abnahme (Ruben)** | APPROVED 2026-11-16 (trotz Ruckeln, „hakelig langsam“) |
 | CHAOS-73 | Ruckeln auf echter GPU: PCSS-Filterstufe `LOW`, Auflösungsgrenze je Grafikstufe, Automatik merkt sich die Stufe ([EXP-014](experiments.md)) | im PR, Messung an Rubens PC/Fernseher offen |
 | CHAOS-75 (Backlog CHAOS-44) | Renderer-Spike: `?gpu=webgpu` am Brett, Bevy-Prototyp (WebAssembly + nativ) mit exportierter Brett-Szene, Recherche tvOS ([EXP-015](experiments.md), [ADR-016](decisions/ADR-016-renderer.md) Entwurf, [`renderer-spike.md`](renderer-spike.md)) | im PR, Messbogen R1–R11 durch Ruben offen |
+| CHAOS-68 (Backlog CHAOS-44) | Auto-Pause endet erst mit `host-ready` (Bühne samt Figuren geladen), Rückfall nach 30 s; KI-6 behoben ([ADR-015 Nachtrag 3](decisions/ADR-015-vertical-slice.md)) | im PR |
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | im PR, echte Apple TV (R12) und saubere Mac-Messung (R13/R14) offen |
 | CHAOS-51 (Backlog CHAOS-44) | Zurückgestellte Balance-Ideen per Bot-Simulation ([EXP-018](experiments.md)): **Trostpreis** (1 Item für den letzten Minispiel-Platz) neuer Standard, am PC und Handy angezeigt; Stellschrauben `trophy.placement`, `items.minigameWinItems`, `items.shieldBlocksTrap` bleiben aus | im PR, Playtest offen |
 
@@ -150,6 +151,7 @@ Stand 2026-11-15 (M4), lokal Node 22 / pnpm 10.28; CI Node 24 (`.nvmrc`), `ubunt
 | `pnpm check` (M4, nach Merge von `main` mit CHAOS-62; CHAOS-41-Fix) | ok – 1420 Tests in 120 Dateien, 13 Laufzeit-Pakete, 51 Asset-Einträge (Porträts als WebP + Masken, Natur-Texturen und Himmel) |
 | `pnpm test:e2e --trace off` (M4) | ok – 154 bestanden, 3 bewusst übersprungen, ≈ 5 min; mit Natur-Brett `m4-gesamtablauf host-pause host-finale` 2× hintereinander grün |
 | CI-Nachstellung (CHAOS-41) | `CI=1 taskset -c 0-1 pnpm exec playwright test m2-brett-durchstich m4-gesamtablauf --project=chromium --repeat-each=5`: vorher 4 von 6 Läufen rot (Anleitung nicht gesehen, Podest „loading“, Revanche verloren), nach dem Fix 15/15 grün; `controller-m4` Endstand mit ±0,1–0,3 px Zeichenabstand stabil |
+| Umbruchkanten Minispiel-Controller (CHAOS-72) | `pnpm exec playwright test tests/e2e/controller-minispiel.spec.ts` mit testweise `body { letter-spacing: −0,3 / −0,1 / +0,1 / +0,3 px }` vor jedem Screenshot: je 12/12 grün (vorher `minispiel-intro-iphone-hoch` bei −0,1 px 11 % und `ipad-hoch-minispiel-intro` bei +0,1 px 17 % Abweichung); `expectStableWrapping` prüft das jetzt in jedem Lauf |
 | `pnpm perf` | ok – Messläufe Partie + Revanche ×3 gegen Baseline, ≈ 6–7 min (nicht in CI); Baseline nach CHAOS-62 neu geschrieben |
 | `E2E_SKIP_BUILD=1 PERF_GPU=1 PERF_VIEWPORT=1920x1080 PERF_DPR=1 pnpm perf -g Partie` | ok (2026-11-16, CHAOS-73, M3 Max) – Partie auf echter GPU im sichtbaren Fenster ohne VSync, ≈ 3 min; Brett 5,5 ms Median (vorher 26 ms), siehe [`performance.md` §3b](performance.md#3b-erste-messung-auf-echter-gpu-chaos-73) |
 | `node scripts/spike-export-board.mjs` | ok (2026-11-16, CHAOS-75) – exportiert das Brett (Stufe `hoch`) nach `spikes/renderer-bevy/assets/export/`, ≈ 2–3 min unter Software-Rendering |
