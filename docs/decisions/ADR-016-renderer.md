@@ -1,7 +1,7 @@
 # ADR-016: Renderer – bei Babylon.js bleiben, WebGPU als Option messen, tvOS getrennt entscheiden
 
-**Status:** Vorgeschlagen (Entwurf; wartet auf Rubens Messwerte R1–R11 aus [`renderer-spike.md`](../renderer-spike.md) und auf seine Entscheidung)
-**Datum:** 2026-11-16
+**Status:** Angenommen (Ruben, 2026-11-17: „Annehmen, PC folgt“). Die PC-Zeilen R1–R6 werden in CHAOS-131 nachgetragen und lösen dort die Überprüfung aus.
+**Datum:** 2026-11-16 (Entwurf), 2026-11-17 (angenommen)
 **Aufgabe:** CHAOS-75 (Spike), Folge für CHAOS-74 (Apple TV)
 **Betroffene Annahmen:** ADR-001 (Stack), ADR-004 (Host-Szene), ADR-012 (Minispiel-Logik im Host), ADR-014 (Natur-Look)
 
@@ -35,7 +35,7 @@ Brett (Natur-Look, Figuren, Popups, Regie), drei Minispiele mit Havok-Physik (AD
 - **Babylon Native:** kein tvOS, „public preview“.
 - **Babylon.js 9 mit WebGPU:** Umsetzung laut Doku vollständig; alle Kern-Shader liegen als WGSL vor, glslang/twgsl lädt die Engine nur für GLSL-Shader nach (im Spiel-Pfad keine; im Spike kein CDN-Aufruf beobachtet). WebGPU ist seit Safari 26 (macOS/iOS 26) und in Chrome/Edge an.
 
-## Entscheidung (Vorschlag)
+## Entscheidung
 
 1. **Am PC bleibt Babylon.js der Renderer.** Kein Wechsel zu Bevy, Unity oder Godot für den PC-Host, solange Rubens Messung (R1/R7) nicht zeigt, dass Babylon nach CHAOS-73 auf seiner Hardware das Ziel (Brett p95 ≤ 20 ms bei 1080p) verfehlt **und** ein Kandidat es bei gleichem Bild erreicht.
 2. **WebGPU wird eine Option, keine Pflicht.** Zeigen R1/R2 bzw. R7/R8 einen Vorteil ≥ 20 % im Bildabstand, wird der asynchrone Engine-Start auf die übrigen vier Szenen (Minispiel-Bühne, Vorschau, Arena, Podest) ausgeweitet und WebGPU mit WebGL2-Rückfall Standard. Ohne Vorteil bleibt `?gpu=webgpu` ein Mess-Schalter.
@@ -89,8 +89,20 @@ Vorschlag für einen tvOS-Spike: Variante 1, weil sie Protokoll, Server und Cont
 - tvOS bleibt ohne zweiten Host unerreichbar; jeder tvOS-Weg kostet einen eigenen Renderer.
 - Der Bevy-Prototyp ist nicht bildgleich (kein HDRI-Licht, keine Nachbearbeitung, statische Bäume); Bevy-Zahlen sind eher zu günstig.
 
+## Freigabe
+
+Ruben hat am 2026-11-17 im Chat entschieden: **„Annehmen, PC folgt“.** Die Entscheidungen 1–3 gelten damit. Grundlage sind die Mac-Messungen R7–R11 vom 17.11. (EXP-015) und die Apple-TV-Messung R12 aus CHAOS-78 (EXP-017). Die Frage nach dem tvOS-Spike hatte Ruben schon am 16.11. mit „ja“ beantwortet, dafür gibt es CHAOS-78.
+
+Was damit feststeht:
+- Kein Rendererwechsel am PC. `apps/host` bleibt bei Babylon.js mit WebGL2.
+- `?gpu=webgpu` bleibt ein Mess-Schalter und wird nicht auf die übrigen vier Szenen ausgeweitet. Mit WebGPU zeichnet das Brett noch kein Bild (CHAOS-117).
+- Die Bevy-Prototypen (`spikes/renderer-bevy`) bleiben als Messlatte im Repo und werden nicht weiterentwickelt.
+- tvOS läuft getrennt über CHAOS-78 (RealityKit, Server auf PC/Mac). CHAOS-74 wartet darauf.
+
 ## Überprüfung
 
-- Nach Rubens Messbogen (R1–R11): Entscheidung 1 und 2 bestätigen oder ändern; Zahlen in EXP-015 und hier nachtragen, Status auf „Angenommen“ oder „Abgelehnt“.
-- Sobald Ruben tvOS (CHAOS-74) freigibt: eigener Spike RealityKit + Server-Variante 1; neues ADR.
+- **CHAOS-131:** Ruben misst R1–R6 (und den PC-Teil von R11) am PC. Die Entscheidung kommt wieder zu Ruben, wenn eines davon eintritt:
+  - Babylon mit WebGL2 verfehlt das Ziel (Brett p95 > 20 ms bei 1080p) und ein Kandidat erreicht es bei gleichem Bild.
+  - WebGPU zeigt nach CHAOS-117 einen Vorteil von mindestens 20 % (R1/R2 oder R7/R8).
+- Für den tvOS-Host (CHAOS-74 nach CHAOS-78) gibt es ein eigenes ADR.
 - Wenn Bevy/winit tvOS offiziell unterstützen oder Babylon Native tvOS bekommt: Kandidaten neu bewerten.
