@@ -60,6 +60,8 @@ struct RootView: View {
         }
         .preferredColorScheme(.dark)
         .tint(Palette.ink)
+        // Big glanceable controls leave no room for accessibility text sizes; VoiceOver labels stay.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { session.wake() }
         }

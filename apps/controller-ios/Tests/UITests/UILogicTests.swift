@@ -52,7 +52,7 @@ import Testing
         let session = FakeControllerSession(.minigamePlaySample)
         var hold = Hold()
         for step in steps {
-            switch hold.set(step.touching && step.online) {
+            switch hold.update(touching: step.touching, online: step.online) {
             case .press: session.press(slot: 1, .a)
             case .release: session.release(slot: 1, .a)
             case nil: break
@@ -67,6 +67,12 @@ import Testing
 
     @Test func connectionLossReleasesOnceAndLiftSendsNothingMore() {
         #expect(drive([(true, true), (true, false), (false, false), (false, true)]) == ["press 1 a", "release 1 a"])
+    }
+
+    @Test func fingerHeldThroughReconnectStaysInert() {
+        #expect(drive([(true, true), (true, false), (true, true)]) == ["press 1 a", "release 1 a"])
+        #expect(drive([(true, true), (true, false), (true, true), (false, true), (true, true)])
+            == ["press 1 a", "release 1 a", "press 1 a"])
     }
 
     @Test func holdOnlyStartsWhileOnline() {

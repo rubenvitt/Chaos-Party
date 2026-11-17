@@ -99,6 +99,10 @@ struct BoardPanel: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: state.choices[slot]?.promptId) { _, new in new != nil }
+        // Reaction prompts buzz when they appear (`ReactionBuzz`).
+        .sensoryFeedback(.warning, trigger: state.ownPrompt(slot).flatMap { $0.info.kind == .reaction ? $0.info.id : nil }) {
+            _, new in new != nil
+        }
     }
 }
 
@@ -202,8 +206,6 @@ private struct PromptPanel: View {
             }
         }
         .disabled(locked)
-        // Reaction prompts buzz when they appear (`ReactionBuzz`).
-        .sensoryFeedback(.warning, trigger: reaction ? prompt.info.id : nil) { _, new in new != nil }
     }
 }
 

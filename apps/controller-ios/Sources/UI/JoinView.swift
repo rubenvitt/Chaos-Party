@@ -165,11 +165,15 @@ private struct ScannerScreen: View {
     let onPayload: (String) -> Bool
     let onCancel: () -> Void
     @State private var wrongCode = false
+    @State private var joined = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             QRScanner { payload in
-                wrongCode = !onPayload(payload)
+                // Several codes can arrive before the cover is gone: join once.
+                guard !joined else { return }
+                joined = onPayload(payload)
+                wrongCode = !joined
             }
             .ignoresSafeArea()
             VStack(spacing: 12) {
@@ -194,12 +198,13 @@ private struct QRScanner: UIViewControllerRepresentable {
             recognizedDataTypes: [.barcode(symbologies: [.qr])], qualityLevel: .balanced,
             isHighlightingEnabled: true)
         scanner.delegate = context.coordinator
-        try? scanner.startScanning()
         return scanner
     }
 
     func updateUIViewController(_ scanner: DataScannerViewController, context: UIViewControllerRepresentableContext<Self>) {
         context.coordinator.onPayload = onPayload
+        // Start once the scanner is on screen; a failure leaves the cancel button usable.
+        if !scanner.isScanning { try? scanner.startScanning() }
     }
 
     static func dismantleUIViewController(_ scanner: DataScannerViewController, coordinator: Coordinator) {

@@ -45,13 +45,17 @@ func knobOffset(_ translation: CGSize, radius: CGFloat) -> CGSize {
     return CGSize(width: translation.width * radius / length, height: translation.height * radius / length)
 }
 
-/// Sends press/release exactly once per hold: `set(true)` → `.press`, `set(false)` → `.release`.
-/// Covers lift, gesture cancel, connection loss and the view disappearing.
+/// Sends press/release exactly once per hold. Covers lift, gesture cancel, connection loss
+/// and the view disappearing. A finger that was down while offline stays inert until it
+/// lifts, so a reconnect never re-presses (like `CONNECTION_INTERRUPTED_EVENT` on the web).
 struct Hold {
     enum Edge: Equatable { case press, release }
     private(set) var down = false
+    private var latched = false
 
-    mutating func set(_ value: Bool) -> Edge? {
+    mutating func update(touching: Bool, online: Bool) -> Edge? {
+        if !touching { latched = false } else if !online { latched = true }
+        let value = touching && online && !latched
         guard value != down else { return nil }
         down = value
         return value ? .press : .release
@@ -206,9 +210,8 @@ private struct StickPad: View {
     /// Every drag change goes to the session (it throttles); lift, cancel or a lost
     /// connection send `(0, 0)` once.
     private func update(_ translation: CGSize?, radius: CGFloat) {
-        let active = translation != nil && online
-        if hold.set(active) == .release { onMove(.zero) }
-        if active, let translation {
+        if hold.update(touching: translation != nil, online: online) == .release { onMove(.zero) }
+        if hold.down, let translation {
             onMove(StickInput(dx: translation.width, dy: translation.height, radius: radius))
         }
     }
@@ -283,7 +286,7 @@ private struct PadButton: View {
         .gesture(DragGesture(minimumDistance: 0).updating($touching) { _, state, _ in state = true })
         .onChange(of: touching) { _, _ in update() }
         .onChange(of: online) { _, _ in update() }
-        .onDisappear { if hold.set(false) == .release { send(.release) } }
+        .onDisappear { if hold.update(touching: false, online: online) == .release { send(.release) } }
         .sensoryFeedback(.impact(weight: .light), trigger: hold.down) { _, down in down }
         .accessibilityElement()
         .accessibilityLabel(label.map { "Knopf \(letter): \($0)" } ?? "Knopf \(letter)")
@@ -295,7 +298,7 @@ private struct PadButton: View {
     }
 
     private func update() {
-        if let edge = hold.set(touching && online) { send(edge) }
+        if let edge = hold.update(touching: touching, online: online) { send(edge) }
     }
 }
 
