@@ -8,7 +8,7 @@ name: TestFlight (Apple TV)
 # Läuft bei jedem Push auf main, der den Host oder etwas ändert, das in seiner Nutzlast steckt
 # (JS-Kern bündelt apps/server, apps/host und packages/*; die App liefert apps/controller aus),
 # dazu manuell. Signatur und Secrets wie bei der Controller-App (testflight.yml, CHAOS-115).
-# Daneben ein Mac-Build als Artefakt (ad hoc signiert), bis CHAOS-118 die notarisierte Mac-App liefert.
+# Die Mac-App kommt signiert und notarisiert aus release-macos.yml (CHAOS-118).
 on:
   workflow_dispatch:
   push:
@@ -85,21 +85,3 @@ jobs:
       - name: API-Key löschen
         if: always()
         run: rm -f "$ASC_KEY_PATH"
-
-      # Mac-App ohne Notarisierung zum Ausprobieren: nach dem Entpacken einmal
-      # `xattr -dr com.apple.quarantine ChaosHost.app` (README, Abschnitt „TestFlight“).
-      - name: Mac-App bauen (ad hoc signiert)
-        working-directory: apps/apple-host
-        run: |
-          xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost \
-            -destination 'generic/platform=macOS' -configuration Release \
-            -derivedDataPath build/mac build
-          ditto -c -k --keepParent build/mac/Build/Products/Release/ChaosHost.app build/ChaosHost-macOS.zip
-
-      - name: Mac-App hochladen
-        uses: actions/upload-artifact@v7
-        with:
-          name: chaos-host-macos
-          path: apps/apple-host/build/ChaosHost-macOS.zip
-          retention-days: 14
-          if-no-files-found: error

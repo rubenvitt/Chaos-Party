@@ -403,6 +403,7 @@ Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Sz
 | RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p entfällt: Ruben bleibt bei 4K-Ausgabe (17.11.) | EXP-017 |
 | RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | entfällt: ADR-019 wählt W2 (Apple TV hostet allein); der Protokollweg ist dort auf der echten Apple TV gezeigt (CHAOS-138, Partie bis ins Minispiel) | EXP-024 |
 | RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | verschoben: Der Look wird mit der echten Brett-Grafik im Apple-Host beurteilt (CHAOS-148, Figuren direkt als USDZ aus bpy, ADR-019 §5) | |
+| RK7 | Mac oder Apple TV mit `--server=ws://<pc>:8787/ws`, Partie mit Controllern bis aufs Brett, dann die App beenden und neu starten (CHAOS-121) | Am PC-Server pausiert die Partie beim Abriss; sobald Brett und Figuren wieder stehen, läuft sie ohne 30 s Wartezeit weiter. Log: `Server: host-ready gesendet`. Figuren stehen auf ihren Feldern | | Log-Auszug |
 
 ## 18. Apple TV bei 4K: interne Auflösung und Hochskalierung (für CHAOS-114)
 
@@ -433,7 +434,7 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 
 ## 20. Apple-TV-App über TestFlight (für CHAOS-119, CHAOS-151)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9), CHAOS-151 (TH1–TH5) · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „TestFlight“; für TV4–TV9 [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md)
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9), CHAOS-151 (TH1–TH4) · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „TestFlight“; für TV4–TV9 [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md)
 
 Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Nutzlast (`prepare.sh`) unter Linux gebaut, Abbruch des Skripts bei fehlender Nutzlast. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
 
@@ -450,11 +451,10 @@ Seit CHAOS-151 ist der neueste Build der native Host (`apps/apple-host`), nicht 
 | TV7 | „Hochskaliert ×0,5, MetalFX“ wählen | Brett erscheint neu, HUD-Zeile 1 „Variante: Hochskaliert ×0,5, MetalFX (Menü)“; nach ca. 23 s Ergebnis mit `"spike":"CHAOS-114"`, fps notieren (unter tvOS < 27.2 steht dort `bilinear`) | | Foto, fps |
 | TV8 | App beenden (Home-Taste doppelt, nach oben wischen) und neu starten | Variante bleibt, HUD zeigt „(gespeichert)“ | | |
 | TV9 | Mac: `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx` bei gespeicherter hochskalierter Wahl | `arview` misst die ARView (`"spike":"CHAOS-78"`), nicht die gespeicherte Variante | | TSV |
-| TH1 | GitHub: Actions → „TestFlight (Apple TV)“ → Run workflow auf `main` (oder ein Push, der `apps/apple-host` ändert) | Lauf grün, Log zeigt „Nutzlast 7–8M“ und endet mit „Hochgeladen: Build …“; Artefakt `chaos-host-macos` liegt am Lauf | | Link zum Lauf |
+| TH1 | GitHub: Actions → „TestFlight (Apple TV)“ → Run workflow auf `main` (oder ein Push, der `apps/apple-host` ändert) | Lauf grün, Log zeigt „Nutzlast 7–8M“ und endet mit „Hochgeladen: Build …“ | | Link zum Lauf |
 | TH2 | Apple TV: TestFlight-App, neuesten Build von „Chaos Party“ installieren und starten; Frage nach dem lokalen Netzwerk, falls sie kommt, erlauben | Lobby mit QR-Code, Link `http://<ATV-IP>:8787/?code=…` und Spielerliste; Icon mit Parallaxe wie bisher | | Foto |
 | TH3 | Rechner aus dem WLAN nehmen oder ausschalten. iPhone (Safari, gleiches WLAN): QR-Code am Fernseher scannen | Controller lädt von der Apple TV, Figurenwahl erscheint; auf dem Fernseher steht der Spieler in der Liste | | Foto |
 | TH4 | Zweites iPhone tritt bei, beide „Bereit!“, auf der Siri Remote „Partie starten“ wählen | Brett (noch Grundkörper) erscheint, Würfeln am iPhone bewegt die Figur | | |
-| TH5 | Mac: Artefakt `chaos-host-macos` aus TH1 laden, entpacken, `xattr -dr com.apple.quarantine ChaosHost.app`, starten | Fenster „Chaos Party“ mit QR-Code wie in §22 AH1 | | |
 
 ## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)
 
@@ -508,3 +508,21 @@ Automatisch geprüft: Ansage nur in Wachstumsrunden (Spielkern-Test, bei `sabota
 | SA3 | Falle im Würfel-Menü am iPhone/iPad, Runde 1–5 | Zusatzzeile „Kostet andere ab 4 Münzen“; in Runde 6–10 (letzte Stufe bei 10 Runden) „Kostet andere 5 Münzen“ | | Foto |
 | SA4 | Gefühl in der Gruppe | Hat jemand die Ansage bemerkt und verstanden? Zu laut, zu leise, zu lang? | | Notiz |
 | SA5 | Nativer Apple-Host (Mac, Abschnitt 22) bis Runde 6 | Meldungsleiste zeigt „Sabotage wird stärker! Klau: 6 Münzen · Falle: 5 Münzen“ (noch ohne große Einblendung und Klang) | | |
+
+## 25. Notarisierte Mac-App auf einem fremden Mac (für CHAOS-118)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-118 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „Release“
+
+Automatisch geprüft (CI, jeder PR): Archiv mit Hardened Runtime ohne `get-task-allow`, Universal-Binary, Selbsttest der fertigen App (JS-Kern, Havok, Controller-Seite, WebSocket-Beitritt). Im Release-Workflow zusätzlich Notarisierung, Heften und `spctl` („Notarized Developer ID“). **Nicht** geprüft: der Download über einen Browser auf einem Mac, der die App noch nie gesehen hat (Quarantäne-Attribut, Gatekeeper beim ersten Öffnen), und ein Spiel mit echten iPhones aus der heruntergeladenen App.
+
+Voraussetzung: Secrets `MACOS_CERTIFICATE_P12` und `MACOS_CERTIFICATE_PASSWORD` sind gesetzt, der Workflow „Release (Mac-App)“ lief grün und hat einen Release `macos-v…` angelegt.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| MA1 | Auf einem **anderen** Mac (oder anderem Benutzerkonto ohne Xcode-Builds) den Zip vom GitHub-Release mit Safari laden, entpacken, „Chaos Party.app“ nach „Programme“ ziehen | `shasum -a 256` passt zur `.sha256` des Releases | | |
+| MA2 | Doppelklick auf die App | Kein „kann nicht geöffnet werden“ und kein „Entwickler nicht verifiziert“; höchstens die normale Rückfrage „aus dem Internet geladen … Öffnen?“ | | Bildschirmfoto der Rückfrage |
+| MA3 | Terminal: `spctl --assess --type execute -vv "/Applications/Chaos Party.app"` und `xcrun stapler validate "/Applications/Chaos Party.app"` | `accepted`, `source=Notarized Developer ID`; „The validate action worked!“ | | Ausgabe |
+| MA4 | Erster Start: Rückfragen zu lokalem Netzwerk bzw. eingehenden Verbindungen | Erlauben; Fenster „Chaos Party“ mit QR-Code und Link | | |
+| MA5 | Zwei iPhones im selben WLAN: QR-Code scannen, Figur wählen, „Bereit!“, am Mac Return | Partie startet, Würfeln bewegt die Figur, das erste Minispiel läuft und kehrt aufs Brett zurück | | Foto |
+| MA6 | „Über Chaos Party“ bzw. Finder → Informationen | Version passt zum Release-Tag (`macos-v0.1.N` → 0.1.N) | | |
+

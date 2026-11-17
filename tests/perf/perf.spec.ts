@@ -7,7 +7,9 @@
  *    Finale mit Trophäenzählung und Podest. Kennzahlen je Szene aus `window.__chaosPerf`
  *    (Bildabstand, Render-Zeit, Draw Calls, aktive Meshes, Kontexte, Render-Schleifen, Heap,
  *    Eingang→Frame), dazu Server-Nachrichten an den Host (Anzahl/Größe je Typ),
- *    Bot-Rundlaufzeit über den Server und Verzögerung der Node-Ereignisschleife.
+ *    Bot-Rundlaufzeit über den Server und Verzögerung der Node-Ereignisschleife. Je
+ *    Szenenwechsel (Brett → Minispiel, Minispiel → Brett, Zählung → Podest) der längste Block
+ *    (Long Task) zwischen Aufbau und erstem Bild (CHAOS-153, `__chaosPerf.transitions()`).
  * 2. **Revanche ×3:** drei kurze Partien hintereinander; nach jeder in der Lobby Heap (nach
  *    Garbage Collection), DOM-Knoten, Canvas-Elemente und WebGL-Kontexte. Speicher und
  *    Kontexte dürfen nicht wachsen.
@@ -28,6 +30,7 @@ import { expect, test, type Browser, type CDPSession, type Page } from '@playwri
 import { format, resolveConfig } from 'prettier';
 import type {} from '../../apps/host/src/debug/perf.ts';
 import type { ScenePerf } from '../../apps/host/src/debug/perfMonitor.ts';
+import { summarizeTransitions } from '../../apps/host/src/debug/transitions.ts';
 import type {} from '../../apps/host/src/finale/testHook.ts';
 import { withRules } from '../../packages/game-core/src/index.ts';
 import { rotationInfos } from '../../packages/minigames/src/catalog.ts';
@@ -35,11 +38,24 @@ import type { CharacterId } from '../../packages/protocol/src/index.ts';
 import { collectProblems, expectNoProblems } from '../e2e/fixtures/pages.ts';
 import { startChaosServer, type RunningServer } from '../e2e/fixtures/server.ts';
 import { PerfBot, startEventLoopMonitor } from './perfBot.ts';
-import { compareScenes, comparisonTable, flatten, sceneTable, type FlatMetrics } from './report.ts';
+import {
+  compareScenes,
+  compareTransitions,
+  comparisonTable,
+  flatten,
+  flattenTransitions,
+  sceneTable,
+  transitionTable,
+  type FlatMetrics,
+} from './report.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const RESULTS = `${ROOT}perf-results`;
 const BASELINE = `${ROOT}tests/perf/baseline.json`;
+/** Baseline-Szenario der Szenenwechsel im Szenario „Partie“ (CHAOS-153). */
+const TRANSITIONS_SCENARIO = 'partie-uebergaenge';
+/** Diese Übergänge muss die Partie zeigen (mindestens einmal mit erstem Bild). */
+const REQUIRED_TRANSITIONS = ['brett → minispiel', 'minispiel → brett', 'zählung → podest'];
 const CHARACTERS: readonly CharacterId[] = ['robot', 'sock', 'raccoon', 'cactus'];
 /** Spielzeit je Minispiel im Messlauf (gekürzt; Bühne, Figuren und Eingaben wie im Spiel). */
 const PLAY_MS = 15_000;
@@ -176,8 +192,7 @@ function readBaseline(): Record<string, Record<string, FlatMetrics>> {
 }
 
 async function updateBaseline(
-  scenario: string,
-  scenes: Record<string, FlatMetrics>,
+  scenarios: Record<string, Record<string, FlatMetrics>>,
   environment: unknown,
 ) {
   const existing = existsSync(BASELINE)
@@ -186,7 +201,7 @@ async function updateBaseline(
   const next = {
     note: 'Baseline der Messläufe (CHAOS-39): SwiftShader, nur relativ auf demselben Rechner vergleichbar. Neu schreiben mit PERF_UPDATE_BASELINE=1 pnpm perf.',
     environment,
-    scenarios: { ...(existing.scenarios ?? {}), [scenario]: scenes },
+    scenarios: { ...(existing.scenarios ?? {}), ...scenarios },
   };
   // Wie `pnpm format` es ablegen würde, sonst scheitert `pnpm format:check` an der Datei (CHAOS-133).
   const options = (await resolveConfig(BASELINE)) ?? {};
@@ -238,6 +253,9 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
 
       const report = await host.page.evaluate(() => window.__chaosPerf?.report() ?? []);
       const summary = await host.page.evaluate(() => window.__chaosPerf?.summary() ?? '');
+      const transitionList = await host.page.evaluate(
+        () => window.__chaosPerf?.transitions() ?? [],
+      );
       const scenes: Record<string, FlatMetrics> = Object.fromEntries(
         report.map((scene: ScenePerf) => [scene.scene, flatten(scene)]),
       );
@@ -248,6 +266,7 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
       for (const scene of ['lobby', 'brett', 'finale', 'podest']) {
         expect(Object.keys(scenes), `Szene ${scene} gemessen`).toContain(scene);
       }
+      const transitions = flattenTransitions(summarizeTransitions(transitionList));
 
       const durationS = ((host.ws.lastAt ?? 0) - (host.ws.firstAt ?? 0)) / 1000;
       const environment = environmentInfo(browser.version());
@@ -256,6 +275,8 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
         environment,
         playMs: PLAY_MS,
         scenes,
+        transitions,
+        transitionList,
         heapByScene,
         hostMessages: { durationS, byType: host.ws.byType },
         botRtt: summarizeRtts(bots),
@@ -265,15 +286,29 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
       };
       writeResult('partie', result);
 
-      const comparisons = compareScenes(readBaseline().partie ?? {}, scenes);
+      const baseline = readBaseline();
+      const comparisons = [
+        ...compareScenes(baseline.partie ?? {}, scenes),
+        ...compareTransitions(baseline[TRANSITIONS_SCENARIO] ?? {}, transitions),
+      ];
       console.log(`\n## Partie (${environment.browser})\n\n${sceneTable(scenes)}\n`);
+      console.log(
+        `### Standbild je Szenenwechsel (Long Tasks ≥ 50 ms, Aufbau bis erstes Bild)\n\n${transitionTable(transitions)}\n`,
+      );
       console.log(`Server → Host: ${JSON.stringify(host.ws.byType)} in ${durationS.toFixed(0)} s`);
       console.log(
         `Bot-RTT über den Server: ${JSON.stringify(result.botRtt)}; Event-Loop: ${JSON.stringify(result.eventLoop)}`,
       );
       console.log(`\n${comparisonTable(comparisons)}\n`);
+      // Nach dem Schreiben prüfen, damit die Rohdaten (`transitionList`) auch bei Fehlern vorliegen.
+      for (const label of REQUIRED_TRANSITIONS) {
+        expect(
+          transitionList.filter((t) => t.label === label && t.complete).length,
+          `Szenenwechsel ${label} mit erstem Bild gemessen`,
+        ).toBeGreaterThan(0);
+      }
       if (process.env.PERF_UPDATE_BASELINE === '1' && !GPU)
-        await updateBaseline('partie', scenes, environment);
+        await updateBaseline({ partie: scenes, [TRANSITIONS_SCENARIO]: transitions }, environment);
 
       const failed = comparisons.flatMap((c) =>
         c.results

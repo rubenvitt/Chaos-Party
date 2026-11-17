@@ -6,7 +6,14 @@ import os
 
 private let logger = Logger(subsystem: "dev.rubeen.chaosparty.host", category: "host")
 
+/// Problem lines since launch (`FEHLER`, `JS-FEHLER`, errors the JS core only logs); `--selftest` fails on them.
+let hostProblems = OSAllocatedUnfairLock(initialState: 0)
+
 func hostLog(_ text: String) {
+    if text.hasPrefix("FEHLER") || text.hasPrefix("JS-FEHLER")
+        || (text.hasPrefix("JS ") && ["Fehler", "ERROR", "fehlgeschlagen"].contains { text.contains($0) }) {
+        hostProblems.withLock { $0 += 1 }
+    }
     print(text)
     fflush(stdout)
     logger.log("\(text, privacy: .public)")
@@ -35,6 +42,8 @@ final class HostRuntime: ObservableObject {
     private var frameMs: [Double] = []
     private var jsMs: [Double] = []
     private var skipped = 0
+    /// Completed JS ticks since launch (main only); `--selftest` waits for a few hundred.
+    private(set) var ticks = 0
     private var windowStart = CACurrentMediaTime()
     private var lastState: RenderState?
     private var decodeFailed = false
@@ -133,6 +142,7 @@ final class HostRuntime: ObservableObject {
             let connections = self.server?.connectionCount ?? 0
             DispatchQueue.main.async {
                 self.busy = false
+                self.ticks += 1
                 self.jsMs.append(ms)
                 self.connections = connections
                 guard let state else { return }

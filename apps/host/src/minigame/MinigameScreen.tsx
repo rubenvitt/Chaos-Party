@@ -30,6 +30,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { CoinIcon, ItemIcon } from '../board/icons.tsx';
 import { ITEM_NAMES } from '../board/texts.ts';
 import { attachPerf } from '../debug/perf.ts';
+import { markFirstFrame, markScene } from '../debug/sceneMarks.ts';
 import { soundEngine } from '../fx/audio.ts';
 import type { IntentHub } from '../input/webSocketInputSource.ts';
 import type { ConnectionStatus, MinigameResultPayload } from '../net/hostConnection.ts';
@@ -137,6 +138,8 @@ export function MinigameScreen(props: MinigameScreenProps) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // Standbild-Kennzahl je Szenenwechsel (nur Debug, CHAOS-153): ab hier bis zum ersten Bild.
+    markScene('minispiel', 'aufbau');
     const canvas = document.createElement('canvas');
     canvas.className = 'game-canvas';
     canvas.setAttribute('aria-label', `Minispiel ${module.info.title}`);
@@ -163,6 +166,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
         ? `minispiel:${module.info.id}`
         : `minispiel:${module.info.id}:${name}`;
     }, stage);
+    const stopFirstFrame = markFirstFrame('minispiel', stage);
 
     const hook: ChaosMinigameTestHook | undefined = test
       ? {
@@ -226,6 +230,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
     return () => {
       active = false;
       stopPerf();
+      stopFirstFrame();
       stage.dispose();
       canvas.remove();
       stageRef.current = null;

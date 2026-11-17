@@ -5,6 +5,17 @@ import SwiftUI
 
 // ADR-019: Mac oder Apple TV hosten die Partie allein; iPhones/iPads bleiben Controller (CHAOS-138, CHAOS-139).
 @main
+@MainActor
+enum Main {
+    static func main() {
+        #if os(macOS)
+        // CHAOS-118: checks the built (signed, hardened) app without a window, see SelfTest.swift.
+        if CommandLine.arguments.contains("--selftest") { SelfTest.run() }
+        #endif
+        ChaosHostApp.main()
+    }
+}
+
 struct ChaosHostApp: App {
     @StateObject private var runtime = HostRuntime()
 

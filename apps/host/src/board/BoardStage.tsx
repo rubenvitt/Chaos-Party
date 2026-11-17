@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import type { FinaleSpeed, GpuBackend } from '../config.ts';
 import { attachPerf } from '../debug/perf.ts';
+import { markFirstFrame, markScene } from '../debug/sceneMarks.ts';
 import { Finale } from '../finale/Finale.tsx';
 import { soundEngine } from '../fx/audio.ts';
 import { createHostEngine } from '../scene/engineFactory.ts';
@@ -90,6 +91,11 @@ export function BoardStage({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    // Standbild-Kennzahl je Szenenwechsel (nur Debug, CHAOS-153): ab hier bis zum ersten Bild.
+    // Steht das Finale schon beim Aufbau (z. B. Neuladen während der Zählung), zeichnet das Brett
+    // dahinter nie ein Bild; der Aufbau fällt dann ins Fenster „zählung → podest“.
+    const marked = !finaleRef.current;
+    if (marked) markScene('brett', 'aufbau');
     const canvas = document.createElement('canvas');
     canvas.className = 'game-canvas';
     canvas.setAttribute('aria-label', 'Spielbrett');
@@ -173,6 +179,7 @@ export function BoardStage({
 
       // Messung (nur Debug, CHAOS-39): hinter dem Finale heißt das Brett „finale“.
       const stopPerf = attachPerf(() => (finaleRef.current ? 'finale' : 'brett'), scene);
+      const stopFirstFrame = marked ? markFirstFrame('brett', scene) : () => undefined;
 
       scene.ready.then(
         () => {
@@ -190,6 +197,7 @@ export function BoardStage({
       return () => {
         active = false;
         stopPerf();
+        stopFirstFrame();
         scene.dispose();
         if (sceneRef.current === scene) sceneRef.current = null;
         onSceneRef.current(null);
