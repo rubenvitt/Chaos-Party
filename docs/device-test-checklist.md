@@ -120,6 +120,8 @@ Automatisch geprüft (Chromium-Emulation, synthetische Touches) sind alle Entsch
 | B2 | Würfeln, Weg wählen, Trophäe kaufen auf dem iPhone | Knöpfe groß, sofort verständlich, keine versehentlichen Doppeltipps | | |
 | B3 | Münzklau gegen eine Person: Reaktionsfenster | Countdown und pulsierender Knopf fallen auf; Reaktion per Daumen in der Zeit schaffbar; fühlt sich fair an | | |
 | B4 | Vibration bei Reaktion | iOS-Safari unterstützt `navigator.vibrate` nicht: **keine** Vibration erwartet; prüfen, ob das stört | | |
+| B4a | Hinweiston bei Reaktion (CHAOS-122), echtes iPhone: einmal irgendwo tippen (Code, „Bereit“), dann Münzklau gegen diese Person; einmal **laut**, einmal mit Stumm-Schalter (bzw. Kontrollzentrum „Stumm“) | Laut: kurzes „ding-ding“ nur am Handy der angegriffenen Person, nicht bei den anderen; stumm: **kein** Ton; laufende Musik einer anderen App wird nicht unterbrochen; Ton kommt nicht doppelt | | |
+| B4b | Hinweiston am geteilten iPad (CHAOS-122) | „ding-ding“ ertönt, der Rahmen der angegriffenen Zone blinkt gelb, die anderen Zonen bleiben ruhig; klar, wer reagieren muss | | |
 | B5 | Lange Optionstexte (Wegweiser, Namen) auf kleinem iPhone hoch/quer | Lesbar, Silbentrennung sinnvoll, nichts abgeschnitten | | |
 | B6 | Geteiltes iPad, 2 Zonen: zwei Personen wählen **gleichzeitig** (z. B. eine reagiert, eine wählt einen Weg) | Jede Wahl landet beim richtigen Spieler; Finger in Zone 1 löst nichts in Zone 2 aus | | |
 | B7 | Geteiltes iPad, 4 Zonen: Brett-Knöpfe | Groß genug, lesbar aus jeder Sitzposition | | |
@@ -377,11 +379,11 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75, PC-Zeilen: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
-Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, WebGPU überhaupt (die Software-GPU der Cloud verliert das Gerät beim ersten Bild), Bevy nativ mit Fenster, Apple TV.
+Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, das Aussehen unter WebGPU (die Software-GPU der Cloud verliert das Gerät beim ersten Bild; den Aufbau des Bretts unter WebGPU prüft seit CHAOS-117 nur ein Test-Skript mit Ersatz-Canvas, siehe EXP-015), Bevy nativ mit Fenster, Apple TV.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RS1 | Brett mit `&gpu=webgpu` in Chrome/Edge am PC und in Safari 26 am Mac | Messanzeige nennt „WebGPU …“, Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift) | | |
+| RS1 | Brett mit `&gpu=webgpu&qualitaet=hoch` in Chrome/Edge am PC und in Safari 26 am Mac (nach CHAOS-117 neu prüfen) | Messanzeige nennt „WebGPU …“ und nach einigen Sekunden „Schleifen 1“, Frames steigen; Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift, SSAO) | Chromium 153 am Mac: ok (17.11., Claude), sieht aus wie WebGL2. Safari 26 und PC offen | `screenshots/chaos117-brett-webgpu-mac.jpg` |
 | RS2 | Messbogen R1–R3, R7–R8 (Babylon WebGL2 vs. WebGPU) | Bildabstand je Variante; Vorteil von WebGPU in % | | |
 | RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
 | RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |
@@ -458,7 +460,22 @@ Automatisch geprüft (CI „Native Apps“, Simulator): Die App dekodiert `minig
 | NT1 | Partie mit der nativen App auf einem iPhone, dort im Minispiel klar Letzte(r) werden | Ergebnis zeigt unter den Münzen das Item-Symbol und „Trostpreis: …“ mit dem Item-Namen; die anderen Controller zeigen keinen Trostpreis | | Foto |
 | NT2 | VoiceOver an, Ergebnis vorlesen lassen | „Trostpreis: …“ wird als eine Zeile vorgelesen, das Symbol nicht extra | | |
 
-## 22. „Mehr Zeit zum Reagieren“ (für CHAOS-124)
+## 22. Nativer Apple-Host am Mac (für CHAOS-139)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-139 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitte „Bauen“ und „Prüfen“
+
+Automatisch geprüft: JS-Kern im nackten `node:vm`-Kontext (ganze Partie mit Bots), in der CI zusätzlich der Swift-Harness in JavaScriptCore und der Build für macOS und tvOS. **Nicht** geprüft: ob die App am Mac startet und ein echtes iPhone per QR beitritt. Die Darstellung besteht noch aus Grundkörpern (echte Grafik: CHAOS-142/148/149).
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| AH1 | Mac: `cd apps/apple-host && ./prepare.sh && xcodegen generate`, dann für `platform=macOS` bauen und `ChaosHost.app` starten | Fenster „Chaos Party“ mit QR-Code, Link und „Bereit – Controller scannen den QR-Code“; im Log `JOIN-URL http://<Mac-IP>:8787/?code=…` | | Log-Zeile |
+| AH2 | macOS fragt beim ersten Start nach dem lokalen Netzwerk bzw. der Firewall | Erlauben; danach liefert `curl -s -o /dev/null -w '%{http_code}' 'http://<Mac-IP>:8787/?code=<CODE>'` vom selben WLAN `200` | | |
+| AH3 | iPhone (Safari, gleiches WLAN): QR-Code am Mac scannen | Controller lädt, Figurenwahl erscheint; in der App steht der Spieler in der Liste | | Foto |
+| AH4 | Zweiter Spieler (zweites iPhone oder privates Browserfenster am Mac), beide „Bereit!“, am Mac Return („Partie starten“) | Brett aus Scheiben und Kugeln erscheint, Würfeln am iPhone bewegt die Figur | | |
+| AH5 | Bis zum ersten Minispiel weiterspielen | Minispiel als Grundkörper sichtbar, Stick/Knopf am iPhone wirken, danach zurück aufs Brett | | |
+| AH6 | Log nach 2–3 Minuten ansehen | keine `JS-FEHLER`- oder `FEHLER`-Zeilen; `HOST-MESSUNG` mit `js_ms_p95` notieren | | Log-Auszug |
+
+## 23. „Mehr Zeit zum Reagieren“ (für CHAOS-124)
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-124 · **Doku:** [ADR-015, Nachtrag 5](decisions/ADR-015-vertical-slice.md)
 

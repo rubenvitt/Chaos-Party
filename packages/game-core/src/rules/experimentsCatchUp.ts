@@ -39,15 +39,15 @@ import type { SimulationResult } from './simulate.ts';
 export type BonusTitle = 'minigame-ace' | 'unlucky' | 'coin-magnet' | 'globetrotter' | 'trickster';
 
 /**
- * Wert eines Titels. „Pechvogel“ zählt hier nur Verluste ohne Trophäenkauf (die Statistik
- * `coinsLost` enthält Käufe, dann bekäme ihn meist der Führende).
+ * Wert eines Titels, wie auf dem Siegerbildschirm. „Pechvogel“ = `coinsLost`, also nur
+ * Verluste durch Minus-Felder, Klau und Fallen, ohne Trophäenkauf (CHAOS-123).
  */
-function titleValue(title: BonusTitle, p: PlayerState, price: number): number {
+function titleValue(title: BonusTitle, p: PlayerState): number {
   switch (title) {
     case 'minigame-ace':
       return p.minigameWins;
     case 'unlucky':
-      return Math.max(0, p.stats.coinsLost - p.trophies * price);
+      return p.stats.coinsLost;
     case 'coin-magnet':
       return p.stats.coinsEarned;
     case 'globetrotter':
@@ -61,11 +61,10 @@ function titleValue(title: BonusTitle, p: PlayerState, price: number): number {
 export function withBonusTrophies(
   result: SimulationResult,
   titles: readonly BonusTitle[],
-  price = DEFAULT_RULES.trophy.price,
 ): SimulationResult {
   const bonus = new Map<number, number>();
   for (const title of titles) {
-    const values = result.finalPlayers.map((p) => titleValue(title, p, price));
+    const values = result.finalPlayers.map((p) => titleValue(title, p));
     const best = Math.max(0, ...values);
     if (best <= 0) continue;
     result.finalPlayers.forEach((p, i) => {

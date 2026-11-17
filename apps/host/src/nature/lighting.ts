@@ -129,17 +129,27 @@ const DEFAULT_SUN: SunAim = { azimuth: Math.atan2(-0.66, -0.75) };
 /** Himmelswürfel der Überblendung etwas kleiner, damit er sicher vor dem alten liegt. */
 const FADE_SKY_SCALE = 0.98;
 
-async function loaded(texture: HDRCubeTexture): Promise<void> {
+/**
+ * Wartet, bis die Textur fertig ist. Abgefragt statt über `onLoadObservable`: Unter WebGPU meldet
+ * `HDRCubeTexture` das Laden dort nie, das Brett wartete dann das ganze Zeitlimit ab (CHAOS-117).
+ */
+export async function loaded(
+  texture: Pick<HDRCubeTexture, 'isReady' | 'url'>,
+  timeoutMs = 30_000,
+): Promise<void> {
   if (texture.isReady()) return;
+  const started = Date.now();
   await new Promise<void>((resolve, reject) => {
-    texture.onLoadObservable.addOnce(() => {
-      resolve();
-    });
-    // HDRCubeTexture meldet Fehler nur über die Konsole; Zeitlimit als Notbremse.
-    setTimeout(() => {
-      if (texture.isReady()) resolve();
-      else reject(new Error(`Himmel lädt nicht: ${texture.url}`));
-    }, 30_000);
+    const poll = setInterval(() => {
+      if (texture.isReady()) {
+        clearInterval(poll);
+        resolve();
+      } else if (Date.now() - started >= timeoutMs) {
+        // HDRCubeTexture meldet Fehler nur über die Konsole; Zeitlimit als Notbremse.
+        clearInterval(poll);
+        reject(new Error(`Himmel lädt nicht: ${texture.url}`));
+      }
+    }, 20);
   });
 }
 

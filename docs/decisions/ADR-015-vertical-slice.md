@@ -43,7 +43,7 @@ Host-, Controller- und Server-Arbeit sollten danach parallel laufen; dafür brau
 
 - **Rangfolge:** Trophäen → Münzen → Minispiel-Siege (Anzahl 1. Plätze; Gleichstand auf Platz 1 zählt für alle) → geteilter Platz (Platz = 1 + Zahl der echt Besseren). Die Siege zählt game-core sofort beim Verbuchen des Ergebnisses (`PlayerState.minigameWins`), damit auch eine Partie ohne Pacing korrekt wertet.
 - `RankingEntry.minigameWins` und **`decidedBy: 'trophies' | 'coins' | 'minigame-wins' | 'shared'`** = tiefstes Kriterium, das diesen Spieler von allen anderen trennt (`shared` = geteilter Platz). Der Host kann damit die Trophäenzählung inszenieren („… und es entscheiden die Münzen!“).
-- Nur zur Anzeige: `BoardPlayer.stats { coinsEarned, coinsLost, spacesMoved, itemsUsed }` und `minigameWins`, aus den Ereignissen gezählt; ohne Einfluss auf die Wertung.
+- Nur zur Anzeige: `BoardPlayer.stats { coinsEarned, coinsLost, spacesMoved, itemsUsed }` und `minigameWins`, aus den Ereignissen gezählt; ohne Einfluss auf die Wertung. `coinsLost` zählt nur Pech (Minus-Feld, Klau, Falle), keine Trophäenkäufe (CHAOS-123).
 - Controller-Kontext in `game-results`: `board.place`, `board.tied`, `board.endedEarly`, `coins`, `trophies`, `minigameWins`.
 
 ### 5. Revanche (CHAOS-37)

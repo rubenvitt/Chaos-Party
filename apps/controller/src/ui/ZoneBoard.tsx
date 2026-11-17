@@ -17,6 +17,7 @@ import {
   type PlayerInfo,
   type SlotNumber,
 } from '@chaos-party/protocol';
+import { alertPromptId } from '../board/alertTone.ts';
 import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
 import { describeWaiting } from '../board/status.ts';
 import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
@@ -430,6 +431,8 @@ const Zone = memo(function Zone({
       data-phase={context?.phase ?? 'none'}
       data-minigame-stage={minigame?.stage ?? 'none'}
       data-rotation={zone.rotation}
+      // Angriff auf diese Zone (CHAOS-122): Rahmen pulsiert, damit der Ton einen Adressaten hat.
+      data-alert={alertPromptId(context, player.slot) === null ? 'none' : 'reaction'}
     >
       <div className="zone-content" style={contentStyle}>
         {play && play.title !== null ? (

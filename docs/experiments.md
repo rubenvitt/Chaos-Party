@@ -379,7 +379,7 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 
 **Entscheidung:** **keep 3000 ms.** Bei typischen Reaktionszeiten gelingen ≥ 95 %, die Zeitkosten sind vernachlässigbar, und der Druckmoment bleibt kurz. **iterate** nach dem Playtest: Liegt die gemessene Reaktionszeit im Median über ≈ 2 s, auf 3500 ms erhöhen.
 
-**Nachtrag (2026-11-17, CHAOS-124):** Standard bleibt 3000 ms. Für langsamere Reaktionen gibt es die Lobby-Option „Mehr Zeit zum Reagieren“ mit **5000 ms** (Barrierefreiheit, keine Balance-Variante; ADR-015 Nachtrag 5). Begründung aus dem Modell oben, nur aus der Verteilung gerechnet und ohne neue Simulation: Für das Profil „abgelenkt“ (Median 2,3 s, σ 0,45) liegt der Anteil unter der Frist bei 3 s bei 72 % (Simulation: 69 %), bei 4 s bei 89 % und bei 5 s bei 96 %. Mit 5 s gelingt also auch einer deutlich langsameren Person fast jede Reaktion. Zeit kostet das nur, wenn niemand reagiert: höchstens +2 s je Fenster. Ob 5 s reichen, prüft die Gerätecheckliste §22 (RT1–RT4).
+**Nachtrag (2026-11-17, CHAOS-124):** Standard bleibt 3000 ms. Für langsamere Reaktionen gibt es die Lobby-Option „Mehr Zeit zum Reagieren“ mit **5000 ms** (Barrierefreiheit, keine Balance-Variante; ADR-015 Nachtrag 5). Begründung aus dem Modell oben, nur aus der Verteilung gerechnet und ohne neue Simulation: Für das Profil „abgelenkt“ (Median 2,3 s, σ 0,45) liegt der Anteil unter der Frist bei 3 s bei 72 % (Simulation: 69 %), bei 4 s bei 89 % und bei 5 s bei 96 %. Mit 5 s gelingt also auch einer deutlich langsameren Person fast jede Reaktion. Zeit kostet das nur, wenn niemand reagiert: höchstens +2 s je Fenster. Ob 5 s reichen, prüft die Gerätecheckliste §23 (RT1–RT4).
 
 **Offen für Playtest:** Ob Menschen das Fenster bemerken, lässt sich nur am echten Gerät beurteilen. Dafür am besten die echten Reaktionszeiten mitschreiben (Vorschlag als Folgeaufgabe).
 
@@ -1287,6 +1287,21 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
 - **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
 
+**Nachtrag 2026-11-17 (CHAOS-117): Warum R8 kein Bild hatte.**
+- **Ursache:** Babylons `MultiRenderTarget` registriert nur die WebGL-Variante von `createMultipleRenderTarget`. `webgpuEngine.js` lädt die WebGPU-Variante (`Engines/WebGPU/Extensions/engine.multiRender.js`) nicht mit. Ab Stufe `hoch` baut SSAO2 einen Geometriepuffer mit mehreren Renderzielen; dort bricht der Aufbau des Bretts mit `createMultipleRenderTarget is not a function` ab. Die Render-Schleife startet nie: 0 Bilder, „Schleifen 0“. `mittel`/`niedrig` brachen nicht ab, hingen aber an der zweiten Ursache (Nachtrag unten).
+- **Warum „kein Fehler“:** Die Meldung kommt erst nach dem 30-s-Zeitlimit beim Himmel (zweite Ursache, Nachtrag unten; im Container zunächst fälschlich für Shader-Übersetzung gehalten) als `console.error` („Brett-Szene konnte nicht aufgebaut werden“). Der Messlauf „Partie“ gibt die Konsole der Host-Seite nicht aus.
+- **Fix:** `apps/host/src/scene/engineFactory.ts` lädt die fehlende Erweiterung zusammen mit der WebGPU-Engine (`loadWebGpuEngine`). Ein Unit-Test prüft die Methoden der Mehrfach-Renderziele (`engineFactory.test.ts`; ohne Fix rot).
+- **Nachgestellt im Cloud-Container:** Headless-Chromium 153 mit `--enable-unsafe-webgpu` bietet einen SwiftShader-Adapter, verliert das Gerät aber beim ersten Bild auf einem Canvas („Device was destroyed“), auch ohne Babylon. Zum Nachstellen ersetzte ein Test-Skript (nicht eingecheckt) den Canvas-Kontext durch eine gewöhnliche GPU-Textur. Damit: vor dem Fix `hoch` → Frames 0, Schleifen 0, Fehler wie oben; nach dem Fix `hoch`, `mittel`, `niedrig` und `minimal` → Schleifen 1, Bilder laufen (441 Draw Calls bei `hoch`). Bildabstände aus SwiftShader sagen nichts über echte Hardware; ein Bild ließ sich dort nicht zurücklesen.
+- **Offen:** R8 (Mac) und R2 (PC) auf echter Hardware messen, dabei Aussehen mit WebGL2 vergleichen (Gerätecheckliste).
+
+**Nachtrag 2026-11-17 abends (CHAOS-117, echte Hardware): zweite Ursache und R8.**
+- **Der erste Fix reichte nicht:** Auf dem Mac (M3 Max, Chromium 153, echte GPU) zeichnete das Brett mit `?gpu=webgpu` weiter nicht, in `pnpm perf` 0 Bilder über 124 s. Nur `minimal` lief. Ab `niedrig` lädt das Brett den HDRI-Himmel.
+- **Zweite Ursache:** Unter WebGPU feuert `HDRCubeTexture.onLoadObservable` nie. `loaded()` in `apps/host/src/nature/lighting.ts` wartete deshalb bis zum Zeitlimit von 30 s; dann war die Textur längst fertig, und der Aufbau ging weiter. Gemessen mit Zeitstempeln: Himmel „geladen“ genau bei 31,0 s, danach `whenReadyAsync` in 0,4 s. In der Partie wird das Brett nach jedem Minispiel neu aufgebaut, die Brettphase war meist kürzer als 30 s: deshalb nie ein Bild.
+- **Fix:** `loaded()` fragt `isReady()` alle 20 ms ab, statt auf das Ereignis zu warten (Zeitlimit bleibt). Unit-Test `lighting.test.ts`. Das Brett zeichnet jetzt nach gut 2 s auf allen Stufen.
+- **R8 (Mac, `hoch`, 1920×1080, ohne VSync):** WebGPU 5,7 / 17,5 ms (Median / p95), 103 fps; WebGL2 im selben Durchgang 6,6 / 8,5 ms, 147 fps. WebGPU ist im Median 14 % schneller, im p95 doppelt so langsam (Ruckler). Der Mac war durch andere Prozesse belastet (Last ≈ 7–8), beide Läufe gleich.
+- **Aussehen:** Chromium zeigt unter WebGPU und WebGL2 dasselbe Brett ([WebGPU](screenshots/chaos117-brett-webgpu-mac.jpg), [WebGL2](screenshots/chaos117-brett-webgl2-mac.jpg)). Safari 26 ist ungeprüft: Die Sitzung durfte weder den Bildschirm aufnehmen noch Safari fernsteuern.
+- **Entscheidung:** ADR-016 bleibt: Am Mac bringt WebGPU nicht die geforderten 20 %. Offen bleiben R2 am PC (CHAOS-131) und Safari (RS1).
+
 ---
 
 ## EXP-016: Kuckucks-Klatsche überarbeitet – Arcade nur mit Knopf A (2026-11-16, CHAOS-54)
@@ -1819,7 +1834,7 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 - R: **Rabatt** (`catchUp.discount`): Preis 10 statt 15 ab 2 Trophäen Rückstand. Bräuchte einen Preis je Spieler in der Anzeige.
 - W / W3: **Rückenwind** (`catchUp.tailwind`): Nach jedem Minispiel außer dem letzten 2 (3) Münzen je Trophäe Rückstand, höchstens 6 (9). Bräuchte einen sichtbaren Moment („Rückenwind +4“).
 - F: **Finale-Fieber** (`catchUp.finale`): In den letzten 3 Runden zählen Minispiel-Münzen doppelt.
-- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf.
+- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf. Seit CHAOS-123 zählt `coinsLost` selbst nur Pech (Minus-Feld, Klau, Falle); ein Nachlauf auf `main` `82a1a0b` ergab für X mit der alten Näherung und mit der neuen Zählung dieselben Zahlen.
 - TW, T2W, TW3: Kombinationen.
 
 **Objektive Messgrößen:** Siegquote des alleinigen Halbzeit-Führenden bzw. -Letzten (gegen fair 1/n), Trophäen je Partie, Anteil Spieler ohne Trophäe, Sieg per Trophäen (statt Münzen), Trophäen-Abstand Platz 1 zu 2, Siegquote eines Minispiel-Profis (Slot 1, +10 von 40 Punkten, wie EXP-012 S; eigener Lauf je Zeile).
@@ -2071,7 +2086,7 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 
 **Hypothese:** Nach ADR-019 (W2) kann die Apple TV eine Partie ohne Rechner hosten. Session-Server, game-core, Host-Rolle und Minispiele samt Havok laufen als ein JS-Bündel in JavaScriptCore; Swift übernimmt Netzwerk und Darstellung. Erwartet: Die JS-Last bleibt deutlich unter dem Bild-Budget von 16,7 ms.
 
-**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`):
+**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`; seit CHAOS-139 als Produktcode unter [`apps/apple-host`](../apps/apple-host/README.md)):
 - **JS-Kern `jscore/`:** ein Bündel mit 4,8 MB plus `HavokPhysics.wasm`.
   - `Session` aus `apps/server` und `connectHost` aus `apps/host`, beide unverändert.
   - Die Minispiele laufen headless mit Babylon-NullEngine und Havok, instanziiert synchron über `instantiateWasm`.
