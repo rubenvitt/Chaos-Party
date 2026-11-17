@@ -189,6 +189,7 @@ Automatisch geprüft: Lebenszyklus, Wertung und Aufräumen jedes Minispiels head
 | P5 | Pudding-Gerangel spielen | Kirschfleck als Ziel klar; Kippen/Rempeln/Löffel witzig statt frustrierend; Rückkehr nach Sturz klar | | |
 | P6 | Wackelturm spielen | Wackeln früh sichtbar; Kippen nachvollziehbar (nicht „grundlos“); Klauen witzig statt gemein | | |
 | P6a | Kuckucks-Klatsche spielen (CHAOS-54, nur Knopf A; Vorschau `/host/?local=1&minigame=kuckucks-klatsche&players=4`) | Eigene Tür (Farbe + Symbol) sofort gefunden; Kuckuck vs. Ente/Socke/Blume auf Sofa-Abstand unterscheidbar; weißer Gong-Ring als „jetzt darf jeder“ verstanden; Klauen und Benommenheit witzig statt gemein; fühlt sich „bei mir kam kaum was“ (Türglück) unfair an? Am geteilten iPad: großer A-Knopf je Zone reicht | | |
+| P6b | Minispiel zum zweiten Mal in derselben Partie (CHAOS-66; Vorschau `/host/?local=1&minigame=pump-parade&flow=1&repeat=1`) | PC und Handy/iPad-Zone zeigen „Nochmal!“, Titel und Bedienung ohne Anleitungsschritte; 3 s reichen, um zu erkennen, welches Minispiel kommt, und das Gerät richtig zu halten; niemand vermisst die Anleitung | | |
 | P7 | Eigene Figur im Gedränge finden | In allen Minispielen jederzeit klar, wer man ist (Farbe + Symbol + Figur) | | |
 | P8 | Ergebnisanzeige | Plätze, Punkte, Münzen und Gleichstand sofort klar; 6 s reichen zum Lesen | | |
 | P9 | Ton (Lautsprecher/Fernseher) | Klänge passen, nerven nicht, nicht zu laut; `?volume=` / `?mute=1` wirken | | |
@@ -328,7 +329,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 
 **Stand:** 2026-11-15 · **Aufgabe:** CHAOS-62 · **ADR:** [ADR-014](decisions/ADR-014-natur-look.md) · Belege der Automatik: `docs/screenshots/chaos62-*.jpg` (volle Stufe, Software-Rendering, nur Optik, keine Bildrate)
 
-Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe („Grafik hoch (auto)“) und die tatsächliche Renderauflösung (seit CHAOS-73 höchstens 2560×1440 bei `hoch`, 1920×1080 bei `mittel`, 1600×900 bei `niedrig`). Stuft die Automatik ab, gilt die Stufe für den Rest der Sitzung (Neuladen setzt sie zurück). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
+Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `minimal`, Asset-Manifest und Lizenzen (nur CC0). **Nicht** automatisch prüfbar: Bildrate auf echter GPU, Wirkung am Fernseher. `pnpm build && pnpm start`, Host mit `?debug=1` öffnen; die Debug-Zeile nennt die Grafikstufe und die erkannte Bildwiederholrate („Grafik hoch (auto, 60 Hz)“, CHAOS-76) und die tatsächliche Renderauflösung (seit CHAOS-73 höchstens 2560×1440 bei `hoch`, 1920×1080 bei `mittel`, 1600×900 bei `niedrig`). Stuft die Automatik ab, gilt die Stufe für den Rest der Sitzung (Neuladen setzt sie zurück). N1 und N2 lassen sich in derselben Partie wie PF1 (Abschnitt 11) messen.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
@@ -339,6 +340,7 @@ Automatisch geprüft: Spielabläufe, Screenshot-Regression in der Sparstufe `min
 | N5 | Lesbarkeit aus 3 m am Fernseher | Feldtypen (Farbe **und** Form der Einlage, Symbol), Figuren, Sockel und Slot-Symbol sofort erkennbar; Wegpfeile und Wegweiser lesbar | | |
 | N6 | Optional: `?stimmung=nacht` und `?stimmung=morgen` | Felder und Slot-Farben auch nachts lesbar (Lichtverlauf je Runde: Abschnitt 14) | | |
 | N7 | Gesamteindruck Brett und Minispiel-Arenen | „modern und schön“? Was stört noch? | | |
+| N8 | Nur falls ein Bildschirm mit 30 Hz (oder 50 Hz) vorhanden ist, z. B. 4K-Fernseher über HDMI 1.4 (CHAOS-76): Host **ohne** `?qualitaet` und mit `?debug=1` öffnen, Brett 2 min laufen lassen | Debug-Zeile zeigt „Grafik hoch (auto, 30 Hz)“ (bzw. 50 Hz) und bleibt bei `hoch`, solange das Bild flüssig ist; fps um 30. Stuft sie trotzdem ab: Grafikkarte, Hz-Angabe und fps notieren | | |
 
 ## 14. Lichtverlauf je Runde am Fernseher (für CHAOS-56/CHAOS-63)
 
@@ -413,3 +415,15 @@ Automatisch geprüft ist nur der Build: Die CI (Xcode 26.6) baut für macOS, iOS
 | RK10 | Apple TV: `./messreihe-atv.sh <ID> 20` (alle Varianten, ca. 10 Min.) | `zusammenfassung.tsv`; Ziel: `hoch-0.5-metalfx` ≥ 30 fps stabil, besser 60 (R16–R19) | | TSV + Logs |
 | RK11 | Apple TV: `--hochskalieren=1 --bild=…` für 0,5 und 0,667 sowie die ARView am Fernseher ansehen | Schärfe aus Sofa-Abstand vertretbar? Schilder lesbar, Gras nicht matschig | | Bilder, Eindruck |
 | RK12 | Instruments: Metal System Trace je einmal ARView und `--hochskalieren=1 --skala=1` | größte GPU-Durchgänge mit Dauer notiert | | `.trace` oder Bildschirmfoto |
+
+## 19. Windstoß, Platztausch und Wegweiser am Fernseher (für CHAOS-52)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-52 · **Bilder:** [Windstoß](screenshots/chaos52-windstoss.png), [Platztausch](screenshots/chaos52-platztausch.png)
+
+Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Windstoß hoch und weit zum Zielfeld, beim Platztausch sind beide Figuren gleichzeitig in der Luft und landen auf den getauschten Feldern; Wegweiser „Klippenweg“ steht im Demo-Stand neben dem Zug-Pfeil (`host-brett.spec.ts`). **Nicht** automatisch prüfbar: wie flüssig und lesbar das in echter Bildrate vom Sofa aus wirkt, ob Windringe und Tausch-Ringe auf dem Fernseher erkennbar sind.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| WT1 | Partie, bis jemand auf ein Ereignisfeld (lila) kommt und „Windböe!“ erscheint | Figur wirbelt in weißen Windringen davon und landet 1–2 Felder weiter; kein Sprung ohne Bewegung | | |
+| WT2 | Ereignis „Tausch!“ | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat | | |
+| WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil | | |

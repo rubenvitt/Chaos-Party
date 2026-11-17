@@ -107,4 +107,70 @@ describe('Protokoll v3: Minispiele', () => {
     });
     expect(parseServerToHostMessage(message).ok).toBe(true);
   });
+
+  it('v4-Nachtrag (CHAOS-66): `repeat` optional im Controller-Kontext und Brett-Stand', () => {
+    const minigame = {
+      id: 'flink-flitzer',
+      title: 'Flink-Flitzer',
+      tagline: 'Sammelt die meisten Sterne!',
+      instructions: ['Lauf mit dem Joystick.'],
+      controls: { joystick: 'Laufen', a: null, b: null },
+      stage: 'intro' as const,
+      scoreUnit: 'Sterne',
+      tied: false,
+      aborted: false,
+    };
+    const context = (extra: object) =>
+      createMessage('context', {
+        slot: 1,
+        phase: 'board',
+        layout: 'joystick-buttons',
+        actions: [],
+        minigame: { ...minigame, ...extra },
+      });
+    expect(parseServerToControllerMessage(context({ repeat: true })).ok).toBe(true);
+    expect(parseServerToControllerMessage(context({ repeat: false })).ok).toBe(true);
+    expect(parseServerToControllerMessage(context({})).ok).toBe(true);
+    expect(parseServerToControllerMessage(context({ repeat: 'ja' })).ok).toBe(false);
+
+    const board = (extra: object) => ({
+      v: PROTOCOL_VERSION,
+      type: 'board',
+      view: {
+        boardId: 'wackelwald',
+        gamePhase: 'minigame-intro',
+        round: 4,
+        rounds: 10,
+        turnOrder: [1, 2],
+        activeSlot: null,
+        players: [],
+        trophySpaces: [],
+        trophyPrice: 15,
+        traps: [],
+        prompt: null,
+        remainingMs: 3000,
+        stepMs: 350,
+        ranking: null,
+        minigame: {
+          id: 'wackel-floss',
+          round: 4,
+          seed: 7,
+          playMs: 30_000,
+          elapsedMs: null,
+          placements: null,
+          highlights: [],
+          aborted: false,
+          rewards: null,
+          ...extra,
+        },
+        paused: false,
+        endedEarly: false,
+      },
+      events: [],
+      eventSeq: 1,
+    });
+    expect(parseServerToHostMessage(board({ repeat: true })).ok).toBe(true);
+    expect(parseServerToHostMessage(board({})).ok).toBe(true);
+    expect(parseServerToHostMessage(board({ repeat: 1 })).ok).toBe(false);
+  });
 });

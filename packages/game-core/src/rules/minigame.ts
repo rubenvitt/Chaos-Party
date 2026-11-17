@@ -1,7 +1,8 @@
 /**
  * Minispiel-Phasen (M3, CHAOS-26/34, ADR-012).
  *
- * Ablauf: `minigame-intro` (Anleitung, `minigameIntroMs`) → `minigame-play` (der Host spielt,
+ * Ablauf: `minigame-intro` (Anleitung, `minigameIntroMs`; lief das Minispiel in der Partie schon,
+ * die kurze `minigameRepeatIntroMs`, CHAOS-66) → `minigame-play` (der Host spielt,
  * Frist = Spielzeit + `minigameResultGraceMs`) → `minigame-results` → `round-end`.
  *
  * Die Regeln kennen von einem Minispiel nur Kennung, Spielzeit und Wertungsart. Das Ergebnis
@@ -11,7 +12,7 @@
  */
 import { checkResult } from '@chaos-party/minigame-sdk';
 import { shuffled } from '../rng.ts';
-import type { ItemKind, MinigamePlacement, MinigameSpec } from '../types.ts';
+import type { ItemKind, MinigamePlacement, MinigameSpec, Pacing } from '../types.ts';
 import { changeCoins } from './economy.ts';
 import { playerOf, schedule, type Ctx } from './internal.ts';
 import { gainRandomItem } from './items.ts';
@@ -48,12 +49,18 @@ function drawMinigame(ctx: Ctx): MinigameSpec | null {
 export function enterMinigame(ctx: Ctx, t: number): void {
   const { d } = ctx;
   const spec = drawMinigame(ctx);
+  const id = spec?.id ?? PLACEHOLDER_MINIGAME;
+  // Der Platzhalter (M2) hat keine Anleitung zum Kürzen: dort zählt jede Runde als erste.
+  const played = d.internal.minigamePlayed;
+  const repeat = spec !== null && played.includes(id);
+  if (spec !== null && !repeat) played.push(id);
   d.activeSlot = null;
   d.minigame = {
-    id: spec?.id ?? PLACEHOLDER_MINIGAME,
+    id,
     round: d.round,
     seed: ctx.rng.int(0, 0xffff_ffff),
     playMs: spec?.playMs ?? ctx.rules.pacing.minigamePlayMs,
+    repeat,
     playStartedAt: null,
     placements: null,
     highlights: [],
@@ -61,7 +68,12 @@ export function enterMinigame(ctx: Ctx, t: number): void {
     rewards: null,
   };
   ctx.events.push({ type: 'minigame-started', minigame: d.minigame.id });
-  schedule(ctx, 'minigame-intro', t, ctx.rules.pacing.minigameIntroMs);
+  schedule(ctx, 'minigame-intro', t, minigameIntroMs(ctx.rules.pacing, repeat));
+}
+
+/** Dauer der Anleitung: voll beim ersten Mal, kurz bei Wiederholung (CHAOS-66). */
+export function minigameIntroMs(pacing: Pacing, repeat: boolean): number {
+  return repeat ? (pacing.minigameRepeatIntroMs ?? pacing.minigameIntroMs) : pacing.minigameIntroMs;
 }
 
 /** Anleitung vorbei: Spielzeit läuft. */

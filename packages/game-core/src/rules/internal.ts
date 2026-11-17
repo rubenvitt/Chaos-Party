@@ -63,6 +63,8 @@ export interface Internal {
   minigameBag: string[];
   /** Zuletzt gespieltes Minispiel (keine direkte Wiederholung beim Neumischen). */
   minigameLast: string | null;
+  /** Schon gestartete Minispiele dieser Partie (CHAOS-66: kurze Anleitung bei Wiederholung). */
+  minigamePlayed: string[];
 }
 
 export type MutablePlayer = {
@@ -142,6 +144,7 @@ export function openDraft(state: GameState): Ctx {
     internal: {
       ...internal,
       minigameBag: [...internal.minigameBag],
+      minigamePlayed: [...internal.minigamePlayed],
       move: internal.move ? { ...internal.move } : null,
       reaction: internal.reaction ? { ...internal.reaction } : null,
     },

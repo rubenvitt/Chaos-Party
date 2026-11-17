@@ -104,6 +104,7 @@ describe('DEFAULT_RULES und withRules', () => {
         spaceEventMs: 1500,
         turnEndMs: 600,
         minigameIntroMs: 7000,
+        minigameRepeatIntroMs: 3000,
         minigamePlayMs: 3000,
         minigameResultsMs: 6000,
         roundEndMs: 1500,

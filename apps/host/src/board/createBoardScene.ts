@@ -15,6 +15,10 @@
  * Slot-Symbol.
  * Laufen spielt `run`, Trophäenkauf `cheer`, Münzverlust/Falle/Klau `hit`, Münzgewinn `jump`;
  * im Stand drehen sich die Figuren zur Kamera, beim Hüpfen in Laufrichtung.
+ * Windstoß und Platztausch (CHAOS-52) fliegen statt zu hüpfen: Beim Windstoß wirbelt die Figur
+ * (`fall`) in Windringen davon, beim Platztausch fliegen beide Figuren (`jump`) gleichzeitig
+ * auf Bögen über Kreuz, ein Ring in Slot-Farbe markiert Abflug und Landung.
+ * Wegweiser weichen dem Zug-Pfeil über ihrer Gabel aus (`signpostClearOfArrow`).
  *
  * Framework-unabhängig (kein React) wie die Arena (ADR-004): Die Szene liest je Frame den
  * Darstellungszustand aus der Regie (`BoardFrameSource`) und gibt nichts an die UI zurück.
@@ -25,6 +29,7 @@ import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import type { Material } from '@babylonjs/core/Materials/material.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
+import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
@@ -52,17 +57,24 @@ import {
 } from '../lighting/moods.ts';
 import { applyNatureLook, type NatureLook } from '../nature/lighting.ts';
 import { NatureMaterials } from '../nature/materials.ts';
-import { createAdaptiveQuality, QUALITY } from '../nature/quality.ts';
+import { createAdaptiveQuality, QUALITY, qualityLabel } from '../nature/quality.ts';
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
+import type { MoveStyle } from './animation.ts';
 import type { BoardFrame, FramePawn, FramePopup } from './director.ts';
 import {
   approach,
   boardBounds,
+  boardCamera,
   cameraFocus,
+  easeFlight,
+  flightPoint,
+  GUST_FLIGHT,
   hopPoint,
+  signpostClearOfArrow,
   signpostPosition,
   spreadPawns,
+  SWAP_FLIGHT,
   type Point2,
 } from './layout.ts';
 import { buildNatureBoard, TILE_TOP, type NatureBoardWorld } from './natureBoard.ts';
@@ -84,6 +96,12 @@ const SPACE_TOP = TILE_TOP;
 
 /** Sockel-Radius und Höhe über dem Kopf (Anker für Pfeil, Popups, Getrennt-Marker). */
 const PAWN = { radius: 0.5, height: 2.4 } as const;
+/** Zug-Pfeil: Größe der Billboard-Fläche, Abstand über dem Kopf und Auf-und-ab. */
+const ARROW = { size: 1.5, above: 1.0, bob: 0.15 } as const;
+/** Wegweiser: Höhe des Pfahls und der Schild-Mitte, Abstand vom Zielfeld. */
+const SIGNPOST = { postHeight: 1.5, signY: 1.75, distance: 1.6 } as const;
+/** Umdrehungen der Figur während eines Flugs (Windstoß wirbelt, Tausch dreht sich einmal). */
+const FLIGHT_TURNS: Readonly<Record<Exclude<MoveStyle, 'walk'>, number>> = { gust: 2, swap: 1 };
 /** Die Figur steht auf ihrem Sockel. */
 const PAWN_LIFT = 0.12;
 /**
@@ -110,6 +128,8 @@ const CAMERA_OFFSET = new Vector3(0, 28, -17.5);
  * weil unten die Spielerleiste mehr Platz braucht als oben der Titel.
  */
 const CAMERA_AIM_Z = -1.6;
+/** Höhe der Pfeil-Mitte über dem Boden, wenn die Figur auf einem Feld steht. */
+const ARROW_CENTER_Y = SPACE_TOP + PAWN.height + ARROW.above;
 const CAMERA_HALF_LIFE_MS = 700;
 
 const TONE_COLORS: Readonly<Record<MessageTone, { bg: string; fg: string }>> = {
@@ -134,12 +154,23 @@ interface Pawn {
   yaw: number;
   /** Letzte Weltposition (für Kamera und Testhaken). */
   readonly position: Vector3;
+  /** Laufender Flug (Windstoß/Platztausch) oder `null`. */
+  flying: MoveStyle | null;
+  /** Windringe um die Figur beim Windstoß. */
+  readonly swirl: readonly Mesh[];
+  readonly swirlMaterial: StandardMaterial;
+  /** Ring in Slot-Farbe am Boden: Abflug und Landung beim Platztausch. */
+  readonly swapRing: Mesh;
+  readonly swapRingMaterial: StandardMaterial;
 }
 
 interface Label {
   readonly mesh: Mesh;
   readonly material: StandardMaterial;
   readonly texture: DynamicTexture;
+  /** Größe der Fläche in Welt-Einheiten. */
+  readonly width: number;
+  readonly height: number;
 }
 
 interface TextCard {
@@ -392,16 +423,13 @@ export function createBoardScene(
     mat.useAlphaFromDiffuseTexture = true;
     mat.disableLighting = true;
     mat.backFaceCulling = false;
-    const mesh = CreatePlane(
-      name,
-      { width: width / PX_PER_UNIT, height: height / PX_PER_UNIT },
-      scene,
-    );
+    const size = { width: width / PX_PER_UNIT, height: height / PX_PER_UNIT };
+    const mesh = CreatePlane(name, size, scene);
     mesh.material = mat;
     mesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
     mesh.isPickable = false;
     mesh.renderingGroupId = 1; // über dem Brett, nicht von Bäumen verdeckt
-    return { mesh, material: mat, texture };
+    return { mesh, material: mat, texture, ...size };
   }
 
   function disposeLabel(label: Label): void {
@@ -419,16 +447,6 @@ export function createBoardScene(
         if (!target?.label) continue;
         const siblingId = fork.next.find((id) => id !== targetId);
         const sibling = siblingId ? spacePos(siblingId) : null;
-        const p = signpostPosition(target.position, sibling, 1.6);
-        const post = CreateCylinder(
-          'wegweiser-pfahl',
-          { diameter: 0.14, height: 1.5, tessellation: 8 },
-          scene,
-        );
-        post.position.set(p.x, 0.75, p.z);
-        post.material = wood;
-        post.isPickable = false;
-        addCaster(post);
         const label = createLabel(`wegweiser-${target.id}`, {
           text: target.label,
           bg: '#fff3d6',
@@ -436,7 +454,28 @@ export function createBoardScene(
           height: 0.62,
           border: '#8a5a3b',
         });
-        label.mesh.position.set(p.x, 1.75, p.z);
+        // Beim Wegwählen steht die Figur am Zug auf der Gabel und die Kamera schaut auf sie:
+        // Schild nicht unter ihren Pfeil.
+        const p = signpostClearOfArrow(
+          signpostPosition(target.position, sibling, SIGNPOST.distance),
+          { y: SIGNPOST.signY, halfWidth: label.width / 2, halfHeight: label.height / 2 },
+          {
+            center: { x: fork.position.x, y: ARROW_CENTER_Y, z: fork.position.z },
+            halfWidth: ARROW.size / 2,
+            halfHeight: ARROW.size / 2 + ARROW.bob,
+          },
+          boardCamera(cameraFocus(bounds, fork.position), CAMERA_OFFSET, CAMERA_AIM_Z),
+        );
+        const post = CreateCylinder(
+          'wegweiser-pfahl',
+          { diameter: 0.14, height: SIGNPOST.postHeight, tessellation: 8 },
+          scene,
+        );
+        post.position.set(p.x, SIGNPOST.postHeight / 2, p.z);
+        post.material = wood;
+        post.isPickable = false;
+        addCaster(post);
+        label.mesh.position.set(p.x, SIGNPOST.signY, p.z);
       }
     }
   }
@@ -487,7 +526,7 @@ export function createBoardScene(
     mat.useAlphaFromDiffuseTexture = true;
     mat.disableLighting = true;
     mat.backFaceCulling = false;
-    activeArrow = CreatePlane('am-zug-pfeil', { size: 1.5 }, scene);
+    activeArrow = CreatePlane('am-zug-pfeil', { size: ARROW.size }, scene);
     activeArrow.material = mat;
     activeArrow.billboardMode = Mesh.BILLBOARDMODE_ALL;
     activeArrow.renderingGroupId = 1;
@@ -600,6 +639,35 @@ export function createBoardScene(
     dot.material = warn;
     marker.setEnabled(false);
 
+    // Flug-Effekte (CHAOS-52), nur während Windstoß bzw. Platztausch sichtbar.
+    const swirlMaterial = fxMaterial(`figur-${slot}-wind-mat`, '#ffffff');
+    const swirl = [
+      { diameter: 1.7, y: 0.9, tilt: 0.35 },
+      { diameter: 2.2, y: 1.6, tilt: -0.3 },
+    ].map(({ diameter, y, tilt }, i) => {
+      const ring = CreateTorus(
+        `figur-${slot}-wind-${i}`,
+        { diameter, thickness: 0.06, tessellation: 32 },
+        scene,
+      );
+      ring.parent = root;
+      ring.position.y = y;
+      ring.rotation.x = tilt;
+      ring.material = swirlMaterial;
+      ring.isPickable = false;
+      ring.setEnabled(false);
+      return ring;
+    });
+    const swapRingMaterial = fxMaterial(`figur-${slot}-tausch-mat`, style.color);
+    const swapRing = CreateTorus(
+      `figur-${slot}-tausch`,
+      { diameter: 1.5, thickness: 0.16, tessellation: 32 },
+      scene,
+    );
+    swapRing.material = swapRingMaterial;
+    swapRing.isPickable = false;
+    swapRing.setEnabled(false);
+
     return {
       slot,
       root,
@@ -611,7 +679,52 @@ export function createBoardScene(
       connected: null,
       yaw: FACE_CAMERA,
       position: new Vector3(),
+      flying: null,
+      swirl,
+      swirlMaterial,
+      swapRing,
+      swapRingMaterial,
     };
+  }
+
+  /** Leuchtendes, halbtransparentes Material für Flug-Effekte (ohne Licht, ohne Schatten). */
+  function fxMaterial(name: string, hex: string): StandardMaterial {
+    const mat = new StandardMaterial(name, scene);
+    const color = Color3.FromHexString(hex);
+    mat.diffuseColor = color;
+    mat.emissiveColor = color;
+    mat.disableLighting = true;
+    mat.alpha = 0;
+    return mat;
+  }
+
+  /** Windringe und Tausch-Ring je Frame nach dem Flug-Fortschritt. */
+  function syncFlightFx(pawn: Pawn, fp: FramePawn): void {
+    const style = fp.hop?.style ?? 'walk';
+    const t = fp.hop?.t ?? 0;
+    const gust = style === 'gust';
+    pawn.swirlMaterial.alpha = gust ? 0.75 * Math.sin(Math.PI * t) : 0;
+    pawn.swirl.forEach((ring, i) => {
+      if (ring.isEnabled() !== gust) ring.setEnabled(gust);
+      if (!gust) return;
+      ring.rotation.y = (i === 0 ? 1 : -1) * t * Math.PI * 6;
+      ring.scaling.setAll(0.8 + 0.5 * t);
+    });
+    // Tausch: Ring am Abflugfeld (erste 40 %), dann am Zielfeld (letzte 40 %), je aufgehend.
+    const phase =
+      style !== 'swap' || !fp.hop
+        ? null
+        : t < 0.4
+          ? { at: fp.hop.from, p: t / 0.4 }
+          : t >= 0.6
+            ? { at: fp.hop.to, p: (t - 0.6) / 0.4 }
+            : null;
+    if (pawn.swapRing.isEnabled() !== (phase !== null)) pawn.swapRing.setEnabled(phase !== null);
+    if (!phase) return;
+    const at = spacePos(phase.at);
+    pawn.swapRing.position.set(at.x, SPACE_TOP + 0.06, at.z);
+    pawn.swapRing.scaling.setAll(0.7 + 1.6 * phase.p);
+    pawn.swapRingMaterial.alpha = 0.9 * (1 - phase.p);
   }
 
   function applyConnected(pawn: Pawn, connected: boolean): void {
@@ -628,6 +741,9 @@ export function createBoardScene(
       removeCaster(m);
     }
     pawn.character.dispose();
+    pawn.swapRing.dispose();
+    pawn.swirlMaterial.dispose();
+    pawn.swapRingMaterial.dispose();
     pawn.root.dispose(false, false);
   }
 
@@ -670,7 +786,27 @@ export function createBoardScene(
       let x: number;
       let y: number;
       let z: number;
-      if (fp.hop) {
+      if (fp.hop && fp.hop.style !== 'walk') {
+        // Windstoß/Platztausch: ein Flug direkt zum Ziel, die Figur dreht sich dabei.
+        const style = fp.hop.style;
+        const shape = style === 'gust' ? GUST_FLIGHT : SWAP_FLIGHT;
+        const from = spacePos(fp.hop.from);
+        const to = spacePos(fp.hop.to);
+        const p = flightPoint(from, to, fp.hop.t, shape);
+        x = p.x;
+        y = SPACE_TOP + p.y;
+        z = p.z;
+        const heading =
+          to.x !== from.x || to.z !== from.z ? Math.atan2(to.x - from.x, to.z - from.z) : pawn.yaw;
+        const spin = FLIGHT_TURNS[style] * 2 * Math.PI * easeFlight(fp.hop.t, shape.ease);
+        pawn.yaw = (heading + spin) % (2 * Math.PI);
+        pawn.facing.rotation.y = pawn.yaw;
+        pawn.facing.rotation.x = style === 'gust' ? 0.4 : 0;
+        if (pawn.flying !== style) {
+          pawn.flying = style;
+          pawn.character.play(style === 'gust' ? 'fall' : 'jump');
+        }
+      } else if (fp.hop) {
         const from = spacePos(fp.hop.from);
         const to = spacePos(fp.hop.to);
         const p = hopPoint(from, to, fp.hop.t);
@@ -691,6 +827,8 @@ export function createBoardScene(
         turn(pawn, FACE_CAMERA, STAND_TILT, dtMs);
         if (pawn.character.animation === 'run') pawn.character.play('idle');
       }
+      if (fp.hop?.style === 'walk' || !fp.hop) pawn.flying = null;
+      syncFlightFx(pawn, fp);
       pawn.root.position.set(x, y, z);
       pawn.position.set(x, y, z);
       // Symbol schwebt leicht (Simulationszeit, deterministisch).
@@ -725,7 +863,11 @@ export function createBoardScene(
     activeRing.setEnabled(true);
     activeRing.position.set(p.x, SPACE_TOP + 0.04, p.z);
     activeArrow.setEnabled(true);
-    activeArrow.position.set(p.x, p.y + PAWN.height + 1.0 + 0.15 * Math.sin(simMs / 180), p.z);
+    activeArrow.position.set(
+      p.x,
+      p.y + PAWN.height + ARROW.above + ARROW.bob * Math.sin(simMs / 180),
+      p.z,
+    );
   }
 
   function syncTrophies(active: readonly string[]): void {
@@ -849,9 +991,9 @@ export function createBoardScene(
   // ---------------------------------------------------------------------------
 
   function placeCamera(): void {
-    const aimZ = focus.z + CAMERA_AIM_Z;
-    camera.position.set(focus.x + CAMERA_OFFSET.x, CAMERA_OFFSET.y, aimZ + CAMERA_OFFSET.z);
-    camera.setTarget(new Vector3(focus.x, 0, aimZ));
+    const { position, target } = boardCamera(focus, CAMERA_OFFSET, CAMERA_AIM_Z);
+    camera.position.set(position.x, position.y, position.z);
+    camera.setTarget(new Vector3(target.x, target.y, target.z));
   }
 
   let cameraPlaced = false;
@@ -938,7 +1080,7 @@ export function createBoardScene(
     getRendererInfo(): RendererInfo {
       return {
         ...rendererInfo(engine),
-        ...(lighting ? { quality: `${lighting.quality}${look.automatic ? ' (auto)' : ''}` } : {}),
+        ...(lighting ? { quality: qualityLabel(lighting.quality, look.automatic) } : {}),
       };
     },
     setRenderPaused(paused) {

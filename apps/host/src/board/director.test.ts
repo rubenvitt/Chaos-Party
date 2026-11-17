@@ -5,9 +5,9 @@ import {
   type BoardView,
 } from '@chaos-party/protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { POPUP_MS } from './animation.ts';
+import { FLIGHT_EVENT_MS, GUST_FLIGHT_MS, POPUP_MS, SWAP_FLIGHT_MS } from './animation.ts';
 import { DEMO_VIEW } from './demo.ts';
-import { createBoardDirector, MESSAGE_MS } from './director.ts';
+import { createBoardDirector, MESSAGE_MS, toQueueItems } from './director.ts';
 
 const STEP = DEMO_VIEW.stepMs;
 
@@ -51,7 +51,7 @@ describe('createBoardDirector', () => {
     // Stand wartet, bis die Animation fertig ist.
     expect(director.getHud().view?.gamePhase).toBe('choose-path');
     let pawn = director.getFrame().pawns.find((p) => p.slot === 1);
-    expect(pawn?.hop).toEqual({ from: 's07', to: 's08', t: 0 });
+    expect(pawn?.hop).toEqual({ from: 's07', to: 's08', t: 0, style: 'walk' });
 
     director.advance(STEP / 2);
     pawn = director.getFrame().pawns.find((p) => p.slot === 1);
@@ -381,5 +381,114 @@ describe('createBoardDirector', () => {
     const director = started();
     director.receive(msg(DEMO_VIEW, [{ type: 'path-chosen', slot: 1, spaceId: 's14' }], 0));
     expect(director.getHud().messages[0]?.text).toBe('Blau nimmt: Sumpfabkürzung');
+  });
+
+  it('zeigt den Windstoß als einen Flug zum Ziel (CHAOS-52)', () => {
+    const director = started();
+    const after = moveBlue(DEMO_VIEW, 's09');
+    director.receive(
+      msg(
+        after,
+        [
+          { type: 'board-event', slot: 1, event: 'gust' },
+          { type: 'moved', slot: 1, path: ['s08', 's09'] },
+        ],
+        0,
+      ),
+    );
+    expect(director.getHud().messages.at(-1)?.text).toContain('Windböe');
+    director.advance(FLIGHT_EVENT_MS + GUST_FLIGHT_MS / 2);
+    const pawn = director.getFrame().pawns.find((p) => p.slot === 1);
+    expect(pawn?.hop).toMatchObject({ from: 's07', to: 's09', style: 'gust' });
+    expect(pawn?.hop?.t).toBeCloseTo(0.5);
+    expect(pawn?.spaceId).toBe('s07');
+    director.advance(GUST_FLIGHT_MS / 2);
+    expect(director.animating).toBe(false);
+    expect(director.getFrame().pawns.find((p) => p.slot === 1)).toMatchObject({
+      spaceId: 's09',
+      hop: null,
+    });
+    expect(director.stats.eventsProcessed).toBe(2);
+  });
+
+  it('lässt beim Platztausch beide Figuren gleichzeitig fliegen (CHAOS-52)', () => {
+    const director = started();
+    const seen: string[] = [];
+    director.onEvent((event) => seen.push(event.type));
+    const after: BoardView = {
+      ...DEMO_VIEW,
+      players: DEMO_VIEW.players.map((p) =>
+        p.slot === 1 ? { ...p, spaceId: 's34' } : p.slot === 3 ? { ...p, spaceId: 's07' } : p,
+      ),
+    };
+    director.receive(
+      msg(
+        after,
+        [
+          { type: 'board-event', slot: 1, event: 'swap' },
+          { type: 'moved', slot: 1, path: ['s34'] },
+          { type: 'moved', slot: 3, path: ['s07'] },
+        ],
+        0,
+      ),
+    );
+    director.advance(FLIGHT_EVENT_MS + SWAP_FLIGHT_MS / 4);
+    const pawns = director.getFrame().pawns;
+    expect(pawns.find((p) => p.slot === 1)?.hop).toMatchObject({
+      from: 's07',
+      to: 's34',
+      style: 'swap',
+    });
+    expect(pawns.find((p) => p.slot === 3)?.hop).toMatchObject({
+      from: 's34',
+      to: 's07',
+      style: 'swap',
+    });
+    expect(pawns.find((p) => p.slot === 3)?.hop?.t).toBeCloseTo(0.25);
+    // Beide `moved` werden gemeldet (Klänge), auch wenn sie als ein Schritt laufen.
+    expect(seen).toEqual(['board-event', 'moved', 'moved']);
+    director.advance(SWAP_FLIGHT_MS);
+    expect(director.animating).toBe(false);
+    expect(director.getPawnSpaces()).toMatchObject({ 1: 's34', 3: 's07' });
+    expect(director.stats.eventsProcessed).toBe(3);
+  });
+
+  it('markiert nur passende moved als Flug', () => {
+    const styles = (events: BoardEvent[]) =>
+      toQueueItems(events).map(
+        (item) => `${item.event.type}:${item.style}${item.partner ? '+' : ''}`,
+      );
+    // Normales Gehen bleibt Gehen.
+    expect(styles([{ type: 'moved', slot: 1, path: ['s08'] }])).toEqual(['moved:walk']);
+    // Windstoß ohne Weg (Sackgasse): das spätere moved ist wieder Gehen.
+    expect(
+      styles([
+        { type: 'board-event', slot: 1, event: 'gust' },
+        { type: 'turn-ended', slot: 1 },
+        { type: 'moved', slot: 1, path: ['s08'] },
+      ]),
+    ).toEqual(['board-event:walk', 'turn-ended:walk', 'moved:walk']);
+    // Fremde Figur nach dem Windstoß: kein Flug.
+    expect(
+      styles([
+        { type: 'board-event', slot: 1, event: 'gust' },
+        { type: 'moved', slot: 2, path: ['s08'] },
+      ]),
+    ).toEqual(['board-event:walk', 'moved:walk']);
+    // Tausch ohne zweites moved: einzelnes moved geht normal.
+    expect(
+      styles([
+        { type: 'board-event', slot: 1, event: 'swap' },
+        { type: 'moved', slot: 1, path: ['s20'] },
+      ]),
+    ).toEqual(['board-event:walk', 'moved:walk']);
+    expect(
+      styles([
+        { type: 'board-event', slot: 1, event: 'swap' },
+        { type: 'moved', slot: 1, path: ['s20'] },
+        { type: 'moved', slot: 2, path: ['s07'] },
+        { type: 'turn-ended', slot: 1 },
+      ]),
+    ).toEqual(['board-event:walk', 'moved:swap+', 'turn-ended:walk']);
   });
 });

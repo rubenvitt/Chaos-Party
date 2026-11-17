@@ -253,6 +253,11 @@ export const ControllerMinigameInfoSchema = z.strictObject({
   reward: CountSchema.optional(),
   /** v4 (CHAOS-51, EXP-019): Nur in `results`: Items aus dem Ergebnis (Trostpreis). */
   prizes: z.array(ItemKindSchema).min(1).max(4).optional(),
+  /**
+   * v4-Nachtrag (CHAOS-66, optional): Minispiel lief in der Partie schon; das Intro zeigt nur
+   * Titel und Bedienlegende. Fehlt = `false` (volle Anleitung).
+   */
+  repeat: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -774,6 +779,11 @@ export const BoardViewSchema = z.strictObject({
       round: CountSchema,
       seed: MinigameSeedSchema,
       playMs: CountSchema,
+      /**
+       * v4-Nachtrag (CHAOS-66, optional): Minispiel lief in der Partie schon; kurze Anleitung
+       * am PC. Fehlt = `false`.
+       */
+      repeat: z.boolean().optional(),
       /** Seit Beginn von `minigame-play` vergangen (ms) oder `null` davor. */
       elapsedMs: z.int().nonnegative().nullable(),
       placements: z.array(MinigamePlacementSchema).max(MAX_PLAYERS).nullable(),

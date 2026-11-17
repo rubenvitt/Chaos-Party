@@ -13,6 +13,9 @@
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
 import type { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
+// Seiteneffekt: registriert `Scene.DefaultMaterialFactory`. Seit die Arena ein eigener Chunk
+// ist (CHAOS-53), bringt ihn nicht mehr zufällig das Brett im selben Bundle mit.
+import '@babylonjs/core/Materials/standardMaterial.js';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';
@@ -32,7 +35,7 @@ import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import { observeFrames, resourceStats } from '../debug/renderProbe.ts';
 import type { NatureLook } from '../nature/lighting.ts';
-import { createAdaptiveQuality } from '../nature/quality.ts';
+import { createAdaptiveQuality, qualityLabel } from '../nature/quality.ts';
 import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
 import { createStageLook } from '../nature/stageLook.ts';
 import { loadHavok } from './havok.ts';
@@ -542,9 +545,7 @@ export function createGameScene(canvas: HTMLCanvasElement, options: GameSceneOpt
         vendor: gl.vendor,
         width: engine.getRenderWidth(),
         height: engine.getRenderHeight(),
-        ...(lighting
-          ? { quality: `${lighting.quality}${settings.automatic ? ' (auto)' : ''}` }
-          : {}),
+        ...(lighting ? { quality: qualityLabel(lighting.quality, settings.automatic) } : {}),
       };
     },
     getPlayerPositions(): PlayerPosition[] {

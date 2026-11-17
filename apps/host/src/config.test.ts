@@ -26,6 +26,11 @@ describe('parseHostConfig', () => {
     expect(parseHostConfig('?volume=laut').volume).toBe(70);
   });
 
+  it('liest repeat für die kurze Anleitung im lokalen Ablauf (CHAOS-66)', () => {
+    expect(parseHostConfig('?local=1&minigame=pump-parade&flow=1&repeat=1').repeat).toBe(true);
+    expect(DEFAULT_CONFIG.repeat).toBe(false);
+  });
+
   it('liest local, players, seed, test, joinHint und debug', () => {
     expect(parseHostConfig('?local=1&players=4&seed=7&test=1&joinHint=5&debug=1')).toEqual({
       local: true,
@@ -40,6 +45,7 @@ describe('parseHostConfig', () => {
       demo: false,
       minigame: null,
       flow: false,
+      repeat: false,
       mute: false,
       volume: 70,
       finale: null,

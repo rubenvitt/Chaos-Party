@@ -5,6 +5,7 @@
   "description": "Minispiel-Vertrag: reine Typen, Wertung und Ergebnisprüfung (auch für den Server), Babylon-Laufzeitvertrag für den Host und ein Headless-Testharness.",
   "license": "GPL-3.0-only",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./babylon": "./src/babylon/index.ts",

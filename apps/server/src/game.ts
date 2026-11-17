@@ -243,6 +243,7 @@ export class BoardGame {
             round: state.minigame.round,
             seed: state.minigame.seed,
             playMs: state.minigame.playMs,
+            repeat: state.minigame.repeat,
             elapsedMs:
               state.minigame.playStartedAt === null
                 ? null
@@ -304,6 +305,8 @@ export class BoardGame {
       ...(own ? { place: own.place, score: own.score } : {}),
       ...(reward === undefined ? {} : { reward }),
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
+      // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
+      repeat: minigame.repeat,
     };
   }
 

@@ -3,8 +3,9 @@
  * Tiefenunschärfe, Kantenglättung und Schattenauflösung. Rein, ohne Babylon.
  *
  * - Start: `?qualitaet=hoch|mittel|niedrig` (fest, keine Automatik) oder `hoch` mit Automatik.
- * - Automatik (`AdaptiveQuality`): Liegt die Bildrate über ein Messfenster unter
- *   {@link ADAPT.minFps}, geht es eine Stufe nach unten. Nach oben geht es nie automatisch
+ * - Automatik (`AdaptiveQuality`): Liegt die Bildrate über ein Messfenster unter der Schwelle
+ *   ({@link adaptiveMinFps}: {@link ADAPT.minFps}, bei Bildschirmen unter 60 Hz entsprechend
+ *   weniger, CHAOS-76), geht es eine Stufe nach unten. Nach oben geht es nie automatisch
  *   (kein Pendeln zwischen Stufen mitten im Spiel). Die erreichte Stufe gilt für den Rest der
  *   Sitzung: Jede neue Szene (Brett, Minispiel) startet mit ihr statt wieder bei `hoch`
  *   (CHAOS-73, {@link sessionQuality}).
@@ -14,6 +15,8 @@
  *   llvmpipe …, z. B. ohne Grafiktreiber). Wenig Gras, kein HDRI-Umgebungslicht, keine
  *   Nachbearbeitung – die Screenshots der Tests zeigen den Look, nicht die volle Pracht.
  */
+
+import { recordFrameInterval, sessionRefreshHz } from './refreshRate.ts';
 
 export const QUALITY_LEVELS = ['hoch', 'mittel', 'niedrig'] as const;
 export type QualityLevel = (typeof QUALITY_LEVELS)[number] | 'minimal';
@@ -131,8 +134,13 @@ export function lowerLevel(level: QualityLevel): QualityLevel | null {
 }
 
 export const ADAPT = {
-  /** Unter dieser mittleren Bildrate wird abgestuft. */
+  /** Unter dieser mittleren Bildrate wird abgestuft (Bildschirm mit 60 Hz oder mehr). */
   minFps: 45,
+  /**
+   * Bei langsameren Bildschirmen (30 Hz, 50 Hz) gilt dieser Anteil der erkannten
+   * Bildwiederholrate als Schwelle (wie 45 von 60).
+   */
+  refreshShare: 0.75,
   /** Länge des Messfensters (ms). */
   windowMs: 3000,
   /** Nach Start und nach jedem Wechsel so lange nicht messen (Shader, Aufbau, Ladezeiten). */
@@ -140,6 +148,23 @@ export const ADAPT = {
   /** Lücken über diesem Wert (Tab im Hintergrund) zählen nicht als Frame. */
   pauseMs: 500,
 } as const;
+
+/**
+ * Schwelle der Automatik (fps) für eine erkannte Bildwiederholrate (`null` = unbekannt, dann
+ * {@link ADAPT.minFps}). Ein 30-Hz-Bildschirm kann nie 45 fps liefern; dort zählt erst unter
+ * 22,5 fps die GPU als zu langsam. Schnellere Bildschirme verschärfen die Schwelle nicht.
+ */
+export function adaptiveMinFps(refreshHz: number | null): number {
+  if (refreshHz === null || !(refreshHz > 0)) return ADAPT.minFps;
+  return Math.min(ADAPT.minFps, refreshHz * ADAPT.refreshShare);
+}
+
+/** Anzeige der Stufe für die Messanzeige, z. B. „hoch (auto, 30 Hz)“. */
+export function qualityLabel(level: QualityLevel, automatic: boolean): string {
+  if (!automatic) return level;
+  const hz = sessionRefreshHz();
+  return hz === null ? `${level} (auto)` : `${level} (auto, ${String(Math.round(hz))} Hz)`;
+}
 
 /** Von der Automatik erreichte Stufe dieser Sitzung (Seite), `null` = noch nicht abgestuft. */
 let sessionLevel: QualityLevel | null = null;
@@ -162,7 +187,8 @@ export interface AdaptiveQuality {
 
 /**
  * Automatik: misst Bildabstände in Fenstern von {@link ADAPT.windowMs} und stuft ab, wenn
- * die mittlere Bildrate eines Fensters unter {@link ADAPT.minFps} liegt.
+ * die mittlere Bildrate eines Fensters unter {@link adaptiveMinFps} liegt. Jeder Abstand geht
+ * auch in die Schätzung der Bildwiederholrate (`refreshRate.ts`).
  */
 export function createAdaptiveQuality(start: QualityLevel, automatic: boolean): AdaptiveQuality {
   let level = start;
@@ -177,6 +203,7 @@ export function createAdaptiveQuality(start: QualityLevel, automatic: boolean): 
       if (!automatic || !Number.isFinite(frameMs) || frameMs <= 0 || frameMs > ADAPT.pauseMs) {
         return null;
       }
+      recordFrameInterval(frameMs);
       if (settle > 0) {
         settle -= frameMs;
         return null;
@@ -187,7 +214,7 @@ export function createAdaptiveQuality(start: QualityLevel, automatic: boolean): 
       const fps = (frames * 1000) / windowMs;
       windowMs = 0;
       frames = 0;
-      if (fps >= ADAPT.minFps) return null;
+      if (fps >= adaptiveMinFps(sessionRefreshHz())) return null;
       const next = lowerLevel(level);
       if (!next) return null;
       level = next;

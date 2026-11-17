@@ -120,7 +120,9 @@ function sendMinigame(
   slot: SlotNumber,
   info: Info,
   stage: ControllerMinigameInfo['stage'],
-  result: Partial<Pick<ControllerMinigameInfo, 'place' | 'score' | 'reward' | 'prizes'>> = {},
+  result: Partial<
+    Pick<ControllerMinigameInfo, 'place' | 'score' | 'reward' | 'prizes' | 'repeat'>
+  > = {},
 ) {
   const play = stage === 'play';
   fake.send(
@@ -240,6 +242,35 @@ test('Intro: Titel, Untertitel, Anleitung und Bedienlegende nur der angebotenen 
   await expect(page.getByTestId('minigame-title')).toHaveText('Pump-Parade');
   await expect(page.getByTestId('control-legend').locator('li')).toHaveCount(1);
   await expect(page.getByTestId('legend-a')).toContainText('Pumpen');
+});
+
+test('Intro bei Wiederholung (CHAOS-66): nur Titel und Bedienlegende, keine Anleitung', async ({
+  page,
+}, testInfo) => {
+  const fake = await attach(page);
+  await join(page);
+  sendMinigame(fake, 1, HUEPFEN, 'intro', { repeat: true });
+
+  const intro = page.getByTestId('minigame-intro');
+  await expect(intro).toHaveAttribute('data-repeat', 'true');
+  await expect(page.getByTestId('minigame-kicker')).toHaveText('Nochmal!');
+  await expect(page.getByTestId('minigame-title')).toHaveText('Kartoffel-Hüpfen');
+  await expect(page.getByTestId('minigame-tagline')).toHaveCount(0);
+  await expect(page.getByTestId('minigame-steps')).toHaveCount(0);
+  await expect(page.getByTestId('legend-stick')).toContainText('Laufen');
+  await expect(page.getByTestId('legend-a')).toContainText('Springen');
+  await expect(page.getByTestId('minigame-ready')).toHaveText('Gleich geht’s los!');
+  await expectInside(intro, viewportBox(page));
+  await expectNoScrollOrZoom(page);
+  if (testInfo.project.name === 'iphone-hoch') await beleg(page, 'controller-intro-kurz');
+  await expectStableWrapping(page.locator('body'));
+  await expect(page).toHaveScreenshot('minispiel-intro-kurz.png', { mask: screenshotMask(page) });
+
+  // Erstes Vorkommen (ohne `repeat`) zeigt wieder die volle Anleitung.
+  sendMinigame(fake, 1, PUMPEN, 'intro');
+  await expect(intro).toHaveAttribute('data-repeat', 'false');
+  await expect(page.getByTestId('minigame-steps').locator('li')).toHaveText(PUMPEN.instructions);
+  await expect(page.getByTestId('minigame-kicker')).toHaveText('Minispiel');
 });
 
 test('Spiel: beschriftete Knöpfe, Joystick nach Steckbrief, Eingaben an den Server', async ({

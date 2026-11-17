@@ -64,6 +64,8 @@ export interface PublicMinigame {
   readonly round: number;
   readonly seed: number;
   readonly playMs: number;
+  /** Lief schon einmal in dieser Partie: kurze Anleitung (CHAOS-66). */
+  readonly repeat: boolean;
   /** Seit Beginn von `minigame-play` vergangene Zeit (ms) oder `null` davor. */
   readonly elapsedMs: number | null;
   readonly placements: readonly MinigamePlacement[] | null;
@@ -128,6 +130,7 @@ export function toPublicView(state: GameState, now: number = state.now): PublicG
           round: state.minigame.round,
           seed: state.minigame.seed,
           playMs: state.minigame.playMs,
+          repeat: state.minigame.repeat,
           elapsedMs:
             state.minigame.playStartedAt === null
               ? null

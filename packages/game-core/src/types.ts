@@ -64,7 +64,13 @@ export interface Pacing {
   readonly spaceEventMs: number;
   /** Zugende bis zum nächsten Spieler. */
   readonly turnEndMs: number;
+  /** Anleitung vor einem Minispiel, das in dieser Partie zum ersten Mal läuft. */
   readonly minigameIntroMs: number;
+  /**
+   * Anleitung vor einem Minispiel, das in dieser Partie schon lief (CHAOS-66): kurz, nur Titel
+   * und Bedienlegende. Fehlt = `minigameIntroMs` (jedes Mal die volle Anleitung).
+   */
+  readonly minigameRepeatIntroMs?: number;
   readonly minigamePlayMs: number;
   readonly minigameResultsMs: number;
   /**
@@ -202,6 +208,11 @@ export interface MinigameState {
   /** Seed für die Minispiel-Logik im Host (uint32). */
   readonly seed: number;
   readonly playMs: number;
+  /**
+   * Lief dieses Minispiel in der Partie schon einmal (CHAOS-66)? Dann ist die Anleitung kurz
+   * (`minigameRepeatIntroMs`) und Host und Controller zeigen nur Titel und Bedienlegende.
+   */
+  readonly repeat: boolean;
   /** Beginn von `minigame-play` (Server-Uhr) oder `null` davor. */
   readonly playStartedAt: number | null;
   /** Ergebnis nach `minigame-play`; `null` solange offen. */

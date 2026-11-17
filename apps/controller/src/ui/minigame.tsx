@@ -8,6 +8,7 @@ import {
   controlLegend,
   describeResult,
   INTRO_READY,
+  REPEAT_KICKER,
   RESULTS_LEAD,
   type ControlLegendItem,
 } from '../minigame/view.ts';
@@ -37,7 +38,10 @@ const KEY_NAME: Readonly<Record<ControlLegendItem['kind'], string>> = {
   b: 'Knopf B',
 };
 
-/** Anleitung vor dem Minispiel: kurz und groß, keine Scroll-Wüste. */
+/**
+ * Anleitung vor dem Minispiel: kurz und groß, keine Scroll-Wüste. Lief das Minispiel in der
+ * Partie schon (`repeat`, CHAOS-66), nur Titel und Bedienlegende.
+ */
 export function MinigameIntro({
   minigame,
   compact = false,
@@ -46,33 +50,39 @@ export function MinigameIntro({
   compact?: boolean;
 }) {
   const legend = controlLegend(minigame.controls);
+  const repeat = minigame.repeat === true;
   return (
     <div
       className="minigame-card minigame-intro"
       data-testid="minigame-intro"
       data-minigame={minigame.id}
       data-compact={compact}
+      data-repeat={repeat}
     >
       <div className="minigame-heading">
-        <p className="minigame-kicker ui-text">
+        <p className="minigame-kicker ui-text" data-testid="minigame-kicker">
           <Icon name="star" size={compact ? 20 : 24} />
-          Minispiel
+          {repeat ? REPEAT_KICKER : 'Minispiel'}
         </p>
         <h2 className="minigame-title ui-text" data-testid="minigame-title">
           {minigame.title}
         </h2>
-        <p className="minigame-tagline ui-text" data-testid="minigame-tagline">
-          {minigame.tagline}
-        </p>
+        {!repeat && (
+          <p className="minigame-tagline ui-text" data-testid="minigame-tagline">
+            {minigame.tagline}
+          </p>
+        )}
       </div>
       <div className="minigame-howto">
-        <ol className="minigame-steps" data-testid="minigame-steps">
-          {minigame.instructions.map((line, i) => (
-            <li key={`${String(i)}-${line}`} className="ui-text">
-              {line}
-            </li>
-          ))}
-        </ol>
+        {!repeat && (
+          <ol className="minigame-steps" data-testid="minigame-steps">
+            {minigame.instructions.map((line, i) => (
+              <li key={`${String(i)}-${line}`} className="ui-text">
+                {line}
+              </li>
+            ))}
+          </ol>
+        )}
         {legend.length > 0 && (
           <ul className="control-legend" data-testid="control-legend" aria-label="Bedienung">
             {legend.map((item) => (

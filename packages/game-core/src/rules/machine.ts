@@ -138,6 +138,7 @@ export function createGame(config: GameConfig): GameState {
     promptBaseDeadline: null,
     minigameBag: [],
     minigameLast: null,
+    minigamePlayed: [],
   };
   return {
     boardId: board.id,

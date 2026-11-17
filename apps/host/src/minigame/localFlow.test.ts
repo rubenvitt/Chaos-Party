@@ -1,7 +1,13 @@
 import { getMinigameInfo } from '@chaos-party/minigames/catalog';
 import { BoardViewSchema } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
-import { LOCAL_INTRO_MS, localRewards, localSlots, localView } from './localFlow.ts';
+import {
+  LOCAL_INTRO_MS,
+  LOCAL_REPEAT_INTRO_MS,
+  localRewards,
+  localSlots,
+  localView,
+} from './localFlow.ts';
 import { minigameStageOf } from './plan.ts';
 
 const PUMP_PARADE_INFO = (() => {
@@ -32,6 +38,12 @@ describe('lokaler Minispiel-Ablauf', () => {
     const intro = localView(PUMP_PARADE_INFO, 'intro', { players: 2, seed: 7 });
     expect(intro.remainingMs).toBe(LOCAL_INTRO_MS);
     expect(intro.minigame?.elapsedMs).toBeNull();
+    expect(intro.minigame?.repeat).toBe(false);
+    // CHAOS-66: Wiederholung → kurze Anleitung.
+    const repeat = localView(PUMP_PARADE_INFO, 'intro', { players: 2, seed: 7, repeat: true });
+    expect(BoardViewSchema.safeParse(repeat).success).toBe(true);
+    expect(repeat.remainingMs).toBe(LOCAL_REPEAT_INTRO_MS);
+    expect(repeat.minigame?.repeat).toBe(true);
     const results = localView(PUMP_PARADE_INFO, 'results', { players: 3, seed: 7, result });
     expect(results.minigame?.placements).toEqual(result.placements);
     expect(results.minigame?.highlights).toEqual(result.highlights);

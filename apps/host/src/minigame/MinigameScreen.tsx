@@ -2,7 +2,9 @@
  * Minispiel-Bühne im Spielablauf (M3, CHAOS-26/33): ersetzt in den Minispiel-Phasen das Brett.
  *
  * - **Intro** (`minigame-intro`): Szene ist vorbereitet, darüber die Anleitungskarte mit Titel,
- *   Untertitel, Anleitung, Bedienung (Joystick/A/B mit Symbol) und Countdown.
+ *   Untertitel, Anleitung, Bedienung (Joystick/A/B mit Symbol) und Countdown. Lief das
+ *   Minispiel in der Partie schon (`minigame.repeat`, CHAOS-66), nur Titel, Bedienung, Spieler
+ *   und Countdown (kurze Anleitung, `minigameRepeatIntroMs`).
  * - **Spiel** (`minigame-play`): Runner läuft; Eingaben vom Server (`input`) und der Tastatur;
  *   HUD mit Restzeit, Punkten je Spieler (Farbe + Symbol + Figur), Status und Banner. Das
  *   Ergebnis geht über `onResult` (genau einmal) an den Versand.
@@ -410,11 +412,19 @@ function IntroCard({
 }) {
   const { info } = module;
   const { controls } = info;
+  // CHAOS-66: Minispiel lief in der Partie schon → kurze Anleitung, nur Titel und Bedienlegende.
+  const repeat = view.minigame?.repeat === true;
   return (
-    <div className="minigame-overlay" data-testid="minigame-intro">
-      <section className="minigame-card minigame-card--intro" aria-label="Anleitung">
+    <div className="minigame-overlay" data-testid="minigame-intro" data-repeat={repeat}>
+      <section
+        className={`minigame-card minigame-card--intro${repeat ? ' minigame-card--repeat' : ''}`}
+        aria-label="Anleitung"
+      >
         <header className="minigame-card-head">
-          <p className="minigame-kicker">Minispiel · Runde {view.minigame?.round ?? view.round}</p>
+          <p className="minigame-kicker" data-testid="minigame-kicker">
+            Minispiel · Runde {view.minigame?.round ?? view.round}
+            {repeat && ' · Nochmal!'}
+          </p>
           {seconds !== null && (
             <p
               className="minigame-countdown"
@@ -429,12 +439,16 @@ function IntroCard({
         <h2 className="minigame-title" data-testid="minigame-title">
           {info.title}
         </h2>
-        <p className="minigame-tagline">{info.tagline}</p>
-        <ol className="minigame-instructions">
-          {info.instructions.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ol>
+        {!repeat && (
+          <>
+            <p className="minigame-tagline">{info.tagline}</p>
+            <ol className="minigame-instructions" data-testid="minigame-instructions">
+              {info.instructions.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ol>
+          </>
+        )}
         <ul className="minigame-controls" aria-label="Bedienung" data-testid="minigame-controls">
           {controls.joystick !== null && (
             <li className="minigame-control" data-control="joystick">
