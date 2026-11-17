@@ -15,6 +15,7 @@ import type HavokPhysics from '@babylonjs/havok';
 import type { MinigameInput, MinigameResult, Slot } from '../info.ts';
 import { checkResult, rankByScore } from '../result.ts';
 import { createMinigameRng } from '../rng.ts';
+import { markVisual } from './visual.ts';
 import {
   FIXED_STEP_SECONDS,
   type CharacterFactory,
@@ -211,7 +212,14 @@ export function createMinigameRunner(
         rng: createMinigameRng(options.seed),
         timeLimitMs,
         fx: options.fx,
-        characters: options.characters,
+        characters: {
+          // Figuren für native Hosts kennzeichnen (visual.ts), egal welche Fabrik sie baut.
+          create: (figureScene, player) => {
+            const handle = options.characters.create(figureScene, player);
+            markVisual(handle.root, 'figur', player.slot);
+            return handle;
+          },
+        },
         testMode: options.testMode ?? false,
         ...(options.look ? { look: options.look } : {}),
       });

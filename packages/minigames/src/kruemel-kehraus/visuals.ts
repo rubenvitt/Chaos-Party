@@ -17,6 +17,7 @@ import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData.js';
 import type { Scene } from '@babylonjs/core/scene.js';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { toyMaterial, type Disposable, type ToyParts } from '../pudding-gerangel/visuals.ts';
 import { TUNING, type Corner } from './logic.ts';
 
@@ -194,6 +195,7 @@ export function buildPawnDecor(
     ),
     disposables,
   );
+  markVisual(ring, 'spielerring', slot);
   ring.material = material;
   const pin = track(
     CreateCylinder(
@@ -203,6 +205,7 @@ export function buildPawnDecor(
     ),
     disposables,
   );
+  markVisual(pin, 'wimpel', slot);
   pin.material = material;
   return { ring, pin };
 }
