@@ -18,6 +18,7 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
 import type { LookFinish, MinigameLook } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { TUNING } from './logic.ts';
 
 export interface Disposable {
@@ -248,7 +249,10 @@ export interface ZoneVisual {
 
 /** Kirschfleck (Sahnefleck mit rotem Rand und schwebender Kirsche) und Vorwarn-Ring. */
 export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): ZoneVisual {
-  const root = track(new TransformNode('pudding-kirschfleck', scene), disposables);
+  const root = track(
+    markVisual(new TransformNode('pudding-kirschfleck', scene), 'kirschfleck'),
+    disposables,
+  );
   root.parent = hitbox;
   const spot = track(
     CreateCylinder(
@@ -273,7 +277,10 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
   const red = toyMaterial('pudding-kirsche-mat', COLORS.cherry, scene, disposables, 0.35);
   border.material = red;
 
-  const cherry = track(new TransformNode('pudding-kirsche', scene), disposables);
+  const cherry = track(
+    markVisual(new TransformNode('pudding-kirsche', scene), 'kirsche'),
+    disposables,
+  );
   cherry.parent = root;
   cherry.position.y = 2.6;
   // Dünne Stange vom Fleck zur Kirsche: zeigt auch aus der Schräge, wo der Fleck ist.
@@ -311,6 +318,7 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
     ),
     disposables,
   );
+  markVisual(ghost, 'kirschfleck-vorwarnung');
   ghost.parent = hitbox;
   ghost.material = toyMaterial('pudding-vorwarnung-mat', COLORS.cherry, scene, disposables, 0.6, {
     alpha: 0.55,
@@ -374,6 +382,7 @@ export function buildPawnDecor(
     ),
     disposables,
   );
+  markVisual(ring, 'spielerring', slot);
   ring.material = material;
   const pin = track(
     CreateCylinder(
@@ -383,13 +392,14 @@ export function buildPawnDecor(
     ),
     disposables,
   );
+  markVisual(pin, 'wimpel', slot);
   pin.material = material;
   return { ring, pin };
 }
 
 /** Goldene Wackelkrone (folgt der führenden Person). */
 export function buildCrown(scene: Scene, disposables: ToyParts): TransformNode {
-  const root = track(new TransformNode('pudding-krone', scene), disposables);
+  const root = track(markVisual(new TransformNode('pudding-krone', scene), 'krone'), disposables);
   const gold = toyMaterial('pudding-krone-mat', COLORS.gold, scene, disposables, 0.45);
   const band = track(
     CreateCylinder(
