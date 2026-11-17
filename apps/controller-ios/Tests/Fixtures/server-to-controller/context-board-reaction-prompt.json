@@ -1,0 +1,42 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "board",
+  "layout": "board",
+  "actions": [
+    "choose"
+  ],
+  "prompt": {
+    "id": 11,
+    "slot": 1,
+    "kind": "reaction",
+    "title": "Orange klaut Münzen!",
+    "options": [
+      {
+        "id": "shield",
+        "label": "Schild"
+      },
+      {
+        "id": "brace",
+        "label": "Festhalten"
+      }
+    ],
+    "remainingMs": 3000
+  },
+  "board": {
+    "gamePhase": "reaction-window",
+    "round": 2,
+    "rounds": 5,
+    "coins": 12,
+    "trophies": 1,
+    "items": [
+      "double-dice",
+      "shield"
+    ],
+    "activeSlot": 2,
+    "paused": false,
+    "character": "cactus",
+    "minigameWins": 1
+  }
+}

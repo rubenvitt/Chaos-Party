@@ -1,0 +1,12 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "play",
+  "layout": "joystick-buttons",
+  "actions": [
+    "move",
+    "button-a",
+    "button-b"
+  ]
+}

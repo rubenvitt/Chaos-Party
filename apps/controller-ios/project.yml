@@ -1,0 +1,93 @@
+# CHAOS-115: native Controller-App (iPhone/iPad), ADR-017. Erzeugen: `xcodegen generate`.
+# Liegt bewusst außerhalb des pnpm-Workspace; das Xcode-Projekt wird nicht eingecheckt.
+name: ChaosController
+options:
+  bundleIdPrefix: dev.rubeen
+  deploymentTarget:
+    iOS: '26.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MARKETING_VERSION: '0.1'
+    CURRENT_PROJECT_VERSION: '1'
+targets:
+  # Protokoll, Netz und Bildschirme. Eigenes Framework, damit die Tests ohne App-Host laufen
+  # (`xcodebuild test` hängt mit App-Host auf dem iOS-27-Simulator, siehe README.md).
+  ChaosControllerKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/Protocol
+      - path: Sources/Net
+      - path: Sources/UI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.controller.kit
+        GENERATE_INFOPLIST_FILE: YES
+        'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': NO
+  ChaosController:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/App
+    dependencies:
+      - target: ChaosControllerKit
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Chaos Party
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Klartext-WebSocket ins LAN (ws://<PC>:8787/ws) ohne globale ATS-Ausnahme.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: Chaos Party verbindet sich mit dem Spiel-PC in deinem WLAN.
+        NSCameraUsageDescription: Die Kamera liest den QR-Code vom Fernseher, damit du dem Spiel beitrittst.
+        # Nur Standard-Verschlüsselung des Systems: keine Exportfrage bei jedem TestFlight-Upload.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_NAME: ChaosController
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.controller
+        TARGETED_DEVICE_FAMILY: '1,2'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Team wie in Lichtung/Zunder; signiert automatisch (lokal Xcode-Account, CI App-Store-Connect-API-Key).
+        DEVELOPMENT_TEAM: H95J852PKP
+        CODE_SIGN_STYLE: Automatic
+        'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': NO
+  ChaosControllerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+        excludes:
+          - Fixtures
+      # Fixture-Korpus als Ordner im Test-Bundle (scripts/export-protocol-fixtures.mjs).
+      - path: Tests/Fixtures
+        type: folder
+        buildPhase: resources
+    # Ohne App-Host: `scripts/run-tests.sh` startet das Bundle mit `xctest` im Simulator.
+    dependencies:
+      - target: ChaosControllerKit
+        embed: false
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.controller.tests
+schemes:
+  ChaosController:
+    build:
+      targets:
+        ChaosController: all
+        ChaosControllerTests: [test]
+    test:
+      targets:
+        - ChaosControllerTests
