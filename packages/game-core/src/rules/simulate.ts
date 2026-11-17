@@ -131,6 +131,8 @@ export interface SabotageLoss {
   readonly amount: number;
   /** Bestand unmittelbar vor dem Verlust. */
   readonly before: number;
+  /** Runde, in der der Verlust geschah (1 … `rounds`). */
+  readonly round: number;
 }
 
 export interface SimulationResult {
@@ -295,6 +297,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   const boardEvents = counter(BOARD_EVENT_KINDS);
   let turnStart = 0;
   let turnSpaces = 0;
+  let round = 0;
   let countingMoves = false;
   let trophiesBought = 0;
   let coinSteals = 0;
@@ -314,6 +317,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     eventCount += 1;
     switch (event.type) {
       case 'turn-started':
+        round = event.round;
         turnStart = at;
         turnSpaces = 0;
         countingMoves = false;
@@ -354,6 +358,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
           slot: event.from,
           amount: event.amount,
           before: (coins.get(event.from) ?? 0) + event.amount,
+          round,
         });
         break;
       case 'trap-placed':
@@ -368,6 +373,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
           slot: event.slot,
           amount: event.amount,
           before: coins.get(event.slot) ?? 0,
+          round,
         });
         break;
       case 'reaction-opened':

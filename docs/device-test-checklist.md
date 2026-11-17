@@ -318,7 +318,7 @@ Jeweils ein Controller (iPhone, einmal auch das iPad) **während** der genannten
 | Wollte die Gruppe direkt noch eine Runde spielen? | |
 | Echte Partiedauer bei 10 Runden (V2) – passt 10 als Standard, oder lieber kürzer/länger? | |
 | Hatte der Führende zur Halbzeit einen uneinholbaren Vorsprung, oder blieb es spannend? | |
-| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? | |
+| Ist Sabotage (Klau, Falle) zu zahm – besonders zu zweit? Seit EXP-018 wächst sie ab Runde 6 (Klau 6, 7, 8): Fällt das auf, wird das Ende spannender oder gemeiner? | |
 | Wurde der Münz-Tiebreak bei Trophäengleichstand verstanden (Trophäenzählung, V6)? | |
 | Lieblingsmoment und größtes Ärgernis | |
 | Entscheidung (APPROVED / CHANGES REQUESTED / BLOCKED) | |

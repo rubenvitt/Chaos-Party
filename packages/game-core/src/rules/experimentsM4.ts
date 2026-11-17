@@ -393,13 +393,16 @@ export function sabotageMetrics(results: readonly SimulationResult[]): SabotageM
   };
 }
 
+/** Feste Sabotage-Werte (Stand vor EXP-018), Basis der EXP-013-Varianten. */
+const FIXED: NonNullable<RuleOverrides['items']> = { sabotageGrowthRounds: 0 };
+
 export const M4_SABOTAGE_VARIANTS: readonly Variant[] = [
-  m4Defaults('A', 'Klau 5, Falle 4 (Stand)'),
-  m4Variant('B', 'Klau 6, Falle 5', { items: { stealAmount: 6, trapAmount: 5 } }),
-  m4Variant('C', 'Klau 7, Falle 5', { items: { stealAmount: 7, trapAmount: 5 } }),
-  m4Variant('D', 'Münzklau-Gewicht 4', { items: { weights: { 'coin-steal': 4 } } }),
+  m4Variant('A', 'Klau 5, Falle 4 (Stand)', { items: FIXED }),
+  m4Variant('B', 'Klau 6, Falle 5', { items: { ...FIXED, stealAmount: 6, trapAmount: 5 } }),
+  m4Variant('C', 'Klau 7, Falle 5', { items: { ...FIXED, stealAmount: 7, trapAmount: 5 } }),
+  m4Variant('D', 'Münzklau-Gewicht 4', { items: { ...FIXED, weights: { 'coin-steal': 4 } } }),
   m4Variant('E', 'Klau 6, Falle 5, Münzklau-Gewicht 4', {
-    items: { stealAmount: 6, trapAmount: 5, weights: { 'coin-steal': 4 } },
+    items: { ...FIXED, stealAmount: 6, trapAmount: 5, weights: { 'coin-steal': 4 } },
   }),
 ];
 
@@ -451,6 +454,113 @@ export function sabotageExperiment(
       'p90',
       'Spitzenopfer/Einnahmen',
       'max. Treffer auf einen',
+      'Trophäen',
+    ],
+    rows,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// EXP-018 Wachsende Sabotage (CHAOS-67)
+// ---------------------------------------------------------------------------
+
+/**
+ * Relativer Verlust je Treffer (Verlust / Bestand davor) getrennt nach Partie-Drittel: zeigt,
+ * ob Sabotage zum Ende hin zahmer wird, weil der Bestand mit den Minispiel-Münzen wächst.
+ */
+export interface SabotagePhaseMetrics {
+  readonly early: number;
+  readonly late: number;
+  /** Münzen je Treffer im letzten Drittel. */
+  readonly lateCoins: number;
+}
+
+export function sabotagePhaseMetrics(results: readonly SimulationResult[]): SabotagePhaseMetrics {
+  const early: number[] = [];
+  const late: number[] = [];
+  const lateCoins: number[] = [];
+  for (const r of results) {
+    for (const l of r.sabotageLosses) {
+      if (l.before <= 0) continue;
+      const share = l.amount / l.before;
+      if (l.round <= r.rounds / 3) early.push(share);
+      else if (l.round > (2 * r.rounds) / 3) {
+        late.push(share);
+        lateCoins.push(l.amount);
+      }
+    }
+  }
+  return { early: mean(early), late: mean(late), lateCoins: mean(lateCoins) };
+}
+
+/** Alle Werte ausdrücklich gesetzt, damit die Tabelle unabhängig von `DEFAULT_RULES` bleibt. */
+export const GROWTH_VARIANTS: readonly Variant[] = [
+  m4Variant('A', 'Klau 5, Falle 4 (fest, vorher Stand)', { items: FIXED }),
+  m4Variant('B', 'Klau 6, Falle 5', { items: { ...FIXED, stealAmount: 6, trapAmount: 5 } }),
+  m4Variant('F', '5/4, +1 alle 5 Runden (neuer Stand)', { items: { sabotageGrowthRounds: 5 } }),
+  m4Variant('G', '5/4, +1 alle 4 Runden', { items: { sabotageGrowthRounds: 4 } }),
+  m4Variant('H', '5/4, +1 alle 3 Runden', { items: { sabotageGrowthRounds: 3 } }),
+  m4Variant('I', '6/5, +1 alle 5 Runden', {
+    items: { stealAmount: 6, trapAmount: 5, sabotageGrowthRounds: 5 },
+  }),
+];
+
+export const GROWTH_ROUND_COUNTS: readonly number[] = [10, 16, 20];
+
+export function sabotageGrowthExperiment(
+  setup: ExperimentSetup = M4_SETUP,
+  roundCounts: readonly number[] = GROWTH_ROUND_COUNTS,
+  variants: readonly Variant[] = GROWTH_VARIANTS,
+): Table {
+  const rows: string[][] = [];
+  for (const rounds of roundCounts) {
+    for (const v of variants) {
+      for (const players of setup.players) {
+        const results = runVariant(v, players, { seeds: setup.seeds, rounds });
+        const m = sabotageMetrics(results);
+        const phase = sabotagePhaseMetrics(results);
+        const scoring = scoringMetrics(results);
+        rows.push([
+          String(rounds),
+          `${v.id}: ${v.label}`,
+          String(players),
+          num(m.sabotagePerGame, 2),
+          pct(m.lostShareOfEarned),
+          pct(m.lossShare),
+          pct(m.lossShareP90),
+          pct(phase.early),
+          pct(phase.late),
+          num(m.lossCoins),
+          num(phase.lateCoins),
+          num(m.worstVictimCoins),
+          num(m.worstVictimCoinsP90, 0),
+          pct(m.worstVictimShare),
+          pct(scoring.decidedBy.trophies),
+          pct(scoring.midLeaderWins),
+          num(scoring.trophiesPerGame, 2),
+        ]);
+      }
+    }
+  }
+  return {
+    title: `EXP-018 Wachsende Sabotage mit Rotation (${seedText(setup)})`,
+    headers: [
+      'Runden',
+      'Variante',
+      'Sp.',
+      'Sabotagen/Partie',
+      'Verlust/Einnahmen',
+      'Verlust/Bestand',
+      'p90',
+      '1. Drittel',
+      '3. Drittel',
+      'Münzen/Treffer',
+      'Münzen/Treffer 3. Drittel',
+      'Spitzenopfer Münzen',
+      'p90',
+      'Spitzenopfer/Einnahmen',
+      'Sieg per Trophäen',
+      'Führender (Hälfte) gewinnt',
       'Trophäen',
     ],
     rows,

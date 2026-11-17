@@ -115,6 +115,12 @@ export interface RuleSet {
     /** Falle: so viele Münzen gehen an die Besitzerin. */
     readonly trapAmount: number;
     /**
+     * Wachsende Sabotage (CHAOS-67, EXP-018): Klau und Falle nehmen alle so viele Runden eine
+     * Münze mehr (Runde 1 … n: Grundwert, n+1 … 2n: +1 usw.). Es zählt die Runde, in der der
+     * Klau bzw. die Falle auslöst. `0` = feste Werte.
+     */
+    readonly sabotageGrowthRounds: number;
+    /**
      * Wann eine fremde Falle auslöst: `land` nur beim Landen auf dem Feld, `pass` auch beim
      * Darüberlaufen (die Bewegung hält kurz an, dann geht sie weiter).
      */

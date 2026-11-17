@@ -31,7 +31,7 @@ Am PC `http://localhost:8787/host/` öffnen; Handys und iPad treten wie in M1 ü
 1. **Zug beginnt:** Am PC erscheint „Blau ist dran!“. Nur Blaus Controller zeigt Knöpfe, die anderen sehen „Blau ist dran – schau auf den großen Bildschirm!“ und ihren Stand (Münzen, Trophäen, Items, Runde).
 2. **Würfeln:** „Würfeln!“ tippen. Vor dem Wurf darf man **ein** Item einsetzen:
    - **Doppelwürfel:** Es wird mit zwei Würfeln gewürfelt.
-   - **Münzklau:** Ziel wählen. Das Ziel hat ein kurzes **Reaktionsfenster** (3 s) mit Countdown: „Schild!“ (falls vorhanden) blockt den Klau, „Festhalten!“ halbiert ihn. Wer nichts tut, verliert den vollen Betrag (5 Münzen).
+   - **Münzklau:** Ziel wählen. Das Ziel hat ein kurzes **Reaktionsfenster** (3 s) mit Countdown: „Schild!“ (falls vorhanden) blockt den Klau, „Festhalten!“ halbiert ihn. Wer nichts tut, verliert den vollen Betrag (5 Münzen, ab Runde 6 eine mehr je 5 Runden, EXP-018).
    - **Falle:** Liegt danach auf dem eigenen Feld. Wer anderes darüberläuft oder darauf landet, zahlt an dich (4 Münzen).
 
    Jeder startet mit **einem zufälligen Item**; weitere gibt es auf Geschenkfeldern (höchstens 3).

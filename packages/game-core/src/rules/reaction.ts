@@ -2,12 +2,13 @@
  * Reaktionsfenster (CHAOS-21): Das Ziel eines Münzklaus darf kurz reagieren.
  * - `shield`: Schild wird verbraucht, nichts wird geklaut.
  * - `brace` („Festhalten!“): Verlust halbiert, abgerundet (also zugunsten des Ziels).
- * - keine Reaktion bis zur Frist: voller Klau (`stealAmount`, höchstens Bestand).
+ * - keine Reaktion bis zur Frist: voller Klau (`stealAmount`, ggf. mit der Runde gewachsen,
+ *   höchstens Bestand).
  * Danach zeigt der PC das Ergebnis `spaceEventMs` lang, dann geht der Zug des Angreifers
  * mit seinem Würfel-Prompt weiter.
  */
 import type { ItemKind, Slot } from '../types.ts';
-import { transferCoins } from './economy.ts';
+import { sabotageAmount, transferCoins } from './economy.ts';
 import { playerOf, schedule, type Ctx } from './internal.ts';
 import { BRACE_OPTION, openReactionPrompt, SHIELD_OPTION } from './prompts.ts';
 
@@ -59,7 +60,8 @@ export function resolveReaction(ctx: Ctx, option: string, t: number): void {
     if (index >= 0) targetPlayer.items.splice(index, 1);
     ctx.events.push({ type: 'item-used', slot: target, item: 'shield' });
   } else {
-    const amount = stealLoss(ctx.rules.items.stealAmount, playerOf(ctx, target).coins, result);
+    const stealAmount = sabotageAmount(ctx.rules.items, 'coin-steal', ctx.d.round);
+    const amount = stealLoss(stealAmount, playerOf(ctx, target).coins, result);
     const moved = transferCoins(ctx, target, attacker, amount, 'steal');
     ctx.events.push({ type: 'coins-stolen', from: target, to: attacker, amount: moved });
   }
