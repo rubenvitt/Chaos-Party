@@ -109,10 +109,13 @@ export function createKeyboardInputSource(target: Window = window): InputSource 
       };
       const onKey = (event: KeyboardEvent) => {
         if (!state.handles(event.code)) return;
-        // Taste auf einem fokussierten Knopf: gehört der Oberfläche (keyup trotzdem, damit nichts klemmt).
-        if (event.type === 'keydown' && isUiTarget(event.target)) return;
+        // Taste auf einem fokussierten Knopf: gehört der Oberfläche (keyup trotzdem weiterreichen,
+        // damit nichts klemmt). Kein `preventDefault` auf dem Knopf: Die Leertaste löst einen
+        // Knopf erst beim keyup aus, sonst ließe sie sich am PC nicht bedienen (CHAOS-124).
+        const ui = isUiTarget(event.target);
+        if (event.type === 'keydown' && ui) return;
         // Pfeiltasten/Leertaste sollen die Seite nicht scrollen.
-        event.preventDefault();
+        if (!ui) event.preventDefault();
         if (event.repeat) return;
         forward(state.key(event.code, event.type === 'keydown'));
       };
