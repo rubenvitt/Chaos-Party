@@ -54,6 +54,36 @@ export interface BoardGameSettings {
    * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
    */
   readonly roundPresets: readonly number[];
+  /**
+   * Lobby-Einstellung „Mehr Zeit zum Reagieren“ zu Beginn (CHAOS-124); `configure` ändert sie.
+   * Fehlt = aus.
+   */
+  readonly moreReactionTime?: boolean | undefined;
+}
+
+/**
+ * Reaktionsfenster mit „Mehr Zeit zum Reagieren“ (CHAOS-124, Barrierefreiheit). Standard sind
+ * 3000 ms (EXP-004). Das langsamste Profil aus EXP-004 („abgelenkt“, Median 2,3 s, σ 0,45)
+ * steht hier stellvertretend für langsamere Reaktionen (Kinder, ältere Mitspielende,
+ * motorische Einschränkungen): bei 3000 ms gelingen 69 %, bei 5000 ms rechnerisch ≈ 96 %.
+ * Zeit kostet das nur, wenn niemand reagiert: höchstens +2 s je Fenster (≈ 1 je Partie).
+ */
+export const MORE_REACTION_TIME_MS = 5000;
+
+/**
+ * Regeln einer Partie mit der Lobby-Einstellung „Mehr Zeit zum Reagieren“. Ohne sie bleiben
+ * die Regeln unverändert; mit ihr wird das Fenster mindestens `MORE_REACTION_TIME_MS` lang
+ * (ein längeres aus eigenen Regeln bleibt).
+ */
+export function rulesForGame(rules: RuleSet, moreReactionTime: boolean): RuleSet {
+  if (!moreReactionTime) return rules;
+  return {
+    ...rules,
+    pacing: {
+      ...rules.pacing,
+      reactionWindowMs: Math.max(rules.pacing.reactionWindowMs, MORE_REACTION_TIME_MS),
+    },
+  };
 }
 
 /**

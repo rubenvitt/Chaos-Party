@@ -448,12 +448,21 @@ export const StartMessageSchema = z.strictObject({
   rounds: RoundsSchema.optional(),
 });
 
-/** Lobby-Einstellungen ändern (v4, CHAOS-36): Rundenzahl der nächsten Partie. */
-export const ConfigureMessageSchema = z.strictObject({
-  v: VersionSchema,
-  type: z.literal('configure'),
-  rounds: RoundsSchema,
-});
+/**
+ * Lobby-Einstellungen ändern (v4, CHAOS-36): Rundenzahl der nächsten Partie.
+ * v4-Nachtrag (CHAOS-124): `moreReactionTime` schaltet das längere Reaktionsfenster
+ * (Barrierefreiheit). Beide Felder optional, mindestens eines muss gesetzt sein.
+ */
+export const ConfigureMessageSchema = z
+  .strictObject({
+    v: VersionSchema,
+    type: z.literal('configure'),
+    rounds: RoundsSchema.optional(),
+    moreReactionTime: z.boolean().optional(),
+  })
+  .refine((message) => message.rounds !== undefined || message.moreReactionTime !== undefined, {
+    message: 'configure braucht rounds oder moreReactionTime',
+  });
 
 /** Partie anhalten (v4, CHAOS-36): Fristen und Spielzeit stehen, bis `resume` kommt. */
 export const PauseMessageSchema = z.strictObject({
@@ -679,6 +688,11 @@ function hasUniqueCharacters(players: readonly { character: string | null }[]): 
 export const LobbySettingsSchema = z.strictObject({
   /** Rundenzahl der nächsten Partie. */
   rounds: RoundsSchema,
+  /**
+   * v4-Nachtrag (CHAOS-124, optional): längeres Reaktionsfenster für die nächste Partie
+   * (Barrierefreiheit). Fehlt = aus.
+   */
+  moreReactionTime: z.boolean().optional(),
   /** Vorschläge für die Auswahl am PC (aufsteigend, ohne Doppelte). */
   roundPresets: z
     .array(RoundsSchema)
