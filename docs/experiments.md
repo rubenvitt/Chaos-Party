@@ -1285,6 +1285,21 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
 - **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
 
+**Nachtrag 2026-11-17 (CHAOS-117): Warum R8 kein Bild hatte.**
+- **Ursache:** Babylons `MultiRenderTarget` registriert nur die WebGL-Variante von `createMultipleRenderTarget`. `webgpuEngine.js` lädt die WebGPU-Variante (`Engines/WebGPU/Extensions/engine.multiRender.js`) nicht mit. Ab Stufe `hoch` baut SSAO2 einen Geometriepuffer mit mehreren Renderzielen; dort bricht der Aufbau des Bretts mit `createMultipleRenderTarget is not a function` ab. Die Render-Schleife startet nie: 0 Bilder, „Schleifen 0“. `mittel`/`niedrig` brachen nicht ab, hingen aber an der zweiten Ursache (Nachtrag unten).
+- **Warum „kein Fehler“:** Die Meldung kommt erst nach dem 30-s-Zeitlimit beim Himmel (zweite Ursache, Nachtrag unten; im Container zunächst fälschlich für Shader-Übersetzung gehalten) als `console.error` („Brett-Szene konnte nicht aufgebaut werden“). Der Messlauf „Partie“ gibt die Konsole der Host-Seite nicht aus.
+- **Fix:** `apps/host/src/scene/engineFactory.ts` lädt die fehlende Erweiterung zusammen mit der WebGPU-Engine (`loadWebGpuEngine`). Ein Unit-Test prüft die Methoden der Mehrfach-Renderziele (`engineFactory.test.ts`; ohne Fix rot).
+- **Nachgestellt im Cloud-Container:** Headless-Chromium 153 mit `--enable-unsafe-webgpu` bietet einen SwiftShader-Adapter, verliert das Gerät aber beim ersten Bild auf einem Canvas („Device was destroyed“), auch ohne Babylon. Zum Nachstellen ersetzte ein Test-Skript (nicht eingecheckt) den Canvas-Kontext durch eine gewöhnliche GPU-Textur. Damit: vor dem Fix `hoch` → Frames 0, Schleifen 0, Fehler wie oben; nach dem Fix `hoch`, `mittel`, `niedrig` und `minimal` → Schleifen 1, Bilder laufen (441 Draw Calls bei `hoch`). Bildabstände aus SwiftShader sagen nichts über echte Hardware; ein Bild ließ sich dort nicht zurücklesen.
+- **Offen:** R8 (Mac) und R2 (PC) auf echter Hardware messen, dabei Aussehen mit WebGL2 vergleichen (Gerätecheckliste).
+
+**Nachtrag 2026-11-17 abends (CHAOS-117, echte Hardware): zweite Ursache und R8.**
+- **Der erste Fix reichte nicht:** Auf dem Mac (M3 Max, Chromium 153, echte GPU) zeichnete das Brett mit `?gpu=webgpu` weiter nicht, in `pnpm perf` 0 Bilder über 124 s. Nur `minimal` lief. Ab `niedrig` lädt das Brett den HDRI-Himmel.
+- **Zweite Ursache:** Unter WebGPU feuert `HDRCubeTexture.onLoadObservable` nie. `loaded()` in `apps/host/src/nature/lighting.ts` wartete deshalb bis zum Zeitlimit von 30 s; dann war die Textur längst fertig, und der Aufbau ging weiter. Gemessen mit Zeitstempeln: Himmel „geladen“ genau bei 31,0 s, danach `whenReadyAsync` in 0,4 s. In der Partie wird das Brett nach jedem Minispiel neu aufgebaut, die Brettphase war meist kürzer als 30 s: deshalb nie ein Bild.
+- **Fix:** `loaded()` fragt `isReady()` alle 20 ms ab, statt auf das Ereignis zu warten (Zeitlimit bleibt). Unit-Test `lighting.test.ts`. Das Brett zeichnet jetzt nach gut 2 s auf allen Stufen.
+- **R8 (Mac, `hoch`, 1920×1080, ohne VSync):** WebGPU 5,7 / 17,5 ms (Median / p95), 103 fps; WebGL2 im selben Durchgang 6,6 / 8,5 ms, 147 fps. WebGPU ist im Median 14 % schneller, im p95 doppelt so langsam (Ruckler). Der Mac war durch andere Prozesse belastet (Last ≈ 7–8), beide Läufe gleich.
+- **Aussehen:** Chromium zeigt unter WebGPU und WebGL2 dasselbe Brett ([WebGPU](screenshots/chaos117-brett-webgpu-mac.jpg), [WebGL2](screenshots/chaos117-brett-webgl2-mac.jpg)). Safari 26 ist ungeprüft: Die Sitzung durfte weder den Bildschirm aufnehmen noch Safari fernsteuern.
+- **Entscheidung:** ADR-016 bleibt: Am Mac bringt WebGPU nicht die geforderten 20 %. Offen bleiben R2 am PC (CHAOS-131) und Safari (RS1).
+
 ---
 
 ## EXP-016: Kuckucks-Klatsche überarbeitet – Arcade nur mit Knopf A (2026-11-16, CHAOS-54)
@@ -1755,9 +1770,28 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 
 **Stand 2026-11-17:** Prototyp und Messreihen-Skript geschrieben, **noch nicht gemessen.** Die CI (Xcode 26.6, SDK 26.5) baut den Spike für macOS, iOS und tvOS ohne Fehler. Das tvOS-SDK 26.5 enthält kein MetalFX, dort ist nur der bilineare Weg übersetzt. Gelaufen ist der Pfad noch nirgends. Die Auswertung des Skripts ist mit Beispiel-Logs geprüft. Nebenbefund zu EXP-017: Die seriellen Offscreen-Werte (720p 33,2 ms ≈ zwei Bildwechsel bei 60 Hz) sind vermutlich an den Anzeigetakt gebunden und unterschätzen die Reserve. Die überlappende Schleife misst das sauberer.
 
-**Ergebnisse:** offen (Ruben misst, Gerätecheckliste §18, Messbogen R16–R19 in [`renderer-spike.md`](renderer-spike.md)).
+**Ergebnisse (17.11.2026, echte Apple TV 4K, tvOS 27.3, Ausgabe 3840×2160 bei 60 Hz, je 20 s, Metal-HUD):** Gemessen von Claude am Mac über `devicectl` (`messreihe-atv.sh` plus Zusatzläufe), Rohdaten im Scratchpad der Sitzung, Zusammenfassung hier und in R16–R20.
 
-**Entscheidung:** offen. Kriterium aus CHAOS-114: 4K-Ausgabe mit ≥ 30 fps stabil, Ziel 60 fps.
+- **MetalFX ist auf der Apple TV nicht verfügbar:** Auf tvOS 27.3 mit A15 scheitert `MTLFXSpatialScaler` (Log: „nicht verfügbar für dieses Gerät/Format“), alle `metalfx`-Varianten liefen bilinear. Ob `supportsDevice` oder das Format `bgra8Unorm_srgb` scheitert, ist offen.
+- **Diagnose bei nativer 4K** (GPU je Bild, Median / p95): alles an 37,4 / 87,5 ms · MSAA aus 28,2 / 63,8 · Gras aus 25,7 / 58,8 · Schatten aus 32,7 / 68,2 · Tonemapping aus 36,9 · IBL aus 38,0 · `material=einfach` 37,1 · `unbeleuchtet` 17,8 / 33,6 · alles aus 6,6 / 7,2 ms (60 fps). Die Kosten verteilen sich auf Beleuchtung/PBR, MSAA und Gras; Tonemapping, IBL und Materialvarianten zählen kaum.
+- **Hochskaliert** (Anzeige-fps, GPU Median / p95):
+
+| Variante | intern | MSAA | im Flug | fps | GPU ms | ausgelassene Takte |
+|---|---|---|---|---|---|---|
+| ARView (Bezug) | nativ | ? | – | 19,0 | 34,5 / 41,6 | – |
+| `hoch-0.5` | 1920×1080 | 4× | 2 | 35,4–35,8 | 22,3 / 47,0 | 558 |
+| `hoch-0.5`, im Flug 3 | 1920×1080 | 4× | 3 | 42,6–44,7 | 21–23,5 / 48–50 | 346–386 |
+| `hoch-0.5`, MSAA aus | 1920×1080 | aus | 2 | 39,9 | 14,6–14,9 / 36 | 453–456 |
+| **`hoch-0.5`, MSAA aus, im Flug 3** | **1920×1080** | **aus** | **3** | **59,9** | **14,4–14,9 / 15,0–31,3** | **2–5** |
+| `hoch-0.667`, MSAA aus, im Flug 3 | 2562×1440 | aus | 3 | 49,2 | 20,8 / 43,2 | 233 |
+| `hoch-0.667` | 2562×1440 | 4× | 2 | 27,7 | 29,2 / 60,9 | 740 |
+| `hoch-0.5`, im Flug 1 | 1920×1080 | 4× | 1 | 12,1 | 53,5 | 1097 |
+
+- **Bestätigung über 60 s** (`--skala=0.5 --msaa=0 --imflug=3`, bilinear): 59,94 fps, 3598 Bilder, größter Bildabstand **16,69 ms**, 5 ausgelassene Takte, 0 nicht angezeigt. Die Zusatzschalter Schatten, Gras, IBL und Tonemapping ändern in dieser Variante nichts (alle 59,9 fps).
+- **Preis:** Von der Übergabe bis zum fertigen Bild vergehen 37,5 ms (p95 40,2 ms), also gut zwei Bilder Verzögerung durch drei Bilder im Flug. Das Bild ist ohne MSAA und mit bilinearer Hochskalierung weicher als die ARView. Wie das am Fernseher aus Sofa-Abstand wirkt, ist Rubens Urteil (Checkliste RK11).
+- Nicht gemacht: Instruments (Metal System Trace, RK12); die Diagnose-Schalter haben die Kostenblöcke schon getrennt.
+
+**Entscheidung:** **keep.** Kriterium aus CHAOS-114 (4K-Ausgabe ≥ 30 fps stabil, Ziel 60) ist erreicht: Intern 1920×1080 ohne MSAA, drei Bilder im Flug, bilinear auf 4K hält **60 fps** mit voller Szene. Das wird die Standard-Grafikstufe des nativen Hosts auf der Apple TV (CHAOS-142, CHAOS-147). Offen: Schärfe-Urteil am Fernseher (RK11), MetalFX auf tvOS (warum nicht verfügbar), Kantenglättung ohne MSAA (z. B. FXAA-Durchgang nach dem Hochskalieren) falls die Kanten stören.
 
 ---
 
@@ -1798,7 +1832,7 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 - R: **Rabatt** (`catchUp.discount`): Preis 10 statt 15 ab 2 Trophäen Rückstand. Bräuchte einen Preis je Spieler in der Anzeige.
 - W / W3: **Rückenwind** (`catchUp.tailwind`): Nach jedem Minispiel außer dem letzten 2 (3) Münzen je Trophäe Rückstand, höchstens 6 (9). Bräuchte einen sichtbaren Moment („Rückenwind +4“).
 - F: **Finale-Fieber** (`catchUp.finale`): In den letzten 3 Runden zählen Minispiel-Münzen doppelt.
-- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf.
+- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf. Seit CHAOS-123 zählt `coinsLost` selbst nur Pech (Minus-Feld, Klau, Falle); ein Nachlauf auf `main` `82a1a0b` ergab für X mit der alten Näherung und mit der neuen Zählung dieselben Zahlen.
 - TW, T2W, TW3: Kombinationen.
 
 **Objektive Messgrößen:** Siegquote des alleinigen Halbzeit-Führenden bzw. -Letzten (gegen fair 1/n), Trophäen je Partie, Anteil Spieler ohne Trophäe, Sieg per Trophäen (statt Münzen), Trophäen-Abstand Platz 1 zu 2, Siegquote eines Minispiel-Profis (Slot 1, +10 von 40 Punkten, wie EXP-012 S; eigener Lauf je Zeile).
@@ -2050,7 +2084,7 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 
 **Hypothese:** Nach ADR-019 (W2) kann die Apple TV eine Partie ohne Rechner hosten. Session-Server, game-core, Host-Rolle und Minispiele samt Havok laufen als ein JS-Bündel in JavaScriptCore; Swift übernimmt Netzwerk und Darstellung. Erwartet: Die JS-Last bleibt deutlich unter dem Bild-Budget von 16,7 ms.
 
-**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`):
+**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`; seit CHAOS-139 als Produktcode unter [`apps/apple-host`](../apps/apple-host/README.md)):
 - **JS-Kern `jscore/`:** ein Bündel mit 4,8 MB plus `HavokPhysics.wasm`.
   - `Session` aus `apps/server` und `connectHost` aus `apps/host`, beide unverändert.
   - Die Minispiele laufen headless mit Babylon-NullEngine und Havok, instanziiert synchron über `instantiateWasm`.

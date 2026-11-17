@@ -1,6 +1,6 @@
 # Performance: Bildrate und Latenz (M4)
 
-**Stand:** 2026-11-16 (erste Messung auf echter GPU, CHAOS-73) · **Aufgabe:** CHAOS-39, CHAOS-73 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
+**Stand:** 2026-11-17 (Baseline nach Natur-Look von Lobby und Podest, CHAOS-133) · **Aufgabe:** CHAOS-39, CHAOS-73, CHAOS-133 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
 
 Kurz: Gemessen wird an zwei Stellen – **auf echter Hardware** mit der Messanzeige (`?debug=1`, Ruben, Abschnitt 11 der [Gerätecheckliste](device-test-checklist.md#11-m4--performance-für-chaos-43)) und **automatisch** im Headless-Chromium mit Software-Rendering (`pnpm perf`). Die automatischen Werte erlauben **nur relative Vergleiche** auf demselben Rechner (vorher/nachher). Sie sagen nichts darüber, wie flüssig das Spiel auf Rubens PC oder Fernseher läuft.
 
@@ -78,7 +78,7 @@ SwiftShader rendert WebGL **auf der CPU**. Bildabstände von 100–250 ms (4–1
 
 ## 3. Messung vorher/nachher (CHAOS-39)
 
-> **Historie:** Die Tabellen dieses Abschnitts messen das alte Brett aus Grundkörpern (vor dem Natur-Look CHAOS-62). Aktuelle Werte und Baseline: [Abschnitt 3a](#3a-nach-chaos-62-natur-look-aktuelle-baseline).
+> **Historie:** Die Tabellen dieses Abschnitts messen das alte Brett aus Grundkörpern (vor dem Natur-Look CHAOS-62). Natur-Look: [Abschnitt 3a](#3a-nach-chaos-62-natur-look); aktuelle Baseline: [Abschnitt 3d](#3d-nach-chaos-77-und-chaos-71-aktuelle-baseline).
 
 **Testbedingungen:** Linux x64, Intel Xeon @ 2,30 GHz ×4, 16 GB, Node 22.23, Chromium 153 headless, ANGLE/SwiftShader, 1280×720, DPR 1; Szenario „Partie“ (4 Bots, Seed 2026); Systemlast 6–8 durch parallele Tests anderer Arbeitsstränge. „vorher“ = Stand mit Messung, ohne Optimierungen; „nachher“ = mit den Optimierungen aus Abschnitt 4. Je ein Lauf (der erste Vorher-Lauf hatte noch einen Fehler im Draw-Call-Zähler; seine Bildabstände stehen in Klammern).
 
@@ -102,7 +102,9 @@ SwiftShader rendert WebGL **auf der CPU**. Bildabstände von 100–250 ms (4–1
 
 **Lesart:** Belegt sind die strukturellen Änderungen – Brett −20 % Draw Calls, hinter dem Finale keine Brett-Bilder mehr und eine statt zwei Render-Schleifen. Am Podest halbiert das den Bildabstand bis auf ein Drittel (SwiftShader rechnet nur noch eine Szene); auf einer echten GPU ist der Gewinn kleiner, aber die doppelte Arbeit entfällt dort genauso. Die übrigen Unterschiede im Bildabstand liegen im Rauschen der Systemlast. Kein Speicherleck über drei Partien (Heap nach GC schwankt um ±0,7 MB, nach der ersten Partie sind Figuren, Shader und Schriften einmal geladen).
 
-## 3a. Nach CHAOS-62 (Natur-Look, aktuelle Baseline)
+## 3a. Nach CHAOS-62 (Natur-Look)
+
+> **Historie:** Lobby und Podest zeigen hier noch den alten Look; seit CHAOS-77/CHAOS-71 gilt die Baseline aus [Abschnitt 3d](#3d-nach-chaos-77-und-chaos-71-aktuelle-baseline).
 
 Mit dem Merge von `main` (CHAOS-62, [ADR-014](decisions/ADR-014-natur-look.md)) zeigen Brett und Minispiele den Natur-Look: Insel mit Baumscheiben, Gras als Thin Instances, PBR-Materialien mit HDRI, Schatten, eigene Bäume. Bei Software-Rendering (also auch in `pnpm perf`) wählt die Szene ohne `?qualitaet=` die Sparstufe `minimal`, rendert in halber Auflösung (`setHardwareScalingLevel(2)`, 640 × 360 statt 1280 × 720) und macht größere Zeitschritte in Brett-Regie und Minispiel-Uhr. Die Zahlen sind deshalb **nicht** mit Abschnitt 3 vergleichbar; die Baseline `tests/perf/baseline.json` ist neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf`, 2026-11-15, gleicher Rechner, Systemlast ≈ 4).
 
@@ -172,6 +174,36 @@ Gemessen am Production-Build (`apps/host`, Vite 8 / Rolldown), 2026-11-17. „St
 - `finale.css` wäre in den Brett-Chunk gewandert und *nach* `styles.css` geladen worden; bei gleicher Spezifität gewann dann `.finale-rematch { margin-top: auto }` gegen `.start-button` und „Nochmal spielen“ rutschte ans Panel-Ende. `App.tsx` importiert `portrait.css` und `finale.css` deshalb vorab – das Start-CSS ist byte-gleich zum Stand vorher.
 
 **Nicht geprüft:** Ladezeit auf Rubens PC. Lokal ausgeliefert ist der Gewinn vor allem Parse- und Ausführungszeit bis zum ersten Bild der Lobby (QR-Code, Join-Code); die Arena erscheint kurz danach.
+
+## 3d. Nach CHAOS-77 und CHAOS-71 (aktuelle Baseline)
+
+CHAOS-77 hat Lobby-Arena und Siegerpodest in den Natur-Look gebracht (Kulisse, Schattenpass, Gras, feste Lichtstimmung), CHAOS-71 baut das Podest schon während der Trophäenzählung auf einer unsichtbaren Leinwand. Die Baseline aus Abschnitt 3a kannte beides nicht: `pnpm perf` scheiterte auf `main` an `lobby.drawCallsMedian: 134 > 82` und `podest.drawCallsMedian: 162 > 83` (CHAOS-133). Außerdem fehlten die Minispiele Kuckucks-Klatsche (CHAOS-54) und Krümel-Kehraus (CHAOS-79) in der Baseline; sie wurden gemessen, aber nicht verglichen.
+
+**Baseline neu geschrieben** mit `E2E_SKIP_BUILD=1 PERF_UPDATE_BASELINE=1 pnpm perf -g Partie` auf `main` 82a1a0b (2026-11-17), danach ein vollständiger Kontrolllauf `pnpm perf` ohne Update: **2 passed**, keine strukturelle Regression. `PERF_UPDATE_BASELINE=1` legt die Datei jetzt so ab, wie Prettier sie formatiert; vorher musste sie für `pnpm format:check` von Hand nachformatiert werden. Messrechner (steht als `environment` in `tests/perf/baseline.json`): Cloud-Container, Linux x64, Intel Xeon @ 2,10 GHz ×4, 16 GB, Node 22.23, Chromium 153 headless, ANGLE/SwiftShader, 1280×720, DPR 1, Systemlast ≈ 4. Das ist **ein anderer Rechner** als bei 3a (2,30 GHz): Zeitliche Werte sind nicht mit 3a vergleichbar, `PERF_STRICT=1` gilt nur auf diesem Rechner. Strukturelle Werte waren in allen drei Läufen (alte Baseline, Update, Kontrolle) für Lobby, Brett, Finale und Podest gleich; die Draw Calls der Minispiele schwanken mit dem Spielverlauf um bis zu ±10 (z. B. Kuckucks-Klatsche 292 / 282 / 275).
+
+| Szene | Draw Calls p50 (3a) | aktive Meshes (3a) | Kontexte max | Schleifen max | Heap max MB (3a) | Texturen ~MB (3a) |
+|---|---|---|---|---|---|---|
+| lobby | **134** (70) | 72 (42) | 1 | 1 | 78 (25) | 17,6 (4) |
+| brett | 256 (256) | 166 (166) | 1 | 1 | 211 (194) | 21 (20) |
+| minispiel:sockenregen | 272 (260) | 158 (162) | 1 | 1 | 106 (104) | 12,7 (12) |
+| minispiel:pudding-gerangel | 208 (211) | 110 (113) | 1 | 1 | 91 (120) | 13,6 (14) |
+| minispiel:wackelturm | 221 (205) | 234 (236) | 1 | 1 | 142 (90) | 12,7 (12) |
+| minispiel:kuckucks-klatsche | 282 (–) | 160 (–) | 1 | 1 | 95 (–) | 12,3 (–) |
+| minispiel:kruemel-kehraus | 250 (–) | 136 (–) | 1 | 1 | 84 (–) | 13,6 (–) |
+| finale (Brett hinter der Zählung, Podest wird aufgebaut) | kein Bild | – | 2 | **1** | **223** (175) | 19,7 (19) |
+| podest | **162** (71) | 83 (59) | 2 | **1** | 172 (130) | 17,9 (6) |
+
+| Weitere Werte | |
+|---|---|
+| Revanche ×3, Heap nach GC in der Lobby | 37,8 → 50,0 → 51,4 → 51,4 MB (erster Lauf 38,2 → 50,0 → 51,3 → 52,0); DOM 205 → 220 → 220 → 220; je 1 Canvas, 1 Kontext |
+| Nachrichten an den Host (≈ 300 s, 5 Minispiele) | `board` 158 (max 2,4 kB), `input` 9481, `lobby` 14 |
+| Bot-Rundlaufzeit über den Server | p50 0,50 ms, p95 0,79 ms, max 4,4 ms (n = 1204) |
+
+**Lesart:**
+- **Mehr Draw Calls in Lobby und Podest kommen vom Look**, nicht von einem Fehler: Natur-Kulisse, Gras und Schattenpass (Lobby 70 → 134, Podest 71 → 162; aktive Meshes 42 → 72 bzw. 59 → 83). Brett unverändert; Minispiele −3 bis +16, innerhalb der Toleranz (·1,1 + 5).
+- **CHAOS-71 ist erfasst:** Im Finale laufen weiter nur eine Render-Schleife und zwei Kontexte (Brett pausiert, Podest unsichtbar ohne Schleife); der Heap-Höchstwert im Finale steigt auf ≈ 223 MB, weil das Podest dort schon gebaut wird. Am Podest bleibt es bei einer Schleife.
+- **Heap in der Lobby höher** (nach GC vor der ersten Partie ≈ 38 MB statt ≈ 15 MB) durch HDRI und PBR-Texturen der Arena; über drei Revanchen kein Wachstum über die Schwelle (Partie 3 ≤ max(+10 %, +5 MB) gegenüber Partie 1).
+- Wie sich die zusätzlichen Draw Calls auf einer echten GPU auswirken, zeigt nur LS1–LS3 der [Gerätecheckliste](device-test-checklist.md).
 
 ## 4. Umgesetzte Optimierungen
 

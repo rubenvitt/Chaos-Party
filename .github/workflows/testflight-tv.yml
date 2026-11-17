@@ -30,11 +30,11 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -49,13 +49,15 @@ jobs:
           xcodebuild -version
 
       # CC0-Texturen von Poly Haven für das Brett; nur neu laden, wenn sich die Liste ändert.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: apps/host/public/lookdev-assets
           key: lookdev-${{ hashFiles('apps/host/src/lookdev/polyhaven.json') }}
 
       # Testszene wie im README (Abschnitt „Assets“): Brett aus dem Web-Host als GLB, dann USDZ.
       - name: Testszene erzeugen
+        # lokal ca. 4 min (Texturen, Brett-Export, USDZ); hängt etwas, früh abbrechen
+        timeout-minutes: 25
         env:
           SPIKE_TIMEOUT: '600000'
           RK_CHECK: '0'

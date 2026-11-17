@@ -18,20 +18,57 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'spikes/renderer-bevy/assets/export');
 const port = Number(process.env.SPIKE_PORT ?? 5199);
 
+// Eigene Prozessgruppe, damit `stopVite` auch den Vite-Prozess unter `pnpm exec` beendet.
+// NO_COLOR: In der CI (Umgebungsvariable `CI`) färbt Vite sonst die Ausgabe, und zwischen
+// „Local“ und „:“ steht ein Farbcode (CHAOS-119: erster TestFlight-Lauf hing 60 min).
 const vite = spawn('pnpm', ['exec', 'vite', '--port', String(port), '--strictPort'], {
   cwd: join(root, 'apps/host'),
   stdio: ['ignore', 'pipe', 'inherit'],
+  detached: true,
+  env: { ...process.env, NO_COLOR: '1' },
 });
-await new Promise((resolve, reject) => {
-  vite.stdout.on('data', (chunk) => {
-    if (String(chunk).includes('Local:')) resolve(undefined);
+const stopVite = () => {
+  try {
+    if (vite.pid) process.kill(-vite.pid, 'SIGTERM');
+  } catch {
+    vite.kill();
+  }
+};
+const viteStartMs = Number(process.env.SPIKE_VITE_TIMEOUT ?? 120_000);
+try {
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Vite meldet nach ${String(viteStartMs / 1000)} s keine Adresse`)),
+      viteStartMs,
+    );
+    let seen = '';
+    vite.stdout.on('data', (chunk) => {
+      // Farbcodes entfernen, falls die Ausgabe trotz NO_COLOR gefärbt ist.
+      // eslint-disable-next-line no-control-regex
+      seen = (seen + String(chunk)).replace(/\u001b\[[0-9;]*m/g, '').slice(-4000);
+      if (seen.includes('Local:')) {
+        clearTimeout(timer);
+        resolve(undefined);
+      }
+    });
+    vite.on('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Vite beendet (${String(code)})`));
+    });
   });
-  vite.on('exit', (code) => reject(new Error(`Vite beendet (${String(code)})`)));
-});
+} catch (error) {
+  stopVite();
+  throw error;
+}
 
-const browser = await chromium.launch({
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
+const browser = await chromium
+  .launch({
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+  })
+  .catch((/** @type {unknown} */ error) => {
+    stopVite();
+    throw error;
+  });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (error) => console.error('Seitenfehler:', error.message));
@@ -69,5 +106,5 @@ try {
   console.log(`Export nach ${out}:`, JSON.stringify(result.meta.stats));
 } finally {
   await browser.close();
-  vite.kill();
+  stopVite();
 }

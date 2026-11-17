@@ -421,6 +421,16 @@ extension ControllerState {
             phase: .board, layout: .board, actions: [], board: board(.minigameIntro, activeSlot: nil),
             minigame: sampleMinigame))
 
+    /// Second run of the same minigame (CHAOS-128): short intro.
+    static let minigameIntroRepeatSample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.`repeat` = true
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [], board: board(.minigameIntro, activeSlot: nil),
+                minigame: minigame))
+    }()
+
     static let minigamePlaySample: ControllerState = {
         var minigame = sampleMinigame
         minigame.stage = .play
@@ -436,6 +446,20 @@ extension ControllerState {
         minigame.place = 1
         minigame.score = 42
         minigame.reward = 10
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [],
+                board: board(.minigameResults, activeSlot: nil), minigame: minigame))
+    }()
+
+    /// Last place with consolation prize (CHAOS-51, CHAOS-127).
+    static let minigameConsolationSample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.stage = .results
+        minigame.place = 4
+        minigame.score = 17
+        minigame.reward = 0
+        minigame.prizes = [.trap]
         return online(
             SlotContext(
                 phase: .board, layout: .board, actions: [],

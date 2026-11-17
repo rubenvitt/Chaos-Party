@@ -304,6 +304,24 @@ private struct PadButton: View {
 
 // MARK: - Minigame intro and result (minigame/view.ts, ui/minigame.tsx)
 
+/// Texts of the minigame card (port of `MinigameIntro`). If the minigame already ran this match
+/// (`repeat`, CHAOS-66/CHAOS-128), the intro is short: kicker „Nochmal!“, title and controls,
+/// no tagline and no steps (the intro lasts only 3 s then).
+struct MinigameCardText: Equatable {
+    static let repeatKicker = "Nochmal!"
+
+    let kicker: String
+    let tagline: String?
+    let instructions: [String]
+
+    init(_ minigame: ControllerMinigameInfo) {
+        let short = minigame.stage == .intro && minigame.`repeat` == true
+        kicker = minigame.stage == .results ? minigame.title : short ? Self.repeatKicker : "Minispiel"
+        tagline = short ? nil : minigame.tagline
+        instructions = short ? [] : minigame.instructions
+    }
+}
+
 struct MinigameCard: View {
     let minigame: ControllerMinigameInfo
 
@@ -311,7 +329,7 @@ struct MinigameCard: View {
         ScrollView {
             VStack(spacing: 16) {
                 Label {
-                    Text(minigame.stage == .results ? minigame.title : "Minispiel")
+                    Text(MinigameCardText(minigame).kicker)
                 } icon: {
                     GameIcon(name: "star", size: 24)
                 }
@@ -328,18 +346,23 @@ struct MinigameCard: View {
     }
 
     @ViewBuilder private var intro: some View {
+        let text = MinigameCardText(minigame)
         Text(minigame.title).font(.largeTitle.bold()).multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
-        Text(minigame.tagline).font(.title3).foregroundStyle(Palette.dim).multilineTextAlignment(.center)
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(minigame.instructions.enumerated()), id: \.offset) { index, line in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("\(index + 1).").font(.headline).foregroundStyle(Palette.sun)
-                    Text(line).font(.body.weight(.semibold))
+        if let tagline = text.tagline {
+            Text(tagline).font(.title3).foregroundStyle(Palette.dim).multilineTextAlignment(.center)
+        }
+        if !text.instructions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(text.instructions.enumerated()), id: \.offset) { index, line in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("\(index + 1).").font(.headline).foregroundStyle(Palette.sun)
+                        Text(line).font(.body.weight(.semibold))
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         let legend: [(String, String, String)] = [
             minigame.controls.joystick.map { ("stick", "Joystick", $0) },
             minigame.controls.a.map { ("A", "Knopf A", $0) },
@@ -388,10 +411,19 @@ struct MinigameCard: View {
                 Text("\(score.formatted(.number.locale(Locale(identifier: "de_DE")))) \(minigame.scoreUnit)")
                     .font(.title3.weight(.semibold))
             }
-            if let reward = minigame.reward {
+            if let reward = minigame.rewardText {
                 HStack(spacing: 8) {
                     GameIcon(name: "coin", size: 28)
-                    Text(reward == 0 ? "Keine Münzen" : reward == 1 ? "+1 Münze" : "+\(reward) Münzen").font(.title3.bold())
+                    Text(reward).font(.title3.bold())
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if let prize = minigame.prizeText {
+                HStack(spacing: 8) {
+                    ForEach(Array((minigame.prizes ?? []).enumerated()), id: \.offset) { _, item in
+                        GameIcon(name: item.rawValue, size: 28)
+                    }
+                    Text(prize).font(.title3.bold()).multilineTextAlignment(.center)
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -401,4 +433,23 @@ struct MinigameCard: View {
     }
 
     private static let cheers = [1: "Gewonnen!", 2: "Stark gespielt!", 3: "Gut gemacht!", 4: "Nächstes Mal!"]
+}
+
+extension ControllerMinigameInfo {
+    /// Coin reward as text (`rewardText` in `minigame/view.ts`); `nil` without `reward`.
+    var rewardText: String? {
+        guard let reward else { return nil }
+        return switch reward {
+        case 0: "Keine Münzen"
+        case 1: "+1 Münze"
+        default: "+\(reward) Münzen"
+        }
+    }
+
+    /// Consolation prize line as in the web controller (`ui/minigame.tsx`, CHAOS-51):
+    /// „Trostpreis: Falle“, several items comma-separated; `nil` when there is none.
+    var prizeText: String? {
+        guard let prizes, !prizes.isEmpty else { return nil }
+        return "Trostpreis: " + prizes.map(\.displayName).joined(separator: ", ")
+    }
 }
