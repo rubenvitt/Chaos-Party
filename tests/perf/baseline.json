@@ -467,6 +467,40 @@
         "textures": 25,
         "textureMB": 17.915593147277832
       }
+    },
+    "partie-uebergaenge": {
+      "lobby → brett": {
+        "count": 1,
+        "incomplete": 0,
+        "longestMedianMs": 1944,
+        "longestMaxMs": 1944,
+        "blockedMedianMs": 3784,
+        "waitMedianMs": 2112
+      },
+      "brett → minispiel": {
+        "count": 5,
+        "incomplete": 0,
+        "longestMedianMs": 460,
+        "longestMaxMs": 8595,
+        "blockedMedianMs": 902,
+        "waitMedianMs": 1021.8000000000466
+      },
+      "minispiel → brett": {
+        "count": 5,
+        "incomplete": 1,
+        "longestMedianMs": 2381,
+        "longestMaxMs": 3488,
+        "blockedMedianMs": 3835,
+        "waitMedianMs": 1742.4000000000233
+      },
+      "zählung → podest": {
+        "count": 1,
+        "incomplete": 0,
+        "longestMedianMs": 428,
+        "longestMaxMs": 428,
+        "blockedMedianMs": 1510,
+        "waitMedianMs": 1938.0000000002328
+      }
     }
   }
 }

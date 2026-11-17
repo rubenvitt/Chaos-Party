@@ -19,6 +19,7 @@ import type { BoardScene } from './board/types.ts';
 import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import { attachPerf, installPerfMonitor } from './debug/perf.ts';
+import { resetSceneLog, sceneLogTransitions, startSceneLog } from './debug/sceneMarks.ts';
 import { createPerfMonitor, type PerfMonitor } from './debug/perfMonitor.ts';
 import { environmentSample } from './debug/renderProbe.ts';
 import { scenePerfReport } from './debug/summary.ts';
@@ -224,6 +225,8 @@ export function App({ config }: AppProps) {
   useEffect(() => {
     if (!monitor) return;
     const uninstall = installPerfMonitor(monitor);
+    // Long Tasks für die Standbild-Kennzahl je Szenenwechsel (CHAOS-153).
+    startSceneLog();
     const stopInputs = hub.subscribe(() => {
       monitor.inputReceived(performance.now(), 'input');
     });
@@ -242,8 +245,10 @@ export function App({ config }: AppProps) {
           testMode: test,
         }),
       activeScenes: () => monitor.activeScenes(),
+      transitions: () => sceneLogTransitions(),
       reset: () => {
         monitor.reset();
+        resetSceneLog();
       },
     };
     return () => {
