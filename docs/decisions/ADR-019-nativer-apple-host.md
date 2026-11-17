@@ -1,6 +1,6 @@
 # ADR-019: Nativer Apple-Host mit RealityKit, Apple TV hostet allein, Babylon bleibt am PC
 
-**Status:** Vorgeschlagen. Rubens Richtungsentscheidungen vom 17.11. sind eingearbeitet; die Machbarkeit ist auf einer echten Apple TV geprüft, offene Fragen stehen unten.
+**Status:** Angenommen (Ruben, 2026-11-17: „ja dann go“ auf W2, Browser-Controller ausliefern; Meilenstein offen). Überprüfung nach dem Spike „Apple TV hostet allein“.
 **Datum:** 2026-11-17
 **Aufgabe:** CHAOS-135; Folge für CHAOS-74 (Apple TV), CHAOS-118 (Mac-App), CHAOS-114 (4K-Leistung)
 **Betroffene Annahmen:** ADR-001 (Stack), ADR-004 (Host-Szene), ADR-005 (Session-Server), ADR-012 (Minispiel-Logik im Host), ADR-016 (Renderer)
