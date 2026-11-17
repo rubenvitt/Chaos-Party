@@ -21,5 +21,8 @@ jobs:
           delay: 30s
           # Der macOS-Job (native Apps) braucht bis zu 45 Minuten.
           timeout: 5400s
-          # Wer `ignore` setzt, muss den eigenen Job selbst nennen.
-          ignore: Alle Checks grün
+          # Wer `ignore` setzt, muss den eigenen Job selbst nennen. Mehrere Namen mit Komma.
+          # GitGuardian meldet Funde als „neutral“, die Action wertet das als Fehlschlag. Der
+          # Testtoken in den Controller-Fixtures machte so jeden PR rot. Ruben: „gitguardian
+          # darf raus“ (2026-11-17, CHAOS-136); GitGuardian bleibt als beratender Check sichtbar.
+          ignore: Alle Checks grün,GitGuardian Security Checks
