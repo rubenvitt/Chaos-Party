@@ -1216,7 +1216,14 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 | Babylon Native | kein tvOS, „public preview“ | BabylonNative README |
 | Babylon WebGPU | Umsetzung vollständig; WGSL-Kern-Shader, glslang/twgsl nur für GLSL; Safari 26 mit WebGPU | Babylon-Doku webGPUStatus, Safari-26-Release-Notes |
 
-**Entscheidung:** **iterate** – Prototypen und Messbogen stehen; die Wahl fällt erst mit Rubens Messwerten. Vorschlag in [ADR-016](decisions/ADR-016-renderer.md): bei Babylon bleiben, WebGPU als Option übernehmen, wenn R1/R2 (bzw. R7/R8) ≥ 20 % Vorteil zeigen, tvOS (CHAOS-74) als eigener Spike mit RealityKit und Server auf PC/Mac.
+**Entscheidung:** **keep Babylon.js (WebGL2)** – von Ruben am 2026-11-17 angenommen („Annehmen, PC folgt“), siehe [ADR-016](decisions/ADR-016-renderer.md).
+- Am Mac erreicht Babylon das Ziel klar (R7: p95 11,2 ms bei 1080p).
+- Bevy als WebAssembly ist langsamer.
+- Bevy nativ ist schneller, aber ohne Nachbearbeitung. Dafür wäre der Host-Code komplett neu zu schreiben, inklusive Minispiel-Logik und Physik.
+- **discard** für Bevy (WebAssembly und nativ) als Host-Renderer. Der Prototyp bleibt als Messlatte.
+- **WebGPU:** bleibt Mess-Schalter. Neu bewertet wird es erst, wenn CHAOS-117 behoben ist.
+- **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
+- **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
 
 ---
 
