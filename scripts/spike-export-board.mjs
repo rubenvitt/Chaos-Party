@@ -5,106 +5,28 @@
  *
  *   node scripts/spike-export-board.mjs
  *
- * Ziel: spikes/renderer-bevy/assets/export/ (nicht eingecheckt). Startet einen eigenen
- * Vite-Dev-Server und ein Headless-Chromium (Software-Rendering reicht für den Export).
+ * Ziel: spikes/renderer-bevy/assets/export/ (nicht eingecheckt). Der Export selbst steckt in
+ * `scripts/lib/board-export.mjs` (gemeinsam mit `scripts/build-apple-assets.mjs`, CHAOS-140).
  */
-import { spawn } from 'node:child_process';
-import { copyFileSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '@playwright/test';
+import { exportBoard } from './lib/board-export.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'spikes/renderer-bevy/assets/export');
-const port = Number(process.env.SPIKE_PORT ?? 5199);
 
-// Eigene Prozessgruppe, damit `stopVite` auch den Vite-Prozess unter `pnpm exec` beendet.
-// NO_COLOR: In der CI (Umgebungsvariable `CI`) färbt Vite sonst die Ausgabe, und zwischen
-// „Local“ und „:“ steht ein Farbcode (CHAOS-119: erster TestFlight-Lauf hing 60 min).
-const vite = spawn('pnpm', ['exec', 'vite', '--port', String(port), '--strictPort'], {
-  cwd: join(root, 'apps/host'),
-  stdio: ['ignore', 'pipe', 'inherit'],
-  detached: true,
-  env: { ...process.env, NO_COLOR: '1' },
+const { meta, names } = await exportBoard({
+  root,
+  out,
+  port: Number(process.env.SPIKE_PORT ?? 5199),
+  timeoutMs: Number(process.env.SPIKE_TIMEOUT ?? 240_000),
+  verbose: Boolean(process.env.SPIKE_VERBOSE),
 });
-const stopVite = () => {
-  try {
-    if (vite.pid) process.kill(-vite.pid, 'SIGTERM');
-  } catch {
-    vite.kill();
-  }
-};
-const viteStartMs = Number(process.env.SPIKE_VITE_TIMEOUT ?? 120_000);
-try {
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`Vite meldet nach ${String(viteStartMs / 1000)} s keine Adresse`)),
-      viteStartMs,
-    );
-    let seen = '';
-    vite.stdout.on('data', (chunk) => {
-      // Farbcodes entfernen, falls die Ausgabe trotz NO_COLOR gefärbt ist.
-      // eslint-disable-next-line no-control-regex
-      seen = (seen + String(chunk)).replace(/\u001b\[[0-9;]*m/g, '').slice(-4000);
-      if (seen.includes('Local:')) {
-        clearTimeout(timer);
-        resolve(undefined);
-      }
-    });
-    vite.on('exit', (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Vite beendet (${String(code)})`));
-    });
-  });
-} catch (error) {
-  stopVite();
-  throw error;
+mkdirSync(join(out, 'figuren'), { recursive: true });
+const figures = join(root, 'packages/assets/models/characters');
+for (const file of readdirSync(figures).filter((f) => f.endsWith('.glb'))) {
+  copyFileSync(join(figures, file), join(out, 'figuren', file));
 }
-
-const browser = await chromium
-  .launch({
-    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-  })
-  .catch((/** @type {unknown} */ error) => {
-    stopVite();
-    throw error;
-  });
-try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  page.on('pageerror', (error) => console.error('Seitenfehler:', error.message));
-  page.on('console', (m) => {
-    if (m.type() === 'error' || process.env.SPIKE_VERBOSE) console.error(`[${m.type()}]`, m.text());
-  });
-  await page.goto(
-    `http://localhost:${String(port)}/host/src/spike/exportBoard.html?qualitaet=hoch`,
-  );
-  /**
-   * @typedef {{ ready: boolean, error?: string, glbBase64: string, meta: { stats: unknown },
-   *   instances: unknown, names: unknown }} SpikeExport
-   */
-  /** @returns {SpikeExport | undefined} */
-  const readExport = () => /** @type {any} */ (globalThis).__spikeExport;
-  await page.waitForFunction(
-    () => /** @type {any} */ (globalThis).__spikeExport?.ready === true,
-    undefined,
-    {
-      timeout: Number(process.env.SPIKE_TIMEOUT ?? 240_000),
-    },
-  );
-  const result = await page.evaluate(readExport);
-  if (!result) throw new Error('kein Export');
-  if (result.error) throw new Error(result.error);
-  mkdirSync(join(out, 'figuren'), { recursive: true });
-  writeFileSync(join(out, 'brett.glb'), Buffer.from(result.glbBase64, 'base64'));
-  writeFileSync(join(out, 'brett.szene.json'), `${JSON.stringify(result.meta, null, 2)}\n`);
-  writeFileSync(join(out, 'brett.instanzen.json'), JSON.stringify(result.instances));
-  const figures = join(root, 'packages/assets/models/characters');
-  for (const file of readdirSync(figures).filter((f) => f.endsWith('.glb'))) {
-    copyFileSync(join(figures, file), join(out, 'figuren', file));
-  }
-  console.log('Figuren-Wurzeln:', JSON.stringify(result.names));
-  console.log(`Export nach ${out}:`, JSON.stringify(result.meta.stats));
-} finally {
-  await browser.close();
-  stopVite();
-}
+console.log('Figuren-Wurzeln:', JSON.stringify(names));
+console.log(`Export nach ${out}:`, JSON.stringify(meta.stats));

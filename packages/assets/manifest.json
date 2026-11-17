@@ -561,5 +561,77 @@
       "origin": "https://polyhaven.com/a/qwantani_moon_noon_puresky",
       "budgetBytes": 413696
     }
-  ]
+  ],
+  "builds": {
+    "apple-host": {
+      "out": "build/apple-assets",
+      "generator": "scripts/build-apple-assets.mjs",
+      "artifacts": [
+        {
+          "id": "apple-brett",
+          "path": "brett.usdz",
+          "description": "Brett-Kulisse Wackelwald (Grafikstufe hoch) als USDZ: Gelände, Felder, Natur, Wegweiser, Feld-Anker feld_<id>; ohne Figuren und Instanzen (die liegen als Matrizen in brett.instanzen.json).",
+          "license": "GPL-3.0-only",
+          "from": [
+            "brett-felder",
+            "brett-marker",
+            "brett-fallen",
+            "brett-sockel",
+            "schrift-nunito",
+            "natur-leafy-grass-diff",
+            "natur-leafy-grass-nor",
+            "natur-leafy-grass-arm",
+            "natur-brown-mud-rocks-01-diff",
+            "natur-brown-mud-rocks-01-nor",
+            "natur-brown-mud-rocks-01-arm",
+            "natur-bark-brown-02-diff",
+            "natur-bark-brown-02-nor",
+            "natur-bark-brown-02-arm",
+            "natur-mossy-rock-diff",
+            "natur-mossy-rock-nor",
+            "natur-mossy-rock-arm",
+            "natur-oak-veneer-01-diff",
+            "natur-oak-veneer-01-nor",
+            "natur-oak-veneer-01-arm",
+            "natur-brown-planks-05-diff",
+            "natur-brown-planks-05-nor",
+            "natur-brown-planks-05-arm"
+          ],
+          "budgetBytes": 33554432
+        },
+        {
+          "id": "apple-figur-robot",
+          "path": "figuren/robot.usdz",
+          "description": "Figur Schraubi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (robot.clips.json).",
+          "license": "GPL-3.0-only",
+          "from": ["figur-robot"],
+          "budgetBytes": 1572864
+        },
+        {
+          "id": "apple-figur-cactus",
+          "path": "figuren/cactus.usdz",
+          "description": "Figur Kalle Kaktus als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (cactus.clips.json).",
+          "license": "GPL-3.0-only",
+          "from": ["figur-cactus"],
+          "budgetBytes": 1572864
+        },
+        {
+          "id": "apple-figur-raccoon",
+          "path": "figuren/raccoon.usdz",
+          "description": "Figur Wusel als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (raccoon.clips.json).",
+          "license": "GPL-3.0-only",
+          "from": ["figur-raccoon"],
+          "budgetBytes": 1572864
+        },
+        {
+          "id": "apple-figur-sock",
+          "path": "figuren/sock.usdz",
+          "description": "Figur Sigi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (sock.clips.json).",
+          "license": "GPL-3.0-only",
+          "from": ["figur-sock"],
+          "budgetBytes": 1572864
+        }
+      ]
+    }
+  }
 }

@@ -29,6 +29,7 @@
     "check:assets": "node packages/assets/src/check/cli.ts",
     "check:bundle": "node scripts/check-host-bundle.mjs && node scripts/check-apple-host-bundle.mjs",
     "generate:assets": "pnpm --filter @chaos-party/assets generate",
+    "build:apple-assets": "node scripts/build-apple-assets.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:bundle && pnpm check:licenses && pnpm check:assets"
   },
   "devDependencies": {

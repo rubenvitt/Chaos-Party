@@ -33,12 +33,14 @@ async function sandbox(): Promise<string> {
   return dir;
 }
 
-/** Manifest nur mit Datei-Assets (prozedurale Einträge zeigen auf Host-Code außerhalb). */
+/** Manifest nur mit Datei-Assets (prozedurale Einträge zeigen auf Host-Code außerhalb), ohne
+ *  Build-Artefakte (die nennen auch prozedurale Assets; geprüft in `builds.test.ts`). */
 async function fileManifest(): Promise<AssetManifest> {
-  const manifest = await realManifest();
+  const real = await realManifest();
   return {
-    ...manifest,
-    assets: manifest.assets.filter(
+    version: real.version,
+    budgets: real.budgets,
+    assets: real.assets.filter(
       (a) => a.source === 'generated' || (a.source === 'imported' && !a.package),
     ),
   };

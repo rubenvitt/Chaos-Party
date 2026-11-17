@@ -2175,3 +2175,36 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 **Entscheidung:** keep D. Minispiel-Bühne (`minigame/stage.ts`) und Brett (`board/createBoardScene.ts`) nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt die Shader-Quellen vorab, schaltet den Pre-Pass ein und lässt vor der ersten Runde ein Bild zeichnen. Das Podest (CHAOS-71) profitiert mit.
 
 **Offen (nur auf echter Hardware):** Mit Grafikkarte ohne `KHR_parallel_shader_compile` kostet ein Programm wenige ms; dort war der gebündelte Import-Block (A/B) die wahrscheinliche Spitze. Rubens Messung N4 (Gerätecheckliste) steht aus; ob Kontext-Neuaufbau und Brett-Neuaufbau dort spürbar sind, entscheidet über CHAOS-152.
+
+## EXP-026: Figuren als USDZ direkt aus bpy – Vertexfarben als Textur gebacken (2026-11-17, CHAOS-140)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben über den Spike CHAOS-138: „die app ist unspielbar auf dem tv weil das garnicht die echten grafiken sind“. Der native Host braucht dieselben Figuren wie der Babylon-Host, mit lackiertem Glanz, leuchtenden Augen und Messing. Erwartet: Werden die Vertexfarben vor dem USD-Export in eine Farbtextur gebacken, bleiben Rauheit, Clearcoat, Metall und Leuchten als `UsdPreviewSurface` erhalten, und RealityKit zeigt die Figuren wie Babylon (bis auf Sheen und Subsurface).
+
+**Varianten:**
+
+| | Weg | Erwartung |
+|---|---|---|
+| A (EXP-017) | GLB → Blender-Import → USDZ, Material an vertexgefärbten Teilen entfernt | Farben stimmen, Material weg: Figuren matt, Gesichter leuchten nicht |
+| B | bpy-Skript → Vertexfarben in einen gepackten 1024²-Atlas je Figur gebacken (Cycles, Diffuse-Farbe) → Materialien auf die Textur umgestellt → USDZ, alle Clips auf einer Zeitleiste plus Clip-Tabelle | Material bleibt, eine Textur je Figur, ≈ 0,5–1 MB |
+| B′ | wie B, aber je Teil eine feste Kachel im Raster (für bitgleiche Ergebnisse) | deterministisch, weniger Auflösung je Teil |
+| C | je Farbe ein eigenes Material statt Textur | nicht versucht: Die Vertexfarben sind Verläufe (`paint` aus Position und Normale), keine Flächenfarben |
+
+**Messgrößen:** Materialparameter im USD, Validatoren von usd-core, Größe, Dauer, Höhe/Füße mit gebackenem Skinning, Reproduzierbarkeit. Umgebung: Linux-Container, bpy 5.3.0, usd-core 26.11, `pnpm build:apple-assets`.
+
+**Ergebnisse:**
+
+- **A** (Gegenprobe mit `check_usdz.py` am Roboter): 11 von 11 Meshes ohne Material, auch der Bildschirm. Kein Knoten `abzeichen`, Zeitleiste nur `idle` mit 24 Bildern/s. Die neue Prüfung schlägt mit 14 Fehlern an.
+- **B**, alle vier Figuren:
+  - Alle Materialien kommen als `UsdPreviewSurface` an, z. B. Roboter `lack` Rauheit 0,32, Clearcoat 0,6; `messing` Metall 0,85; `leuchten` mit `emissiveColor` (1,04; 1,81; 2,0); `akzent` als Konstante.
+  - 30 Validatoren von usd-core ohne Fehler.
+  - Größen: Roboter 518 KiB, Kaktus 877 KiB, Wusel 948 KiB, Sigi 577 KiB.
+  - Dauer: ≈ 6 s je Figur, mit Brett ≈ 3 min für alles.
+  - Mit gebackenem Skinning stehen die Füße bei y = 0. Höhen im ersten Bild von `idle`: 1,475 / 1,646 / 1,568 / 1,526 m, Manifest-Ruhepose 1,47 / 1,59 / 1,543 / 1,507 m.
+  - Die Atlanten sehen sauber aus: Inseln mit Rand, keine Nähte sichtbar in der Textur.
+- **Reproduzierbarkeit:** Zwei Läufe liefern dieselben Prims, Materialien, Clips und Anker, aber nicht bitgleiche Dateien. Die Prim-Reihenfolge im USD und die Anordnung im Atlas schwanken. Schon die GLB-Figuren waren zwischen zwei Läufen nicht bitgleich (geprüft am Roboter).
+- **B′:** Auch damit wich eine Kachel zwischen zwei Läufen ab, und der Rumpf bekam sichtbar weniger Auflösung. Verworfen.
+- **Nicht geprüft:** wie RealityKit die Figuren darstellt. Kein Mac im Container; dafür gibt es den Screenshot-Vergleich in der Gerätecheckliste.
+
+**Entscheidung:** **B behalten.** Clearcoat, Metall und Leuchten bleiben erhalten, und `check_usdz.py` hält das in der CI fest. Sheen (Fell, Strick) und Subsurface fehlen weiter; für Fell und Socke ist das die größte sichtbare Abweichung. Ob sie stört, entscheidet Rubens Blick am Mac. Wenn ja, wäre der nächste Versuch, Sheen über eine hellere Kante in der gebackenen Farbe anzunähern. B′ ist verworfen; Bitgleichheit ist für nicht eingecheckte Artefakte kein Muss.
+
+**Subjektive Fragen an Ruben (am Mac, Spike neben dem Babylon-Host):** Wirken die Figuren wie dieselben Figuren? Glänzt der Lack, leuchten Augen und Glühbirne? Fehlt dem Fell der weiche Schimmer so, dass es stört?

@@ -42,6 +42,7 @@ import {
   type AssetEntry,
   type AssetManifest,
 } from '../manifest.ts';
+import { checkBuildEntries } from '../builds.ts';
 import { GlbError, glbStats } from './glb.ts';
 import { HdrError, hdrInfo } from './hdr.ts';
 import { WebpError, webpInfo, type WebpInfo } from './webp.ts';
@@ -435,6 +436,30 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
   }
 
   errors.push(...checkPortraits(assetsDir, webps));
+
+  // Build-Artefakte (CHAOS-140): Regeln immer, Dateien nur, wenn der Build-Schritt lief.
+  errors.push(...checkBuildEntries(manifest));
+  let builtArtifacts = 0;
+  for (const [name, build] of Object.entries(manifest.builds ?? {})) {
+    if (!(await exists(join(root, build.generator)))) {
+      errors.push(`Build „${name}“: Generator fehlt: ${build.generator}`);
+    }
+    for (const artifact of build.artifacts) {
+      const file = join(root, build.out, artifact.path);
+      if (!(await exists(file))) continue;
+      builtArtifacts += 1;
+      const size = (await stat(file)).size;
+      if (size > artifact.budgetBytes) {
+        errors.push(
+          `Build „${name}“, Artefakt „${artifact.id}“: ${kib(size)} > Budget ${kib(artifact.budgetBytes)}`,
+        );
+      }
+      notes.push(`Build „${name}“, Artefakt „${artifact.id}“: ${kib(size)}`);
+    }
+  }
+  if (manifest.builds && builtArtifacts === 0) {
+    notes.push('Build-Artefakte: nicht gebaut, nur Regeln geprüft');
+  }
 
   // Jede Datei in den Asset-Ordnern muss im Manifest stehen.
   for (const dir of ASSET_FILE_DIRS) {

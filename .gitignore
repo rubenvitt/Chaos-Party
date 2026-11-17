@@ -22,6 +22,9 @@ __pycache__/
 .venv-blender/
 packages/assets/.cache/
 
+# USDZ-Assets für den nativen Apple-Host (CHAOS-140, pnpm build:apple-assets)
+/build/
+
 # Renderer-Spike (CHAOS-75): Rust-Build und erzeugte Testszene
 spikes/renderer-bevy/target/
 spikes/renderer-bevy/assets/export/

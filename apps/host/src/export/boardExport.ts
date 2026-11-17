@@ -1,10 +1,13 @@
 /**
- * Renderer-Spike (CHAOS-75, nur Dev-Server, nicht im Build): baut das echte Spielbrett mit dem
- * Beispiel-Spielstand des lokalen Brett-Modus und exportiert die Kulisse als GLB plus eine
- * Beschreibung (Kamera, Licht, Figurenorte, Instanzen) für den Bevy-Prototyp
- * (`spikes/renderer-bevy`). Aufruf über `node scripts/spike-export-board.mjs`.
+ * Brett-Export (CHAOS-75, als Build-Schritt CHAOS-140; nur Dev-Server, nicht im Build): baut das
+ * echte Spielbrett mit dem Beispiel-Spielstand des lokalen Brett-Modus und exportiert die
+ * Kulisse als GLB plus eine Beschreibung (Kamera, Licht, Figurenorte, Feld-Anker, Instanzen).
  *
- *   http://localhost:5173/host/src/spike/exportBoard.html?qualitaet=hoch
+ * Abnehmer: `node scripts/build-apple-assets.mjs` (USDZ für den nativen Apple-Host, ADR-019 §5)
+ * und `node scripts/spike-export-board.mjs` (Bevy-Spike). Beide steuern die Seite über
+ * `scripts/lib/board-export.mjs`.
+ *
+ *   http://localhost:5173/host/src/export/boardExport.html?qualitaet=hoch
  */
 import { Camera } from '@babylonjs/core/Cameras/camera.js';
 import type { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
@@ -12,16 +15,19 @@ import { EngineStore } from '@babylonjs/core/Engines/engineStore.js';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight.js';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Node } from '@babylonjs/core/node.js';
 import { GLTF2Export } from '@babylonjs/serializers/glTF/2.0/glTFSerializer.js';
 import { DEFAULT_BOARD } from '@chaos-party/game-core';
 import { createBoardScene } from '../board/createBoardScene.ts';
 import { createDemoMessages } from '../board/demo.ts';
 import { createBoardDirector } from '../board/director.ts';
+import { TILE_TOP } from '../board/natureBoard.ts';
+import { FIELD_ANCHOR_GROUP, fieldAnchors } from './anchors.ts';
 
 declare global {
   interface Window {
-    __spikeExport?: {
+    __boardExport?: {
       ready: boolean;
       error?: string;
       meta?: unknown;
@@ -32,7 +38,7 @@ declare global {
   }
 }
 
-window.__spikeExport = { ready: false };
+window.__boardExport = { ready: false };
 
 /**
  * Babylon rechnet linkshändig; glTF und Bevy rechtshändig. Der Babylon-Serializer spiegelt dafür
@@ -89,6 +95,16 @@ async function run(): Promise<void> {
     mesh.thinInstanceCount = 0;
   }
 
+  // Feld-Anker (CHAOS-140): leere Knoten `feld_<id>` auf der Feldoberfläche, damit der native
+  // Host die Felder in `brett.usdz` findet. Dieselben Orte stehen in `meta.fields`.
+  const fields = fieldAnchors(DEFAULT_BOARD, TILE_TOP);
+  const group = new TransformNode(FIELD_ANCHOR_GROUP, scene);
+  for (const field of fields) {
+    const node = new TransformNode(field.anchor, scene);
+    node.parent = group;
+    node.position.set(field.position.x, field.position.y, field.position.z);
+  }
+
   const camera = scene.activeCamera as FreeCamera;
   const sun = scene.lights.find((l): l is DirectionalLight => l instanceof DirectionalLight);
   const sky = scene.lights.find((l): l is HemisphericLight => l instanceof HemisphericLight);
@@ -114,7 +130,7 @@ async function run(): Promise<void> {
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   }
 
-  window.__spikeExport = {
+  window.__boardExport = {
     ready: true,
     glbBase64: btoa(binary),
     names: {
@@ -124,7 +140,8 @@ async function run(): Promise<void> {
     },
     meta: {
       $comment:
-        'CHAOS-75: erzeugt von apps/host/src/spike/exportBoard.ts aus dem Beispiel-Spielstand; rechtshändig (glTF).',
+        'CHAOS-75/CHAOS-140: erzeugt von apps/host/src/export/boardExport.ts aus dem Beispiel-Spielstand; rechtshändig (glTF), Meter, Y oben.',
+      version: 2,
       board: DEFAULT_BOARD.id,
       camera: {
         position: rh(camera.position),
@@ -149,6 +166,8 @@ async function run(): Promise<void> {
         : null,
       clearColor: scene.clearColor.asArray(),
       pawns,
+      /** Felder aus game-core: Anker-Knoten in `brett.usdz`, Ort auf der Feldoberfläche. */
+      fields: fields.map((f) => ({ ...f, position: rh(f.position) })),
       instanced: instanced.map((i) => ({ mesh: i.mesh, count: i.matrices.length })),
       stats: {
         meshes: scene.meshes.length,
@@ -164,7 +183,7 @@ async function run(): Promise<void> {
 }
 
 run().catch((error: unknown) => {
-  window.__spikeExport = {
+  window.__boardExport = {
     ready: true,
     error: error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error),
   };

@@ -538,3 +538,16 @@ Automatisch geprüft: Regel und Münz-Grund `tailwind` (`packages/game-core/src/
 | RW2 | Nach einem Minispiel, sobald jemand mehr Trophäen hat | Karte „Rückenwind!“ mittig am Fernseher, Namen und „+2/+4/+6 Münzen“ lesbar, Münzen erscheinen an den Figuren; danach geht es normal weiter | | Foto |
 | RW3 | Am Handy derer, die Rückenwind bekommen | „Rückenwind: +… Münzen!“ mit Erklärung; die anderen sehen „Schau auf den großen Bildschirm!“ | | Foto |
 | RW4 | Nach der Partie fragen | Versteht man ohne Erklärung, warum es Münzen gab? Fühlt es sich fair an oder wie Mitleid? Kippt es zu stark zu den Letzten? | | Notiz |
+
+## 27. USDZ-Assets: Figuren und Kulisse in RealityKit wie im Babylon-Host (für CHAOS-140)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-140 · **Experiment:** [EXP-026](experiments.md) · **Anleitung:** [`apple-assets.md`](apple-assets.md)
+
+Automatisch geprüft (Linux, ohne Mac): USDZ entstehen mit `pnpm build:apple-assets`; usd-core findet keine Fehler; Materialien mit Rauheit, Clearcoat, Metall und Leuchten im USD; Feld-Anker am Ort; Füße und Höhe mit gebackenem Skinning. **Nicht** automatisch prüfbar: ob RealityKit alles lädt und wie es aussieht, ob `trimmed` die Clips richtig ausschneidet, Rubens Urteil zur Optik.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| UA1 | Mac: `pnpm build:apple-assets` | Endet mit „USDZ ok“, danach die RealityKit-Prüfung mit „OK“ (Feld-Anker 43 von 43, Zeitleiste je Figur 9,80 s) | | Log |
+| UA2 | Mac: Spike mit den neuen Assets bauen und starten (`spikes/renderer-realitykit/convert/convert.sh`, dann wie im Spike-README, `--sekunden=60 --bleiben=1`) | Brett wie bisher, vier Figuren mit Glanz, Roboter-Augen und Glühbirne leuchten, Figuren wippen in `idle` (keine anderen Clips, kein Springen am Schleifenende) | | Screenshot |
+| UA3 | Mac: Babylon-Host daneben (`pnpm play`, Brett im Beispielstand) und Screenshots aus ähnlicher Kamera | Figuren und Kulisse erkennbar dieselben; Unterschiede notieren (Fell-Sheen fehlt, kein SSAO/HDRI) | | zwei Screenshots nach `docs/screenshots/chaos140-*.jpg` |
+| UA4 | Ruben: Urteil zur Optik | „sieht aus wie am PC“ oder eine Liste, was fehlt | | Kommentar an CHAOS-140 |

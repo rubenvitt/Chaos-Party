@@ -97,7 +97,7 @@ struct SceneBuilder {
             figure.position = at
             figure.orientation = simd_quatf(angle: atan2(camPos.x - at.x, camPos.z - at.z), axis: [0, 1, 0])
             root.addChild(figure)
-            playIdle(figure)
+            playIdle(figure, character: pawn.character)
             HostClient.shared.pawns[pawn.slot] = figure
         }
         if settings.materials != "voll" { overrideMaterials(in: root) }
@@ -201,13 +201,28 @@ struct SceneBuilder {
         log("Materialien ersetzt (\(settings.materials)): \(models) Modelle, \(slots) Material-Slots")
     }
 
-    private func playIdle(_ figure: Entity) {
+    /// Seit CHAOS-140 liegen alle Clips einer Figur nacheinander auf einer Zeitleiste;
+    /// `figuren/<id>.clips.json` sagt, wo `idle` liegt. Ohne Tabelle (ältere Exporte) läuft die
+    /// ganze Animation.
+    private struct FigureClips: Decodable {
+        struct Clip: Decodable { let name: String; let start: Double; let end: Double }
+        let clips: [Clip]
+    }
+
+    private func playIdle(_ figure: Entity, character: String) {
         guard let owner = find(in: figure, where: { !$0.availableAnimations.isEmpty }) else {
             log("\(figure.name): keine Animation"); return
         }
-        let idle = owner.availableAnimations.first { $0.name?.lowercased().contains("idle") == true }
+        let source = owner.availableAnimations.first { $0.name?.lowercased().contains("idle") == true }
             ?? owner.availableAnimations[0]
-        owner.playAnimation(idle.repeat())
+        if let url = file("figuren/\(character).clips.json"),
+           let table = try? JSONDecoder().decode(FigureClips.self, from: Data(contentsOf: url)),
+           let idle = table.clips.first(where: { $0.name == "idle" }),
+           let clip = try? AnimationResource.generate(with: source.definition.trimmed(start: idle.start, end: idle.end)) {
+            owner.playAnimation(clip.repeat())
+            return
+        }
+        owner.playAnimation(source.repeat())
     }
 
     private func find(in entity: Entity, where match: (Entity) -> Bool) -> Entity? {
