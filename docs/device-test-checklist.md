@@ -488,7 +488,7 @@ Automatisch geprüft: Schalter in der PC-Lobby per Maus und Tastatur (Enter, Lee
 | RT3 | Mit Option eine ganze Partie mit einer langsamer reagierenden Person | Sie schafft die Reaktion meistens; die anderen empfinden das Warten nicht als Bremse | | |
 | RT4 | Nach dem Endstand „Nochmal spielen“ | Schalter in der Lobby ist noch an | | |
 
-## 24. Rückenwind-Ansage im Playtest (für CHAOS-125)
+## 25. Rückenwind-Ansage im Playtest (für CHAOS-125)
 
 **Stand:** 2026-11-17 · **Aufgabe:** CHAOS-125 · **Bilder:** `tests/e2e/__screenshots__/host-brett.spec.ts/host-brett-rueckenwind-chromium-linux.png`, `tests/e2e/__screenshots__/controller-brett.spec.ts/brett-rueckenwind-iphone-hoch-linux.png`
 
