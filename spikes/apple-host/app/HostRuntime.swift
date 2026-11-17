@@ -57,6 +57,8 @@ final class HostRuntime: ObservableObject {
     private var windowStart = CACurrentMediaTime()
     private var lastState: RenderState?
     private var decodeFailed = false
+    /// `--autostart`: start as soon as all lobby players are ready (no remote/keyboard needed for tests).
+    private let autostart = CommandLine.arguments.contains("--autostart")
 
     func start() { queue.async { self.boot() } }
 
@@ -176,6 +178,8 @@ final class HostRuntime: ObservableObject {
             o.lines = [s.phase]
         }
         if o != overlay { overlay = o }
+        let players = s.lobby?.players ?? []
+        if autostart, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) { command("start") }
     }
 
     private func report() {

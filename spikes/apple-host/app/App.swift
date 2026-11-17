@@ -17,7 +17,13 @@ struct ChaosTVHostApp: App {
             #if os(macOS)
             .frame(minWidth: 960, minHeight: 540)
             #endif
-            .onAppear { runtime.start() }
+            .onAppear {
+                #if os(tvOS)
+                // Input comes from phones, not the remote: without this tvOS sleeps mid-game and the listener dies.
+                UIApplication.shared.isIdleTimerDisabled = true
+                #endif
+                runtime.start()
+            }
         }
     }
 }

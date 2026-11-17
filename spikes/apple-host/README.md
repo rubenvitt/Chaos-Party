@@ -47,6 +47,10 @@ xcrun devicectl device install app --device <CoreDevice-ID> build/Build/Products
 xcrun devicectl device process launch --device <CoreDevice-ID> --console --terminate-existing dev.rubeen.chaosparty.tvhost
 ```
 
+Mit dem Startargument `--autostart` (an `process launch` bzw. `simctl launch` anhängen) startet die Partie, sobald
+alle Spieler der Lobby bereit sind; dann braucht es weder Fernbedienung noch Tastatur. Die App hält tvOS wach
+(`isIdleTimerDisabled`), weil während einer Partie niemand die Fernbedienung anfasst.
+
 Das Apple TV muss wach sein („System is asleep – foreground app launch forbidden“ sonst). Beim ersten Start fragt
 tvOS nach dem Zugriff aufs lokale Netzwerk; ohne Zustimmung erreicht kein Controller die App.
 
