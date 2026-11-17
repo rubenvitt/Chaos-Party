@@ -46,9 +46,7 @@ struct SceneBuilder {
             if settings.shadows {
                 var shadow = DirectionalLightComponent.Shadow()
                 shadow.shadowProjection = .automatic(maximumDistance: 80)
-                // `cascades` gibt es erst in den SDKs 27. `#available` prüft nur zur Laufzeit, deshalb
-                // zusätzlich nach Compiler trennen: Xcode 27 bringt Swift 6.4 mit, Xcode 26.x (CI-Runner
-                // `macos-26`) höchstens Swift 6.3 und baut ohne Kaskaden (CHAOS-130).
+                // Kaskaden gibt es erst im SDK 27 (Xcode 27, Swift 6.4); die CI baut noch mit Xcode 26.
                 #if compiler(>=6.4)
                 if #available(macOS 27, iOS 27, tvOS 27, *) { shadow.cascades = .fixed(2) }
                 #endif
