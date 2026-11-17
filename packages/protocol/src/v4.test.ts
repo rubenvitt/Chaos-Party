@@ -136,6 +136,8 @@ describe('Controller → Server (v4)', () => {
 describe('Host → Server (v4)', () => {
   it.each([
     createMessage('configure', { rounds: 8 }),
+    createMessage('configure', { moreReactionTime: true }),
+    createMessage('configure', { rounds: 10, moreReactionTime: false }),
     createMessage('pause', {}),
     createMessage('resume', {}),
     createMessage('end-game', {}),
@@ -153,6 +155,22 @@ describe('Host → Server (v4)', () => {
     ['configure mit 0 Runden', { v: PROTOCOL_VERSION, type: 'configure', rounds: 0 }],
     ['configure mit 21 Runden', { v: PROTOCOL_VERSION, type: 'configure', rounds: 21 }],
     ['configure mit Kommazahl', { v: PROTOCOL_VERSION, type: 'configure', rounds: 2.5 }],
+    [
+      'configure mit Reaktionszeit als Zahl',
+      { v: PROTOCOL_VERSION, type: 'configure', moreReactionTime: 5000 },
+    ],
+    [
+      'configure mit Reaktionszeit als Text',
+      { v: PROTOCOL_VERSION, type: 'configure', moreReactionTime: 'true' },
+    ],
+    [
+      'configure mit Reaktionszeit null',
+      { v: PROTOCOL_VERSION, type: 'configure', moreReactionTime: null },
+    ],
+    [
+      'configure mit fremdem Reaktionsfeld',
+      { v: PROTOCOL_VERSION, type: 'configure', reactionWindowMs: 5000 },
+    ],
     ['pause mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'pause', ms: 1000 }],
     ['resume mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'resume', slot: 1 }],
     ['end-game mit Zusatzfeld', { v: PROTOCOL_VERSION, type: 'end-game', winner: 1 }],
@@ -180,6 +198,13 @@ describe('Server → Host (v4)', () => {
     expect(parseServerToHostMessage(encode(lobby())).ok).toBe(true);
   });
 
+  it('lobby.settings.moreReactionTime ist optional (CHAOS-124)', () => {
+    for (const moreReactionTime of [true, false]) {
+      const message = lobby({ settings: { ...SETTINGS, moreReactionTime } });
+      expect(parseServerToHostMessage(encode(message))).toEqual({ ok: true, message });
+    }
+  });
+
   it.each([
     ['Figur doppelt', { players: lobby().players.map((p) => ({ ...p, character: 'sock' })) }],
     ['unbekannte Figur', { players: [{ ...lobby().players[0], character: 'dragon' }] }],
@@ -192,6 +217,10 @@ describe('Server → Host (v4)', () => {
     ['Vorschläge doppelt', { settings: { rounds: 5, roundPresets: [5, 5] } }],
     ['Vorschläge leer', { settings: { rounds: 5, roundPresets: [] } }],
     ['Runden 0', { settings: { rounds: 0, roundPresets: [3] } }],
+    [
+      'Reaktionszeit als Zahl',
+      { settings: { rounds: 5, roundPresets: [5], moreReactionTime: 5000 } },
+    ],
   ])('lehnt kaputte Lobby ab: %s', (_name, patch) => {
     const raw = JSON.parse(encode(lobby())) as Record<string, unknown>;
     expect(parseServerToHostMessage(JSON.stringify({ ...raw, ...patch })).ok).toBe(false);
