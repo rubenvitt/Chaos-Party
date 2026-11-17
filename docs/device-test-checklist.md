@@ -381,7 +381,7 @@ Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messa
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|
-| RS1 | Brett mit `&gpu=webgpu&qualitaet=hoch` in Chrome/Edge am PC und in Safari 26 am Mac (nach CHAOS-117 neu prüfen) | Messanzeige nennt „WebGPU …“ und nach einigen Sekunden „Schleifen 1“, Frames steigen; Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift, SSAO) | | |
+| RS1 | Brett mit `&gpu=webgpu&qualitaet=hoch` in Chrome/Edge am PC und in Safari 26 am Mac (nach CHAOS-117 neu prüfen) | Messanzeige nennt „WebGPU …“ und nach einigen Sekunden „Schleifen 1“, Frames steigen; Brett sieht aus wie mit WebGL2 (Schatten, Gras, Figuren, Schrift, SSAO) | Chromium 153 am Mac: ok (17.11., Claude), sieht aus wie WebGL2. Safari 26 und PC offen | `screenshots/chaos117-brett-webgpu-mac.jpg` |
 | RS2 | Messbogen R1–R3, R7–R8 (Babylon WebGL2 vs. WebGPU) | Bildabstand je Variante; Vorteil von WebGPU in % | | |
 | RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
 | RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |
