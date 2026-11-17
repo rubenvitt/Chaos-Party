@@ -382,3 +382,18 @@ Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messa
 | RS3 | Bevy WebAssembly, `?variante=webgpu` und `webgl2` (R4, R5, R9) | Szene erscheint wie im Referenzbild; `SPIKE-ERGEBNIS` kopieren | | |
 | RS4 | Bevy nativ (R6, R10) | Fenster mit der Szene; `SPIKE-ERGEBNIS` aus dem Terminal | | |
 | RS5 | Gesamteindruck | Sieht eine der Varianten deutlich flüssiger aus? Lohnt sich der Umbau? | | |
+
+## 17. RealityKit-Prototyp auf Apple TV und Mac (für CHAOS-78)
+
+**Stand:** 2026-11-16 · **Aufgabe:** CHAOS-78 · **Experiment:** [EXP-017](experiments.md) · **Anleitung:** [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md)
+
+Automatisch geprüft: Bau für macOS, iOS-Simulator und tvOS-Simulator; volle Szene (64 246 Instanzen) im iPad- und tvOS-Simulator sichtbar ([Bild tvOS](screenshots/chaos78-realitykit-tvos-sim.jpg)); Handshake der App mit dem lokalen Server bis `lobby`. **Nicht** automatisch prüfbar: Bildrate auf einer echten Apple TV, Signieren für Geräte, Idle-Animation sichtbar, Figuren bewegen sich bei echtem `board`-Stand. iPhone/iPad sind hier nur Renderer-Benchmark, kein Spiel-Host.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| RK1 | Mac: `ChaosRenderSpike --sekunden=30` mit sichtbarem Fenster, sonst nichts laufen lassen (kein GeForce NOW, kein Vollbild-Spiel) | `SPIKE-ERGEBNIS` mit Median ≈ 8,3 ms (120 Hz); p95 eintragen (R13) | | |
+| RK2 | Mac: dasselbe mit `--durchsatz=1` (R14) und `--breite=3840 --hoehe=2160` | Offscreen-Bildzeit 1080p und 4K | | |
+| RK3 | Xcode: Team eintragen (ob ein kostenloser Apple-Account für tvOS-Geräte reicht, prüfen; Profile gelten dann 7 Tage), App auf die Apple TV spielen | App startet, Brett mit Gras, Figuren, Schatten | ok (17.11., bezahltes Team, Apple TV per Xcode gekoppelt, Build mit `-destination id=<UDID> -allowProvisioningDeviceRegistration`) | `devicectl` install/launch, `SPIKE-ERGEBNIS` |
+| RK4 | Apple TV 1080p und 4K, `--sekunden=30` (Argumente im Xcode-Schema) (R12) | Median 16,7 ms (60 Hz) halten; p95 und Eindruck notieren | 4K: **nicht erfüllt**, 20 fps (Median 51 ms, GPU 34,7 ms). 1080p entfällt: Ruben bleibt bei 4K-Ausgabe (17.11.) | EXP-017 |
+| RK5 | Apple TV mit `--server=ws://<mac>:8787/ws`, Partie mit Controllern starten | Figuren springen auf ihre Felder (keine Laufanimation) | | |
+| RK6 | Gesamteindruck am Fernseher | Sieht der RealityKit-Look gut genug aus (kein HDRI, keine Nachbearbeitung, Gesichter ohne Leuchten)? | | |

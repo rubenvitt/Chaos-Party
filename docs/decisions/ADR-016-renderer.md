@@ -22,7 +22,8 @@ Brett (Natur-Look, Figuren, Popups, Regie), drei Minispiele mit Havok-Physik (AD
 | 1 Babylon + WebGPU | `?gpu=webgpu` am echten Brett (`scene/engineFactory.ts`), WebGL2-Rückfall | gebaut, Unit-Tests grün; WebGPU-Engine startet, Rendern scheitert nur an der Software-GPU (Gerät geht verloren – auch im Rohtest ohne Spielcode) |
 | 2 Bevy (Rust) → WebAssembly | `spikes/renderer-bevy`, Kulisse aus dem echten Brett exportiert (GLB), Instanzen, Figuren mit Idle | gebaut (WebGPU und WebGL2); WebGL2 rendert dieselbe Szene im Headless-Chromium ([Bild](../screenshots/chaos75-bevy-webgl2-swiftshader.jpg)); 35 MB Programm (≈ 8 MB gzip) |
 | 3 Bevy nativ | dasselbe Programm nativ (Metal/DX12/Vulkan) | gebaut; in der Cloud kein Fenster/Bild möglich |
-| 3 Swift/RealityKit, Unity, Godot | kein Prototyp | Recherche (unten) |
+| 3 Swift/RealityKit | `spikes/renderer-realitykit` (CHAOS-78, 16.11.): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ aus dem Brett-Export, GPU-Instancing | läuft nativ am Mac und im tvOS-/iPad-Simulator; vorläufige Mac-Werte in EXP-017, echte Apple TV offen |
+| 3 Unity, Godot | kein Prototyp | Recherche (unten) |
 
 ### Recherche-Stand (16.11.2026, Quellen in EXP-015)
 
@@ -78,7 +79,12 @@ Vorschlag für einen tvOS-Spike: Variante 1, weil sie Protokoll, Server und Cont
 - Der Bevy-Prototyp bleibt als Messlatte: Er zeigt, was ein nativer Renderer mit derselben Szene auf Rubens Hardware schafft.
 
 **Negativ / Risiken**
-- Solange R1–R11 fehlen, beruht die Empfehlung auf der M3-Max-Messung aus CHAOS-73 und auf Recherche.
+- Die PC-Zeilen R1–R6 fehlen noch. Die Empfehlung stützt sich bisher auf die Mac-Messung vom 17.11. (EXP-015):
+  - Babylon WebGL2 kommt auf 8,4 / 11,2 ms bei 1080p.
+  - Bevy nativ kommt offscreen auf 3,8 / 4,8 ms, ohne Nachbearbeitung.
+  - Bevy WebAssembly mit WebGPU kommt auf 12,8 / 13,6 ms.
+  - RealityKit kommt auf 6,3 ms GPU-Zeit.
+- Babylon mit WebGPU (R8) ist nicht messbar, weil das Brett mit WebGPU kein Bild zeichnet. Der Fehler steht in EXP-015.
 - WebGPU ist in CI nicht renderbar (Software-GPU); E2E-Tests bleiben auf WebGL2. Ein WebGPU-Standard bräuchte Gerätetests auf echter Hardware.
 - tvOS bleibt ohne zweiten Host unerreichbar; jeder tvOS-Weg kostet einen eigenen Renderer.
 - Der Bevy-Prototyp ist nicht bildgleich (kein HDRI-Licht, keine Nachbearbeitung, statische Bäume); Bevy-Zahlen sind eher zu günstig.

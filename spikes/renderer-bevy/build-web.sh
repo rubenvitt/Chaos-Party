@@ -5,6 +5,8 @@
 # Danach: python3 -m http.server 8090 -d web  →  http://localhost:8090/?variante=webgpu
 set -euo pipefail
 cd "$(dirname "$0")"
+# Fester Zielordner, auch wenn die Cargo-Konfiguration einen globalen `target-dir` setzt.
+export CARGO_TARGET_DIR=target
 for variant in webgpu webgl2; do
   cargo build --profile wasm-release --target wasm32-unknown-unknown --features "$variant"
   wasm-bindgen --no-typescript --remove-name-section --target web --out-dir "web/pkg-$variant" \

@@ -1185,7 +1185,21 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 - **Fehler im Spike gefunden und behoben:** Der Babylon-Serializer rechnet linkshändig → rechtshändig durch Spiegeln von **x** um, nicht von z. Mit z-Spiegelung stand die Bevy-Kamera auf der Gegenseite (Schrift spiegelverkehrt); jetzt stimmen Kamera, Licht, Figuren und Instanzen mit dem GLB überein.
 - Bevy-API: zwischen den bekannten Versionen und 0.20 viele Umbenennungen (`SceneRoot` → `WorldAssetRoot`, `shadows_enabled` → `shadow_maps_enabled`, `FontSize`); glTF-Erweiterung `EXT_mesh_gpu_instancing` nicht unterstützt (Instanzen deshalb als eigene Datei).
 
-**Ergebnisse auf echter Hardware:** **offen** – Messbogen R1–R12 in [`renderer-spike.md`](renderer-spike.md#5-messbogen) (PC, Mac; Apple TV nicht messbar).
+**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 sind offen, sie misst Ruben. Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
+
+| # | Kandidat, 1920×1080 | Median | p95 | Bemerkung |
+|---|---|---|---|---|
+| R7 | Babylon `hoch`, WebGL2 | 8,4 ms | 11,2 ms | Render 7,8 ms, 117 fps |
+| R8 | Babylon `hoch`, WebGPU | – | – | nicht messbar: Das Brett zeichnet mit WebGPU nie ein Bild (siehe unten) |
+| R9 | Bevy WebAssembly, WebGPU | 12,8 ms | 13,6 ms | WebGL2-Fassung: 39,9 / 41,1 ms |
+| R10 | Bevy nativ, offscreen | 3,8 ms | 4,8 ms | `niedrig`-Paar 1600×900: 2,7 / 3,3 ms |
+| R11 (4K) | Babylon WebGL2 / Bevy nativ | 19,3 / 7,1 ms | 27,5 / 11,1 ms | Babylon rendert bei `hoch` höchstens 2560×1440 |
+
+- **Babylon mit WebGL2 erreicht das Ziel am Mac klar.** Ziel ist ein Brett-p95 von höchstens 20 ms bei 1080p; gemessen sind 11,2 ms.
+- **Bevy nativ ist etwa doppelt so schnell.** Es fehlen dort aber SSAO, Tiefenunschärfe, Bloom und das HDRI-Licht, der Vergleich ist also zu günstig für Bevy (§4).
+- **Bevy als WebAssembly ist langsamer als Babylon.** Mit WebGPU liegt es bei 12,8 ms, mit WebGL2 sogar bei 39,9 ms.
+- **R8, WebGPU-Fehler:** Mit `?gpu=webgpu` startet die WebGPU-Engine (Messanzeige „WebGPU metal-3“, Babylon-Log „WebGPU1 engine“). Das Brett zeichnet trotzdem kein Bild: keine Render-Schleife, 0 Bilder, kein Fehler in der Konsole, keine Anfragen nach außen. Vermutlich kehrt der Aufbau nie zurück (`scene.whenReadyAsync`). Ungeprüft, Folgeaufgabe angelegt. In der Cloud war dieser Fehler nicht zu sehen, weil dort das Gerät schon vorher verloren ging.
+- **Bevy im Fenster** rastet auf dem 60-Hz-Monitor trotz `vsync=0` bei 16,7 ms ein. Deshalb sind die Werte offscreen gemessen (`--fenster=0`).
 
 **Recherche (Stand 16.11.2026):**
 
@@ -1338,3 +1352,52 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 7. Die Bot-Profile sind Annahmen. Echte Reaktionszeiten (CHAOS-49) können die Fenster verschieben.
 
 **Für später:** Die übrigen verworfenen Konzepte (Aufzieh-Takt, Krümel-Kehraus, Geysir-Gier) → CHAOS-79.
+
+---
+
+## EXP-017: Native RealityKit-App für macOS, tvOS (und iPhone/iPad als Benchmark) (2026-11-16, CHAOS-78)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben will das Spiel am Fernseher über eine Apple TV und wünscht sich native Apps („native Mac App, iPad App, iOS App und TV App“). Frage: Schafft RealityKit dieselbe Testszene wie EXP-015 flüssig auf Apple-Geräten, und wie groß ist der Bruch zum Babylon-Host? Erwartung: RealityKit hält 60 Hz auf der Apple TV, braucht aber einen zweiten Renderer und verliert Teile des Looks.
+
+**Rahmen:** Die Produktsäule bleibt unverändert: Server und Spiel laufen auf PC/Mac, iPhone/iPad sind Controller. Die iOS/iPadOS-Ziele der App sind **nur Renderer-Benchmark**. tvOS ist Kandidat für eine reine Host-Anzeige (ADR-016, Server-Variante 1); die Entscheidung über CHAOS-74 liegt bei Ruben.
+
+**Varianten:**
+
+| # | Variante | Prototyp |
+|---|---|---|
+| V6 | RealityKit `ARView` (vsync) auf macOS, iPadOS, tvOS | `spikes/renderer-realitykit`, ein xcodegen-Ziel für drei Plattformen, Deployment 26.0 |
+| V7 | RealityKit `RealityRenderer` offscreen (`--durchsatz=1`) | gleiche App, nur macOS gemessen |
+
+**Testszene:** wie EXP-015, aus dem GLB-Export mit Blender (`bpy==5.3.0`) nach USDZ umgewandelt (`convert/convert.sh`, ≈ 40 s, `usdchecker` grün). 64 246 Gras-/Blumen-Instanzen als echtes GPU-Instancing (`MeshInstancesComponent`, `LowLevelInstanceData`, ab 26.0 auf allen drei Plattformen), 4 Figuren mit Idle-Clip, Kamera/Sonne aus `brett.szene.json`, Himmel als Verlaufs-IBL.
+
+**Messgrößen:** Bildabstand Median/p95 (`SPIKE-ERGEBNIS`, gleiche Schlüssel wie Bevy), sichtbare Gleichheit zum Babylon-Bild, Aufwand.
+
+**Ergebnisse (16.11.2026, MacBook Pro M3 Max, 120 Hz; vorläufig, weil GeForce NOW parallel lief):**
+
+| Pfad | Auflösung | gras | Schatten | Median | p95 |
+|---|---|---|---|---|---|
+| ARView (vsync), 17.11. ohne Störung, 60-Hz-Monitor | 1920×1080 | 1 | an | 16,68 ms (60 fps, Deckel) | 17,8 ms; **GPU 6,3 ms**, p95 9,4 ms |
+| ARView (vsync), 17.11., 4K | 3840×2160 | 1 | an | 16,68 ms (60 fps, Deckel) | 17,9 ms; **GPU 7,3 ms**, p95 13,1 ms |
+| offscreen, 17.11. | 1920×1080 / 3840×2160 | 1 | an | 16,6 / 49,6 ms | 33,5 / 50,9 ms |
+| ARView (vsync), 16.11. vorläufig | 1920×1080 | 1 | an | 8,30 ms | 17,0 ms |
+| offscreen, nacheinander | 1920×1080 | 1 | an | 16,8–21,3 ms | 23–40 ms |
+| offscreen | 1920×1080 | 0,25 | an | 15,6 ms | 31,7 ms |
+| offscreen | 1920×1080 | 1 | aus | 13,6 ms | 20,1 ms |
+
+- Die ARView hält im Median 120 Hz, das p95 zeigt einzelne verpasste Bilder; Reserve über 120 Hz unbekannt. Weitere ARView-Läufe waren ungültig, weil macOS das verdeckte Fenster auf ≈ 10 Hz drosselte.
+- Offscreen-Werte warten jedes Bild ab (kein Pipelining) und sind deshalb **nicht** mit Bevy `vsync=0` vergleichbar. Nur „Schatten aus“ hebt sich vom Rauschen ab.
+- RealityKit selbst liefert unter macOS keine GPU-Zeit (`__frameTime()` = 0). Auf Geräten liefert sie der Metal-Performance-HUD (`MTL_HUD_ENABLED=1`, `MTL_HUD_LOG_ENABLED=1` per `devicectl --environment-variables`), siehe README.
+- **Simulatoren (keine Messungen):** iPhone 17 Pro, iPad (A16) 2360×1640 und Apple TV 4K (3. Gen., tvOS 27) 3840×2160 zeigen die volle Szene bei 60 Hz ([Mac](screenshots/chaos78-realitykit-macos.jpg), [iPad-Sim](screenshots/chaos78-realitykit-ipad-sim.jpg), [iPhone-Sim](screenshots/chaos78-realitykit-iphone-sim.jpg), [tvOS-Sim](screenshots/chaos78-realitykit-tvos-sim.jpg)).
+- **iPhone 16 Pro (echtes Gerät, nur Benchmark, kein Host):** volle Szene bei nativer Auflösung 2622×1206, Median 16,68 ms, p95 17,4 ms, max 20,6 ms, 60,0 fps über 30 s (zwei Läufe gleich). Die ARView bleibt bei 60 Hz, auch mit `--bildrate=120` und `CADisableMinimumFrameDurationOnPhone`; die Reserve darüber ist unbekannt. Weil das iPhone (A18 Pro) eine stärkere GPU hat als die Apple TV 4K (A15), ist das nur ein Hinweis, kein Ersatz für R12.
+- **Echte Apple TV 4K (3. Gen., A15), 17.11., Ausgabe 4K/60 Hz:** volle Szene läuft stabil, aber mit **20 fps** (Median 51,1 ms, p95 59,4 ms). Der Metal-HUD zeigt 34,7 ms GPU-Zeit je Bild: knapp über der 30-fps-Grenze (33,3 ms), weit weg von 60 fps (16,7 ms). Gras aus und Schatten aus ändern nichts (34,7–34,8 ms). Offscreen hängt die Bildzeit stark an der Auflösung (4K 117 ms, 1080p 42 ms, 720p 33 ms, jeweils MSAA 4×, nacheinander gemessen). → Die Apple TV ist bei 4K pixelgebunden. Eine 1080p-Ausgabe entfällt: Ruben bleibt bei 4K (17.11.). Das iPhone 16 Pro (A18 Pro) hält bei 2622×1206 60 fps; die Apple TV liegt bei 4K weit dahinter.
+
+**Befunde unterwegs:**
+- RealityKit ignoriert Vertexfarben, solange ein Material gebunden ist (auch `UsdPrimvarReader`). Der Konverter backt die Materialfarbe in die Vertexfarbe und entfernt das Material: Farben stimmen, aber Rauheit, Clearcoat, Sheen und Leuchten (Gesichter der Figuren) fallen weg.
+- Himmelskuppeln und Dunst kommen aus dem Babylon-Export als schwarze Spiegelkugeln; ausgeblendet, Hintergrund aus `clearColor`.
+- tvOS-27-Simulator stürzt mit expliziter `bounds`-Hülle an `MeshInstancesComponent` ab (`bad_variant_access` im Occlusion-Culling); ohne Hülle stabil. Auf echter Hardware ungeprüft.
+- Host-Weg über das Protokoll: `HostClient.swift` meldet sich mit `host-hello` v4 an und bekommt `lobby` vom echten Server. Figuren nach `board` setzen ist eingebaut, aber ohne Partie mit Controllern ungeprüft.
+
+**Aufwand und Brüche bei einem echten tvOS-Host (Schätzung, nicht gemessen):** Brett-Regie (Kamerafahrten, Laufanimation, Popups, HUD) in Swift neu; Minispiel-Logik (ADR-012, läuft im Host) in Swift portieren oder per JavaScriptCore ohne Havok betreiben, Physik auf RealityKit umstellen; Podest und Effekte neu; Asset-Pfad GLB → USDZ mit den Materialverlusten oben; Signieren/Verteilen braucht ein Apple-Developer-Konto (ob ein kostenloser Account für eigene tvOS-Geräte reicht, ist ungeprüft; TestFlight/App Store kosten Geld → Rubens Freigabe). game-core, Protokoll und Controller bleiben, solange der Server auf PC/Mac läuft.
+
+**Entscheidung:** **iterate** – RealityKit rendert die Szene mit allen Instanzen auf allen Apple-Plattformen. Auf der echten Apple TV 4K reicht es bei 4K-Ausgabe nur für 20 fps; weil Ruben bei 4K-Ausgabe bleibt, muss ein tvOS-Host die Pixelkosten senken: geringere interne Auflösung mit Hochskalierung (z. B. MetalFX, eigene Render-Pipeline statt ARView) und gezielte Profilierung mit Instruments. Danach ADR für den tvOS-Host als Entwurf; Rubens Entscheidung zu CHAOS-74 (Produktsäule) steht aus.
+
