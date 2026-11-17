@@ -79,7 +79,12 @@ Vorschlag für einen tvOS-Spike: Variante 1, weil sie Protokoll, Server und Cont
 - Der Bevy-Prototyp bleibt als Messlatte: Er zeigt, was ein nativer Renderer mit derselben Szene auf Rubens Hardware schafft.
 
 **Negativ / Risiken**
-- Solange R1–R11 fehlen, beruht die Empfehlung auf der M3-Max-Messung aus CHAOS-73 und auf Recherche.
+- Die PC-Zeilen R1–R6 fehlen noch. Die Empfehlung stützt sich bisher auf die Mac-Messung vom 17.11. (EXP-015):
+  - Babylon WebGL2 kommt auf 8,4 / 11,2 ms bei 1080p.
+  - Bevy nativ kommt offscreen auf 3,8 / 4,8 ms, ohne Nachbearbeitung.
+  - Bevy WebAssembly mit WebGPU kommt auf 12,8 / 13,6 ms.
+  - RealityKit kommt auf 6,3 ms GPU-Zeit.
+- Babylon mit WebGPU (R8) ist nicht messbar, weil das Brett mit WebGPU kein Bild zeichnet. Der Fehler steht in EXP-015.
 - WebGPU ist in CI nicht renderbar (Software-GPU); E2E-Tests bleiben auf WebGL2. Ein WebGPU-Standard bräuchte Gerätetests auf echter Hardware.
 - tvOS bleibt ohne zweiten Host unerreichbar; jeder tvOS-Weg kostet einen eigenen Renderer.
 - Der Bevy-Prototyp ist nicht bildgleich (kein HDRI-Licht, keine Nachbearbeitung, statische Bäume); Bevy-Zahlen sind eher zu günstig.

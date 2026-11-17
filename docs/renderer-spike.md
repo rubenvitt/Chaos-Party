@@ -131,14 +131,14 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen.
 | R4 | PC | Bevy WebAssembly | Chrome/Edge, WebGPU | 1920×1080 | | | |
 | R5 | PC | Bevy WebAssembly | Chrome/Edge, WebGL2 | 1920×1080 | | | |
 | R6 | PC | Bevy nativ | DX12/Vulkan | 1920×1080 und `niedrig`-Paar | | | |
-| R7 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGL2 | 1920×1080 | | | |
-| R8 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGPU | 1920×1080 | | | |
-| R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | | | |
-| R10 | Mac | Bevy nativ | Metal | 1920×1080 | | | |
-| R11 | PC/Mac | wie R1/R2/R6 | | 3840×2160 | | | 4K am Fernseher |
+| R7 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGL2 | 1920×1080 | 8,4 | 11,2 | 17.11., MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz; `pnpm perf -g Partie`, Zeile `brett`, 117 fps, Render 7,8 ms |
+| R8 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGPU | 1920×1080 | – | – | 17.11.: **nicht messbar.** Die WebGPU-Engine startet (Messanzeige: „WebGPU metal-3“), aber das Brett zeichnet nie ein Bild: 0 Bilder, keine Render-Schleife, kein Fehler in der Konsole. Fehler im Spike-Pfad, siehe EXP-015 |
+| R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | 12,8 | 13,6 | 17.11., Chromium 153 ohne VSync, 78 fps; Gegenprobe WebGL2: 39,9 / 41,1 ms (25 fps) |
+| R10 | Mac | Bevy nativ | Metal | 1920×1080 | 3,8 | 4,8 | 17.11., **offscreen** (`--fenster=0`), 258 fps; `niedrig`-Paar 1600×900: 2,7 / 3,3 ms. Im Fenster rastet Bevy auf dem 60-Hz-Monitor trotz `vsync=0` bei 16,7 ms ein |
+| R11 | PC/Mac | wie R1/R2/R6 | | 3840×2160 | | | 4K am Fernseher. **Mac 17.11.:** Babylon WebGL2 `hoch` 19,3 / 27,5 ms (49 fps; rendert höchstens 2560×1440); Bevy nativ offscreen 7,1 / 11,1 ms; RealityKit ARView 60 fps, GPU 7,3 / 13,1 ms (Metal-HUD) |
 | R12 | Apple TV 4K (3. Gen., A15) | RealityKit (§3b) ARView | Metal | 3840×2160 | 51,1 | 59,4 | 17.11., echtes Gerät: **20 fps**; GPU je Bild 34,7 ms (Metal-HUD), knapp über der 30-fps-Grenze (33,3 ms); unabhängig von Gras und Schatten. 1080p-Ausgabe entfällt: Ruben bleibt bei 4K (17.11.) |
-| R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 8,30 | 17,0 | 16.11., M3 Max 120 Hz, **vorläufig**: GeForce NOW lief mit; am 120-Hz-Deckel |
-| R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,8–21,3 | 23–40 | wie R13 vorläufig; nacheinander gemessen, nicht mit R10 vergleichbar |
+| R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 16,7 | 17,8 | 17.11., 60-Hz-Monitor, am VSync-Deckel (60 fps); **GPU je Bild 6,3 ms, p95 9,4 ms** (Metal-HUD). Vorläufiger Wert vom 16.11. (120 Hz, mit GeForce NOW): 8,30 / 17,0 |
+| R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,6 | 33,5 | 17.11.; 4K: 49,6 / 50,9 ms. Bilder nacheinander gemessen (CPU + GPU ohne Überlappung), nicht mit R10 vergleichbar |
 | R15 | iPhone 16 Pro (nur Benchmark) | RealityKit (§3b) ARView | Metal | 2622×1206 | 16,68 | 17,4 | 16.11., echtes Gerät, volle Szene; ARView bleibt bei 60 Hz (auch mit `--bildrate=120`), max 20,6 ms |
 
 Außerdem: Sieht Bevy gleichwertig aus (ja/nein, Bildschirmfotos)? Spürbare Ladezeit (Bevy-WASM lädt ≈ 27 MB Szene plus das Programm)?

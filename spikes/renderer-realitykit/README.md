@@ -19,6 +19,8 @@ xcodegen generate
 # macOS: direkt starten, nicht per `open`, sonst fehlt stdout
 xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike -destination 'platform=macOS' -configuration Release -derivedDataPath build build
 build/Build/Products/Release/ChaosRenderSpike.app/Contents/MacOS/ChaosRenderSpike --sekunden=30
+# Falls direkt gestartet kein Fenster erscheint (17.11. beobachtet): über LaunchServices, mit GPU-Zeit
+open -W -n --stdout /tmp/rk.log --stderr /tmp/rk.log --env MTL_HUD_ENABLED=1 --env MTL_HUD_LOG_ENABLED=1 build/Build/Products/Release/ChaosRenderSpike.app --args --sekunden=30
 build/Build/Products/Release/ChaosRenderSpike.app/Contents/MacOS/ChaosRenderSpike --durchsatz=1 --sekunden=30 --bild=/tmp/offscreen.png
 
 # iPad-Simulator (nur Funktionsprobe)
@@ -96,6 +98,8 @@ Während der Messungen lief GeForce NOW im Hintergrund. Die Werte sind deshalb n
 Die ARView hält bei voller Szene 120 Hz im Median, das p95 zeigt aber einzelne verpasste Bilder. Die Reserve über 120 Hz bleibt unbekannt; das Ergebnis ist also nur eine Untergrenze. Dieser Lauf war der einzige mit sichtbarem Fenster und entstand, bevor Himmelskuppeln und Dunst ausgeblendet wurden. Beide liegen hinter `far`, der Unterschied sollte also klein sein. Weitere ARView-Läufe am Mac waren durch die Fensterdrosselung unbrauchbar (Median ≈ 103 ms) und fehlen in der Tabelle.
 
 Offscreen kostet ein Bild nacheinander gemessen 14–21 ms. Der Grundwert streut zwischen den Läufen schon um 16,8–21,3 ms, jede Variante wurde nur einmal gemessen. Über dieses Rauschen hinaus zeigt nur „Schatten aus“ einen Unterschied; Grasanteil und MSAA lassen sich davon nicht trennen. Die Offscreen-Werte sind **nicht mit Bevys Bildabstand bei `vsync=0` vergleichbar**: Bevy überlappt die Bilder (Pipelining), diese Schleife wartet jedes Bild ab. Mit Bevy vergleichbar ist nur der ARView-Wert.
+
+**Mac ohne Störung (17.11.2026, M3 Max, 4K-Monitor mit 60 Hz):** ARView 1080p 60 fps (Deckel), GPU je Bild 6,3 ms (p95 9,4); ARView 4K 60 fps, GPU 7,3 ms (p95 13,1); offscreen 1080p 16,6 ms, 4K 49,6 ms. Der Metal-HUD liefert die GPU-Zeit auch unter macOS (`open --env …`).
 
 **Echte Apple TV 4K (3. Generation, A15), 17.11.2026, Ausgabe 3840×2160 bei 60 Hz, volle Szene:**
 

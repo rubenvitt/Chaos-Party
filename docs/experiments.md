@@ -1185,7 +1185,21 @@ EXPERIMENTS=m4 pnpm exec vitest run packages/game-core/src/rules/experimentsM4.t
 - **Fehler im Spike gefunden und behoben:** Der Babylon-Serializer rechnet linkshändig → rechtshändig durch Spiegeln von **x** um, nicht von z. Mit z-Spiegelung stand die Bevy-Kamera auf der Gegenseite (Schrift spiegelverkehrt); jetzt stimmen Kamera, Licht, Figuren und Instanzen mit dem GLB überein.
 - Bevy-API: zwischen den bekannten Versionen und 0.20 viele Umbenennungen (`SceneRoot` → `WorldAssetRoot`, `shadows_enabled` → `shadow_maps_enabled`, `FontSize`); glTF-Erweiterung `EXT_mesh_gpu_instancing` nicht unterstützt (Instanzen deshalb als eigene Datei).
 
-**Ergebnisse auf echter Hardware:** **offen** – Messbogen R1–R12 in [`renderer-spike.md`](renderer-spike.md#5-messbogen) (PC, Mac; Apple TV nicht messbar).
+**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 sind offen, sie misst Ruben. Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
+
+| # | Kandidat, 1920×1080 | Median | p95 | Bemerkung |
+|---|---|---|---|---|
+| R7 | Babylon `hoch`, WebGL2 | 8,4 ms | 11,2 ms | Render 7,8 ms, 117 fps |
+| R8 | Babylon `hoch`, WebGPU | – | – | nicht messbar: Das Brett zeichnet mit WebGPU nie ein Bild (siehe unten) |
+| R9 | Bevy WebAssembly, WebGPU | 12,8 ms | 13,6 ms | WebGL2-Fassung: 39,9 / 41,1 ms |
+| R10 | Bevy nativ, offscreen | 3,8 ms | 4,8 ms | `niedrig`-Paar 1600×900: 2,7 / 3,3 ms |
+| R11 (4K) | Babylon WebGL2 / Bevy nativ | 19,3 / 7,1 ms | 27,5 / 11,1 ms | Babylon rendert bei `hoch` höchstens 2560×1440 |
+
+- **Babylon mit WebGL2 erreicht das Ziel am Mac klar.** Ziel ist ein Brett-p95 von höchstens 20 ms bei 1080p; gemessen sind 11,2 ms.
+- **Bevy nativ ist etwa doppelt so schnell.** Es fehlen dort aber SSAO, Tiefenunschärfe, Bloom und das HDRI-Licht, der Vergleich ist also zu günstig für Bevy (§4).
+- **Bevy als WebAssembly ist langsamer als Babylon.** Mit WebGPU liegt es bei 12,8 ms, mit WebGL2 sogar bei 39,9 ms.
+- **R8, WebGPU-Fehler:** Mit `?gpu=webgpu` startet die WebGPU-Engine (Messanzeige „WebGPU metal-3“, Babylon-Log „WebGPU1 engine“). Das Brett zeichnet trotzdem kein Bild: keine Render-Schleife, 0 Bilder, kein Fehler in der Konsole, keine Anfragen nach außen. Vermutlich kehrt der Aufbau nie zurück (`scene.whenReadyAsync`). Ungeprüft, Folgeaufgabe angelegt. In der Cloud war dieser Fehler nicht zu sehen, weil dort das Gerät schon vorher verloren ging.
+- **Bevy im Fenster** rastet auf dem 60-Hz-Monitor trotz `vsync=0` bei 16,7 ms ein. Deshalb sind die Werte offscreen gemessen (`--fenster=0`).
 
 **Recherche (Stand 16.11.2026):**
 
@@ -1362,7 +1376,10 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 
 | Pfad | Auflösung | gras | Schatten | Median | p95 |
 |---|---|---|---|---|---|
-| ARView (vsync) | 1920×1080 | 1 | an | 8,30 ms | 17,0 ms |
+| ARView (vsync), 17.11. ohne Störung, 60-Hz-Monitor | 1920×1080 | 1 | an | 16,68 ms (60 fps, Deckel) | 17,8 ms; **GPU 6,3 ms**, p95 9,4 ms |
+| ARView (vsync), 17.11., 4K | 3840×2160 | 1 | an | 16,68 ms (60 fps, Deckel) | 17,9 ms; **GPU 7,3 ms**, p95 13,1 ms |
+| offscreen, 17.11. | 1920×1080 / 3840×2160 | 1 | an | 16,6 / 49,6 ms | 33,5 / 50,9 ms |
+| ARView (vsync), 16.11. vorläufig | 1920×1080 | 1 | an | 8,30 ms | 17,0 ms |
 | offscreen, nacheinander | 1920×1080 | 1 | an | 16,8–21,3 ms | 23–40 ms |
 | offscreen | 1920×1080 | 0,25 | an | 15,6 ms | 31,7 ms |
 | offscreen | 1920×1080 | 1 | aus | 13,6 ms | 20,1 ms |
