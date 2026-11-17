@@ -32,8 +32,17 @@ Alle stehen auf der Positivliste in `scripts/check-licenses.mjs` (MIT, ISC, BSD,
 
 ### Renderer-Spike (CHAOS-75, nicht im Spiel)
 
-- `@babylonjs/serializers` 9.35.0 (Apache-2.0) als **Dev-Abhängigkeit** des Hosts, nur für die Export-Seite `apps/host/src/spike/` (nicht im Build).
+- `@babylonjs/serializers` 9.35.0 (Apache-2.0) als **Dev-Abhängigkeit** des Hosts, nur für die Export-Seite `apps/host/src/export/` (nicht im Build; seit CHAOS-140 Teil von `pnpm build:apple-assets`).
 - `spikes/renderer-bevy`: Rust-Crate außerhalb des pnpm-Workspace mit Bevy 0.20.1 (MIT/Apache-2.0), `serde`/`serde_json` (MIT/Apache-2.0), `web-sys` (MIT/Apache-2.0); fest auf `Cargo.lock`. Wird nicht ausgeliefert; Build-Ausgaben und die exportierte Szene sind nicht eingecheckt.
+
+### USDZ-Build-Schritt (CHAOS-140, nur Werkzeuge)
+
+`pnpm build:apple-assets` nutzt in `.venv-blender` zwei Python-Pakete, fest gepinnt in `packages/assets/blender/requirements.txt`. Beide sind Werkzeuge und werden nicht ausgeliefert:
+
+- `bpy` 5.3.0 (Blender als Python-Modul, GPL-2.0-or-later), wie schon für die Figuren (CHAOS-58). Was Blender erzeugt, gehört nicht unter Blenders Lizenz.
+- `usd-core` 26.11 (Pixar USD, Tomorrow Open Source Technology License 1.0, Apache-2.0-artig), nur zum Prüfen der USDZ.
+
+Die erzeugten USDZ stehen mit Herkunft und Lizenz im Manifest unter `builds` und in `herkunft.json` neben den Dateien (GPL-3.0-only; darin CC0-Texturen von Poly Haven und mit Nunito gezeichnete Wegweiser, OFL-1.1). Siehe [`apple-assets.md`](apple-assets.md).
 
 ### Lieferkette
 

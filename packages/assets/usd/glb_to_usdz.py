@@ -1,6 +1,12 @@
-"""CHAOS-78: GLB → USDZ für den RealityKit-Spike, mit Blender als Python-Modul (bpy).
+"""GLB → USDZ mit Blender als Python-Modul (bpy): Brett-Kulisse für den nativen Apple-Host.
 
 Aufruf: python glb_to_usdz.py <in.glb> <out.usdz> [--anim=<clipname>]
+
+Entstanden im RealityKit-Spike (CHAOS-78), seit CHAOS-140 Teil von
+`scripts/build-apple-assets.mjs`. Figuren gehen **nicht** mehr diesen Weg, sie kommen direkt aus
+den bpy-Skripten (`blender/build.py <id> <ziel.usdz>`), weil hier Rauheit, Clearcoat und
+Leuchten der vertexgefärbten Teile verloren gehen (EXP-017). Für die Kulisse betrifft das nur
+die Gras-Grundmeshes `gras_0…2`.
 
 Ohne --anim wird ohne Animation exportiert (Kulisse). Mit --anim wird nur dieser Clip
 (z. B. `idle`) auf das Skelett gelegt und als USD-Skelettanimation exportiert.

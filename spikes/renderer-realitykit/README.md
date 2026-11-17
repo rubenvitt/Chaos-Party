@@ -209,26 +209,24 @@ Startet `xctrace` die App so nicht, geht es auch in der Instruments-App: Apple T
 
 ## Assets
 
-Die Testszene des Bevy-Spikes (glTF) wird mit Blender als Python-Modul (`bpy==5.3.0`, wie `packages/assets/blender`) nach USDZ umgewandelt. Ein Befehl im Repo-Wurzelverzeichnis:
+Die Testszene erzeugt seit CHAOS-140 der Build-Schritt für den nativen Apple-Host ([`docs/apple-assets.md`](../../docs/apple-assets.md)), hier mit dem Spike-Ordner als Ziel:
 
 ```bash
-node scripts/spike-export-board.mjs              # falls spikes/renderer-bevy/assets/export/ fehlt
-spikes/renderer-realitykit/convert/convert.sh    # legt .venv-blender (Python 3.13 per uv) an, wandelt um, prüft
+spikes/renderer-realitykit/convert/convert.sh   # = node scripts/build-apple-assets.mjs --out=spikes/renderer-realitykit/assets/export
 ```
 
-`convert.sh` ruft je Datei `convert/glb_to_usdz.py` auf, kopiert die beiden JSON-Dateien unverändert, lässt `xcrun usdchecker` laufen und lädt am Ende alles mit RealityKit (`swift convert/check.swift <ausgabeordner>`; Exit-Code 1 bei Fehlern). bpy braucht Python 3.13, das System-`python3` ist neuer, daher `uv venv --python 3.13`. Dauer etwa 40 s.
+Das Brett kommt aus dem Web-Host und geht mit Blender als Python-Modul (`bpy==5.3.0`, Python 3.13 per `uv`) nach USDZ (`packages/assets/usd/glb_to_usdz.py`). Die **Figuren** entstehen direkt aus den bpy-Skripten: Vertexfarben als Textur gebacken, Materialien mit Rauheit, Clearcoat und Leuchten, alle Clips auf einer Zeitleiste plus `figuren/<id>.clips.json`. Die App schneidet daraus `idle` heraus (`SceneBuilder.playIdle`). Geprüft wird mit usd-core (`packages/assets/usd/check_usdz.py`) und auf dem Mac mit RealityKit (`packages/assets/usd/check_realitykit.swift`). Dauer etwa 3 Minuten.
 
 Ausgabe in `assets/export/` (erzeugt, nicht eingecheckt):
 
 | Datei | Größe | Inhalt |
 |---|---|---|
-| `brett.usdz` | 25,6 MB | Kulisse, 273 Entitäten, 23 Texturen (PNG) eingebettet |
-| `figuren/robot.usdz` | 0,48 MB | Figur mit Idle-Animation (starre Teile an Knochen, ohne Skelett) |
-| `figuren/cactus.usdz` | 0,51 MB | Figur mit Skelett und Idle-Animation |
-| `figuren/raccoon.usdz` | 0,84 MB | Figur mit Skelett und Idle-Animation |
-| `figuren/sock.usdz` | 0,23 MB | Figur mit Skelett und Idle-Animation |
-| `brett.szene.json` | 2 KB | unverändert: Kamera, Sonne, Himmel, Figurenorte |
-| `brett.instanzen.json` | 15,9 MB | unverändert: Instanzmatrizen (spaltenweise, Welt, rechtshändig Y-up) |
+| `brett.usdz` | ≈ 25 MB | Kulisse, Feld-Anker `feld_<id>`, 23 Texturen (PNG) eingebettet |
+| `figuren/<id>.usdz` | 0,5–1 MB | Figur mit Farbtextur und allen sieben Clips |
+| `figuren/<id>.clips.json` | 1 KB | Lage der Clips auf der Zeitleiste |
+| `brett.szene.json` | 6 KB | Kamera, Sonne, Himmel, Figurenorte, Felder |
+| `brett.instanzen.json` | 15,9 MB | Instanzmatrizen (spaltenweise, Welt, rechtshändig Y-up) |
+| `herkunft.json` | 10 KB | Lizenzen und Herkunft je Datei |
 
 ### Koordinaten
 
@@ -252,12 +250,12 @@ Das Grundmesh selbst bleibt sichtbar am Ursprung und muss versteckt werden (wie 
 
 ### Was gegenüber dem GLB verloren geht oder anders ist
 
-- **Vertexfarben:** RealityKit ignoriert `UsdPrimvarReader` im Material (die Basisfarbe wird grau 0,18) und auch `primvars:displayColor`, sobald ein Material gebunden ist. Darum wird bei Meshes mit Vertexfarbe (alle Figuren-Teile außer Akzent-Teilen, `gras_0…2`) der Materialfaktor in die Vertexfarbe multipliziert und das Material entfernt. RealityKit zeigt sie dann mit seinem Standardmaterial. Farben stimmen (Testbilder aller vier Figuren mit RealityRenderer geprüft), aber Rauheit, Clearcoat, Sheen und Leuchten dieser Teile fallen weg. Die Gesichter der Figuren leuchten also nicht.
+- **Vertexfarben:** RealityKit ignoriert `UsdPrimvarReader` im Material (die Basisfarbe wird grau 0,18) und auch `primvars:displayColor`, sobald ein Material gebunden ist. **Seit CHAOS-140 betrifft das nur noch `gras_0…2`:** Die Figuren kommen direkt aus bpy mit gebackener Farbtextur und behalten ihr Material (EXP-025). Der folgende Rest beschreibt den alten GLB-Weg (CHAOS-78). Bei Meshes mit Vertexfarbe wird der Materialfaktor in die Vertexfarbe multipliziert und das Material entfernt. RealityKit zeigt sie dann mit seinem Standardmaterial. Farben stimmen (Testbilder aller vier Figuren mit RealityRenderer geprüft), aber Rauheit, Clearcoat, Sheen und Leuchten dieser Teile fallen weg. Die Gesichter der Figuren leuchten also nicht.
 - **Doppelseitig:** Ohne Material fehlt `doubleSided`. Die App sollte für `gras_*` `faceCulling = .none` setzen (im glTF doppelseitig).
 - **Material-Erweiterungen:** `KHR_materials_sheen` hat kein UsdPreviewSurface-Gegenstück. Clearcoat wird übertragen, `emissive_strength` vermutlich begrenzt. 7 Materialien mit Alpha-Blending (Wegweiser, „Am Zug“-Pfeil, zwei Natur-Materialien) sollte man in der App ansehen.
 - **Texturwiederholung:** Das GLB nutzt kein `KHR_texture_transform`, es geht also nichts verloren. Kacheln, die Babylon nicht exportiert hat, fehlen schon in Bevy.
 - **Himmel:** `himmel_*` (2 Kuppeln) und `dunst` sind im Babylon-Export spiegelnde Kugeln (metallisch, glatt) ohne Himmelstextur und erscheinen schwarz. Am besten versteckt die App sie und nutzt `clearColor` aus `brett.szene.json`. Deshalb sind die Gesamt-Bounds des Bretts ±250.
-- **Animation:** Pro Figur wird nur der Clip `idle` exportiert (2,38 s, 24 fps). An der Wurzel liegt `availableAnimations[0]` („global scene animation“), abspielbar mit `.repeat()`. Andere Clips (`run`, `jump` …) fehlen.
+- **Animation:** Seit CHAOS-140 liegen alle sieben Clips mit 30 fps auf einer Zeitleiste; `availableAnimations[0]` an der Wurzel ist die ganze Zeitleiste, `figuren/<id>.clips.json` nennt die Abschnitte für `trimmed(start:end:)`. Vorher (GLB-Weg) gab es nur `idle` mit 24 fps.
 - **Kamera und Licht** sind nicht in den USDZ; sie stehen in `brett.szene.json`.
 
 ### Lizenzen

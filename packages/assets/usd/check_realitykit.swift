@@ -1,12 +1,14 @@
-// CHAOS-78: Prüft die erzeugten USDZ mit RealityKit (macOS).
-// Aufruf: swift spikes/renderer-realitykit/convert/check.swift spikes/renderer-realitykit/assets/export
-// Bricht mit Exit-Code 1 ab, wenn ein Grundmesh fehlt, eine Figur keine Animation hat
-// oder die Achsen nicht stimmen.
+// CHAOS-78, CHAOS-140: Prüft die erzeugten USDZ mit RealityKit (nur macOS).
+// Aufruf: swift packages/assets/usd/check_realitykit.swift build/apple-assets
+// (`node scripts/build-apple-assets.mjs` ruft das auf einem Mac selbst auf.)
+// Bricht mit Exit-Code 1 ab, wenn ein Grundmesh oder Feld-Anker fehlt, eine Figur keine
+// Animation hat, die Zeitleiste nicht zur Clip-Tabelle passt oder die Achsen nicht stimmen.
+// Ohne Mac prüft `packages/assets/usd/check_usdz.py` dasselbe mit usd-core, aber nicht RealityKit.
 import Foundation
 import RealityKit
 import simd
 
-let dir = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "spikes/renderer-realitykit/assets/export")
+let dir = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "build/apple-assets")
 var failures = 0
 func fail(_ msg: String) { print("FEHLER: \(msg)"); failures += 1 }
 
@@ -27,8 +29,23 @@ if let wiese = brett.findEntity(named: "wiese") {
     if wb.extents.y > 2 || wb.extents.x < 30 || wb.min.z > -12 { fail("Wiese liegt nicht wie im glTF – Achsen falsch") }
 } else { fail("wiese fehlt") }
 
-struct Szene: Decodable { struct Inst: Decodable { let mesh: String }; let instanced: [Inst] }
+struct Szene: Decodable {
+    struct Inst: Decodable { let mesh: String }
+    struct Feld: Decodable { let id: String; let anchor: String; let position: [Float] }
+    let instanced: [Inst]
+    let fields: [Feld]?
+}
 let szene = try JSONDecoder().decode(Szene.self, from: Data(contentsOf: dir.appendingPathComponent("brett.szene.json")))
+// Feld-Anker (CHAOS-140): leere Knoten `feld_<id>` an der Feldoberfläche, Weltkoordinaten wie im JSON.
+var anchorsOk = 0
+for feld in szene.fields ?? [] {
+    guard let node = brett.findEntity(named: feld.anchor) else { fail("Feld-Anker \(feld.anchor) fehlt"); continue }
+    let at = node.position(relativeTo: nil)
+    let want = SIMD3<Float>(feld.position[0], feld.position[1], feld.position[2])
+    if simd_distance(at, want) > 0.01 { fail("Feld-Anker \(feld.anchor) bei \(fmt(at)), erwartet \(fmt(want))") } else { anchorsOk += 1 }
+}
+print("  Feld-Anker: \(anchorsOk) von \((szene.fields ?? []).count) am richtigen Ort")
+if (szene.fields ?? []).isEmpty { fail("brett.szene.json ohne Felder") }
 for inst in szene.instanced {
     let name = inst.mesh.replacingOccurrences(of: "-", with: "_")
     guard let node = brett.findEntity(named: name), let model = firstModel(node) else {
@@ -43,6 +60,7 @@ for inst in szene.instanced {
 }
 
 // Figuren
+struct Clips: Decodable { struct Clip: Decodable { let name: String; let start: Double; let end: Double }; let clips: [Clip] }
 for c in ["robot", "cactus", "raccoon", "sock"] {
     let fig = try await Entity(contentsOf: dir.appendingPathComponent("figuren/\(c).usdz"))
     let fb = fig.visualBounds(relativeTo: nil)
@@ -51,6 +69,15 @@ for c in ["robot", "cactus", "raccoon", "sock"] {
     print("figuren/\(c).usdz: \(count(fig)) Entitäten, Höhe \(String(format: "%.2f", fb.extents.y)), Bounds min \(fmt(fb.min)) max \(fmt(fb.max)), Wurzel-Animationen: \(anims.map { "\($0.name ?? "?") \(String(format: "%.2f", $0.definition.duration)) s" })")
     if anims.isEmpty { fail("\(c): keine Animation an der Wurzel") }
     if fb.extents.y < max(fb.extents.x, fb.extents.z) * 0.5 { fail("\(c): liegt flach – Achsen falsch") }
+    if fig.findEntity(named: "abzeichen") == nil { fail("\(c): Knoten abzeichen fehlt") }
+    // Zeitleiste (CHAOS-140): Alle Clips liegen nacheinander auf einer Animation; die Dauer muss
+    // zum Ende des letzten Clips passen, sonst stimmt der Nullpunkt für `trimmed(start:end:)` nicht.
+    let table = try JSONDecoder().decode(Clips.self, from: Data(contentsOf: dir.appendingPathComponent("figuren/\(c).clips.json")))
+    if let first = anims.first, let last = table.clips.last {
+        let duration = first.definition.duration
+        print("  \(c): Zeitleiste \(String(format: "%.2f", duration)) s, Tabelle bis \(String(format: "%.2f", last.end)) s")
+        if abs(duration - last.end) > 0.05 { fail("\(c): Zeitleiste \(duration) s passt nicht zur Clip-Tabelle (\(last.end) s)") }
+    }
 }
 
 print(failures == 0 ? "OK" : "\(failures) Fehler")

@@ -14,6 +14,11 @@ on:
       - 'spikes/renderer-realitykit/**'
       - '!spikes/renderer-realitykit/**/*.md'
       - '.github/workflows/testflight-tv.yml'
+      # Figuren und Brett als USDZ (CHAOS-140): neue Grafik soll auf die Apple TV.
+      - 'packages/assets/blender/**'
+      - 'packages/assets/usd/**'
+      - 'scripts/build-apple-assets.mjs'
+      - 'scripts/lib/board-export.mjs'
 
 # Ein Upload nach dem anderen; ein neuer Push wartet, statt einen laufenden abzubrechen.
 concurrency:
@@ -48,27 +53,20 @@ jobs:
           pnpm exec playwright install chromium
           xcodebuild -version
 
-      # CC0-Texturen von Poly Haven für das Brett; nur neu laden, wenn sich die Liste ändert.
-      - uses: actions/cache@v4
-        with:
-          path: apps/host/public/lookdev-assets
-          key: lookdev-${{ hashFiles('apps/host/src/lookdev/polyhaven.json') }}
-
-      # Testszene wie im README (Abschnitt „Assets“): Brett aus dem Web-Host als GLB, dann USDZ.
+      # Testszene mit dem Build-Schritt für den Apple-Host (CHAOS-140): Brett aus dem Web-Host,
+      # Figuren direkt aus den bpy-Skripten, Prüfung mit usd-core. Look-Dev-Texturen braucht das
+      # Brett nicht (es nutzt die eingecheckten aus packages/assets).
       - name: Testszene erzeugen
         env:
-          SPIKE_TIMEOUT: '600000'
+          BOARD_EXPORT_TIMEOUT: '600000'
           RK_CHECK: '0'
-        run: |
-          node scripts/fetch-lookdev-assets.mjs
-          node scripts/spike-export-board.mjs
-          spikes/renderer-realitykit/convert/convert.sh
+        run: spikes/renderer-realitykit/convert/convert.sh
 
       # Lädt die USDZ mit RealityKit. Ob der Runner dafür Metal hat, ist ungeprüft; deshalb
       # blockiert ein Fehler hier den Upload nicht (das Ergebnis steht im Log).
       - name: Testszene mit RealityKit prüfen
         continue-on-error: true
-        run: swift spikes/renderer-realitykit/convert/check.swift spikes/renderer-realitykit/assets/export
+        run: swift packages/assets/usd/check_realitykit.swift spikes/renderer-realitykit/assets/export
 
       - name: API-Key ablegen
         env:

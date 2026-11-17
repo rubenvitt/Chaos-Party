@@ -71,6 +71,7 @@ Gesucht ist ein Weg, auf dem die Apple TV allein hostet, der Mac dasselbe kann u
 5. **Assets:**
    - **Figuren** kommen als USDZ direkt aus den bpy-Skripten (ADR-013). Der Umweg GLB→USDZ verliert Rauheit, Clearcoat und Leuchten (EXP-017).
    - **Kulisse des Bretts:** Der Babylon-Export (`scripts/spike-export-board.mjs`) wird ein Build-Schritt mit USDZ als Artefakt. Feldkoordinaten und Wege kommen aus game-core.
+   - *Umgesetzt (CHAOS-140, EXP-025):* `pnpm build:apple-assets` erzeugt beides. Die Vertexfarben der Figuren werden dafür in eine Farbtextur gebacken. Die Kulisse hat Feld-Anker `feld_<id>`. Herkunft und Lizenzen stehen im Manifest unter `builds`. Siehe [`docs/apple-assets.md`](../apple-assets.md).
 6. **Protokoll-Vertrag:**
    - Die Swift-Seite der Brücke und die Darstellung bekommen Beispielnachrichten wie die Controller-App (ADR-017, `scripts/export-protocol-fixtures.mjs`), erweitert um die Host-Rolle.
    - Das gebündelte TypeScript wird in der CI gebaut und gegen dieselben Tests geprüft.

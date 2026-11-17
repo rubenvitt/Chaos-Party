@@ -87,6 +87,27 @@ export const AssetEntrySchema = z
   .strict();
 export type AssetEntry = z.infer<typeof AssetEntrySchema>;
 
+/**
+ * Build-Artefakt (CHAOS-140): eine Datei, die ein Build-Schritt aus Manifest-Assets erzeugt und
+ * die nicht eingecheckt ist (z. B. USDZ für den nativen Apple-Host). `from` nennt die Assets,
+ * deren Inhalt eingeht; ihre Lizenzen und Attributionen gelten mit und landen in der
+ * `herkunft.json` neben dem Artefakt.
+ */
+export const BuildEntrySchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,47}$/, 'id: Kleinbuchstaben, Ziffern, Bindestrich'),
+    /** Ziel relativ zum Ausgabeordner des Build-Schritts (z. B. `figuren/robot.usdz`). */
+    path: relativePath,
+    description: z.string().min(3),
+    /** Lizenz des Artefakts (SPDX). */
+    license: z.string().min(1),
+    /** Manifest-Assets, die eingehen (IDs aus `assets`). */
+    from: z.array(z.string().min(1)).min(1),
+    budgetBytes: z.number().int().positive(),
+  })
+  .strict();
+export type BuildEntry = z.infer<typeof BuildEntrySchema>;
+
 export const ModelBudgetSchema = z
   .object({
     maxBytes: z.number().int().positive(),
@@ -110,6 +131,20 @@ export const ManifestSchema = z
       })
       .strict(),
     assets: z.array(AssetEntrySchema),
+    /** Erzeugte, nicht eingecheckte Artefakte je Build-Schritt (CHAOS-140). */
+    builds: z
+      .record(
+        z.string().regex(/^[a-z0-9-]+$/),
+        z
+          .object({
+            /** Standard-Ausgabeordner relativ zum Repository. */
+            out: relativePath,
+            generator: relativePath,
+            artifacts: z.array(BuildEntrySchema).min(1),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 export type AssetManifest = z.infer<typeof ManifestSchema>;

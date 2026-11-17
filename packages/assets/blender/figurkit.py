@@ -309,8 +309,43 @@ class Clip:
 FPS = 30
 
 
+@dataclass
+class _Baked:
+    rig: bpy.types.Object
+    clips: list[Clip]
+    bones: list[str]
+
+
+_baked: _Baked | None = None
+"""Zuletzt gebackene Clips (für `export_usdz`, das sie auf eine Zeitleiste legt)."""
+
+
+def _key_clip(rig: bpy.types.Object, clip: Clip, bones: Sequence[str], first_frame: int) -> None:
+    for t, pose in clip.keys:
+        frame = first_frame + round(t * FPS)
+        for bone_name in bones:
+            pb = rig.pose.bones[bone_name]
+            spec = pose.get(bone_name, {})
+            rot = spec.get("rot", (0.0, 0.0, 0.0))
+            pb.rotation_mode = "XYZ"
+            pb.rotation_euler = Euler([math.radians(a) for a in rot], "XYZ")
+            pb.location = spec.get("loc", (0.0, 0.0, 0.0))
+            pb.scale = spec.get("scale", (1.0, 1.0, 1.0))
+            pb.keyframe_insert("rotation_euler", frame=frame, group=bone_name)
+            pb.keyframe_insert("location", frame=frame, group=bone_name)
+            pb.keyframe_insert("scale", frame=frame, group=bone_name)
+
+
+def _rest_pose(rig: bpy.types.Object) -> None:
+    for pb in rig.pose.bones:
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
+        pb.scale = (1, 1, 1)
+
+
 def bake_clips(rig: bpy.types.Object, clips: Sequence[Clip], bones: Sequence[str]) -> None:
     """Je Clip eine Action; alle beteiligten Knochen bekommen Schlüssel (Ruhepose ergänzt)."""
+    global _baked
     scene = bpy.context.scene
     scene.render.fps = FPS
     rig.animation_data_create()
@@ -318,27 +353,13 @@ def bake_clips(rig: bpy.types.Object, clips: Sequence[Clip], bones: Sequence[str
         action = bpy.data.actions.new(clip.name)
         action.use_fake_user = True
         rig.animation_data.action = action
-        for t, pose in clip.keys:
-            frame = 1 + round(t * FPS)
-            for bone_name in bones:
-                pb = rig.pose.bones[bone_name]
-                spec = pose.get(bone_name, {})
-                rot = spec.get("rot", (0.0, 0.0, 0.0))
-                pb.rotation_mode = "XYZ"
-                pb.rotation_euler = Euler([math.radians(a) for a in rot], "XYZ")
-                pb.location = spec.get("loc", (0.0, 0.0, 0.0))
-                pb.scale = spec.get("scale", (1.0, 1.0, 1.0))
-                pb.keyframe_insert("rotation_euler", frame=frame, group=bone_name)
-                pb.keyframe_insert("location", frame=frame, group=bone_name)
-                pb.keyframe_insert("scale", frame=frame, group=bone_name)
+        _key_clip(rig, clip, bones, 1)
         track = rig.animation_data.nla_tracks.new()
         track.name = clip.name
         track.strips.new(clip.name, 1, action)
         rig.animation_data.action = None
-    for pb in rig.pose.bones:
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
-        pb.scale = (1, 1, 1)
+    _rest_pose(rig)
+    _baked = _Baked(rig, list(clips), list(bones))
 
 
 def export_glb(path: str) -> None:
@@ -362,6 +383,174 @@ def export_glb(path: str) -> None:
         export_force_sampling=True,
         export_optimize_animation_size=True,
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# USDZ für den nativen Apple-Host (CHAOS-140, ADR-019 §5)
+# ---------------------------------------------------------------------------------------------
+
+ATLAS_SIZE = 1024
+"""Kantenlänge der Farbtextur, in die die Vertexfarben gebacken werden (eine je Figur)."""
+
+CLIP_GAP_FRAMES = 6
+"""Leere Bilder zwischen zwei Clips auf der Zeitleiste, damit beim Zuschneiden nichts überblendet."""
+
+
+def timeline(clips: Sequence[Clip]) -> list[dict[str, object]]:
+    """Lage der Clips auf der gemeinsamen USD-Zeitleiste (Bild 1 = 0 s).
+
+    USD und RealityKit kennen je Datei nur eine Animation. Alle Clips liegen deshalb
+    nacheinander auf einer Zeitleiste; der Host schneidet sie mit `start`/`end` (Sekunden ab
+    Beginn) wieder heraus (`AnimationView(source:trimStart:trimEnd:)`).
+    """
+    out: list[dict[str, object]] = []
+    frame = 1
+    for clip in clips:
+        frames = round(clip.seconds * FPS)
+        out.append(
+            {
+                "name": clip.name,
+                "startFrame": frame,
+                "endFrame": frame + frames,
+                "start": round((frame - 1) / FPS, 6),
+                "end": round((frame - 1 + frames) / FPS, 6),
+                "loop": clip.loop,
+            }
+        )
+        frame += frames + CLIP_GAP_FRAMES
+    return out
+
+
+def _uses_vertex_colors(mat: bpy.types.Material | None) -> bool:
+    return bool(
+        mat
+        and mat.node_tree
+        and any(n.bl_idname == "ShaderNodeVertexColor" for n in mat.node_tree.nodes)
+    )
+
+
+def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Image | None:
+    """Vertexfarben aller Figurenteile in eine gemeinsame Farbtextur backen und die Materialien
+    darauf umstellen (Base Color ← Textur statt ← Vertexfarbe).
+
+    Warum: RealityKit ignoriert Vertexfarben im Material (`UsdPrimvarReader`) und zeigt sie nur
+    ohne Material (EXP-017). Mit Textur bleiben Rauheit, Clearcoat, Metall und Leuchten als
+    `UsdPreviewSurface` erhalten. Sheen und Subsurface kennt UsdPreviewSurface nicht.
+    """
+    scene = bpy.context.scene
+    objects = [
+        o
+        for o in scene.objects
+        if o.type == "MESH" and any(_uses_vertex_colors(m) for m in o.data.materials)
+    ]
+    if not objects:
+        return None
+
+    # Gemeinsame UV-Abwicklung: Smart UV Project im Mehrobjekt-Editmodus packt alle Inseln
+    # zusammen in 0…1. Die Anordnung schwankt zwischen Läufen leicht (Packen über mehrere
+    # Objekte); das Ergebnis ist gleichwertig, aber nicht bitgleich (docs/apple-assets.md).
+    objects.sort(key=lambda o: o.name)
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.006)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    image = bpy.data.images.new(image_name, size, size, alpha=False)
+    image.colorspace_settings.name = "sRGB"
+    materials = sorted({m for o in objects for m in o.data.materials if m}, key=lambda m: m.name)
+    for mat in materials:
+        node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        node.name = "farbatlas"
+        node.image = image
+        node.interpolation = "Linear"
+        mat.node_tree.nodes.active = node
+
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = 1
+    bake = scene.render.bake
+    bake.margin = 8
+    bake.margin_type = "EXTEND"
+    bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"}, use_clear=True, margin=8)
+
+    for mat in materials:
+        tree = mat.node_tree
+        atlas = tree.nodes["farbatlas"]
+        vertex_nodes = [n for n in tree.nodes if n.bl_idname == "ShaderNodeVertexColor"]
+        if not vertex_nodes:
+            tree.nodes.remove(atlas)  # Material ohne Vertexfarbe: Konstante bleibt
+            continue
+        for vc in vertex_nodes:
+            for link in list(vc.outputs["Color"].links):
+                tree.links.new(atlas.outputs["Color"], link.to_socket)
+            tree.nodes.remove(vc)
+    return image
+
+
+def add_badge_anchor(rig: bpy.types.Object, name: str = "abzeichen") -> bpy.types.Object:
+    """Leeres Objekt am Knochen `abzeichen`: In USD sind Knochen keine Prims, der Host findet das
+    Abzeichen so per `findEntity(named: "abzeichen")`."""
+    bone = rig.data.bones[name]
+    empty = _link(bpy.data.objects.new(name, None))
+    empty.location = rig.matrix_world @ bone.head_local
+    attach(empty, rig, name)
+    return empty
+
+
+def export_usdz(path: str, texture_dir: str) -> list[dict[str, object]]:
+    """Figur als USDZ: Farbatlas statt Vertexfarben, alle Clips auf einer Zeitleiste.
+
+    Gibt die Clip-Tabelle zurück (siehe `timeline`). `texture_dir`: Ablage für die gebackene
+    PNG, bevor der Export sie ins USDZ packt.
+    """
+    assert _baked is not None, "erst bake_clips aufrufen"
+    rig = _baked.rig
+    add_badge_anchor(rig)
+
+    image = bake_vertex_colors(f"{rig.name}_farbe")
+    if image is not None:
+        image.filepath_raw = f"{texture_dir}/{rig.name}_farbe.png"
+        image.file_format = "PNG"
+        image.save()
+
+    # NLA-Spuren spielen alle ab Bild 1 gleichzeitig; für USD eine einzige Action mit allen
+    # Clips nacheinander.
+    for track in list(rig.animation_data.nla_tracks):
+        rig.animation_data.nla_tracks.remove(track)
+    action = bpy.data.actions.new("zeitleiste")
+    rig.animation_data.action = action
+    table = timeline(_baked.clips)
+    for clip, entry in zip(_baked.clips, table):
+        _key_clip(rig, clip, _baked.bones, int(entry["startFrame"]))  # type: ignore[call-overload]
+    _rest_pose(rig)
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = int(table[-1]["endFrame"])  # type: ignore[call-overload]
+    scene.render.fps = FPS
+
+    skinned = any(m.type == "ARMATURE" for ob in scene.objects for m in ob.modifiers)
+    bpy.ops.wm.usd_export(
+        filepath=path,
+        export_animation=True,
+        # Robot: Teile hängen starr an Knochen, kein Mesh ist geskinnt. Ein Skeleton ohne SkelRoot
+        # wäre ungültiges USD; die Knochenbewegung steckt dann in den Xform-Zeitreihen.
+        export_armatures=skinned,
+        export_materials=True,
+        generate_preview_surface=True,
+        export_textures_mode="NEW",
+        convert_orientation=True,
+        export_global_forward_selection="NEGATIVE_Z",
+        export_global_up_selection="Y",
+        export_lights=False,
+        export_cameras=False,
+        export_custom_properties=False,
+        root_prim_path="/root",
+    )
+    return table
 
 
 # ---------------------------------------------------------------------------------------------
