@@ -65,6 +65,8 @@ Startausgabe im Terminal: PC-URL `http://localhost:8787/host/`, Join-Code, Join-
 - Unit: Adressrangfolge mit Windows (WLAN + WSL/Hyper-V/VirtualBox), macOS (en0 + utun + awdl/llw + bridge100), Linux (wlan0 + docker0/br-/veth/tailscale), Bereichs- und Namensrangfolge, Link-Local, IPv6 an/aus, nur Loopback → `localhost` + Warnung; URL-Bau (IPv6-Klammern, Port, Code, ungültige Eingaben); Overrides; statische Auslieferung unter `/host/` inkl. Traversal, SPA-Fallback, Redirect, WASM-MIME; Host-Verbindung mit Fake-Socket (Retry, 4002, `start`, Aufräumen); Eingabe-Übersetzung.
 - E2E (Chromium) gegen den **echten Node-Server** mit Production-Builds (`pnpm build && node apps/server/dist/main.js`, Port 4180, `HOST=127.0.0.1`, `PUBLIC_HOST=127.0.0.1`, `JOIN_CODE=E2ETEST`): QR + Code + Link, Hinweis nach `joinHint`, Adress-Umschaltung (Lobby per `routeWebSocket` um eine Alternative ergänzt), zweites Host-Fenster, zwei synthetische Controller (join → ready), Lobby-Liste, Start, `move` bewegt Figur 1, Knopf A schubst Figur 2, Trennung wird angezeigt. Die bisherigen Szenen-Tests laufen im lokalen Modus unter `/host/`. `vite preview` wird für E2E nicht mehr verwendet.
 
+> **Überholt (CHAOS-46, 2026-11-17):** Der gemeinsame E2E-Server auf Port 4180 gilt nicht mehr. Seit CHAOS-14 baut `tests/e2e/global-setup.ts` einmal, und die Fixture `chaosServer` startet für jeden Test einen eigenen Server auf einem freien Port (`createChaosServer`, nur `127.0.0.1`, `JOIN_CODE=E2ETEST`). Aktueller Aufbau: [`docs/testing.md`](../testing.md), Abschnitt „E2E-Aufbau“. Die Entscheidung dieses ADR (ein Server liefert Host, Controller und WebSocket aus) bleibt unverändert.
+
 ## Betrachtete Alternativen
 
 | Alternative | Warum nicht |

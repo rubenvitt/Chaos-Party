@@ -51,7 +51,7 @@ Ergebnis: Zeile `brett` in der Konsolentabelle bzw. `perf-results/partie-webgl.j
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch`
 - `http://localhost:8787/host/?local=1&board=1&demo=1&debug=1&qualitaet=hoch&gpu=webgpu`
 
-30 s warten, in der Messanzeige „Alle Szenen kopieren“. Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
+30 s warten, in der Messanzeige „Alle Szenen kopieren“. Unter WebGPU zeigt das Brett das erste Bild nach gut 2 s (Messanzeige: erst „Schleifen 0“, danach 1; CHAOS-117). Mit VSync zeigt die fps-Zahl höchstens die Bildwiederholrate; aussagekräftig sind dann **Bildabstand p95** und **Render ms**.
 
 ## 2. Kandidat 2: Bevy (Rust) als WebAssembly im Browser
 
@@ -121,7 +121,7 @@ Im Browser gelten dieselben Namen als Query (`?variante=webgpu&gras=0.25&schatte
 
 ## 5. Messbogen
 
-Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. **Die PC-Zeilen R1–R6 und der PC-Teil von R11 entfallen:** Ruben hat keinen PC zum Messen (17.11., CHAOS-131: „es wird nur mac geben“). Der Vergleich stützt sich auf die Mac-Zeilen R7–R11. WebGPU (R8) wird am Mac gemessen, sobald CHAOS-117 behoben ist.
+Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. **Die PC-Zeilen R1–R6 und der PC-Teil von R11 entfallen:** Ruben hat keinen PC zum Messen (17.11., CHAOS-131: „es wird nur mac geben“). Der Vergleich stützt sich auf die Mac-Zeilen R7–R11. WebGPU (R8) ist seit dem Fix aus CHAOS-117 (17.11.) gemessen.
 
 | # | Rechner | Kandidat | Browser/API | Auflösung | Median | p95 | Bemerkung |
 |---|---|---|---|---|---|---|---|
@@ -132,7 +132,7 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. **D
 | R5 | PC | Bevy WebAssembly | Chrome/Edge, WebGL2 | 1920×1080 | – | – | entfällt: kein PC zum Messen (Ruben, 17.11., CHAOS-131) |
 | R6 | PC | Bevy nativ | DX12/Vulkan | 1920×1080 und `niedrig`-Paar | – | – | entfällt: kein PC zum Messen (Ruben, 17.11., CHAOS-131) |
 | R7 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGL2 | 1920×1080 | 8,4 | 11,2 | 17.11., MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz; `pnpm perf -g Partie`, Zeile `brett`, 117 fps, Render 7,8 ms |
-| R8 | Mac | Babylon `hoch` | Chromium/Safari 26, WebGPU | 1920×1080 | – | – | 17.11.: **nicht messbar.** Die WebGPU-Engine startet (Messanzeige: „WebGPU metal-3“), aber das Brett zeichnet nie ein Bild: 0 Bilder, keine Render-Schleife, kein Fehler in der Konsole. Fehler im Spike-Pfad, siehe EXP-015 |
+| R8 | Mac | Babylon `hoch` | Chromium 153, WebGPU | 1920×1080 | 5,7 | 17,5 | 17.11. abends nach dem zweiten Fix (CHAOS-117, Himmel-Ladeereignis), `pnpm perf -g Partie` mit `PERF_GPU=1`: 103 fps, Render 5,3 / 11,7 ms, 448 Draw Calls. Gegenprobe WebGL2 im selben Lauf: 6,6 / 8,5 ms, 147 fps, Render 6,1 / 7,1 ms. **Kein Vorteil:** Median −14 %, p95 doppelt so hoch. Mac war belastet (Last ≈ 7–8). Safari 26: noch nicht geprüft |
 | R9 | Mac | Bevy WebAssembly | Safari 26 / Chrome, WebGPU | 1920×1080 | 12,8 | 13,6 | 17.11., Chromium 153 ohne VSync, 78 fps; Gegenprobe WebGL2: 39,9 / 41,1 ms (25 fps) |
 | R10 | Mac | Bevy nativ | Metal | 1920×1080 | 3,8 | 4,8 | 17.11., **offscreen** (`--fenster=0`), 258 fps; `niedrig`-Paar 1600×900: 2,7 / 3,3 ms. Im Fenster rastet Bevy auf dem 60-Hz-Monitor trotz `vsync=0` bei 16,7 ms ein |
 | R11 | Mac | wie R7/R8/R10 | | 3840×2160 | | | 4K am Fernseher; PC-Teil entfällt (CHAOS-131). **Mac 17.11.:** Babylon WebGL2 `hoch` 19,3 / 27,5 ms (49 fps; rendert höchstens 2560×1440); Bevy nativ offscreen 7,1 / 11,1 ms; RealityKit ARView 60 fps, GPU 7,3 / 13,1 ms (Metal-HUD) |
@@ -140,9 +140,10 @@ Bitte je Zeile Median und p95 des Bildabstands in ms (ohne VSync) eintragen. **D
 | R13 | Mac | RealityKit (§3b) ARView | Metal | 1920×1080 | 16,7 | 17,8 | 17.11., 60-Hz-Monitor, am VSync-Deckel (60 fps); **GPU je Bild 6,3 ms, p95 9,4 ms** (Metal-HUD). Vorläufiger Wert vom 16.11. (120 Hz, mit GeForce NOW): 8,30 / 17,0 |
 | R14 | Mac | RealityKit (§3b) offscreen `--durchsatz=1` | Metal | 1920×1080 | 16,6 | 33,5 | 17.11.; 4K: 49,6 / 50,9 ms. Bilder nacheinander gemessen (CPU + GPU ohne Überlappung), nicht mit R10 vergleichbar |
 | R15 | iPhone 16 Pro (nur Benchmark) | RealityKit (§3b) ARView | Metal | 2622×1206 | 16,68 | 17,4 | 16.11., echtes Gerät, volle Szene; ARView bleibt bei 60 Hz (auch mit `--bildrate=120`), max 20,6 ms |
-| R16 | Apple TV 4K (3. Gen., A15) | RealityKit hochskaliert, intern 1920×1080 + MetalFX (`hoch-0.5-metalfx`) | Metal | 3840×2160 (intern 1920×1080) | | | CHAOS-114, EXP-020: Anzeige-fps, GPU je Bild (HUD), Skalierer laut `SPIKE-ERGEBNIS` |
-| R17 | Apple TV 4K | wie R16, bilinear (`hoch-0.5-bilinear`) | Metal | 3840×2160 (intern 1920×1080) | | | |
-| R18 | Apple TV 4K | intern 2560×1440 + MetalFX (`hoch-0.667-metalfx`) | Metal | 3840×2160 (intern 2560×1440) | | | |
-| R19 | Apple TV 4K | Diagnose nativ 4K (`diag-4k*`, alle sechs) | Metal | 3840×2160 | | | GPU je Bild je Schalter: MSAA, Tonemapping, IBL, Materialien, alles aus |
+| R16 | Apple TV 4K (3. Gen., A15) | RealityKit hochskaliert, intern 1920×1080 + MetalFX (`hoch-0.5-metalfx`) | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 50,0 | 17.11.: **MetalFX auf tvOS 27.3 nicht verfügbar, lief bilinear**; 35,4 fps, GPU 22,3 / 47,0 ms (EXP-020) |
+| R17 | Apple TV 4K | wie R16, bilinear (`hoch-0.5-bilinear`) | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 50,0 | 17.11.: 35,8 fps, GPU 22,4 / 46,7 ms |
+| R18 | Apple TV 4K | intern 2560×1440 + MetalFX (`hoch-0.667-metalfx`) | Metal | 3840×2160 (intern 2560×1440) | 33,4 | 66,7 | 17.11.: bilinear (kein MetalFX), 27,7 fps, GPU 29,2 / 60,9 ms; mit MSAA aus und 3 im Flug 49,2 fps |
+| R19 | Apple TV 4K | Diagnose nativ 4K (`diag-4k*`, alle sechs) | Metal | 3840×2160 | 33,4 | 100 | 17.11., GPU Median je Schalter: alles an 37,4 · MSAA aus 28,2 · Gras aus 25,7 · Schatten aus 32,7 · Tonemapping aus 36,9 · IBL aus 38,0 · unbeleuchtet 17,8 · alles aus 6,6 ms (EXP-020) |
+| R20 | Apple TV 4K | **intern 1920×1080, MSAA aus, 3 im Flug, bilinear** | Metal | 3840×2160 (intern 1920×1080) | 16,68 | 16,68 | 17.11., 60 s: **59,94 fps**, max 16,69 ms, GPU 14,9 / 31,3 ms, 5 ausgelassene Takte; Übergabe → fertig 37,5 ms. Standard für den tvOS-Host (EXP-020) |
 
 Außerdem: Sieht Bevy gleichwertig aus (ja/nein, Bildschirmfotos)? Spürbare Ladezeit (Bevy-WASM lädt ≈ 27 MB Szene plus das Programm)?

@@ -224,6 +224,13 @@ const serverToController = {
     board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
     minigame: minigame(),
   }),
+  'context-minigame-intro-repeat': context({
+    phase: 'board',
+    layout: 'board',
+    actions: [],
+    board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
+    minigame: minigame({ repeat: true }),
+  }),
   'context-minigame-play': context({
     phase: 'board',
     layout: 'joystick-buttons',
@@ -240,6 +247,14 @@ const serverToController = {
     actions: [],
     board: board({ gamePhase: 'minigame-results', activeSlot: null }),
     minigame: minigame({ stage: 'results', place: 1, score: 42, tied: true, reward: 10 }),
+  }),
+  // Trostpreis für den letzten Platz (CHAOS-51, EXP-019; Swift: CHAOS-127).
+  'context-minigame-results-prize': context({
+    phase: 'board',
+    layout: 'board',
+    actions: [],
+    board: board({ gamePhase: 'minigame-results', activeSlot: null }),
+    minigame: minigame({ stage: 'results', place: 4, score: 17, reward: 0, prizes: ['trap'] }),
   }),
   'context-minigame-aborted': context({
     phase: 'board',

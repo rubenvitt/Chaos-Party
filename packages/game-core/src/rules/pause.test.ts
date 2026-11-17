@@ -382,8 +382,14 @@ describe('Minispiel-Siege, Belohnungen und Statistik (M4)', () => {
       expect(player.stats.coinsEarned).toBe(
         changes.filter((e) => e.delta > 0).reduce((sum, e) => sum + e.delta, 0),
       );
+      // Trophäenkäufe sind Ausgaben, kein Pech (CHAOS-123).
+      const spent = changes
+        .filter((e) => e.reason === 'trophy')
+        .reduce((sum, e) => sum - e.delta, 0);
       expect(player.stats.coinsLost).toBe(
-        changes.filter((e) => e.delta < 0).reduce((sum, e) => sum - e.delta, 0),
+        changes
+          .filter((e) => e.delta < 0 && e.reason !== 'trophy')
+          .reduce((sum, e) => sum - e.delta, 0),
       );
       expect(player.stats.spacesMoved).toBe(
         ofType(events, 'moved')
@@ -394,7 +400,7 @@ describe('Minispiel-Siege, Belohnungen und Statistik (M4)', () => {
         ofType(events, 'item-used').filter((e) => e.slot === player.slot).length,
       );
       expect(player.coins).toBe(
-        TEST_RULES.economy.startCoins + player.stats.coinsEarned - player.stats.coinsLost,
+        TEST_RULES.economy.startCoins + player.stats.coinsEarned - player.stats.coinsLost - spent,
       );
     }
     expect(s.players.some((p) => p.stats.spacesMoved > 0)).toBe(true);

@@ -108,6 +108,35 @@ import Testing
         #expect(layout.buttons.map(\.button) == [.a])
     }
 
+    @Test func minigameIntroShowsFullInstructions() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .intro
+        let text = MinigameCardText(minigame)
+        #expect(text.kicker == "Minispiel")
+        #expect(text.tagline == "Wer pumpt am schnellsten?")
+        #expect(text.instructions == minigame.instructions)
+        minigame.`repeat` = false
+        #expect(MinigameCardText(minigame) == text)
+    }
+
+    /// CHAOS-128: like the browser controller, a repeat shows kicker, title and controls only.
+    @Test func repeatedMinigameIntroIsShort() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .intro
+        minigame.`repeat` = true
+        let text = MinigameCardText(minigame)
+        #expect(text.kicker == "Nochmal!")
+        #expect(text.tagline == nil)
+        #expect(text.instructions.isEmpty)
+    }
+
+    @Test func resultsKickerIsTheTitleEvenOnRepeat() throws {
+        var minigame = try #require(ControllerState.minigamePlaySample.contexts[1]?.minigame)
+        minigame.stage = .results
+        minigame.`repeat` = true
+        #expect(MinigameCardText(minigame).kicker == "Pump-Rennen")
+    }
+
     @Test func rollPromptHasDiceMainAndItemExtra() throws {
         let prompt = try #require(ControllerState.rollPromptSample.ownPrompt(1))
         let layout = PromptLayout(prompt.info)
@@ -187,5 +216,39 @@ import Testing
         #expect(haptic(.miss) != nil)
         #expect(haptic("future-kind") == nil)
         #expect(haptic(nil) == nil)
+    }
+}
+
+/// Result texts of the minigame card (`minigame/view.ts`, `ui/minigame.tsx`; CHAOS-127).
+@Suite struct MinigameResultTextTests {
+    private func info(reward: Int? = nil, prizes: [ItemKind]? = nil) throws -> ControllerMinigameInfo {
+        var minigame = try #require(ControllerState.minigameConsolationSample.contexts[1]?.minigame)
+        minigame.reward = reward
+        minigame.prizes = prizes
+        return minigame
+    }
+
+    @Test func rewardMatchesTheWebController() throws {
+        #expect(try info(reward: 0).rewardText == "Keine Münzen")
+        #expect(try info(reward: 1).rewardText == "+1 Münze")
+        #expect(try info(reward: 10).rewardText == "+10 Münzen")
+        #expect(try info().rewardText == nil)
+    }
+
+    @Test func prizeUsesTheItemNames() throws {
+        #expect(try info(prizes: [.trap]).prizeText == "Trostpreis: Falle")
+        #expect(try info(prizes: [.trap, .shield]).prizeText == "Trostpreis: Falle, Schild")
+        #expect(try info(prizes: ["mystery-box"]).prizeText == "Trostpreis: mystery-box")
+    }
+
+    @Test func noPrizeNoLine() throws {
+        #expect(try info().prizeText == nil)
+        #expect(try info(prizes: []).prizeText == nil)
+    }
+
+    @Test func consolationSampleShowsAPrize() {
+        let minigame = ControllerState.minigameConsolationSample.contexts[1]?.minigame
+        #expect(minigame?.stage == .results)
+        #expect(minigame?.prizeText == "Trostpreis: Falle")
     }
 }
