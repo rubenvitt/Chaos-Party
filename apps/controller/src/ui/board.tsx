@@ -20,6 +20,7 @@ import {
   tailwindHeadline,
   type WaitingView,
 } from '../board/status.ts';
+import { useAlertTone } from './alertToneContext.ts';
 import { readableTextColor } from './color.ts';
 import { Icon } from './icons.tsx';
 
@@ -131,16 +132,22 @@ export function CountdownBar({ prompt, big = false }: { prompt: ActivePrompt; bi
   );
 }
 
-/** Kurze Vibration beim Erscheinen einer Reaktion (falls verfügbar; nie Pflicht). */
+/**
+ * Beim Erscheinen einer Reaktion: kurzer Hinweiston (CHAOS-122, erst nach einer Nutzergeste)
+ * und Vibration, falls verfügbar. Beides nie Pflicht.
+ */
 export function ReactionBuzz({ promptId }: { promptId: number }) {
+  const tone = useAlertTone();
   useEffect(() => {
+    // Hinweiston (CHAOS-122): nur nach einer früheren Nutzergeste, einmal je Prompt.
+    tone?.play(promptId);
     try {
       const vibrate = (navigator as Partial<Pick<Navigator, 'vibrate'>>).vibrate;
       vibrate?.call(navigator, [90, 50, 90]);
     } catch {
       // Kein Vibrationsmotor oder vom Browser verboten (iOS-Safari kennt die API nicht).
     }
-  }, [promptId]);
+  }, [promptId, tone]);
   return null;
 }
 

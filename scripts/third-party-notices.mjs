@@ -27,6 +27,8 @@ export const APPS = [
   { pkg: '@chaos-party/host', dist: 'apps/host/dist' },
   { pkg: '@chaos-party/controller', dist: 'apps/controller/dist' },
   { pkg: '@chaos-party/server', dist: 'apps/server/dist' },
+  // JS-Kern der Mac-/Apple-TV-App (ADR-019); `prepare.sh` legt beide Dateien ins App-Bundle.
+  { pkg: '@chaos-party/apple-host', dist: 'apps/apple-host/dist' },
 ];
 
 /**

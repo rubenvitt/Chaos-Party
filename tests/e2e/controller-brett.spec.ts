@@ -311,6 +311,70 @@ test('Reaktion: pulsierender Vollbild-Knopf, Countdown zählt herunter, Vibratio
   await expect(prompt).toHaveAttribute('data-locked', 'true');
 });
 
+test('Hinweiston beim Angriff: erst nach einer Berührung, einmal je Reaktion (CHAOS-122)', async ({
+  page,
+}) => {
+  // AudioContext mitschneiden: wie oft angelegt, welche Tonhöhen gestartet wurden.
+  await page.addInitScript(() => {
+    const log = { contexts: 0, notes: [] as number[] };
+    (window as unknown as { __tone: typeof log }).__tone = log;
+    const Original = window.AudioContext;
+    class Spy extends Original {
+      constructor(options?: AudioContextOptions) {
+        super(options);
+        log.contexts += 1;
+      }
+      override createOscillator(): OscillatorNode {
+        const osc = super.createOscillator();
+        const set = osc.frequency.setValueAtTime.bind(osc.frequency);
+        osc.frequency.setValueAtTime = (value: number, time: number) => {
+          log.notes.push(value);
+          return set(value, time);
+        };
+        return osc;
+      }
+    }
+    window.AudioContext = Spy;
+  });
+  const audioWarnings: string[] = [];
+  page.on('console', (msg) => {
+    if (/audio/i.test(msg.text())) audioWarnings.push(`${msg.type()}: ${msg.text()}`);
+  });
+  const tone = () =>
+    page.evaluate(
+      () => (window as unknown as { __tone: { contexts: number; notes: number[] } }).__tone,
+    );
+
+  // Beitritt per QR-Link ohne Berührung: Reaktion erscheint, aber kein Audio.
+  await joinBoard(page);
+  fake.sendBoard(1, boardInfo({ gamePhase: 'reaction-window', activeSlot: 2 }), {
+    ...PROMPTS.reaction(12, 1, 8000),
+  });
+  await expect(page.getByTestId('prompt')).toHaveAttribute('data-kind', 'reaction');
+  expect(await tone()).toEqual({ contexts: 0, notes: [] });
+
+  // Erste Berührung (neutral, auf den Titel) schaltet den Ton frei.
+  await page.getByTestId('prompt-title').tap();
+  await expect.poll(async () => (await tone()).contexts).toBe(1);
+
+  // Nächster Angriff: genau ein „ding-ding“ (zwei steigende Töne).
+  fake.sendBoard(1, boardInfo({ gamePhase: 'roll', activeSlot: 2 }));
+  await expect(page.getByTestId('prompt')).toHaveCount(0);
+  fake.sendBoard(1, boardInfo({ gamePhase: 'reaction-window', activeSlot: 2 }), {
+    ...PROMPTS.reaction(13, 1, 8000),
+  });
+  await expect(page.getByTestId('prompt')).toHaveAttribute('data-prompt-id', '13');
+  await expect.poll(async () => (await tone()).notes).toEqual([880, 1318.5]);
+
+  // Gleicher Prompt erneut gesendet (z. B. Münzstand geändert): kein zweiter Ton.
+  fake.sendBoard(1, boardInfo({ gamePhase: 'reaction-window', activeSlot: 2, coins: 7 }), {
+    ...PROMPTS.reaction(13, 1, 8000),
+  });
+  await expect(page.getByTestId('stat-coins')).toHaveAttribute('aria-label', /^7 /);
+  expect((await tone()).notes).toHaveLength(2);
+  expect(audioWarnings).toEqual([]);
+});
+
 test('invalid-choice: freundlicher Hinweis, Sperre gelöst, neue Wahl möglich', async ({ page }) => {
   await joinBoard(page);
   fake.onChoose = (message) => {

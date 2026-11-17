@@ -8,19 +8,15 @@ import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { encode } from '@chaos-party/protocol';
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
-import type { ConnectionId, Outgoing, Session } from './session.ts';
+import { DEFAULT_TICK_MS, type ConnectionId, type Outgoing, type Session } from './session.ts';
 
 export const WS_PATH = '/ws';
 /** Obergrenze je Frame in Bytes; größere Frames schließt `ws` mit 1009. */
 export const MAX_PAYLOAD_BYTES = 16 * 1024;
 /** Obergrenze gleichzeitiger WebSocket-Verbindungen (4 Controller + Host + Reserve für Reconnects). */
 export const MAX_CONNECTIONS = 64;
-/**
- * Takt, in dem `Session.tick()` Timeouts prüft (CHAOS-12, ADR-009) und das Brettspiel
- * weiterlaufen lässt (Pacing, Reaktionsfenster; M2, ADR-011). 100 ms: Fristen und
- * Animationstakt bleiben spürbar genau, die Last ist vernachlässigbar.
- */
-export const DEFAULT_TICK_MS = 100;
+// Liegt bei der Session, damit der Apple-Host (JavaScriptCore, ohne `ws`) denselben Takt nutzt.
+export { DEFAULT_TICK_MS } from './session.ts';
 
 export interface SocketAdapterOptions {
   /** Takt für `Session.tick()` in ms (Standard 100). */
