@@ -22,6 +22,9 @@ targets:
         type: folder
         buildPhase: resources
         optional: true
+      # tvOS-Icons und Top-Shelf-Bilder für TestFlight (CHAOS-119, scripts/tv-icons.py).
+      - path: app-tv/Assets.xcassets
+        destinationFilters: [tvOS]
     settings:
       base:
         PRODUCT_NAME: ChaosRenderSpike
@@ -31,7 +34,12 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         TARGETED_DEVICE_FAMILY: '1,2,3'
-        # Nur lokal signieren: macOS ad hoc, Simulatoren ohne Team.
+        'ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvos*]': 'App Icon & Top Shelf Image'
+        'ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvsimulator*]': 'App Icon & Top Shelf Image'
+        # Nur Standard-Verschlüsselung des Systems: keine Exportfrage bei jedem TestFlight-Upload.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        # Nur lokal signieren: macOS ad hoc, Simulatoren ohne Team. TestFlight (tvOS) überschreibt
+        # Bundle-ID, Team und Signatur auf der Kommandozeile (scripts/testflight.sh).
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: '-'
         DEVELOPMENT_TEAM: ''
