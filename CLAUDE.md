@@ -1,6 +1,6 @@
 # Claude Code — Operating Instructions for Chaos Party
 
-Read `VISION.md`, `ARCHITECTURE.md` and `ROADMAP.md` before making product or architectural changes. The files together are the project's source of truth. **Do not reinterpret iPads as game hosts: the game runs on the PC; iPhones/iPads are controllers only.**
+Read `VISION.md`, `ARCHITECTURE.md` and `ROADMAP.md` before making product or architectural changes. The files together are the project's source of truth. **Do not reinterpret iPads as game hosts: the game runs on a host computer — a PC (Babylon.js in the browser), or since 2026-11-17 a Mac or an Apple TV via the native RealityKit host (Ruben: „Ja, Apple TV als Host“, ADR-019); iPhones/iPads are controllers only.**
 
 ## Mission and authority
 
@@ -16,7 +16,7 @@ Build Chaos Party with **highly autonomous, experimental, code-first development
 
 ### Escalate or obtain explicit approval for
 
-- Changes to product pillars, PC-only game hosting, 2–4-player local multiplayer, phone/shared-iPad controls or trophy-focused victory.
+- Changes to product pillars, the set of host devices (PC, Mac, Apple TV; see ADR-019), 2–4-player local multiplayer, phone/shared-iPad controls or trophy-focused victory.
 - Significant scope increase, paid services/assets, irreversible operations, credential access, external publication or deployment outside the local development environment.
 - A milestone's human acceptance; unresolvable blockers; legal/licensing ambiguity; repeated failed fixes.
 - Major architectural pivots (e.g., replacing Babylon.js) after a documented spike.
