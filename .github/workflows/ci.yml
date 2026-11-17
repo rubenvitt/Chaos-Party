@@ -137,6 +137,8 @@ jobs:
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
         working-directory: spikes/renderer-realitykit
         run: |
+          # Die USDZ-Szene ist erzeugt und nicht eingecheckt; der Ordner muss für den Build existieren.
+          mkdir -p assets/export
           xcodegen generate
           for destination in 'generic/platform=macOS' 'generic/platform=iOS' 'generic/platform=tvOS'; do
             xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike \
