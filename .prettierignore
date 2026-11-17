@@ -9,6 +9,8 @@ spikes/renderer-bevy/target/
 spikes/renderer-bevy/web/pkg-*/
 spikes/renderer-bevy/web/assets/
 spikes/renderer-bevy/assets/
+# Von Xcode geschriebene Asset-Kataloge (Format „author: xcode“); Prettier würde sie gegen Xcode umformatieren.
+*.xcassets/
 # Prosa-Dokumente (Vision, ADRs, Skills) werden von Hand gepflegt; Prettier nur für Code und Konfiguration.
 *.md
 .claude/
