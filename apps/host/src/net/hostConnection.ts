@@ -37,11 +37,16 @@ import {
 export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
- * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl in der Lobby (`configure`),
+ * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl und „Mehr Zeit zum Reagieren“
+ * (CHAOS-124) in der Lobby (`configure`, je Befehl mindestens eines davon),
  * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
  */
 export type HostCommand =
-  | { readonly type: 'configure'; readonly rounds: number }
+  | {
+      readonly type: 'configure';
+      readonly rounds?: number | undefined;
+      readonly moreReactionTime?: boolean | undefined;
+    }
   | { readonly type: 'pause' }
   | { readonly type: 'resume' }
   | { readonly type: 'end-game' }
@@ -51,7 +56,13 @@ export type HostCommand =
 export function createHostCommandMessage(command: HostCommand) {
   switch (command.type) {
     case 'configure':
-      return createMessage('configure', { rounds: command.rounds });
+      // Optionale Felder nur setzen, wenn vorhanden (strikte Schemas, exactOptionalPropertyTypes).
+      return createMessage('configure', {
+        ...(command.rounds === undefined ? {} : { rounds: command.rounds }),
+        ...(command.moreReactionTime === undefined
+          ? {}
+          : { moreReactionTime: command.moreReactionTime }),
+      });
     case 'pause':
       return createMessage('pause', {});
     case 'resume':

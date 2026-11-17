@@ -141,6 +141,7 @@ const hostLobbyMask = (page: Page) => [
       '.lobby-free-text',
       '.lobby-rounds legend',
       '.lobby-rounds-option',
+      '.lobby-toggle-text',
       '.player-symbol',
       '.lobby-free-symbol',
       '.start-button',

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { isUiTarget, KeyboardState } from './keyboardInputSource.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { createKeyboardInputSource, isUiTarget, KeyboardState } from './keyboardInputSource.ts';
 
 describe('KeyboardState', () => {
   it('ordnet WASD Spieler 1 und Pfeile Spieler 2 zu', () => {
@@ -65,5 +65,51 @@ describe('isUiTarget', () => {
     expect(isUiTarget(element(false))).toBe(false);
     expect(isUiTarget(null)).toBe(false);
     expect(isUiTarget({} as EventTarget)).toBe(false);
+  });
+});
+
+describe('createKeyboardInputSource', () => {
+  function setup() {
+    const handlers = new Map<string, (event: KeyboardEvent) => void>();
+    const target = {
+      addEventListener: (type: string, handler: (event: KeyboardEvent) => void) => {
+        handlers.set(type, handler);
+      },
+      removeEventListener: () => undefined,
+    } as unknown as Window;
+    const applyInput = vi.fn();
+    createKeyboardInputSource(target).start({ applyInput });
+    const fire = (type: 'keydown' | 'keyup', code: string, onButton: boolean) => {
+      const preventDefault = vi.fn();
+      const event = {
+        type,
+        code,
+        repeat: false,
+        target: { closest: () => (onButton ? {} : null) },
+        preventDefault,
+      } as unknown as KeyboardEvent;
+      handlers.get(type)?.(event);
+      return preventDefault;
+    };
+    return { fire, applyInput };
+  }
+
+  it('lässt die Leertaste auf einem fokussierten Knopf wirken (kein preventDefault, CHAOS-124)', () => {
+    const { fire, applyInput } = setup();
+    expect(fire('keydown', 'Space', true)).not.toHaveBeenCalled();
+    expect(fire('keyup', 'Space', true)).not.toHaveBeenCalled();
+    expect(applyInput).not.toHaveBeenCalledWith(1, expect.objectContaining({ pressed: true }));
+  });
+
+  it('verhindert außerhalb von Knöpfen weiter das Scrollen und steuert die Figur', () => {
+    const { fire, applyInput } = setup();
+    expect(fire('keydown', 'Space', false)).toHaveBeenCalled();
+    expect(applyInput).toHaveBeenCalledWith(1, { type: 'button', button: 'dash', pressed: true });
+    expect(fire('keyup', 'Space', false)).toHaveBeenCalled();
+    expect(applyInput).toHaveBeenLastCalledWith(1, {
+      type: 'button',
+      button: 'dash',
+      pressed: false,
+    });
   });
 });
