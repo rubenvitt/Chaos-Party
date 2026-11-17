@@ -13,6 +13,9 @@
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
 import type { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
+// Seiteneffekt: registriert `Scene.DefaultMaterialFactory`. Seit die Arena ein eigener Chunk
+// ist (CHAOS-53), bringt ihn nicht mehr zufällig das Brett im selben Bundle mit.
+import '@babylonjs/core/Materials/standardMaterial.js';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder.js';

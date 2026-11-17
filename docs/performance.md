@@ -147,12 +147,39 @@ Apple M3 Max, Chromium 153 mit ANGLE/Metal, ohne VSync, ganze Partie (`PERF_GPU=
 - **Draw Calls** (≈ 330–420 bei `hoch`; Tiefenunschärfe und Schattenpass zeichnen die Szene erneut) sind auf diesem Rechner kein Engpass (`niedrig`: 269 Draw Calls in 1,6 ms). Auf schwachen CPUs bleibt Bündeln ein Kandidat.
 - Wie viel Luft eine schwächere Grafikkarte hat, zeigt nur Rubens Messung (PF1/PF2, N1–N3). Reicht `hoch` dort nicht, stuft die Automatik ab und merkt sich die Stufe für die Sitzung (jede neue Szene startet mit ihr statt wieder bei `hoch`).
 
+## 3c. Host-Bundle aufgeteilt (CHAOS-53)
+
+Gemessen am Production-Build (`apps/host`, Vite 8 / Rolldown), 2026-11-17. „Start“ = was `index.html` sofort lädt (Einstiegs-Skript plus alle `modulepreload`-Dateien); die übrigen Zeilen zählen die Chunk-Kette des jeweiligen dynamischen Imports dazu. Analyse über die Sourcemap des Einstiegs-Chunks.
+
+| Was | vorher | nachher |
+|---|---|---|
+| Einstiegs-Skript `index-*.js` | 2.039 kB (gzip 532 kB) | **297 kB (gzip 98 kB)** |
+| Start (statisch, vor dem ersten Bild der Lobby) | 2.750 kB (gzip 739 kB), 39 Dateien | **404 kB (gzip 130 kB), 5 Dateien** |
+| Lobby inklusive Arena dahinter | 2.750 kB (gzip 739 kB) | 2.119 kB (gzip 579 kB) |
+| Ganze Partie (Arena, Brett, Finale, Minispiele) | 2.750 kB (gzip 739 kB) | 2.757 kB (gzip 745 kB) |
+
+**Was vorher im Einstieg lag:** Babylon 1.252 kB, React-DOM 203 kB, zod 85 kB, glTF-Lader 84 kB, Brett 44 kB, Havok-Lader 34 kB, Natur-Look 28 kB, je Minispiel ≈ 21 kB. Die Babylon-Imports waren schon Deep-Imports (ADR-004); der Hebel war das Aufteilen.
+
+**Was sich geändert hat** (`apps/host/src/lazyScenes.ts`):
+- Arena (`createGameScene`), Brett (`BoardStage` mit Finale und Podest), Minispiel-Bühne (`MinigameScreenById` mit allen Minispiel-Modulen) und die Entwickler-Ansichten einzelner Minispiele laden per dynamischem Import. Die App kennt für die Entscheidung „Minispiel oder Brett“ nur den reinen Katalog (`@chaos-party/minigames/catalog`).
+- Brett und Minispiel-Bühne lädt die App im Hintergrund vor, sobald die Arena hinter der Lobby steht – der Start der Partie wartet nicht auf das Netz.
+- `@chaos-party/minigame-sdk` ist als nebenwirkungsfrei markiert (`"sideEffects": false`). Vorher zog `fx/sounds.ts` mit der Konstante `SOUND_IDS` über das Barrel `minigame-sdk/babylon` den Minispiel-Runner samt Babylon-Physik statisch in den Start (1.248 kB statt 404 kB).
+- Nicht ladbarer Chunk (Host neu gebaut, während die Seite offen war): `vite:preloadError` lädt die Seite neu, höchstens einmal je 30 s.
+- Die Größe bleibt geprüft: `pnpm check:bundle` (in `pnpm check` und CI) bricht ab, wenn der Start über 520 kB wächst oder die Babylon-Engine enthält.
+
+**Was beim Aufteilen aufgefallen ist** (beides von der E2E-Suite gefunden):
+- Die Arena brauchte den Seiteneffekt-Import `Materials/standardMaterial.js` (`Scene.DefaultMaterialFactory`), den bisher zufällig das Brett im selben Bundle mitbrachte. Jetzt explizit in `createGameScene.ts`.
+- `finale.css` wäre in den Brett-Chunk gewandert und *nach* `styles.css` geladen worden; bei gleicher Spezifität gewann dann `.finale-rematch { margin-top: auto }` gegen `.start-button` und „Nochmal spielen“ rutschte ans Panel-Ende. `App.tsx` importiert `portrait.css` und `finale.css` deshalb vorab – das Start-CSS ist byte-gleich zum Stand vorher.
+
+**Nicht geprüft:** Ladezeit auf Rubens PC. Lokal ausgeliefert ist der Gewinn vor allem Parse- und Ausführungszeit bis zum ersten Bild der Lobby (QR-Code, Join-Code); die Arena erscheint kurz danach.
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
 |---|---|---|
 | Brett rendert hinter Trophäenzählung und Podest weiter: 2 Render-Schleifen, 2 Szenen je Bild (`finale`/`podest`: Schleifen 2) | `BoardScene.setRenderPaused`: Sobald das Finale das Brett überdeckt, stoppt `BoardStage` die Render-Schleife des Bretts; nur die Regie läuft per `requestAnimationFrame` weiter (Stand, HUD). Die Leinwand behält das letzte Bild (die Zählung ist zu 92–95 % deckend, das Podest ganz). Der Kontext bleibt: „Nochmal spielen“ führt in die Lobby, die das Brett ohnehin entsorgt. | Schleifen 2 → 1, Podest-Bildabstand p50 351 → 100 ms (SwiftShader) |
 | Brett: 15 Bäume aus je 3 Meshes = 45 Draw Calls | Bäume als Instanzen (`createInstance`) von 5 Vorlagen (Stamm, je Kronenform und Material); Wackeln weiter je Baum-Knoten | Draw Calls 187 → 150; Screenshot `host-brett` unverändert. **Entfallen mit CHAOS-62** (neue, je Baum verformte Bäume, siehe Abschnitt 3a) |
+| Start-Bundle des Hosts 2.750 kB statisch, inkl. Babylon und aller Szenen (CHAOS-53, Sourcemap-Analyse) | Arena, Brett, Minispiele per dynamischem Import, Vorladen nach der Arena, `minigame-sdk` nebenwirkungsfrei, Budget-Prüfung `pnpm check:bundle` (Abschnitt 3c) | Start 2.750 → 404 kB (gzip 739 → 130 kB); ganze Partie unverändert |
 | Alter Endstand nach „Nochmal spielen“: Der Server zählt `eventSeq` je Partie ab 0, die Regie hielt die neue Partie für „veraltet“ und zeigte weiter den Siegerbildschirm samt Podest (zwei Szenen) | Regie (`director.ts`) erkennt eine neue Partie (eventSeq 0 nach `game-results`) und springt auf den Stand; Unit-Test und Prüfung im Revanche-Messlauf | gefunden durch den Revanche-Messlauf; funktionaler Fehler, nicht nur Performance |
 
 | Siegerpodest baut erst beim Erscheinen und übersetzt alle Shader am Stück (`whenReadyAsync`): 3 Blöcke bis 0,84–1,04 s am Übergang (SwiftShader, `minimal`), KI-25 (CHAOS-71) | Das Finale baut das Podest zu Beginn der Trophäenzählung auf einer unsichtbaren Leinwand (ohne Render-Schleife); Pausen zwischen den Aufbauschritten, Shader je Mesh in ≈ 12-ms-Abschnitten mit Bildpause (`scene/prepareGradually.ts`), erstes Bild vorab. Der Siegerbildschirm hängt die Leinwand nur ein und startet die Schleife. Während der Zählung zwei WebGL-Kontexte (Brett pausiert + Podest), wie bisher am Podest | Übergang 35–47 ms (`minimal`) bzw. 46–110 ms (`hoch`), kein Long Task; während der Zählung ein Block bis ≈ 1 s ([EXP-021](experiments.md)) |

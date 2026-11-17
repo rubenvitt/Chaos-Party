@@ -94,3 +94,16 @@ Playwright startet Chromium mit `--use-angle=swiftshader --enable-unsafe-swiftsh
 ## Überprüfung
 
 Neu bewerten, wenn Screenshots in CI wiederholt flackern (dann Toleranz/Maskierung erhöhen oder Playwright-Container nutzen), wenn ein Babylon-Major-Update Deep-Imports bricht, oder wenn die Bildrate auf Rubens PC (C2) nicht reicht.
+
+## Nachtrag 1 (2026-11-17, CHAOS-53): Szenen als eigene Chunks
+
+Das Host-Bundle war bis M4 ein einziger Einstieg mit Babylon, Arena, Brett, Finale und allen Minispielen (2.750 kB statisch). Jetzt gilt:
+
+- **Start-Bundle ohne Babylon-Engine.** `main.tsx`/`App.tsx` laden Szenen nur über `apps/host/src/lazyScenes.ts` (dynamischer Import): Arena, Brett (mit Finale/Podest), Minispiel-Bühne (mit allen Minispiel-Modulen), Entwickler-Ansichten. Für Entscheidungen ohne Szene reicht der reine Katalog `@chaos-party/minigames/catalog`.
+- **Vorladen:** Steht die Arena hinter der Lobby, lädt die App Brett und Minispiel-Bühne im Hintergrund.
+- **Seiteneffekt-Imports explizit:** Jede Szene importiert die Babylon-Seiteneffekte selbst, die sie braucht (z. B. `Materials/standardMaterial.js` für `Scene.DefaultMaterialFactory`). Vorher konnten sie unbemerkt aus einem anderen Teil desselben Bundles kommen.
+- **Workspace-Pakete ohne Seiteneffekte** tragen `"sideEffects": false` (zuerst `minigame-sdk`), damit ein Barrel-Import einer Konstante keine Babylon-Laufzeit mitzieht.
+- **CSS-Reihenfolge bleibt fest:** Stile, die vor `styles.css` stehen müssen (`portrait.css`, `finale.css`), importiert `App.tsx` vorab, auch wenn die Komponente im Chunk liegt.
+- **Budget:** `pnpm check:bundle` (CI) begrenzt den Start auf 520 kB und verbietet die Babylon-Engine darin.
+
+Messwerte: [`performance.md` §3c](../performance.md#3c-host-bundle-aufgeteilt-chaos-53). Risiko: Ein neuer statischer Import einer Szene in `App.tsx` holt Babylon zurück in den Start – das fängt `pnpm check:bundle`.

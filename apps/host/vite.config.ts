@@ -35,7 +35,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    // Babylon.js ist auch tree-geshakt groß; für den PC-Host unkritisch (ADR-001).
-    chunkSizeWarningLimit: 2500,
+    // Szenen sind eigene Chunks (CHAOS-53, ADR-004 Nachtrag 1); der größte geteilte Babylon-Chunk
+    // liegt bei ≈ 950 kB. Das Start-Bundle prüft `pnpm check:bundle` gesondert.
+    chunkSizeWarningLimit: 1200,
   },
 });

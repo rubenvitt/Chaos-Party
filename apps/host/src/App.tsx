@@ -1,6 +1,19 @@
-import { getMinigameModule } from '@chaos-party/minigames';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { BoardStage } from './board/BoardStage.tsx';
+import { getMinigameInfo } from '@chaos-party/minigames/catalog';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+// Finale-Stile im Start-CSS (CHAOS-53), obwohl das Finale im Brett-Chunk liegt: So bleibt die
+// Kaskade wie vor dem Aufteilen – `styles.css` (main.tsx) kommt danach und gewinnt bei gleicher
+// Spezifität (z. B. `.start-button` vor `.finale-rematch`). Die Porträts stehen wie bisher davor.
+import './lobby/portrait.css';
+import './finale/finale.css';
 import { createDemoMessages, DEMO_DELAYS_MS } from './board/demo.ts';
 import type { BoardScene } from './board/types.ts';
 import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
@@ -13,14 +26,18 @@ import { soundEngine } from './fx/audio.ts';
 import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
 import { createWebSocketInputSource } from './input/webSocketInputSource.ts';
+import {
+  loadArenaScene,
+  loadBoardStage,
+  loadMinigameScreen,
+  prefetchGameScenes,
+} from './lazyScenes.ts';
 import { LobbyPanel } from './lobby/LobbyPanel.tsx';
 import { PlayerToasts } from './lobby/PlayerToasts.tsx';
-import { MinigameScreen } from './minigame/MinigameScreen.tsx';
 import { stageKeyOf } from './minigame/plan.ts';
 import { useHostSession } from './net/useHostSession.ts';
 import { PauseControls } from './pause/PauseControls.tsx';
 import { createLocalPlayers, playersFromLobby, type HostPlayer } from './players.ts';
-import { createGameScene } from './scene/createGameScene.ts';
 import type { GameScene } from './scene/types.ts';
 import type { ChaosTestHook } from './testHook.ts';
 import './testHook.ts';
@@ -47,7 +64,14 @@ const NO_PLAYERS: readonly HostPlayer[] = [];
  * `MinigameScreen`) das Brett; danach wird das Brett neu aufgebaut. Maßgeblich ist der
  * neueste Server-Stand (`feed`), nicht der animierte Stand der Regie.
  */
-const isKnownMinigame = (id: string) => getMinigameModule(id) !== undefined;
+const isKnownMinigame = (id: string) => getMinigameInfo(id) !== undefined;
+
+// Brett und Minispiel-Bühne als eigene Chunks (CHAOS-53, `lazyScenes.ts`).
+const BoardStage = lazy(() => loadBoardStage().then((m) => ({ default: m.BoardStage })));
+const MinigameScreenById = lazy(() =>
+  loadMinigameScreen().then((m) => ({ default: m.MinigameScreenById })),
+);
+
 export function App({ config }: AppProps) {
   const { seed, test, local, debug } = config;
   const localBoard = local && config.board;
@@ -67,9 +91,9 @@ export function App({ config }: AppProps) {
   const getFeed = useCallback(() => feed.getSnapshot(), [feed]);
   const latest = useSyncExternalStore(subscribeFeed, getFeed);
   const minigameKey = !local && boardMode ? stageKeyOf(latest.view, isKnownMinigame) : null;
-  const minigameModule =
+  const minigameInfo =
     minigameKey !== null && latest.view?.minigame
-      ? getMinigameModule(latest.view.minigame.id)
+      ? getMinigameInfo(latest.view.minigame.id)
       : undefined;
   const [minigameReady, setMinigameReady] = useState(false);
 
@@ -92,81 +116,107 @@ export function App({ config }: AppProps) {
     if (boardMode) return;
     const stage = stageRef.current;
     if (!stage) return;
-    // Canvas imperativ anlegen: jede Szene bekommt einen frischen WebGL-Kontext,
-    // auch wenn React (StrictMode) den Effekt doppelt ausführt.
-    const canvas = document.createElement('canvas');
-    canvas.className = 'game-canvas';
-    canvas.setAttribute('aria-label', 'Spielszene');
-    stage.appendChild(canvas);
-
-    const scene = createGameScene(canvas, { seed, testMode: test });
-    sceneRef.current = scene;
-    scene.setPlayers(playersRef.current);
-
+    // Die Arena (Babylon + Havok) ist ein eigener Chunk (CHAOS-53): Lobby und QR-Code stehen
+    // schon, während sie lädt. Wird der Effekt vorher aufgeräumt, entsteht gar keine Szene.
     let active = true;
-    const hook: ChaosTestHook | undefined = test
-      ? {
-          ready: false,
-          physicsReady: false,
-          stepFrames: (n: number) => {
-            scene.stepFrames(n);
-          },
-          getPlayerPositions: () => scene.getPlayerPositions(),
-          networkInputs: 0,
-          lastMoves: {},
-          scene: 'arena',
-        }
-      : undefined;
-    if (hook) window.__chaos = hook;
-
-    // Messung (nur Debug, CHAOS-39): Arena heißt in der Lobby „lobby“, im Spiel „arena“.
-    const stopPerf = attachPerf(() => (phaseRef.current === 'lobby' ? 'lobby' : 'arena'), scene);
-
-    // Tastatur immer (lokal: Demo-Spieler; mit Server: beigetretene Slots), dazu Netzwerk.
-    const stopKeyboard = createKeyboardInputSource(window).start(scene);
-    const stopNetwork = local
-      ? undefined
-      : createWebSocketInputSource(hub, ({ slot, input }) => {
-          if (!hook) return;
-          hook.networkInputs++;
-          if (input.type === 'move') hook.lastMoves[slot] = { x: input.x, y: input.y };
-        }).start(scene);
-
-    scene.physicsReady.then(
-      () => {
-        if (!active) return;
-        if (hook) hook.physicsReady = true;
-        setPhysics('ready');
+    let unmount: (() => void) | undefined;
+    loadArenaScene().then(
+      ({ createGameScene }) => {
+        if (active) unmount = mountArena(stage, createGameScene);
       },
       (error: unknown) => {
-        if (!active) return;
-        console.error('Havok-Physik konnte nicht geladen werden', error);
-        setPhysics('error');
+        if (active) console.error('Arena konnte nicht geladen werden', error);
       },
     );
-    scene.ready.then(
-      () => {
-        if (!active) return;
-        if (hook) hook.ready = true;
-        setSceneReady(true);
-      },
-      (error: unknown) => {
-        if (!active) return;
-        console.error('Szene konnte nicht aufgebaut werden', error);
-      },
-    );
-
     return () => {
       active = false;
-      stopKeyboard();
-      stopNetwork?.();
-      stopPerf();
-      scene.dispose();
-      canvas.remove();
-      sceneRef.current = null;
-      if (hook && window.__chaos === hook) delete window.__chaos;
+      unmount?.();
     };
+
+    function mountArena(
+      stage: HTMLDivElement,
+      createGameScene: Awaited<ReturnType<typeof loadArenaScene>>['createGameScene'],
+    ): () => void {
+      // Canvas imperativ anlegen: jede Szene bekommt einen frischen WebGL-Kontext,
+      // auch wenn React (StrictMode) den Effekt doppelt ausführt.
+      const canvas = document.createElement('canvas');
+      canvas.className = 'game-canvas';
+      canvas.setAttribute('aria-label', 'Spielszene');
+      stage.appendChild(canvas);
+
+      const scene = createGameScene(canvas, { seed, testMode: test });
+      sceneRef.current = scene;
+      scene.setPlayers(playersRef.current);
+
+      const hook: ChaosTestHook | undefined = test
+        ? {
+            ready: false,
+            physicsReady: false,
+            stepFrames: (n: number) => {
+              scene.stepFrames(n);
+            },
+            getPlayerPositions: () => scene.getPlayerPositions(),
+            networkInputs: 0,
+            lastMoves: {},
+            scene: 'arena',
+          }
+        : undefined;
+      if (hook) window.__chaos = hook;
+
+      // Messung (nur Debug, CHAOS-39): Arena heißt in der Lobby „lobby“, im Spiel „arena“.
+      const stopPerf = attachPerf(() => (phaseRef.current === 'lobby' ? 'lobby' : 'arena'), scene);
+
+      // Tastatur immer (lokal: Demo-Spieler; mit Server: beigetretene Slots), dazu Netzwerk.
+      const stopKeyboard = createKeyboardInputSource(window).start(scene);
+      const stopNetwork = local
+        ? undefined
+        : createWebSocketInputSource(hub, ({ slot, input }) => {
+            if (!hook) return;
+            hook.networkInputs++;
+            if (input.type === 'move') hook.lastMoves[slot] = { x: input.x, y: input.y };
+          }).start(scene);
+
+      scene.physicsReady.then(
+        () => {
+          if (!active) return;
+          if (hook) hook.physicsReady = true;
+          setPhysics('ready');
+        },
+        (error: unknown) => {
+          if (!active) return;
+          console.error('Havok-Physik konnte nicht geladen werden', error);
+          setPhysics('error');
+        },
+      );
+      scene.ready.then(
+        () => {
+          if (!active) return;
+          if (hook) hook.ready = true;
+          setSceneReady(true);
+        },
+        (error: unknown) => {
+          if (!active) return;
+          console.error('Szene konnte nicht aufgebaut werden', error);
+        },
+      );
+
+      return () => {
+        stopKeyboard();
+        stopNetwork?.();
+        stopPerf();
+        scene.dispose();
+        canvas.remove();
+        sceneRef.current = null;
+        if (hook && window.__chaos === hook) delete window.__chaos;
+      };
+    }
   }, [seed, test, local, hub, boardMode]);
+
+  // Sobald die Arena steht, Brett und Minispiel-Bühne im Hintergrund laden (CHAOS-53), damit
+  // der Start der Partie nicht auf den Chunk wartet. Nicht im rein lokalen Arena-Modus.
+  useEffect(() => {
+    if (sceneReady && !local) prefetchGameScenes();
+  }, [sceneReady, local]);
 
   // Messung je Szene (nur Debug, CHAOS-39): seitenweit anmelden, Eingänge zählen (Controller-
   // Eingaben synchron im `message`-Ereignis, neue Brett-Stände beim Empfang), alle 500 ms
@@ -285,7 +335,7 @@ export function App({ config }: AppProps) {
   const getResultState = useCallback(() => results.state, [results]);
 
   // Bühne der aktuellen Phase fertig (Szene, Figuren; im Brett auch der erste Stand)?
-  const stageReady = minigameModule ? minigameReady : boardMode ? boardReady : sceneReady;
+  const stageReady = minigameInfo ? minigameReady : boardMode ? boardReady : sceneReady;
   // Erst dann setzt der Server eine Auto-Pause nach dem Neuladen fort (CHAOS-68).
   const hostReady =
     !local && session.lobby !== null && stageReady && (!boardMode || latest.view !== null);
@@ -306,54 +356,56 @@ export function App({ config }: AppProps) {
       data-scene={stageReady ? 'ready' : 'loading'}
       data-mode={local ? 'local' : 'server'}
       data-phase={phase}
-      data-minigame={minigameModule?.info.id}
+      data-minigame={minigameInfo?.id}
       data-paused={!local && boardMode ? (latest.view?.paused ?? false) : undefined}
     >
-      {boardMode && minigameModule && latest.view ? (
-        <MinigameScreen
-          key={minigameKey}
-          view={latest.view}
-          receivedAt={latest.receivedAt}
-          rewards={
-            latest.rewards && latest.rewards.round === latest.view.minigame?.round
-              ? latest.rewards.bySlot
-              : null
-          }
-          module={minigameModule}
-          connection={session.status}
-          test={test}
-          hub={hub}
-          onResult={submitMinigameResult}
-          onReady={setMinigameReady}
-          getResultState={getResultState}
-          resultAck={session.resultAck}
-        />
-      ) : boardMode ? (
-        <BoardStage
-          director={director}
-          connection={session.status}
-          test={test}
-          local={local}
-          onReady={setBoardReady}
-          onScene={onBoardScene}
-          finaleSpeed={finaleSpeedOf(config)}
-          onRematch={onRematch}
-          gpu={config.gpu}
-        />
-      ) : (
-        <>
-          <div className="stage" ref={stageRef} />
-          <Hud
-            players={players}
-            // Lobby vor dem Brettspiel: nicht „Schubs-Arena“ (die läuft nur dahinter, CHAOS-40).
-            subtitle={phase === 'play' || arena ? 'Schubs-Arena' : 'Party-Brettspiel'}
-            physics={physics}
-            showKeyHints={local}
-            showPlayers={local || phase === 'play'}
+      <Suspense fallback={null}>
+        {boardMode && minigameInfo && latest.view ? (
+          <MinigameScreenById
+            key={minigameKey}
+            minigameId={minigameInfo.id}
+            view={latest.view}
+            receivedAt={latest.receivedAt}
+            rewards={
+              latest.rewards && latest.rewards.round === latest.view.minigame?.round
+                ? latest.rewards.bySlot
+                : null
+            }
             connection={session.status}
+            test={test}
+            hub={hub}
+            onResult={submitMinigameResult}
+            onReady={setMinigameReady}
+            getResultState={getResultState}
+            resultAck={session.resultAck}
           />
-        </>
-      )}
+        ) : boardMode ? (
+          <BoardStage
+            director={director}
+            connection={session.status}
+            test={test}
+            local={local}
+            onReady={setBoardReady}
+            onScene={onBoardScene}
+            finaleSpeed={finaleSpeedOf(config)}
+            onRematch={onRematch}
+            gpu={config.gpu}
+          />
+        ) : (
+          <>
+            <div className="stage" ref={stageRef} />
+            <Hud
+              players={players}
+              // Lobby vor dem Brettspiel: nicht „Schubs-Arena“ (die läuft nur dahinter, CHAOS-40).
+              subtitle={phase === 'play' || arena ? 'Schubs-Arena' : 'Party-Brettspiel'}
+              physics={physics}
+              showKeyHints={local}
+              showPlayers={local || phase === 'play'}
+              connection={session.status}
+            />
+          </>
+        )}
+      </Suspense>
       {!local && boardMode && (
         <PauseControls view={latest.view} loading={!stageReady} onCommand={command} />
       )}

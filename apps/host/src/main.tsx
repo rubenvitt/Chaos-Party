@@ -1,10 +1,10 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { parseHostConfig } from './config.ts';
 import { configureSound, unlockOnFirstGesture } from './fx/audio.ts';
-import { LocalMinigameFlow } from './minigame/LocalMinigameFlow.tsx';
-import { MinigamePreview } from './minigame/MinigamePreview.tsx';
+import { reloadOnChunkError } from './lazyScenes.ts';
+import { DevMinigameView } from './minigame/DevMinigameView.tsx';
 import { startRefreshProbe } from './nature/refreshRate.ts';
 // Mitgelieferte Schrift (OFL-1.1): gleiche Optik auf allen Geräten und stabile Screenshots.
 import '@fontsource-variable/nunito/wght.css';
@@ -16,6 +16,7 @@ if (!root) {
 }
 
 const config = parseHostConfig(window.location.search);
+reloadOnChunkError(window);
 
 // Ton (CHAOS-33): im Testmodus und mit `?mute=1` stumm. Der AudioContext entsteht erst mit
 // einer Nutzer-Geste („Los geht’s!“ in der Lobby oder die erste Taste/der erste Klick).
@@ -30,15 +31,18 @@ const minigame = config.local ? config.minigame : null;
 const content =
   minigame === null ? (
     <App config={config} />
-  ) : config.flow ? (
-    <LocalMinigameFlow
+  ) : (
+    <DevMinigameView
       id={minigame}
+      flow={config.flow}
       players={config.players}
       seed={config.seed}
       test={config.test}
     />
-  ) : (
-    <MinigamePreview id={minigame} players={config.players} seed={config.seed} test={config.test} />
   );
 
-createRoot(root).render(<StrictMode>{content}</StrictMode>);
+createRoot(root).render(
+  <StrictMode>
+    <Suspense fallback={null}>{content}</Suspense>
+  </StrictMode>,
+);

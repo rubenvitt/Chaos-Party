@@ -45,6 +45,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Start-Bundle des Hosts: Budget und keine Babylon-Engine vor der Lobby (CHAOS-53).
+      - name: Host-Start-Bundle
+        run: pnpm check:bundle
+
       - name: Rauchtest Start (pnpm play)
         run: pnpm smoke
 

@@ -27,8 +27,9 @@
     "perf": "playwright test -c playwright.perf.config.ts",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:assets": "node packages/assets/src/check/cli.ts",
+    "check:bundle": "node scripts/check-host-bundle.mjs",
     "generate:assets": "pnpm --filter @chaos-party/assets generate",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:licenses && pnpm check:assets"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:bundle && pnpm check:licenses && pnpm check:assets"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
