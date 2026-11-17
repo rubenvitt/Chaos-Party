@@ -1,0 +1,16 @@
+name: JSCProbe
+options: { bundleIdPrefix: dev.rubeen }
+targets:
+  JSCProbe:
+    type: application
+    platform: tvOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.jscprobe
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Probe
+        DEVELOPMENT_TEAM: H95J852PKP
+        CODE_SIGN_STYLE: Automatic

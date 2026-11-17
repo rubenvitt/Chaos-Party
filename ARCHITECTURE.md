@@ -5,7 +5,7 @@
 ## Architectural principles
 
 - **PC-authoritative simulation.** The PC owns game state, rules, random seeds, scoring, physics outcomes and match progression. Controller browsers transmit input intents only.
-- **Mobile devices are controllers, not game hosts.** The game world renders only on the host: the PC (Babylon.js) or, since 2026-11-17, a Mac or Apple TV with the native RealityKit host (ADR-019). The session server stays on a computer in the LAN.
+- **Mobile devices are controllers, not game hosts.** The game world renders only on the host: the PC (Babylon.js) or, since 2026-11-17, a Mac or Apple TV with the native RealityKit host (ADR-019). The native host can run the TypeScript session server and game-core embedded (JavaScriptCore), so an Apple TV hosts on its own.
 - **Code-first and testable.** Separate deterministic game rules from rendering, networking and touch UI.
 - **Minigames are plugins/modules.** Each minigame follows a documented lifecycle and can be tested in isolation.
 - **Vertical delivery.** Every milestone ends in a working integrated build.
