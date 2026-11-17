@@ -90,3 +90,56 @@ jobs:
             playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Native Apps (CHAOS-115, CHAOS-78): bauen ohne Signatur, Controller-Tests im Simulator.
+  # Öffentliches Repo: macOS-Runner kosten keine Minuten.
+  apple:
+    name: Native Apps (iOS, iPadOS, tvOS, macOS)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Für die Integrationstests (echter Server) und den Fixture-Abgleich.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Werkzeuge
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+
+      - name: Protokoll-Fixtures aktuell
+        if: hashFiles('scripts/export-protocol-fixtures.mjs') != ''
+        run: node scripts/export-protocol-fixtures.mjs --check
+
+      - name: Controller-App bauen (iOS-Gerät, ohne Signatur)
+        if: hashFiles('apps/controller-ios/project.yml') != ''
+        working-directory: apps/controller-ios
+        run: |
+          xcodegen generate
+          xcodebuild -project ChaosController.xcodeproj -scheme ChaosController \
+            -destination 'generic/platform=iOS' -configuration Release \
+            -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
+
+      - name: Controller-Tests (Simulator, mit echtem Server)
+        if: hashFiles('apps/controller-ios/project.yml') != ''
+        run: apps/controller-ios/scripts/run-tests.sh
+
+      - name: Renderer-Spike bauen (macOS, iOS, tvOS, ohne Signatur)
+        if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
+        working-directory: spikes/renderer-realitykit
+        run: |
+          xcodegen generate
+          for destination in 'generic/platform=macOS' 'generic/platform=iOS' 'generic/platform=tvOS'; do
+            xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike \
+              -destination "$destination" -configuration Release \
+              -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
+          done

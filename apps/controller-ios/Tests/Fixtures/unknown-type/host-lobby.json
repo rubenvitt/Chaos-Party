@@ -1,0 +1,24 @@
+{
+  "v": 4,
+  "type": "lobby",
+  "joinCode": "AB12",
+  "phase": "lobby",
+  "players": [
+    {
+      "slot": 1,
+      "color": "#0072B2",
+      "label": "Blau",
+      "connected": true,
+      "ready": false,
+      "character": null
+    }
+  ],
+  "settings": {
+    "rounds": 5,
+    "roundPresets": [
+      3,
+      5,
+      8
+    ]
+  }
+}
