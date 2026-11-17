@@ -68,6 +68,13 @@ Simulator „ChaosController Tests“ (legt ihn bei Bedarf an) und fährt ihn da
 Andere Simulatoren gehen über `SIMULATOR_UDID`, ein schon laufender Server über
 `CHAOS_SERVER_URL` und `CHAOS_JOIN_CODE`.
 
+Screenshots von Beispielzuständen (ohne Server, wie in CI „Native Apps“; Ergebnis als Artefakt
+`controller-ios-screenshots`):
+
+```fish
+scripts/screenshots.sh minigameConsolation minigameResults   # JPEGs nach build/screenshots/
+```
+
 Die Integrationstests sprechen mit dem echten Server: beitreten, Figur, Bereit, Herzschlag,
 abgerissene Verbindung mit `reconnect`, Platzübernahme (Close 4003) und alte Protokollversion.
 Ein Host muss dafür nicht verbunden sein. Der Server hält getrennte Plätze in der Lobby 60 s;

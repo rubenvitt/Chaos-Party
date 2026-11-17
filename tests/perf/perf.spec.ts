@@ -25,6 +25,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { cpus, loadavg, totalmem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Browser, type CDPSession, type Page } from '@playwright/test';
+import { format, resolveConfig } from 'prettier';
 import type {} from '../../apps/host/src/debug/perf.ts';
 import type { ScenePerf } from '../../apps/host/src/debug/perfMonitor.ts';
 import type {} from '../../apps/host/src/finale/testHook.ts';
@@ -174,7 +175,7 @@ function readBaseline(): Record<string, Record<string, FlatMetrics>> {
   );
 }
 
-function updateBaseline(
+async function updateBaseline(
   scenario: string,
   scenes: Record<string, FlatMetrics>,
   environment: unknown,
@@ -187,7 +188,9 @@ function updateBaseline(
     environment,
     scenarios: { ...(existing.scenarios ?? {}), [scenario]: scenes },
   };
-  writeFileSync(BASELINE, `${JSON.stringify(next, null, 2)}\n`);
+  // Wie `pnpm format` es ablegen würde, sonst scheitert `pnpm format:check` an der Datei (CHAOS-133).
+  const options = (await resolveConfig(BASELINE)) ?? {};
+  writeFileSync(BASELINE, await format(JSON.stringify(next), { ...options, filepath: BASELINE }));
 }
 
 test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
@@ -270,7 +273,7 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
       );
       console.log(`\n${comparisonTable(comparisons)}\n`);
       if (process.env.PERF_UPDATE_BASELINE === '1' && !GPU)
-        updateBaseline('partie', scenes, environment);
+        await updateBaseline('partie', scenes, environment);
 
       const failed = comparisons.flatMap((c) =>
         c.results
