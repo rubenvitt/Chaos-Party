@@ -22,6 +22,9 @@
  * schon, das Intro ist kurz (nur Titel und Bedienlegende).
  * v4-Nachtrag (CHAOS-120, additiv, ohne Versionssprung): `sabotage` (optional) im Ereignis
  * `round-started` – neue Klau-/Fallenwerte in Runden, in denen die Sabotage wächst.
+ * v4-Nachtrag (CHAOS-124, additiv, ohne Versionssprung): Lobby-Einstellung „Mehr Zeit zum
+ * Reagieren“ – `lobby.settings.moreReactionTime` (optional); in `configure` sind `rounds` und
+ * `moreReactionTime` optional, mindestens eines ist gesetzt.
  */
 export const PROTOCOL_VERSION = 4;
 

@@ -1,6 +1,6 @@
 /**
- * JS-Kern des Apple-Hosts (CHAOS-138, ADR-019 W2): Session-Server, game-core und Host-Rolle
- * samt headless Minispielen in einem Bündel für JavaScriptCore. Vertrag: `../CONTRACT.md`.
+ * JS-Kern des Apple-Hosts (ADR-019 §2, CHAOS-138/139): Session-Server, game-core und Host-Rolle
+ * samt headless Minispielen in einem Bündel für JavaScriptCore. Vertrag: `./contract.ts`.
  *
  * - Controller-Verbindungen kommen von Swift (`open/message/closed`) und gehen unverändert an
  *   die `Session` aus `apps/server` (gleiche Prüfungen, Fristen, Rate-Limits).
@@ -8,10 +8,12 @@
  *   Herzschlag, `host-ready`, Start und Befehle wie am PC. Minispiele laufen headless
  *   (`./stage.ts`), Ergebnisse gehen über den `ResultSender` des Browser-Hosts zurück.
  */
-import { advanceClock, now } from './polyfills.ts';
+// Muss das erste Modul bleiben: setzt `setTimeout`, `performance` usw., bevor Babylon lädt.
+import { clock } from './install.ts';
 import HavokPhysics from '@babylonjs/havok';
 import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { getMinigameModule } from '@chaos-party/minigames';
+import { ROTATION } from '@chaos-party/minigames/catalog';
 import type { HavokInstance } from '@chaos-party/minigame-sdk/babylon';
 import {
   encode,
@@ -19,46 +21,44 @@ import {
   type BoardView,
   type LobbyMessage,
 } from '@chaos-party/protocol';
-import { Session, type ConnectionId, type Outgoing } from '../../../../apps/server/src/session.ts';
-import { DEFAULT_TICK_MS } from '../../../../apps/server/src/socket.ts';
-import { spreadPawns } from '../../../../apps/host/src/board/layout.ts';
-import { eventText, playerName } from '../../../../apps/host/src/board/texts.ts';
+import {
+  DEFAULT_TICK_MS,
+  Session,
+  type ConnectionId,
+  type Outgoing,
+} from '../../server/src/session.ts';
+import { spreadPawns } from '../../host/src/board/layout.ts';
+import { eventNotice, eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
   type HostCommand,
   type HostConnection,
   type SocketLike,
-} from '../../../../apps/host/src/net/hostConnection.ts';
-import { createResultSender } from '../../../../apps/host/src/net/resultSender.ts';
+} from '../../host/src/net/hostConnection.ts';
+import { createResultSender } from '../../host/src/net/resultSender.ts';
 import {
   intentToMinigameInput,
   minigameStageOf,
   planPlay,
   playersFromView,
   stageKeyOf,
-} from '../../../../apps/host/src/minigame/plan.ts';
-import { resultPayload } from '../../../../apps/host/src/minigame/results.ts';
+} from '../../host/src/minigame/plan.ts';
+import { resultPayload } from '../../host/src/minigame/results.ts';
+import type {
+  BoardState,
+  ChaosHostApi,
+  ChaosHostInstance,
+  ChaosHostInternals,
+  ContractPhase,
+  HostCommandName,
+  HostEnv,
+  MinigameState,
+  RenderState,
+} from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { createHeadlessStage, describe, type HeadlessStage } from './stage.ts';
 
-export interface HostEnv {
-  send(connId: number, text: string): void;
-  close(connId: number, code: number, reason: string): void;
-  log(line: string): void;
-  randomBytes(n: number): number[];
-  havokWasm: Uint8Array | number[];
-  joinUrl: string;
-  joinCode: string;
-}
-
-export interface ChaosHostInstance {
-  open(connId: number): void;
-  message(connId: number, text: string): void;
-  closed(connId: number): void;
-  tick(nowMs: number): void;
-  renderState(): string;
-  hostCommand(cmd: string): void;
-}
+const now = clock.now;
 
 /** So viele Ticker-Meldungen hält `renderState().board.messages`. */
 const MAX_MESSAGES = 6;
@@ -93,14 +93,18 @@ function create(env: HostEnv): ChaosHostInstance {
   const toLine = (args: unknown[]) =>
     args.map((a) => (typeof a === 'string' ? a : describe(a))).join(' ');
   // Babylon, Runner und Session loggen über `console`; in JSC landet das sonst nirgends.
-  globalThis.console.log = (...args: unknown[]) => {
-    log(toLine(args));
-  };
-  globalThis.console.warn = (...args: unknown[]) => {
-    log(`WARN ${toLine(args)}`);
-  };
-  globalThis.console.error = (...args: unknown[]) => {
-    log(`ERROR ${toLine(args)}`);
+  // Ganzes Objekt ersetzen: Ein nacktes Kontext (Tests mit `node:vm`) hat gar kein `console`.
+  const write =
+    (prefix: string) =>
+    (...args: unknown[]) => {
+      log(`${prefix}${toLine(args)}`);
+    };
+  (globalThis as { console: unknown }).console = {
+    log: write(''),
+    info: write(''),
+    debug: write(''),
+    warn: write('WARN '),
+    error: write('ERROR '),
   };
   setRandomSource((n) => env.randomBytes(n));
 
@@ -280,6 +284,10 @@ function create(env: HostEnv): ChaosHostInstance {
     for (const event of fresh) {
       const text = eventText(event, view, labelOf);
       if (text) messages.push(text.text);
+      // Ansage „Sabotage wird stärker!“ (CHAOS-120): als eigene Ticker-Zeile, bis der native
+      // Host eine große Einblendung hat.
+      const notice = eventNotice(event);
+      if (notice) messages.push(`${notice.title} ${notice.detail}`);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
     resultSender.onView(view);
@@ -320,9 +328,9 @@ function create(env: HostEnv): ChaosHostInstance {
     },
     {
       createSocket: createHostSocket,
-      setTimer: (callback, ms) => setTimeout(callback, ms),
+      setTimer: (callback, ms) => clock.setTimeout(callback, ms),
       clearTimer: (handle) => {
-        clearTimeout(handle as number);
+        clock.clearTimeout(handle as number);
       },
       now,
       wake: null,
@@ -335,14 +343,14 @@ function create(env: HostEnv): ChaosHostInstance {
   flush();
 
   // --- renderState ----------------------------------------------------------------------------
-  const contractPhase = (): string => {
+  const contractPhase = (): ContractPhase => {
     if (session.phase !== 'board' || !view) return 'lobby';
     if (view.paused) return 'paused';
     if (view.gamePhase === 'game-results') return 'final';
     return minigameStageOf(view) ? 'minigame' : 'board';
   };
 
-  const boardState = (current: BoardView) => {
+  const boardState = (current: BoardView): BoardState => {
     const board = getBoard(current.boardId) ?? DEFAULT_BOARD;
     const spaces = new Map(board.spaces.map((space) => [space.id, space]));
     const offsets = spreadPawns(current.players);
@@ -371,7 +379,7 @@ function create(env: HostEnv): ChaosHostInstance {
     };
   };
 
-  const minigameState = (current: BoardView) => {
+  const minigameState = (current: BoardView): MinigameState | null => {
     const minigame = current.minigame;
     const stageName = minigameStageOf(current);
     if (!minigame || !stageName) return null;
@@ -400,7 +408,7 @@ function create(env: HostEnv): ChaosHostInstance {
     };
   };
 
-  const COMMANDS: Record<string, HostCommand> = {
+  const COMMANDS: Record<Exclude<HostCommandName, 'start'>, HostCommand> = {
     pause: { type: 'pause' },
     resume: { type: 'resume' },
     'end-game': { type: 'end-game' },
@@ -424,7 +432,7 @@ function create(env: HostEnv): ChaosHostInstance {
       // Beliebige monotone ms-Uhr (z. B. CACurrentMediaTime) wird auf „ab erstem tick“ verschoben;
       // ein Sprung von 0 auf Epoch-ms hielte sonst den Host für 30 s still und würfe ihn raus.
       clockBase ??= nowMs;
-      advanceClock(nowMs - clockBase);
+      clock.advance(nowMs - clockBase);
       if (now() - lastSessionTickAt >= DEFAULT_TICK_MS) {
         lastSessionTickAt = now();
         apply(session.tick());
@@ -450,15 +458,18 @@ function create(env: HostEnv): ChaosHostInstance {
         ready: player.ready,
         character: player.character,
       }));
-      return JSON.stringify({
+      const state: RenderState = {
         phase: contractPhase(),
         lobby: { joinUrl: env.joinUrl, joinCode: env.joinCode, players },
         board: view ? boardState(view) : null,
         minigame: view ? minigameState(view) : null,
-      });
+      };
+      return JSON.stringify(state);
     },
     hostCommand(cmd) {
-      const command = COMMANDS[cmd];
+      const command = Object.hasOwn(COMMANDS, cmd)
+        ? COMMANDS[cmd as keyof typeof COMMANDS]
+        : undefined;
       const sent =
         cmd === 'start' ? connection.sendStart() : command ? connection.sendCommand(command) : null;
       if (sent === null) log(`Unbekannter Host-Befehl: ${cmd}`);
@@ -468,6 +479,6 @@ function create(env: HostEnv): ChaosHostInstance {
   };
 }
 
-(globalThis as unknown as { ChaosHost: { create: typeof create } }).ChaosHost = { create };
-// Für Tests im Harness: base64url ohne Swift-Zufall prüfen.
-(globalThis as unknown as { ChaosHostInternals: object }).ChaosHostInternals = { base64url };
+const api: ChaosHostApi = { create };
+const internals: ChaosHostInternals = { base64url, rotation: ROTATION };
+Object.assign(globalThis, { ChaosHost: api, ChaosHostInternals: internals });

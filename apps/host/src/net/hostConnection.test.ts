@@ -251,6 +251,8 @@ describe('connectHost', () => {
     t.last().receive(encode(LOBBY));
     const commands: HostCommand[] = [
       { type: 'configure', rounds: 8 },
+      { type: 'configure', moreReactionTime: true },
+      { type: 'configure', rounds: 10, moreReactionTime: false },
       { type: 'pause' },
       { type: 'resume' },
       { type: 'end-game' },
@@ -265,6 +267,10 @@ describe('connectHost', () => {
     expect(createHostCommandMessage({ type: 'configure', rounds: 3 })).toEqual(
       createMessage('configure', { rounds: 3 }),
     );
+    // Fehlende Felder fehlen auch in der Nachricht (strikte Schemas, CHAOS-124).
+    expect(
+      createHostCommandMessage({ type: 'configure', moreReactionTime: true, rounds: undefined }),
+    ).toEqual(createMessage('configure', { moreReactionTime: true }));
     t.last().drop();
     expect(t.connection.sendCommand({ type: 'resume' })).toBe(false);
   });
