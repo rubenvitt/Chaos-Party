@@ -28,8 +28,24 @@ export interface EventPlan {
   readonly popup: PopupSpec | null;
 }
 
+/**
+ * Wie eine Figur zum Ziel kommt (CHAOS-52): `walk` hüpft Feld für Feld im Takt, `gust` wird
+ * vom Windstoß in einem Flug weggeweht, `swap` fliegt beim Platztausch gleichzeitig mit der
+ * anderen Figur über Kreuz.
+ */
+export type MoveStyle = 'walk' | 'gust' | 'swap';
+
 /** Dauer, wenn `stepMs` fehlt oder 0 ist. */
 export const FALLBACK_STEP_MS = 300;
+/** Flug beim Windstoß (unabhängig von der Zahl der Felder). */
+export const GUST_FLIGHT_MS = 900;
+/** Flug beider Figuren beim Platztausch. */
+export const SWAP_FLIGHT_MS = 1000;
+/**
+ * Ansage eines Windstoßes oder Platztauschs vor dem Flug. Kürzer als die übrigen Ereignisse:
+ * Ansage plus Flug (≤ 1,4 s) bleiben unter der Server-Pause `spaceEventMs` (1,5 s, ADR-011/7).
+ */
+export const FLIGHT_EVENT_MS = 400;
 /** So lange bleibt ein Popup sichtbar (auch wenn die Warteschlange schon weiterläuft). */
 export const POPUP_MS = 1400;
 
@@ -51,15 +67,31 @@ function popup(
   return { kind, slot, spaceId, text, tone };
 }
 
-/** Dauer eines Bewegungsabschnitts: ein Takt je betretenem Feld. */
-export function moveDuration(pathLength: number, stepMs: number): number {
-  return Math.max(0, pathLength) * (stepMs > 0 ? stepMs : FALLBACK_STEP_MS);
+/**
+ * Dauer eines Bewegungsabschnitts: beim Gehen ein Takt je betretenem Feld, Windstoß und
+ * Platztausch fliegen in fester Zeit.
+ */
+export function moveDuration(
+  pathLength: number,
+  stepMs: number,
+  style: MoveStyle = 'walk',
+): number {
+  if (pathLength <= 0) return 0;
+  switch (style) {
+    case 'gust':
+      return GUST_FLIGHT_MS;
+    case 'swap':
+      return SWAP_FLIGHT_MS;
+    case 'walk':
+      return pathLength * (stepMs > 0 ? stepMs : FALLBACK_STEP_MS);
+  }
 }
 
-export function planEvent(event: BoardEvent, stepMs: number): EventPlan {
+/** `style` gilt nur für `moved` (die Regie erkennt Windstoß und Platztausch am Ereignis davor). */
+export function planEvent(event: BoardEvent, stepMs: number, style: MoveStyle = 'walk'): EventPlan {
   switch (event.type) {
     case 'moved':
-      return { durationMs: moveDuration(event.path.length, stepMs), popup: null };
+      return { durationMs: moveDuration(event.path.length, stepMs, style), popup: null };
     case 'dice-rolled':
       return { durationMs: 900, popup: popup('dice', event.slot, String(event.total), 'neutral') };
     case 'coins-changed':
@@ -92,7 +124,7 @@ export function planEvent(event: BoardEvent, stepMs: number): EventPlan {
       return { durationMs: 900, popup: popup('trophy', null, 'Hier!', 'gold', event.to) };
     case 'board-event':
       return {
-        durationMs: 1000,
+        durationMs: event.event === 'gust' || event.event === 'swap' ? FLIGHT_EVENT_MS : 1000,
         popup: popup('event', event.slot, BOARD_EVENT_POPUP[event.event] ?? 'Ereignis!', 'neutral'),
       };
     case 'reaction-resolved': {

@@ -10,6 +10,9 @@
  *   Neuverbindung) oder die erste Nachricht springen ohne Animation direkt auf den Stand.
  * - Rückstand (z. B. Tab im Hintergrund): ab 2,5 s wird dreifach schnell gespielt, ab 8 s
  *   wird gesprungen.
+ * - Windstoß und Platztausch (CHAOS-52): Ein `moved` direkt nach `board-event` `gust` wird als
+ *   Flug gezeigt; beim Platztausch fliegen beide Figuren (zwei `moved` mit je einem Feld)
+ *   gleichzeitig über Kreuz.
  * - Zeit vergeht nur über `advance(ms)` – die Szene ruft das je Frame auf (Testmodus: 1/60 s).
  *
  * Framework-frei: Die Szene liest `getFrame()` je Frame, der React-HUD abonniert
@@ -23,14 +26,16 @@ import type {
   CharacterId,
   SlotNumber,
 } from '@chaos-party/protocol';
-import { hopAt, planEvent, POPUP_MS, type PopupSpec } from './animation.ts';
+import { hopAt, planEvent, POPUP_MS, type MoveStyle, type PopupSpec } from './animation.ts';
 import { eventText, type EventText } from './texts.ts';
 
 export interface FrameHop {
   readonly from: string;
   readonly to: string;
-  /** Fortschritt des aktuellen Sprungs 0…1. */
+  /** Fortschritt des aktuellen Sprungs bzw. Flugs 0…1. */
   readonly t: number;
+  /** `walk`: Sprung zum Nachbarfeld; `gust`/`swap`: ein Flug von `from` direkt nach `to`. */
+  readonly style: MoveStyle;
 }
 
 export interface FramePawn {
@@ -134,17 +139,68 @@ function boardLabel(boardId: string, spaceId: string): string | undefined {
   return getBoard(boardId)?.spaces.find((s) => s.id === spaceId)?.label;
 }
 
+type MovedEvent = Extract<BoardEvent, { type: 'moved' }>;
+
+interface EventItem {
+  readonly kind: 'event';
+  readonly event: BoardEvent;
+  /** Nur bei `moved` bedeutsam. */
+  readonly style: MoveStyle;
+  /** Platztausch: das `moved` der anderen Figur, gleichzeitig gespielt. */
+  readonly partner: MovedEvent | null;
+}
+
 type QueueItem =
-  | { readonly kind: 'event'; readonly event: BoardEvent }
-  | { readonly kind: 'commit'; readonly view: BoardView; readonly receivedAt: number };
+  EventItem | { readonly kind: 'commit'; readonly view: BoardView; readonly receivedAt: number };
 
 interface Running {
   readonly event: BoardEvent;
+  readonly style: MoveStyle;
   readonly durationMs: number;
   elapsedMs: number;
   /** Nur bei `moved`: Feld vor dem ersten Sprung. */
   readonly start: string | null;
+  /** Platztausch: die andere Figur und ihr Startfeld. */
+  readonly partner: { readonly event: MovedEvent; readonly start: string } | null;
   readonly stepMs: number;
+}
+
+/**
+ * Ereignisse einer Nachricht → Warteschlange (CHAOS-52): `moved` direkt nach einem Windstoß
+ * bekommt den Stil `gust`; beim Platztausch werden die beiden `moved` (je ein Feld, zwei
+ * verschiedene Figuren, die erste ist der Spieler am Zug) zu einem Schritt `swap`. Alles
+ * andere bleibt ein Ereignis je Eintrag mit Stil `walk`.
+ */
+export function toQueueItems(events: readonly BoardEvent[]): EventItem[] {
+  const items: EventItem[] = [];
+  let flight: { readonly kind: 'gust' | 'swap'; readonly slot: SlotNumber } | null = null;
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    if (!event) continue;
+    const pending = flight;
+    flight = null;
+    if (event.type === 'board-event' && (event.event === 'gust' || event.event === 'swap')) {
+      flight = { kind: event.event, slot: event.slot };
+    } else if (event.type === 'moved' && event.slot === pending?.slot) {
+      if (pending.kind === 'gust') {
+        items.push({ kind: 'event', event, style: 'gust', partner: null });
+        continue;
+      }
+      const next = events[i + 1];
+      if (
+        event.path.length === 1 &&
+        next?.type === 'moved' &&
+        next.slot !== event.slot &&
+        next.path.length === 1
+      ) {
+        items.push({ kind: 'event', event, style: 'swap', partner: next });
+        i++;
+        continue;
+      }
+    }
+    items.push({ kind: 'event', event, style: 'walk', partner: null });
+  }
+  return items;
 }
 
 interface ActivePopup extends PopupSpec {
@@ -204,7 +260,8 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     version++;
   }
 
-  function startEvent(event: BoardEvent) {
+  /** Meldung im Ticker und Ereignis-Abonnenten (Klänge). */
+  function announce(event: BoardEvent) {
     const nameView = latest ?? committed?.view ?? null;
     const text = eventText(event, nameView, (spaceId) =>
       nameView ? labelOf(nameView.boardId, spaceId) : undefined,
@@ -215,7 +272,17 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       version++;
     }
     for (const listener of [...eventListeners]) listener(event);
-    const plan = planEvent(event, stepMsOf());
+  }
+
+  function startOf(event: MovedEvent): string {
+    return pawnSpaces.get(event.slot) ?? event.path[0] ?? '';
+  }
+
+  function startEvent(item: EventItem) {
+    const { event, style, partner } = item;
+    announce(event);
+    if (partner) announce(partner);
+    const plan = planEvent(event, stepMsOf(), style);
     if (plan.popup) popups.push({ ...plan.popup, id: nextId++, startedAt: now });
 
     switch (event.type) {
@@ -241,21 +308,24 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
 
     running = {
       event,
+      style,
       durationMs: plan.durationMs,
       elapsedMs: 0,
       start: event.type === 'moved' ? (pawnSpaces.get(event.slot) ?? event.path[0] ?? null) : null,
+      partner: partner ? { event: partner, start: startOf(partner) } : null,
       stepMs: stepMsOf(),
     };
     version++;
   }
 
   function finishEvent(current: Running) {
-    const { event } = current;
-    if (event.type === 'moved') {
-      const last = event.path[event.path.length - 1];
-      if (last !== undefined) pawnSpaces.set(event.slot, last);
+    const { event, partner } = current;
+    for (const moved of [event, partner?.event]) {
+      if (moved?.type !== 'moved') continue;
+      const last = moved.path[moved.path.length - 1];
+      if (last !== undefined) pawnSpaces.set(moved.slot, last);
     }
-    eventsProcessed++;
+    eventsProcessed += partner ? 2 : 1;
     running = null;
     version++;
   }
@@ -264,7 +334,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     let total = running ? running.durationMs - running.elapsedMs : 0;
     const stepMs = stepMsOf();
     for (const item of queue) {
-      if (item.kind === 'event') total += planEvent(item.event, stepMs).durationMs;
+      if (item.kind === 'event') total += planEvent(item.event, stepMs, item.style).durationMs;
     }
     return total;
   }
@@ -280,7 +350,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
           commit(item.view, item.receivedAt);
           continue;
         }
-        startEvent(item.event);
+        startEvent(item);
       }
       const current = running;
       if (!current) continue;
@@ -301,7 +371,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     let lastCommit: Extract<QueueItem, { kind: 'commit' }> | null = null;
     for (const item of queue) {
       if (item.kind === 'commit') lastCommit = item;
-      else eventsProcessed++;
+      else eventsProcessed += item.partner ? 2 : 1;
     }
     queue = [];
     if (lastCommit) commit(lastCommit.view, lastCommit.receivedAt);
@@ -380,13 +450,29 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     const pawns: FramePawn[] = (view?.players ?? []).map((player) => {
       let spaceId = pawnSpaces.get(player.slot) ?? player.spaceId;
       let hop: FrameHop | null = null;
-      if (running?.event.type === 'moved' && running.event.slot === player.slot) {
-        hop = hopAt(
-          running.start ?? spaceId,
-          running.event.path,
-          running.stepMs,
-          running.elapsedMs,
-        );
+      if (running?.event.type === 'moved') {
+        const flightT =
+          running.durationMs > 0 ? Math.min(1, running.elapsedMs / running.durationMs) : 1;
+        const { event, partner } = running;
+        if (event.slot === player.slot) {
+          if (running.style === 'walk') {
+            const walk = hopAt(
+              running.start ?? spaceId,
+              event.path,
+              running.stepMs,
+              running.elapsedMs,
+            );
+            hop = walk ? { ...walk, style: 'walk' } : null;
+          } else {
+            const to = event.path[event.path.length - 1];
+            hop = to
+              ? { from: running.start ?? spaceId, to, t: flightT, style: running.style }
+              : null;
+          }
+        } else if (partner?.event.slot === player.slot) {
+          const to = partner.event.path[0];
+          hop = to ? { from: partner.start || spaceId, to, t: flightT, style: 'swap' } : null;
+        }
         if (hop) spaceId = hop.from;
       }
       return {
@@ -422,8 +508,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
         // Veraltet (älter als das Gezeigte): ignorieren.
         return;
       } else {
-        const fresh = events.slice(nextSeq - eventSeq);
-        for (const event of fresh) queue.push({ kind: 'event', event });
+        queue.push(...toQueueItems(events.slice(nextSeq - eventSeq)));
         queue.push({ kind: 'commit', view, receivedAt: now });
       }
       received++;

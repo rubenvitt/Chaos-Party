@@ -413,3 +413,15 @@ Automatisch geprüft ist nur der Build: Die CI (Xcode 26.6) baut für macOS, iOS
 | RK10 | Apple TV: `./messreihe-atv.sh <ID> 20` (alle Varianten, ca. 10 Min.) | `zusammenfassung.tsv`; Ziel: `hoch-0.5-metalfx` ≥ 30 fps stabil, besser 60 (R16–R19) | | TSV + Logs |
 | RK11 | Apple TV: `--hochskalieren=1 --bild=…` für 0,5 und 0,667 sowie die ARView am Fernseher ansehen | Schärfe aus Sofa-Abstand vertretbar? Schilder lesbar, Gras nicht matschig | | Bilder, Eindruck |
 | RK12 | Instruments: Metal System Trace je einmal ARView und `--hochskalieren=1 --skala=1` | größte GPU-Durchgänge mit Dauer notiert | | `.trace` oder Bildschirmfoto |
+
+## 19. Windstoß, Platztausch und Wegweiser am Fernseher (für CHAOS-52)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-52 · **Bilder:** [Windstoß](screenshots/chaos52-windstoss.png), [Platztausch](screenshots/chaos52-platztausch.png)
+
+Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Windstoß hoch und weit zum Zielfeld, beim Platztausch sind beide Figuren gleichzeitig in der Luft und landen auf den getauschten Feldern; Wegweiser „Klippenweg“ steht im Demo-Stand neben dem Zug-Pfeil (`host-brett.spec.ts`). **Nicht** automatisch prüfbar: wie flüssig und lesbar das in echter Bildrate vom Sofa aus wirkt, ob Windringe und Tausch-Ringe auf dem Fernseher erkennbar sind.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| WT1 | Partie, bis jemand auf ein Ereignisfeld (lila) kommt und „Windböe!“ erscheint | Figur wirbelt in weißen Windringen davon und landet 1–2 Felder weiter; kein Sprung ohne Bewegung | | |
+| WT2 | Ereignis „Tausch!“ | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat | | |
+| WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil | | |

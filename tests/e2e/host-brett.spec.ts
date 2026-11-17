@@ -272,6 +272,98 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     expectNoProblems(problems);
   });
 
+  test('Windstoß weht die Figur in einem Flug weg (CHAOS-52)', async ({ page }) => {
+    const problems = collectProblems(page);
+    await openBoard(page);
+    const base = await demoView(page, 0);
+    const players = base.players as { slot: number; spaceId: string }[];
+    const start = (await page.evaluate(() => window.__chaos?.getPlayerPositions() ?? [])).find(
+      (p) => p.slot === 1,
+    );
+    await feed(page, {
+      v: 4,
+      type: 'board',
+      view: {
+        ...base,
+        gamePhase: 'space-event',
+        prompt: null,
+        players: players.map((p) => (p.slot === 1 ? { ...p, spaceId: 's09' } : p)),
+      },
+      events: [
+        { type: 'board-event', slot: 1, event: 'gust' },
+        { type: 'moved', slot: 1, path: ['s08', 's09'] },
+      ],
+      eventSeq: 0,
+    });
+    await expect(page.getByTestId('board-messages')).toContainText('Windböe');
+    // Ansage 0,4 s (24 Frames), dann 0,9 s Flug: nach einem Drittel des Flugs hoch in der Luft,
+    // höher als ein normaler Hüpfer (Scheitel 0,9 über dem Feld).
+    await stepFrames(page, 24 + 18);
+    expect((await pawnSpaces(page))[1]).toBe('s07');
+    const flying = (await page.evaluate(() => window.__chaos?.getPlayerPositions() ?? [])).find(
+      (p) => p.slot === 1,
+    );
+    expect(flying?.y ?? 0).toBeGreaterThan(1.4);
+    if (process.env.HOST_BRETT_BELEG) {
+      await settleGpu(page);
+      await page.screenshot({ path: 'docs/screenshots/chaos52-windstoss.png' });
+    }
+    expect(
+      Math.hypot((flying?.x ?? 0) - (start?.x ?? 0), (flying?.z ?? 0) - (start?.z ?? 0)),
+    ).toBeGreaterThan(1.5);
+    await playUntilIdle(page);
+    expect(await pawnSpaces(page)).toEqual({ 1: 's09', 2: 's21', 3: 's34', 4: 's42' });
+    const landed = (await page.evaluate(() => window.__chaos?.getPlayerPositions() ?? [])).find(
+      (p) => p.slot === 1,
+    );
+    expect(landed?.y ?? 0).toBeLessThan(0.5);
+    expectNoProblems(problems);
+  });
+
+  test('Platztausch: beide Figuren fliegen gleichzeitig über Kreuz (CHAOS-52)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    await openBoard(page);
+    const base = await demoView(page, 0);
+    const players = base.players as { slot: number; spaceId: string }[];
+    await feed(page, {
+      v: 4,
+      type: 'board',
+      view: {
+        ...base,
+        gamePhase: 'space-event',
+        prompt: null,
+        players: players.map((p) =>
+          p.slot === 1 ? { ...p, spaceId: 's34' } : p.slot === 3 ? { ...p, spaceId: 's07' } : p,
+        ),
+      },
+      events: [
+        { type: 'board-event', slot: 1, event: 'swap' },
+        { type: 'moved', slot: 1, path: ['s34'] },
+        { type: 'moved', slot: 3, path: ['s07'] },
+      ],
+      eventSeq: 0,
+    });
+    await expect(page.getByTestId('board-messages')).toContainText('Platztausch');
+    // Ansage 0,4 s, dann 1 s Flug: nach 30 % beide gleichzeitig in der Luft.
+    await stepFrames(page, 24 + 18);
+    const inAir = await page.evaluate(() => window.__chaos?.getPlayerPositions() ?? []);
+    for (const slot of [1, 3]) {
+      expect(inAir.find((p) => p.slot === slot)?.y ?? 0, `Slot ${slot}`).toBeGreaterThan(1.4);
+    }
+    expect(inAir.find((p) => p.slot === 2)?.y ?? 0).toBeLessThan(0.5);
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos52-platztausch.png' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-platztausch.png', { mask: hudMask(page) });
+
+    await playUntilIdle(page);
+    expect(await pawnSpaces(page)).toEqual({ 1: 's34', 2: 's21', 3: 's07', 4: 's42' });
+    expectNoProblems(problems);
+  });
+
   test('Zugwechsel, Würfel, Münzen und Münzklau mit Reaktions-Countdown', async ({ page }) => {
     const problems = collectProblems(page);
     await openBoard(page);
