@@ -14,3 +14,4 @@ spikes/renderer-bevy/assets/
 .claude/
 # Generierter Fixture-Korpus der nativen Controller-App (scripts/export-protocol-fixtures.mjs).
 apps/controller-ios/Tests/Fixtures/
+apps/controller-ios/build/
