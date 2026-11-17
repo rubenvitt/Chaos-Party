@@ -136,7 +136,10 @@ jobs:
       - name: Renderer-Spike bauen (macOS, iOS, tvOS, ohne Signatur)
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
         working-directory: spikes/renderer-realitykit
+        # `assets/export/` (Testszene) wird lokal erzeugt und ist nicht eingecheckt; ohne den
+        # Ordner bricht Xcode beim Kopieren der Ressource ab. CI prüft nur den Build, also leer.
         run: |
+          mkdir -p assets/export
           xcodegen generate
           for destination in 'generic/platform=macOS' 'generic/platform=iOS' 'generic/platform=tvOS'; do
             xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike \
