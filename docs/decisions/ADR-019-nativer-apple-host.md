@@ -154,3 +154,11 @@ Ruben (Chat, CHAOS-137): „ich habe nur DIE EINE Variante, deshalb alle Minispi
 - **Folge für Entscheidung 3:** Eine eigene Swift-Darstellung je Minispiel skaliert nicht auf den geplanten Katalog (CHAOS-80, ~200 Spiele). Die Darstellung im nativen Host läuft deshalb über die **Rollen-Kennzeichnung** (`markVisual`/`visualOf` aus `packages/minigame-sdk`, CHAOS-149). Swift hält eine Bibliothek von Darstellungen je Rolle, die Minispiele derselben Familie teilen. Eigener Swift-Code je Minispiel nur, wo eine Rolle nicht reicht.
 - **Folge für die Minispiel-Fabrik:** Ein Minispiel ist erst fertig, wenn es auch im Apple-Host mit echter Grafik läuft (Definition of Done je Minispiel, [`docs/minigames/README.md` §5.3](../minigames/README.md)).
 - Der Nachweis bleibt der Gesamtlauf mit allen Minispielen der Rotation (CHAOS-146).
+
+## Nachtrag 3 (2026-11-17, CHAOS-118): Mac-App signiert und notarisiert
+
+- **Skript und Workflow:** `apps/apple-host/scripts/release-macos.sh` baut, signiert (Developer ID, Hardened Runtime, Zeitstempel, ohne `get-task-allow`), notarisiert (`notarytool` mit dem API-Key der TestFlight-Workflows), heftet und packt. `.github/workflows/release-macos.yml` legt bei jedem Push auf `main`, der App, Server, Host-Rolle, Controller oder `packages/` ändert, einen GitHub-Release `macos-v<Version>` an (Vorabversion, solange Grundkörper).
+- **Kein semantic-release** (Abweichung von der Aufgabe, die lichtung als Vorlage nennt): Die Commits hier folgen nicht Conventional Commits, semantic-release würde nie eine Version erzeugen. Version ist `MARKETING_VERSION` aus `project.yml` plus Laufnummer des Workflows; eine neue Hauptversion setzt man in `project.yml`.
+- **Ohne JIT-Berechtigung:** Die App bekommt keine Entitlements. Dass JavaScriptCore samt WebAssembly (Havok) unter der Hardened Runtime trotzdem läuft, belegt der Selbsttest `ChaosHost --selftest` in der CI bei jedem PR (ad hoc signiert, sonst wie das Release). Scheitert er eines Tages daran, ist `com.apple.security.cs.allow-jit` die Abhilfe; sie ist mit der Notarisierung vereinbar.
+- **Universal-Binary** (arm64 + x86_64), weil macOS 26 noch Intel-Macs unterstützt.
+- **Kein Sparkle-Feed:** Aktualisieren heißt vorerst, den neuen Zip vom Release zu laden (Backlog-Idee).

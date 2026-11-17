@@ -12,6 +12,7 @@
  */
 import type { PerfMonitor, ScenePerf } from './perfMonitor.ts';
 import type { PerfSource } from './perfTypes.ts';
+import type { SceneTransition } from './transitions.ts';
 
 export interface ChaosPerfHook {
   /** Kennzahlen je Szene seit dem Laden bzw. dem letzten `reset()`. */
@@ -20,7 +21,12 @@ export interface ChaosPerfHook {
   summary(): string;
   /** Gerade angemeldete Szenen. */
   activeScenes(): string[];
-  /** Neue Messreihe beginnen. */
+  /**
+   * Szenenwechsel mit längstem Block (Long Task) zwischen Aufbau und erstem Bild (CHAOS-153,
+   * `sceneMarks.ts`); leer in Browsern ohne `longtask`-Einträge nur ohne Blöcke.
+   */
+  transitions(): SceneTransition[];
+  /** Neue Messreihe beginnen (auch Marken und Long Tasks). */
   reset(): void;
 }
 

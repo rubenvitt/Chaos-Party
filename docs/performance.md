@@ -1,6 +1,6 @@
 # Performance: Bildrate und Latenz (M4)
 
-**Stand:** 2026-11-17 (Baseline nach Natur-Look von Lobby und Podest, CHAOS-133) · **Aufgabe:** CHAOS-39, CHAOS-73, CHAOS-133 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
+**Stand:** 2026-11-17 (Baseline nach Natur-Look von Lobby und Podest, CHAOS-133; Standbild je Szenenwechsel, CHAOS-153) · **Aufgabe:** CHAOS-39, CHAOS-73, CHAOS-133, CHAOS-153 · **Grundlage:** ARCHITECTURE „Testing strategy“ Punkt 4, [ADR-010](decisions/ADR-010-messanzeige.md) (Messanzeige aus M1)
 
 Kurz: Gemessen wird an zwei Stellen – **auf echter Hardware** mit der Messanzeige (`?debug=1`, Ruben, Abschnitt 11 der [Gerätecheckliste](device-test-checklist.md#11-m4--performance-für-chaos-43)) und **automatisch** im Headless-Chromium mit Software-Rendering (`pnpm perf`). Die automatischen Werte erlauben **nur relative Vergleiche** auf demselben Rechner (vorher/nachher). Sie sagen nichts darüber, wie flüssig das Spiel auf Rubens PC oder Fernseher läuft.
 
@@ -33,6 +33,7 @@ Die Messanzeige aus M1 misst jetzt **je Szene**. Jede Szene meldet sich beim Auf
 
 - „Kopieren“ legt wie bisher eine Zeile mit den Gesamtwerten ab; **„Alle Szenen kopieren“** eine Zeile je Szene plus Grafikkarte, Auflösung und User-Agent. Auf der Konsole liefert `__chaosPerf.summary()` denselben Text, `__chaosPerf.report()` die Zahlen.
 - Beim Szenenwechsel werden wartende Eingänge verworfen: Die Ladezeit der nächsten Szene ist keine Eingabelatenz.
+- **Standbild je Szenenwechsel** (CHAOS-153): Brett, Minispiel-Bühne und Podest setzen Marken `chaos:<szene>:aufbau` (Aufbau beginnt), beim Podest zusätzlich `:sichtbar` (vorbereitetes Podest wird gezeigt), und `:erstes-bild` (`performance.mark`, im Performance-Profil der DevTools sichtbar; `apps/host/src/debug/sceneMarks.ts`). Dazu protokolliert der Host Long Tasks (`PerformanceObserver`, Typ `longtask`, ≥ 50 ms, nur Chromium/Edge). `__chaosPerf.transitions()` liefert je Übergang (`lobby → brett`, `brett → minispiel`, `minispiel → brett`, `zählung → podest`) den **längsten Block**, die blockierte Zeit und die Wartezeit bis zum ersten Bild (`transitions.ts`). Fenster: Aufbau bis erstes Bild; beim Podest Vorbereitung (während der Zählung) bis zum vorab gezeichneten Bild **plus** Zeigen bis zum ersten Bild danach, nicht die Zählung dazwischen. Eine Long Task zählt mit voller Dauer, wenn sie ein Fenster überlappt: Entsorgen der alten Szene und `new Engine(…)` der neuen laufen oft in derselben Aufgabe, die vor der Marke beginnt.
 - Grenzen wie in ADR-010: Eingabe→Frame endet am Ende des JS-Renderings (ohne GPU, Compositor, Bildschirm). Der Weg Finger → Bild als Ganzes lässt sich nur per Zeitlupenvideo messen (Checkliste PF7).
 
 ### Controller (`…&debug=1`)
@@ -64,10 +65,10 @@ Aufbau: `playwright.perf.config.ts`, `tests/perf/` (eigenes Playwright-Projekt, 
 
 | Szenario | Ablauf | Prüft immer |
 |---|---|---|
-| **Partie** | Lobby 10 s → 3 Runden (jedes Minispiel der Rotation einmal, Spielzeit 15 s, Anleitung/Ergebnis 5 s) → Finale (Trophäenzählung normal) → Podest 10 s | alle Szenen gemessen; strukturelle Schwellen gegen die Baseline; keine Seitenfehler |
+| **Partie** | Lobby 10 s → 3 Runden (jedes Minispiel der Rotation einmal, Spielzeit 15 s, Anleitung/Ergebnis 5 s) → Finale (Trophäenzählung normal) → Podest 10 s | alle Szenen gemessen; Szenenwechsel Brett → Minispiel, Minispiel → Brett und Zählung → Podest je mit erstem Bild gemessen; strukturelle Schwellen gegen die Baseline; keine Seitenfehler |
 | **Revanche ×3** | drei Partien à 1 Runde mit „Nochmal spielen“; nach jeder in der Lobby: GC, Heap, DOM-Knoten, Canvas, Kontexte | Heap nach Partie 3 ≤ max(+10 %, +5 MB) gegenüber Partie 1; DOM ≤ +20 Knoten; in der Lobby genau 1 Canvas und 1 Kontext; neue Partie zeigt nicht den alten Endstand |
 
-Ergebnisse: `perf-results/partie[-LABEL].json`, `perf-results/revanche[-LABEL].json` (nicht eingecheckt) und Tabellen auf der Konsole. Die JSON-Datei enthält zusätzlich `environment` (CPU, Speicher, Node, Browser, Systemlast).
+Ergebnisse: `perf-results/partie[-LABEL].json`, `perf-results/revanche[-LABEL].json` (nicht eingecheckt) und Tabellen auf der Konsole. Die JSON-Datei enthält zusätzlich `environment` (CPU, Speicher, Node, Browser, Systemlast) sowie je Szenenwechsel die Zusammenfassung (`transitions`) und jedes einzelne Vorkommen (`transitionList`, CHAOS-153).
 
 ### SwiftShader – was die Zahlen bedeuten
 
@@ -205,6 +206,26 @@ CHAOS-77 hat Lobby-Arena und Siegerpodest in den Natur-Look gebracht (Kulisse, S
 - **Heap in der Lobby höher** (nach GC vor der ersten Partie ≈ 38 MB statt ≈ 15 MB) durch HDRI und PBR-Texturen der Arena; über drei Revanchen kein Wachstum über die Schwelle (Partie 3 ≤ max(+10 %, +5 MB) gegenüber Partie 1).
 - Wie sich die zusätzlichen Draw Calls auf einer echten GPU auswirken, zeigt nur LS1–LS3 der [Gerätecheckliste](device-test-checklist.md).
 
+## 3e. Standbild je Szenenwechsel (CHAOS-153)
+
+Für CHAOS-132 ([EXP-025](experiments.md)) mussten Standbilder beim Wechsel Brett ↔ Minispiel mit temporären Messmarken gemessen werden; `pnpm perf` sah sie nicht, weil der Bildabstand nur Bilder **einer** Szene vergleicht und die Lücke beim Wechsel zwischen zwei Szenen liegt. Jetzt misst die Partie je Übergang die Long Tasks zwischen Aufbau und erstem Bild (Abschnitt 1, „Standbild je Szenenwechsel“) und vergleicht den **längsten Block** mit der Baseline (Szenario `partie-uebergaenge` in `tests/perf/baseline.json`, Schwellen in Abschnitt 5).
+
+Baseline: Lauf auf `main` d28cc48 plus CHAOS-153 (2026-11-17, gleicher Messrechner wie 3d, Xeon 2,10 GHz ×4, Systemlast ≈ 3,5). Szenenwerte der Baseline unverändert gelassen. Kontrolllauf mit `PERF_STRICT=1`: alle Übergänge `ok`.
+
+| Übergang | n (ohne erstes Bild) | längster Block Median / max ms, Baseline | Kontrolllauf | blockiert Median ms | Aufbau→erstes Bild Median ms |
+|---|---|---|---|---|---|
+| lobby → brett | 1 (0) | 1944 / 1944 | 1982 / 1982 | 3784 | 2112 |
+| brett → minispiel | 5 (0) | 460 / **8595** | 447 / 3584 | 902 | 1022 |
+| minispiel → brett | 5 (1) | 2381 / 3488 | 2494 / 3643 | 3835 | 1742 |
+| zählung → podest | 1 (0) | 428 / 428 | 391 / 391 | 1510 | 1938 |
+
+**Lesart:**
+- **Brett → Minispiel** blockiert meist ≈ 0,45 s am Stück. Beim **ersten** Minispiel der Partie lag einmal ein Block von 8,6 s, im Kontrolllauf 3,6 s (erstes Minispiel, kalter Start: Chunk, Physik, Shader-Quellen). Das ist das Standbild aus KI-25. Der Median bleibt davon unberührt, der Höchstwert schwankt deshalb stark; seine Schwelle ist entsprechend weit.
+- **Minispiel → Brett** ist der größte regelmäßige Block (≈ 2,4 s): Kontext und Natur-Brett werden nach jedem Minispiel synchron neu gebaut (CHAOS-152). Nach dem **letzten** Minispiel baut das Brett ≈ 1 s vor dem Finale neu auf und zeichnet dahinter nie ein Bild: Das Vorkommen zählt als „ohne erstes Bild“ und endet mit dem Aufbau des Podests.
+- **Zählung → Podest** (Vorbereitung während der Zählung plus Zeigen): längster Block ≈ 0,4 s, wie seit CHAOS-71 erwartet. Die Trophäenzählung dazwischen zählt nicht mit.
+- PR #69 (CHAOS-132) war beim Messen noch nicht gemergt. Nach dem Merge die Baseline der Übergänge neu schreiben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`, schreibt auch `partie`).
+- Wie bei allen zeitlichen Werten: nur relativ, nur auf diesem Rechner. Ob ein Block auf echter Hardware spürbar ist, zeigt nur die Gerätecheckliste (N4).
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
@@ -242,6 +263,8 @@ Geprüft und **nicht** geändert:
 | Bildabstand p95 je Szene | ≤ Baseline · 1,25 + 4 ms | eigene Baseline (SwiftShader) | nur `PERF_STRICT=1` auf dem Baseline-Rechner |
 | Render-Zeit p95 je Szene | ≤ Baseline · 1,25 + 2 ms | eigene Baseline | nur `PERF_STRICT=1` |
 | Heap max je Szene | ≤ Baseline · 1,2 + 10 MB | eigene Baseline | nur `PERF_STRICT=1` |
+| Längster Block je Szenenwechsel, Median über die Vorkommen (CHAOS-153) | ≤ Baseline · 1,5 + 150 ms | eigene Baseline, Szenario `partie-uebergaenge`; weiter als beim Bildabstand, weil Long Tasks unter SwiftShader stärker schwanken (EXP-025) | nur `PERF_STRICT=1` |
+| Längster Block je Szenenwechsel, Höchstwert | ≤ Baseline · 1,5 + 250 ms | wie oben; fängt einen einzelnen Rückfall (z. B. Shader wieder am Stück) | nur `PERF_STRICT=1` |
 | Heap über drei Partien | Partie 3 ≤ max(Partie 1 · 1,1; Partie 1 + 5 MB) | im selben Lauf | immer |
 | Bildrate/Bildabstand auf Rubens PC | **offen, Messung durch Ruben** (PF1/PF2); Ziel CHAOS-73: Brett und Minispiele p95 ≤ 20 ms in 1080p | Gerätecheckliste | – |
 | Bildabstand auf dem Mac (M3 Max, ohne VSync) | Richtwert aus Abschnitt 3b; nur Vergleich vorher/nachher mit `PERF_GPU=1` auf demselben Rechner | EXP-014 | – (kein Grenzwert in `pnpm perf`) |
