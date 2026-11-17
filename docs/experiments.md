@@ -2084,7 +2084,7 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 
 **Hypothese:** Nach ADR-019 (W2) kann die Apple TV eine Partie ohne Rechner hosten. Session-Server, game-core, Host-Rolle und Minispiele samt Havok laufen als ein JS-Bündel in JavaScriptCore; Swift übernimmt Netzwerk und Darstellung. Erwartet: Die JS-Last bleibt deutlich unter dem Bild-Budget von 16,7 ms.
 
-**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`):
+**Aufbau** (`spikes/apple-host`, Vertrag in `CONTRACT.md`; seit CHAOS-139 als Produktcode unter [`apps/apple-host`](../apps/apple-host/README.md)):
 - **JS-Kern `jscore/`:** ein Bündel mit 4,8 MB plus `HavokPhysics.wasm`.
   - `Session` aus `apps/server` und `connectHost` aus `apps/host`, beide unverändert.
   - Die Minispiele laufen headless mit Babylon-NullEngine und Havok, instanziiert synchron über `instantiateWasm`.

@@ -1,18 +1,22 @@
-// Harness für den JS-Kern (CHAOS-138): lädt dist/chaos-host.js in ein JSContext (macOS), spielt
+// Harness für den JS-Kern (CHAOS-138/139): lädt dist/chaos-host.js in ein JSContext (macOS), spielt
 // mit zwei simulierten Controllern (echte Protokoll-Nachrichten) eine Partie bis zum ersten
-// angenommenen Minispiel-Ergebnis (mit `full`: bis zum Endstand) und misst die Rechenzeit je
-// Tick. Virtuelle Uhr: 60 Ticks je Spielsekunde, ohne zu warten.
+// angenommenen Minispiel-Ergebnis (mit `full`: bis zum Endstand, alle Minispiele der Rotation) und
+// misst die Rechenzeit je Tick. Virtuelle Uhr: 60 Ticks je Spielsekunde, ohne zu warten.
+// Dekodiert außerdem die Beispielnachrichten (Fixtures/render-state) und jedes geprüfte
+// `renderState` mit `app/RenderState.swift`, also genau dem Typ der App.
 //
-//   swift spikes/apple-host/jscore/harness/main.swift [full]
+//   apps/apple-host/harness/run.sh [full]     (baut mit swiftc und startet; vorher `pnpm build`)
 //
-// Die Zeiten sind CPU-Zeit dieses Threads. JSC lief hier faktisch ohne JIT (siehe README); ein
-// Apple TV hat einen langsameren Kern, die Zahlen sind also eine Untergrenze für tvOS.
+// Die Zeiten sind CPU-Zeit dieses Threads. JSC lief hier faktisch ohne JIT (EXP-024); die CI setzt
+// zusätzlich JSC_useJIT=false. Ein Apple TV hat einen langsameren Kern, die Zahlen sind also eine
+// Untergrenze für tvOS. Exit 1 bei jeder JS-Ausnahme, Problemzeile im Log oder Vertragsbruch.
 import Foundation
 import JavaScriptCore
 import Security
 
-let dist = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-  .deletingLastPathComponent().appendingPathComponent("dist")
+let harnessDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+let dist = harnessDir.deletingLastPathComponent().appendingPathComponent("dist")
+let fixtures = harnessDir.appendingPathComponent("Fixtures/render-state")
 let full = CommandLine.arguments.contains("full")
 let joinCode = "AB12"
 
@@ -24,6 +28,19 @@ func cpuMs() -> Double {
 }
 func out(_ s: String) { print(s); fflush(stdout) }
 func fail(_ s: String) -> Never { out("FEHLER " + s); exit(1) }
+
+// Beispielnachrichten des Vertrags (scripts/export-apple-host-fixtures.mjs) mit dem Typ der App dekodieren.
+let fixtureFiles = (try? FileManager.default.contentsOfDirectory(at: fixtures, includingPropertiesForKeys: nil))?
+  .filter { $0.pathExtension == "json" }.sorted { $0.lastPathComponent < $1.lastPathComponent } ?? []
+if fixtureFiles.isEmpty { fail("keine Fixtures in \(fixtures.path)") }
+for file in fixtureFiles {
+  guard let text = try? String(contentsOf: file, encoding: .utf8) else { fail("\(file.lastPathComponent) unlesbar") }
+  do {
+    let state = try RenderState.decode(text)
+    if !RenderState.phases.contains(state.phase) { fail("\(file.lastPathComponent): Phase \(state.phase) unbekannt") }
+  } catch { fail("\(file.lastPathComponent): \(error)") }
+}
+out("Fixtures dekodiert: \(fixtureFiles.count) Dateien mit RenderState.swift")
 
 let ctx = JSContext()!
 var jsErrors = 0
@@ -49,7 +66,7 @@ for (name, value) in [("__send", send as Any), ("__close", close), ("__log", log
 
 // Havok-Bytes ohne Kopie als Uint8Array (2 MB als NSNumber-Array wären langsam).
 guard let wasm = try? Data(contentsOf: dist.appendingPathComponent("HavokPhysics.wasm")) else {
-  fail("dist/HavokPhysics.wasm fehlt – erst build.sh")
+  fail("dist/HavokPhysics.wasm fehlt – erst `pnpm --filter @chaos-party/apple-host build`")
 }
 let wasmPtr = UnsafeMutableRawPointer.allocate(byteCount: wasm.count, alignment: 16)
 wasm.copyBytes(to: wasmPtr.assumingMemoryBound(to: UInt8.self), count: wasm.count)
@@ -58,7 +75,7 @@ let wasmArray = JSObjectMakeTypedArrayWithBytesNoCopy(
 ctx.setObject(JSValue(jsValueRef: wasmArray, in: ctx), forKeyedSubscript: "__havokWasm" as NSString)
 
 guard let bundle = try? String(contentsOf: dist.appendingPathComponent("chaos-host.js"), encoding: .utf8)
-else { fail("dist/chaos-host.js fehlt – erst build.sh") }
+else { fail("dist/chaos-host.js fehlt – erst `pnpm --filter @chaos-party/apple-host build`") }
 var t0 = Date()
 ctx.evaluateScript(bundle, withSourceURL: dist.appendingPathComponent("chaos-host.js"))
 out("Bündel geladen: \(bundle.utf8.count / 1024) KiB in \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
@@ -75,6 +92,10 @@ for n in 0...sample.count {
   if js != swift { fail("base64url(\(bytes)) = \(js), erwartet \(swift)") }
 }
 out("base64url-Shim stimmt mit Foundation überein")
+let rotation = (ctx.objectForKeyedSubscript("ChaosHostInternals").objectForKeyedSubscript("rotation").toArray() ?? [])
+  .compactMap { $0 as? String }
+if rotation.isEmpty { fail("ChaosHostInternals.rotation fehlt") }
+out("Rotation: \(rotation.joined(separator: ", "))")
 
 t0 = Date()
 let host = ctx.evaluateScript("""
@@ -192,6 +213,9 @@ var lastStage = ""
 var started = false
 var printedMidPlay = false
 var resultsSeenAfterAccept = false
+var frame = 0
+var maxRound = 0
+var plannedRounds = 0
 let step = 1000.0 / 60.0
 let limitMs = full ? 30 * 60_000.0 : 5 * 60_000.0
 
@@ -222,6 +246,17 @@ while now < limitMs {
   tickStats[key, default: Stat()].add(tickMs)
   renderStats[key, default: Stat()].add(renderMs)
 
+  frame += 1
+  if phase != lastPhase || stageName != lastStage || frame % 60 == 0 {
+    do {
+      let decoded = try RenderState.decode(stateText)
+      if !RenderState.phases.contains(decoded.phase) { fail("renderState: Phase \(decoded.phase) unbekannt") }
+      maxRound = max(maxRound, decoded.board?.round ?? 0)
+      if let rounds = decoded.board?.rounds { plannedRounds = rounds }
+    } catch {
+      fail("renderState passt nicht zu RenderState.swift: \(error) – \(stateText.prefix(300))")
+    }
+  }
   if phase != lastPhase || stageName != lastStage {
     out("[\(Int(now)) ms] Phase \(lastPhase.isEmpty ? "-" : lastPhase) → \(phase)\(stageName.isEmpty ? "" : " (\(stageName))")")
     if phase == "board" && lastPhase == "lobby", let board = state["board"] as? [String: Any] {
@@ -263,10 +298,18 @@ let problems = logLines.filter { line in
   ["Fehler", "ERROR", "fehlgeschlagen", "Laufzeit wertet", "nicht mehr gebraucht", "abgelehnt",
    "noch nicht geladen"].contains { line.contains($0) }
 }
-let built = logLines.filter { $0.contains("aufgebaut") }.count
+let builtIds = logLines.compactMap { line -> String? in
+  guard line.hasPrefix("Minispiel "), line.contains("aufgebaut") else { return nil }
+  return line.split(separator: " ").dropFirst().first.map(String.init)
+}
+let built = builtIds.count
+let missing = rotation.filter { !builtIds.contains($0) }
 let accepted = logLines.filter { $0.contains("angenommen") }.count
-out("Minispiele aufgebaut: \(built), Ergebnisse angenommen: \(accepted), Problemzeilen: \(problems.count)")
+out("Runden: \(maxRound)/\(plannedRounds), Minispiele aufgebaut: \(built) (\(builtIds.joined(separator: ", "))), Ergebnisse angenommen: \(accepted), Problemzeilen: \(problems.count)")
+if full && !missing.isEmpty { out("FEHLT aus der Rotation: \(missing.joined(separator: ", "))") }
 for line in problems.prefix(10) { out("  PROBLEM \(line.prefix(200))") }
-let ok = problems.isEmpty && accepted >= 1 && (!full || built == accepted) && minigameAccepted && resultsSeenAfterAccept && jsErrors == 0 && (!full || lastPhase == "final")
+let fullOk = lastPhase == "final" && built == accepted && missing.isEmpty && plannedRounds > 0 && maxRound == plannedRounds
+let ok = problems.isEmpty && accepted >= 1 && minigameAccepted && resultsSeenAfterAccept && jsErrors == 0
+  && errorsFromServer == 0 && (!full || fullOk)
 out(ok ? "ERGEBNIS: OK" : "ERGEBNIS: NICHT OK (Ergebnis angenommen: \(minigameAccepted), Ergebnisanzeige: \(resultsSeenAfterAccept))")
 exit(ok ? 0 : 1)

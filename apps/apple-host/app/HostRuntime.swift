@@ -4,31 +4,12 @@ import QuartzCore
 import Security
 import os
 
-private let logger = Logger(subsystem: "dev.rubeen.chaosparty.tvhost", category: "host")
+private let logger = Logger(subsystem: "dev.rubeen.chaosparty.host", category: "host")
 
 func hostLog(_ text: String) {
     print(text)
     fflush(stdout)
     logger.log("\(text, privacy: .public)")
-}
-
-/// `renderState()` of the JS bundle, see CONTRACT.md. Lenient: everything the renderer can live without is optional.
-struct RenderState: Decodable {
-    var phase: String
-    var lobby: Lobby?
-    var board: Board?
-    var minigame: Minigame?
-
-    struct Lobby: Decodable { var joinUrl: String?; var players: [Player]? }
-    struct Player: Decodable { var slot: Int; var name: String?; var color: String?; var connected: Bool?; var ready: Bool? }
-    struct Board: Decodable {
-        var round: Int?; var rounds: Int?; var activeSlot: Int?
-        var spaces: [Space]?; var pawns: [Pawn]?; var messages: [String]?
-    }
-    struct Space: Decodable { var id: String; var x: Float; var z: Float; var kind: String? }
-    struct Pawn: Decodable { var slot: Int; var x: Float; var z: Float }
-    struct Minigame: Decodable { var id: String; var stage: String?; var bodies: [Body]?; var hud: String? }
-    struct Body: Decodable { var id: String; var shape: String; var pos: [Float]; var rot: [Float]?; var size: [Float]?; var color: String? }
 }
 
 struct Overlay: Equatable {
@@ -44,7 +25,7 @@ struct Overlay: Equatable {
 final class HostRuntime: ObservableObject {
     @Published private(set) var overlay = Overlay()
 
-    private let queue = DispatchQueue(label: "dev.rubeen.chaosparty.tvhost.js")
+    private let queue = DispatchQueue(label: "dev.rubeen.chaosparty.host.js")
     private let context = JSContext()!
     private var instance: JSValue? // queue only
     private var server: HttpWsServer? // queue only
@@ -73,7 +54,7 @@ final class HostRuntime: ObservableObject {
         guard let payload = Bundle.main.url(forResource: "payload", withExtension: nil),
               let source = try? String(contentsOf: payload.appending(path: "chaos-host.js"), encoding: .utf8),
               let wasm = try? Data(contentsOf: payload.appending(path: "HavokPhysics.wasm"))
-        else { return fail("payload fehlt – erst prepare.sh ausführen") }
+        else { return fail("payload fehlt – erst apps/apple-host/prepare.sh ausführen") }
         let t0 = CACurrentMediaTime()
         context.evaluateScript(source, withSourceURL: URL(string: "chaos-host.js"))
         hostLog(String(format: "Bündel geladen: %d KB in %.0f ms", source.utf8.count / 1024, (CACurrentMediaTime() - t0) * 1000))
@@ -145,7 +126,7 @@ final class HostRuntime: ObservableObject {
             let json = self.instance?.invokeMethod("renderState", withArguments: [])?.toString() ?? ""
             let ms = (CACurrentMediaTime() - t0) * 1000
             var state: RenderState?
-            do { state = try JSONDecoder().decode(RenderState.self, from: Data(json.utf8)) } catch {
+            do { state = try RenderState.decode(json) } catch {
                 if !self.decodeFailed { hostLog("FEHLER renderState: \(error) – \(json.prefix(300))") }
                 self.decodeFailed = true
             }
@@ -192,14 +173,14 @@ final class HostRuntime: ObservableObject {
         let platform = "macos"
         #endif
         let result: [String: Any] = [
-            "spike": "CHAOS-138", "plattform": platform, "phase": lastState?.phase ?? "start",
+            "host": "apple-host", "plattform": platform, "phase": lastState?.phase ?? "start",
             "verbindungen": connections, "koerper": lastState?.minigame?.bodies?.count ?? 0,
             "bilder": frames.count, "bildabstand_ms_median": percentile(frames, 0.5), "bildabstand_ms_p95": percentile(frames, 0.95),
             "js_ticks": js.count, "js_ms_median": percentile(js, 0.5), "js_ms_p95": percentile(js, 0.95), "js_ms_max": js.last ?? 0,
             "js_uebersprungen": skipped,
         ]
         let json = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
-        hostLog("SPIKE-ERGEBNIS \(json)")
+        hostLog("HOST-MESSUNG \(json)")
         overlay.stats = String(format: "Bild %.1f/%.1f ms · JS %.2f/%.2f ms (Median/p95) · %d Verbindungen",
                                percentile(frames, 0.5), percentile(frames, 0.95), percentile(js, 0.5), percentile(js, 0.95), connections)
         frameMs.removeAll(keepingCapacity: true)
