@@ -17,6 +17,7 @@ Werkzeuge per ToolSearch in **einem** Aufruf laden: `select:mcp__Zunder__list_st
    - `filter_tasks` mit `project_id` und Status `open`/`in_progress`/`blocked`.
    - Aktueller Meilenstein = das niedrigste Epic aus `CHAOS-1` … `CHAOS-4`, das nicht `done` ist.
    - Kandidaten: Unteraufgaben dieses Epics mit Status `open`, ohne aktiven fremden Claim, deren `blocked_by` alle erledigt sind. Abnahme-Aufgaben (Titel beginnt mit „M<n>-Abnahme“) sind **keine** Kandidaten → dafür `meilenstein-abnahme`.
+   - Ebenfalls **keine** Kandidaten: Aufgaben, die auf Ruben warten (`plan` beginnt mit „Wartet auf Ruben“), und Aufgaben hinter einer Abnahme oder Zwischenabnahme, die noch nicht `done` ist (z. B. CHAOS-94 … 113 hinter CHAOS-92). Solche Aufgaben stehen bewusst auf `open` statt `blocked`, weil in Zunder nichts von Ruben abhängt (`CLAUDE.md`); die Reihenfolge steht in Beschreibung und Kommentaren.
    - Bei mehreren: die, die am meisten anderes freischaltet (`blocks`), dann die kleinste Kennung. Wahl kurz begründen.
    - Kein Kandidat → Stand melden (was läuft, was blockiert, ob das Gate ansteht) und aufhören.
 
