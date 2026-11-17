@@ -31,3 +31,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-016](ADR-016-renderer.md) | Renderer: bei Babylon.js bleiben, WebGPU als Option messen, tvOS getrennt entscheiden | Angenommen (2026-11-17; PC-Messung folgt in CHAOS-131) | CHAOS-75 |
 | [ADR-017](ADR-017-native-controller.md) | Native Controller-App in SwiftUI für iPhone/iPad, Browser-Controller bleibt Rückfall | Vorgeschlagen (Entwurf, Vertrag steht) | CHAOS-115 |
 | [ADR-018](ADR-018-lizenz.md) | Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build | Angenommen | CHAOS-69 |
+| [ADR-019](ADR-019-nativer-apple-host.md) | Nativer Apple-Host mit RealityKit für Mac und Apple TV, Babylon bleibt am PC | Vorgeschlagen (Minispiel-Variante per Spike) | CHAOS-135 |
