@@ -1,17 +1,57 @@
 import Foundation
 
 /// Startparameter wie beim Bevy-Spike, als `--name=wert` (macOS direkt, Simulator per `simctl launch … --name=wert`).
+/// Ohne einen einzigen `--`-Parameter gilt die im Menü gespeicherte Messvariante (CHAOS-147, `Variants.swift`).
 struct Settings {
-    let raw: [String: String]
+    /// Woher die Werte stammen; das HUD zeigt es neben der Variante.
+    enum Source: String {
+        case standard = "Standard"
+        case launch = "Startparameter"
+        case stored = "gespeichert"
+        case menu = "Menü"
+    }
 
-    init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+    let raw: [String: String]
+    let source: Source
+
+    init(arguments: [String] = ProcessInfo.processInfo.arguments, stored: Variant? = nil) {
         var params: [String: String] = [:]
         for arg in arguments.dropFirst() where arg.hasPrefix("--") {
             let pair = arg.dropFirst(2).split(separator: "=", maxSplits: 1)
             guard let key = pair.first else { continue }
             params[String(key)] = pair.count > 1 ? String(pair[1]) : "1"
         }
-        raw = params
+        if params.isEmpty, let stored {
+            raw = stored.arguments
+            source = .stored
+        } else {
+            raw = params
+            source = params.isEmpty ? .standard : .launch
+        }
+    }
+
+    private init(raw: [String: String], source: Source) {
+        self.raw = raw
+        self.source = source
+    }
+
+    /// Wahl im Menü: ersetzt nur die Schlüssel der Variante, übrige Startparameter bleiben.
+    func with(_ variant: Variant) -> Settings {
+        var next = raw.filter { !Variant.keys.contains($0.key) }
+        next.merge(variant.arguments) { _, new in new }
+        return Settings(raw: next, source: .menu)
+    }
+
+    /// Aktive Variante als Text, aus den wirksamen Werten (auch bei Startparametern, die keiner Variante entsprechen).
+    var variantLabel: String {
+        // Wie in `SpikeView.makeView`: `hochskalieren` geht vor `durchsatz`.
+        !upscale && throughput ? "Offscreen (Durchsatz)" : Variant.describe(upscale: upscale, scale: scale, scaler: scaler)
+    }
+
+    /// Entspricht die Einstellung dieser Variante? (Häkchen im Menü)
+    func matches(_ variant: Variant) -> Bool {
+        guard upscale == variant.upscale else { return false }
+        return upscale ? abs(scale - variant.scale) < 0.001 && scaler == variant.scaler : !throughput
     }
 
     private func num(_ key: String, _ fallback: Double) -> Double { raw[key].flatMap(Double.init) ?? fallback }
