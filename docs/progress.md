@@ -88,6 +88,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-53 (Backlog CHAOS-44) | Host-Bundle aufgeteilt: Arena, Brett, Minispiele als Chunks, Vorladen, `minigame-sdk` nebenwirkungsfrei, Budget `pnpm check:bundle` ([`performance.md` §3c](performance.md#3c-host-bundle-aufgeteilt-chaos-53), ADR-004 Nachtrag 1) | im PR |
 | CHAOS-68 (Backlog CHAOS-44) | Auto-Pause endet erst mit `host-ready` (Bühne samt Figuren geladen), Rückfall nach 30 s; KI-6 behoben ([ADR-015 Nachtrag 3](decisions/ADR-015-vertical-slice.md)) | im PR |
 | CHAOS-71 (Backlog CHAOS-44) | Siegerpodest ohne Standbild: Aufbau schon während der Trophäenzählung, Shader stückweise (`scene/prepareGradually.ts`), Übergang 35–110 ms statt Blöcken bis ≈ 1 s (SwiftShader, [EXP-021](experiments.md)) | im PR, LS3 auf Rubens PC offen |
+| CHAOS-133 (Backlog CHAOS-44) | Perf-Baseline nach Natur-Look von Lobby und Podest (CHAOS-77) und Podest-Aufbau während der Zählung (CHAOS-71) neu geschrieben; `pnpm perf` auf `main` wieder grün ([`performance.md` §3d](performance.md#3d-nach-chaos-77-und-chaos-71-aktuelle-baseline)) | im PR |
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | abgeschlossen: Apple TV 4K bei 4K 20 fps (R12), Mac R13/R14 gemessen; abgelöst durch ADR-019 (W2) und CHAOS-138 |
 | CHAOS-51 (Backlog CHAOS-44) | Zurückgestellte Balance-Ideen per Bot-Simulation ([EXP-019](experiments.md)): **Trostpreis** (1 Item für den letzten Minispiel-Platz) neuer Standard, am PC und Handy angezeigt; Stellschrauben `trophy.placement`, `items.minigameWinItems`, `items.shieldBlocksTrap` bleiben aus | im PR, Playtest offen |
 | CHAOS-127 (Backlog CHAOS-44) | Native Controller-App zeigt den **Trostpreis** im Minispiel-Ergebnis wie der Browser („Trostpreis: Falle“ mit Item-Symbol); `prizes` im Swift-Protokoll, Fixture `context-minigame-results-prize`, Beispielzustand `minigameConsolation`; CI „Native Apps“ fotografiert ihn (`scripts/screenshots.sh`) | im PR, Gerätetest NT1–NT2 offen |
@@ -115,7 +116,9 @@ Nach CHAOS-62 (Natur-Look, Sparstufe `minimal` bei Software-Rendering in halber 
 | Finale (Brett dahinter) | kein Bild | – | 1 | 175 |
 | Podest | 63/106 | 71 | 1 | 130 |
 
-Render-Pause hinter dem Finale und Messung je Szene funktionieren mit dem Natur-Brett; Revanche ×3: Heap nach GC 21,9 → 23,1 MB, kein Leck. Details: [`performance.md` §3a](performance.md#3a-nach-chaos-62-natur-look-aktuelle-baseline).
+Render-Pause hinter dem Finale und Messung je Szene funktionieren mit dem Natur-Brett; Revanche ×3: Heap nach GC 21,9 → 23,1 MB, kein Leck. Details: [`performance.md` §3a](performance.md#3a-nach-chaos-62-natur-look).
+
+Nach CHAOS-77/CHAOS-71 (Lobby und Podest im Natur-Look, Podest entsteht während der Zählung; Baseline neu, CHAOS-133, anderer Messrechner Xeon 2,1 GHz ×4): Lobby 134 Draw Calls (vorher 70), Podest 162 (71), Brett und Minispiele unverändert bzw. in der Toleranz, Finale Heap max ≈ 223 MB, je Szene weiter eine Render-Schleife; Revanche ×3 Heap nach GC 37,8 → 51,4 MB, kein Leck. Details: [`performance.md` §3d](performance.md#3d-nach-chaos-77-und-chaos-71-aktuelle-baseline).
 
 ### Seeds (M4)
 
