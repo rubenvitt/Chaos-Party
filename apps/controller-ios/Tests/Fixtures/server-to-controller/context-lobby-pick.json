@@ -1,0 +1,24 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "lobby",
+  "layout": "lobby",
+  "actions": [
+    "ready",
+    "pick-character"
+  ],
+  "lobby": {
+    "character": null,
+    "takenCharacters": [
+      "robot"
+    ],
+    "takenBy": [
+      {
+        "character": "robot",
+        "slot": 2
+      }
+    ],
+    "rounds": 5
+  }
+}

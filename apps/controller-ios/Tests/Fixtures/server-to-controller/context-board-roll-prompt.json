@@ -1,0 +1,43 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "board",
+  "layout": "board",
+  "actions": [
+    "choose"
+  ],
+  "prompt": {
+    "id": 7,
+    "slot": 1,
+    "kind": "roll",
+    "title": "Du bist dran!",
+    "options": [
+      {
+        "id": "roll",
+        "label": "Würfeln"
+      },
+      {
+        "id": "item:double-dice",
+        "label": "Doppelwürfel",
+        "detail": "Zwei Würfel"
+      }
+    ],
+    "remainingMs": 15000
+  },
+  "board": {
+    "gamePhase": "roll",
+    "round": 2,
+    "rounds": 5,
+    "coins": 12,
+    "trophies": 1,
+    "items": [
+      "double-dice",
+      "shield"
+    ],
+    "activeSlot": 1,
+    "paused": false,
+    "character": "cactus",
+    "minigameWins": 1
+  }
+}

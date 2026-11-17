@@ -52,7 +52,7 @@ M2 verlangt einen vollständig spielbaren Brett-Zugzyklus: Brett mit Verzweigung
 **Negativ / Risiken**
 - Zwei Typquellen (game-core-Typen und zod-Schemas) – abgesichert durch die Typprüfung in `game.ts`.
 - Animationen im Host laufen mit dem Pacing des Servers mit; ist der Host-Tab im Hintergrund oder sehr langsam, springt er auf den `view`.
-- Nach `game-results` gibt es noch keinen Weg zurück in die Lobby (Neustart des Servers); kommt mit dem Start-/Pause-/Ende-Ablauf in M4.
+- ~~Nach `game-results` gibt es noch keinen Weg zurück in die Lobby (Neustart des Servers); kommt mit dem Start-/Pause-/Ende-Ablauf in M4.~~ Überholt: „Nochmal spielen“ (`rematch`, ADR-015 §5, CHAOS-37) führt ohne Neustart zurück in die Lobby; zwei Partien hintereinander mit denselben Verbindungen deckt `apps/server/src/lifecycle.integration.test.ts` ab (CHAOS-50).
 
 ## Überprüfung
 

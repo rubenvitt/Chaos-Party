@@ -1,11 +1,12 @@
 /**
- * M4 (CHAOS-36/37/55, ADR-015): kompletter Lebenszyklus einer Partie über die Session,
+ * M4 (CHAOS-36/37/50/55, ADR-015): kompletter Lebenszyklus einer Partie über die Session,
  * deterministisch mit festem Seed und künstlicher Uhr.
  *
  * Lobby → Figurenwahl (inkl. Konflikt) → Rundenzahl → Start → zwei Runden mit echten
  * Minispielen aus der Rotation (Ergebnisse vom synthetischen Host) → Pause mitten im
  * Minispiel und mitten im Zug → Endstand → Revanche zurück in die Lobby → zweite Partie
- * startet mit neuem Seed.
+ * mit neuem Seed bis zum Endstand, ohne Server-Neustart und mit denselben Controller-
+ * Verbindungen (CHAOS-50) → erneut zurück in die Lobby.
  */
 import { createMessage, type BoardEvent, type SlotNumber } from '@chaos-party/protocol';
 import { rankByScore } from '@chaos-party/minigame-sdk';
@@ -128,9 +129,9 @@ function lifecycle(players: 2 | 4): LifecycleResult {
   return { h, firstGameEvents: h.events };
 }
 
-describe('Kompletter Lebenszyklus (M4, CHAOS-36/37/55)', () => {
+describe('Kompletter Lebenszyklus (M4, CHAOS-36/37/50/55)', () => {
   it.each([2, 4] as const)(
-    '%i Spieler: Lobby → Figuren → Partie mit Pausen → Endstand → Revanche',
+    '%i Spieler: Lobby → Figuren → Partie mit Pausen → Endstand → Revanche → zweite Partie',
     (players) => {
       const { h, firstGameEvents } = lifecycle(players);
       const last = h.boards.at(-1);
@@ -201,10 +202,40 @@ describe('Kompletter Lebenszyklus (M4, CHAOS-36/37/55)', () => {
         });
       }
       for (const id of h.controllers.keys()) h.ready(id);
+      const boardsBefore = h.boards.length;
       h.start();
       const seedAfter = h.session.snapshot().game?.seed;
       expect(seedAfter).not.toBe(seedBefore);
       expect(h.boards.at(-1)?.view).toMatchObject({ gamePhase: 'turn-start', round: 1 });
+
+      // Zweite Partie bis zum Endstand, ohne Neustart und mit denselben Verbindungen (CHAOS-50).
+      const connectionsBefore = [...h.controllers.values()].map((c) => [c.id, c.token]);
+      const played = new Map<number, number>();
+      const sent = new Set<number>();
+      const pressed = new Map<SlotNumber, number>();
+      h.runToEnd(400_000, (x) => {
+        if (x.boards.at(-1)?.view.gamePhase === 'round-end') pressed.clear();
+        pressInMinigame(x, pressed);
+        hostPlays(x, played, sent);
+      });
+      const secondGame = h.boards.slice(boardsBefore).flatMap((board) => board.events);
+      expect(secondGame[0]).toMatchObject({ type: 'game-started' });
+      expect(secondGame.at(-1)).toMatchObject({ type: 'game-ended', endedEarly: false });
+      expect(secondGame.filter((e) => e.type === 'minigame-results')).toHaveLength(2);
+      expect(h.boards.at(-1)?.view).toMatchObject({ gamePhase: 'game-results', rounds: 2 });
+      assertContiguousEvents(h);
+      expect(h.errors).toEqual([]);
+      expect(h.closes).toEqual([]);
+      expect([...h.controllers.values()].every((c) => c.connected)).toBe(true);
+      expect([...h.controllers.values()].map((c) => [c.id, c.token])).toEqual(connectionsBefore);
+      expect(h.session.snapshot().hostConnected).toBe(true);
+
+      // Und wieder zurück in die Lobby: beliebig viele Partien hintereinander.
+      h.rematch();
+      expect(h.session.phase).toBe('lobby');
+      expect(h.lobby?.players.map((p) => [p.slot, p.character, p.ready])).toEqual(
+        expected.map(([slot, character]) => [slot, character, false]),
+      );
     },
   );
 
