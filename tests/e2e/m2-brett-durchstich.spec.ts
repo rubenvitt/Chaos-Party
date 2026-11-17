@@ -14,6 +14,7 @@
  * Lesbarkeit am Fernseher – siehe `docs/device-test-checklist.md`.
  */
 import type { Page } from '@playwright/test';
+import { withRules } from '../../packages/game-core/src/index.ts';
 import { getMinigameInfo } from '../../packages/minigames/src/catalog.ts';
 import { collectProblems, expectNoProblems } from './fixtures/pages.ts';
 import { startChaosServer, type RunningServer } from './fixtures/server.ts';
@@ -31,11 +32,27 @@ const PUMP = (() => {
   return info;
 })();
 
+/**
+ * Frist des Servers für das Host-Ergebnis (Standard: Spielzeit + 15 s). Unter
+ * Software-Rendering (SwiftShader, zwei Worker) ist die Bühne erst 3–5 s nach dem Start der
+ * Spielzeit bereit, und einzelne Bilder dauern 5–11 s. Die Minispiel-Uhr holt je Bild höchstens
+ * 4 s nach (`SOFTWARE_MAX_STEPS`); der Rest fällt weg, und das Ergebnis kam gelegentlich nach
+ * der Frist an – der Server brach ab (`aborted: true`, CHAOS-134). Hier gilt eine lange Frist
+ * wie im M4-Gesamtablauf: Geprüft wird, dass der Host sein Ergebnis schickt und der Server es
+ * annimmt, nicht wie schnell Software-Rendering ist. Bleibt das Ergebnis ganz aus, endet die
+ * Partie trotzdem vor dem Zeitlimit der Schleife (8 s + 60 s < 150 s) und die Prüfung schlägt
+ * fehl.
+ */
+const RESULT_GRACE_MS = 60_000;
+
 const test = base.extend<{ chaosServer: RunningServer }>({
   chaosServer: async ({ chaosJoinCode }, use) => {
     const running = await startChaosServer({
       joinCode: chaosJoinCode,
-      game: { minigames: [{ id: PUMP.id, playMs: PUMP.durationMs, scoring: PUMP.scoring }] },
+      game: {
+        minigames: [{ id: PUMP.id, playMs: PUMP.durationMs, scoring: PUMP.scoring }],
+        rules: withRules({ pacing: { minigameResultGraceMs: RESULT_GRACE_MS } }),
+      },
     });
     try {
       await use(running);

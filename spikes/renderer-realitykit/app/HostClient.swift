@@ -25,6 +25,9 @@ final class HostClient {
 
     func connect(_ address: String, log: @escaping (String) -> Void) {
         self.log = log
+        // Neuer Lauf aus dem Menü (CHAOS-147): alte Verbindung und Herzschlag erst beenden.
+        heartbeat?.invalidate()
+        task?.cancel(with: .goingAway, reason: nil)
         guard let url = URL(string: address) else { log("Server: ungültige Adresse \(address)"); return }
         let task = URLSession.shared.webSocketTask(with: url)
         self.task = task
@@ -67,8 +70,11 @@ final class HostClient {
     }
 
     private func receive() {
-        task?.receive { result in
+        guard let task else { return }
+        task.receive { result in
             Task { @MainActor in
+                // Eine ältere, ersetzte Verbindung (neuer Lauf aus dem Menü) meldet sich hier nur noch ab.
+                guard task === self.task else { return }
                 switch result {
                 case .failure(let error):
                     self.log("Server: Verbindung beendet: \(error.localizedDescription)")

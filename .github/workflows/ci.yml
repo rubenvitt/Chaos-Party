@@ -137,6 +137,15 @@ jobs:
         if: hashFiles('apps/controller-ios/project.yml') != ''
         run: apps/controller-ios/scripts/run-tests.sh
 
+      # CHAOS-147: Startparameter vor gespeicherter Messvariante, Menüwahl, Speicherung.
+      - name: Renderer-Spike Varianten prüfen
+        if: hashFiles('spikes/renderer-realitykit/tests/main.swift') != ''
+        working-directory: spikes/renderer-realitykit
+        run: |
+          mkdir -p build
+          swiftc app/Settings.swift app/Variants.swift tests/main.swift -o build/variants-check
+          build/variants-check
+
       - name: Renderer-Spike bauen (macOS, iOS, tvOS, ohne Signatur)
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
         working-directory: spikes/renderer-realitykit

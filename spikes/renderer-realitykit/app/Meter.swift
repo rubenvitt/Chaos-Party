@@ -20,7 +20,7 @@ import UIKit
 @MainActor
 final class Meter: ObservableObject {
     @Published var hud = "lädt …"
-    let settings = Settings()
+    let settings: Settings
     private let logger = Logger(subsystem: "dev.rubeen.chaosparty.renderspike", category: "spike")
     private var subscription: (any Cancellable)?
     private var readyAt: CFTimeInterval?
@@ -43,6 +43,20 @@ final class Meter: ObservableObject {
         logger.log("\(text, privacy: .public)")
     }
 
+    init(settings: Settings) {
+        self.settings = settings
+    }
+
+    /// Lauf beenden, wenn das Menü eine andere Variante startet (CHAOS-147): keine Messung, kein Rendern mehr.
+    func stop() {
+        if !done { log("Lauf abgebrochen (\(settings.variantLabel))") }
+        done = true
+        subscription?.cancel()
+        subscription = nil
+        loop?.stop()
+        loop = nil
+    }
+
     func start(_ view: ARView) {
         self.view = view
         screenView = view
@@ -54,10 +68,11 @@ final class Meter: ObservableObject {
         // Verdeckte Fenster (andere Space, Vollbild-App) drosselt macOS auf ≈ 10 Hz; deshalb nach vorn holen.
         NSApplication.shared.activate()
         #endif
-        log("Parameter: \(settings.raw)")
+        log("Parameter: \(settings.raw) (\(settings.source.rawValue), \(settings.variantLabel))")
         Task {
             do {
                 let built = try await SceneBuilder(settings: settings, log: log).build()
+                guard !done else { return }
                 instances = built.instances
                 if settings.throughput {
                     try await measureOffscreen(built)
@@ -127,6 +142,7 @@ final class Meter: ObservableObject {
                     try renderer.updateAndRender(deltaTime: 1.0 / 60, cameraOutput: output, onComplete: { _ in cont.resume() })
                 } catch { cont.resume(throwing: error) }
             }
+            guard !done else { return }
             let now = CACurrentMediaTime()
             defer { last = now }
             if now - begin < settings.warmup { continue }
@@ -146,10 +162,11 @@ final class Meter: ObservableObject {
 
     func startUpscaled(_ view: MetalLayerView) {
         screenView = view
-        log("Parameter: \(settings.raw)")
+        log("Parameter: \(settings.raw) (\(settings.source.rawValue), \(settings.variantLabel))")
         Task {
             do {
                 let built = try await SceneBuilder(settings: settings, log: log).build()
+                guard !done else { return }
                 instances = built.instances
                 loop = try UpscaleLoop(view: view, built: built, settings: settings, log: log) { [weak self] event in
                     self?.record(event)
@@ -218,7 +235,8 @@ final class Meter: ObservableObject {
 
     private func showProgress(elapsed: Double) {
         let median = percentile(samples.sorted(), 0.5)
-        let mode = settings.upscale ? String(format: " hochskaliert ×%.2f", settings.scale) : settings.throughput ? " offscreen" : ""
+        let mode = settings.upscale ? String(format: " hochskaliert ×%.2f %@", settings.scale, loop?.scalerName ?? "")
+            : settings.throughput ? " offscreen" : ""
         hud = String(format: "RealityKit%@  Bildzeit Median %.2f ms (%.0f fps)  %.0f/%.0f s",
                      mode, median, 1000 / median, elapsed, settings.seconds)
     }
