@@ -18,3 +18,5 @@ spikes/renderer-bevy/assets/
 apps/controller-ios/Tests/Fixtures/
 # Von Xcode verwaltete Asset-Kataloge (Xcode schreibt sie in eigenem Format zurück).
 *.xcassets/
+# Lokale Xcode-Build-Ordner der Controller-App.
+apps/controller-ios/build/
