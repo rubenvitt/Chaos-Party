@@ -1,6 +1,6 @@
 # ADR-016: Renderer – bei Babylon.js bleiben, WebGPU als Option messen, tvOS getrennt entscheiden
 
-**Status:** Angenommen (Ruben, 2026-11-17: „Annehmen, PC folgt“). Die PC-Zeilen R1–R6 werden in CHAOS-131 nachgetragen und lösen dort die Überprüfung aus.
+**Status:** Angenommen (Ruben, 2026-11-17: „Annehmen, PC folgt“). Die PC-Zeilen R1–R6 entfallen: Ruben hat keinen PC zum Messen (2026-11-17, CHAOS-131: „es wird nur mac geben“). Die Entscheidung stützt sich auf die Mac-Messung.
 **Datum:** 2026-11-16 (Entwurf), 2026-11-17 (angenommen)
 **Aufgabe:** CHAOS-75 (Spike), Folge für CHAOS-74 (Apple TV)
 **Betroffene Annahmen:** ADR-001 (Stack), ADR-004 (Host-Szene), ADR-012 (Minispiel-Logik im Host), ADR-014 (Natur-Look)
@@ -79,7 +79,7 @@ Vorschlag für einen tvOS-Spike: Variante 1, weil sie Protokoll, Server und Cont
 - Der Bevy-Prototyp bleibt als Messlatte: Er zeigt, was ein nativer Renderer mit derselben Szene auf Rubens Hardware schafft.
 
 **Negativ / Risiken**
-- Die PC-Zeilen R1–R6 fehlen noch. Die Empfehlung stützt sich bisher auf die Mac-Messung vom 17.11. (EXP-015):
+- Es gibt keine PC-Messung (R1–R6 entfallen, CHAOS-131). Die Empfehlung stützt sich auf die Mac-Messung vom 17.11. (EXP-015). Wie Babylon auf einem Windows-PC mit anderer Grafikkarte läuft, bleibt ungemessen:
   - Babylon WebGL2 kommt auf 8,4 / 11,2 ms bei 1080p.
   - Bevy nativ kommt offscreen auf 3,8 / 4,8 ms, ohne Nachbearbeitung.
   - Bevy WebAssembly mit WebGPU kommt auf 12,8 / 13,6 ms.
@@ -101,8 +101,8 @@ Was damit feststeht:
 
 ## Überprüfung
 
-- **CHAOS-131:** Ruben misst R1–R6 (und den PC-Teil von R11) am PC. Die Entscheidung kommt wieder zu Ruben, wenn eines davon eintritt:
-  - Babylon mit WebGL2 verfehlt das Ziel (Brett p95 > 20 ms bei 1080p) und ein Kandidat erreicht es bei gleichem Bild.
-  - WebGPU zeigt nach CHAOS-117 einen Vorteil von mindestens 20 % (R1/R2 oder R7/R8).
+- **CHAOS-131 (verworfen, 2026-11-17):** Die PC-Messung R1–R6 entfällt, weil Ruben keinen PC zum Messen hat („es wird nur mac geben“). Damit bleibt als Auslöser für eine neue Entscheidung:
+  - Babylon mit WebGL2 verfehlt auf einem Host-Rechner, auf dem gespielt wird, das Ziel (Brett p95 > 20 ms bei 1080p) und ein Kandidat erreicht es bei gleichem Bild.
+  - WebGPU zeigt nach CHAOS-117 am Mac einen Vorteil von mindestens 20 % (R7/R8).
 - Für den tvOS-Host (CHAOS-74 nach CHAOS-78) gibt es ein eigenes ADR.
 - Wenn Bevy/winit tvOS offiziell unterstützen oder Babylon Native tvOS bekommt: Kandidaten neu bewerten.
