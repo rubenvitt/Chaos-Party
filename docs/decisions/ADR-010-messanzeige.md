@@ -72,3 +72,8 @@ Nach dem M1-Gerätetest: Werte in `docs/device-test-checklist.md`/Abnahmebericht
 - Der Controller sammelt die RTT zusätzlich je Szene (`lobby`, `brett`, `minispiel`, `endstand` …) und nennt sie in der kopierten Zeile.
 - Weiterhin **keine Ampeln** in der Anzeige. Schwellen gibt es nur als relative Regressionsgrenzen gegen eine eigene Baseline der Messläufe; Hardware-Schwellen bleiben offen bis zu Rubens Messung. Details: [`docs/performance.md`](../performance.md).
 
+## Nachtrag 2026-11-17 (CHAOS-46): Lage der Host-Anzeige
+
+- „Host unten rechts“ (Abschnitt „Wo der Code liegt“) gilt nur noch in der **Lobby**. Im Spiel lag die Anzeige dort bei 4 Spielern auf dem vierten Spielerchip (Arena und Brett) bzw. der vierten Punktekarte (Minispiel). Außerhalb der Lobby steht sie jetzt **links, vertikal mittig**: Oben links liegen Titel und Pause-Knopf, oben rechts Ereignis-Ticker bzw. Minispiel-Uhr, unten Spielerleiste bzw. Punktekarten. Im Siegerbildschirm liegt sie über der 3D-Szene, nicht über der Endstand-Karte rechts.
+- In der Lobby läge sie links mittig auf dem QR-Code, deshalb bleibt sie dort unten rechts (`.host[data-phase='lobby']`). Breite höchstens 390 px (vorher 440), damit sie bei 1920 × 1080 neben der Lobby-Karte Platz hat. **Grenze:** Bei 1280 × 720 füllt die Lobby-Karte mit 4 Spielern den Bildschirm; die Anzeige liegt dann über Rundenwahl und Start-Knopf (Klicks gehen durch, `pointer-events: none`).
+- Bild: [`docs/screenshots/chaos46-messanzeige-brett-4-spieler.jpg`](../screenshots/chaos46-messanzeige-brett-4-spieler.jpg) (Brett, 4 Spieler, 1280 × 720). E2E `debug-anzeige.spec.ts` prüft für Arena und Brett mit 4 Spielern, dass sich Anzeige und Spielerchips nicht überschneiden.
