@@ -137,6 +137,10 @@ jobs:
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
         working-directory: spikes/renderer-realitykit
         run: |
+          # Die Testszene (assets/export) wird lokal erzeugt und ist nicht eingecheckt
+          # (.gitignore); project.yml kopiert den Ordner als Ressource. Für den reinen
+          # Bau-Check genügt ein leerer Ordner.
+          mkdir -p assets/export
           xcodegen generate
           for destination in 'generic/platform=macOS' 'generic/platform=iOS' 'generic/platform=tvOS'; do
             xcodebuild -project ChaosRenderSpike.xcodeproj -scheme ChaosRenderSpike \
