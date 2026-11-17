@@ -1247,7 +1247,7 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **Fehler im Spike gefunden und behoben:** Der Babylon-Serializer rechnet linkshändig → rechtshändig durch Spiegeln von **x** um, nicht von z. Mit z-Spiegelung stand die Bevy-Kamera auf der Gegenseite (Schrift spiegelverkehrt); jetzt stimmen Kamera, Licht, Figuren und Instanzen mit dem GLB überein.
 - Bevy-API: zwischen den bekannten Versionen und 0.20 viele Umbenennungen (`SceneRoot` → `WorldAssetRoot`, `shadows_enabled` → `shadow_maps_enabled`, `FontSize`); glTF-Erweiterung `EXT_mesh_gpu_instancing` nicht unterstützt (Instanzen deshalb als eigene Datei).
 
-**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 sind offen, sie misst Ruben. Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
+**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 entfallen: Ruben hat keinen PC zum Messen (17.11., CHAOS-131: „es wird nur mac geben“). Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
 
 | # | Kandidat, 1920×1080 | Median | p95 | Bemerkung |
 |---|---|---|---|---|
@@ -1283,7 +1283,7 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **discard** für Bevy (WebAssembly und nativ) als Host-Renderer. Der Prototyp bleibt als Messlatte.
 - **WebGPU:** bleibt Mess-Schalter. Neu bewertet wird es erst, wenn CHAOS-117 behoben ist.
 - **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
-- **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
+- **PC-Messung entfällt (CHAOS-131, 17.11.):** Es gibt keinen PC zum Messen. Die Entscheidung stützt sich dauerhaft auf die Mac-Zeilen; offen bleibt nur R8 (WebGPU am Mac, nach CHAOS-117).
 
 ---
 

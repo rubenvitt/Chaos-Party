@@ -375,7 +375,7 @@ Automatisch geprüft: Lobby, Arena und Siegerbildschirm laden ohne Fehler, Physi
 
 ## 16. Renderer-Spike: WebGPU, Bevy WebAssembly, Bevy nativ (für CHAOS-75)
 
-**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75, PC-Zeilen: CHAOS-131 · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-75; PC-Teile entfallen (CHAOS-131: kein PC, nur am Mac messen) · **Entscheidung:** [ADR-016](decisions/ADR-016-renderer.md) (angenommen) · **Anleitung und Messbogen:** [`renderer-spike.md`](renderer-spike.md)
 
 Automatisch geprüft: Bau aller Varianten, Unit-Tests für `?gpu=` und die Messanzeige, Bild der Bevy-WebGL2-Fassung unter Software-Rendering (nur Optik). **Nicht** automatisch prüfbar: jede Bildrate, WebGPU überhaupt (die Software-GPU der Cloud verliert das Gerät beim ersten Bild), Bevy nativ mit Fenster, Apple TV.
 
