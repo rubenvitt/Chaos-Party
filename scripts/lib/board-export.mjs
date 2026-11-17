@@ -34,15 +34,16 @@ export async function exportBoard({
 }) {
   const vite = spawn('pnpm', ['exec', 'vite', '--port', String(port), '--strictPort'], {
     cwd: join(root, 'apps/host'),
-    stdio: ['ignore', 'pipe', 'inherit'],
+    stdio: ['ignore', verbose ? 'inherit' : 'ignore', 'inherit'],
   });
   try {
-    await new Promise((resolve, reject) => {
-      vite.stdout.on('data', (chunk) => {
-        if (String(chunk).includes('Local:')) resolve(undefined);
-      });
+    // Auf die Antwort des Servers warten, nicht auf seine Ausgabe: Unter `CI=true` färbt Vite
+    // „Local:“ mit ANSI-Codes, ein Textvergleich passt dann nie (CI hing 30 min, CHAOS-140).
+    const exited = new Promise((_, reject) => {
       vite.on('exit', (code) => reject(new Error(`Vite beendet (${String(code)})`)));
     });
+    await Promise.race([waitForServer(`http://localhost:${String(port)}/host/`), exited]);
+    console.log(`Brett-Export: Vite bereit auf Port ${String(port)}`);
     const browser = await chromium.launch({
       args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     });
@@ -73,6 +74,27 @@ export async function exportBoard({
     }
   } finally {
     vite.kill();
+  }
+}
+
+/**
+ * Wartet, bis `url` mit einem Status < 500 antwortet; wirft nach `timeoutMs`.
+ * @param {string} url
+ * @param {{ timeoutMs?: number, intervalMs?: number }} [options]
+ */
+export async function waitForServer(url, { timeoutMs = 60_000, intervalMs = 250 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+      if (response.status < 500) return;
+    } catch {
+      // Server noch nicht da.
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`${url} antwortet nach ${String(timeoutMs / 1000)} s nicht`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
 
