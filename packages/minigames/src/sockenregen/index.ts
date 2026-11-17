@@ -37,6 +37,7 @@ import type {
   MinigameModule,
   MinigamePlayer,
 } from '@chaos-party/minigame-sdk/babylon';
+import { markVisual } from '@chaos-party/minigame-sdk/babylon';
 import { sockenregenHighlights } from './highlights.ts';
 import { SOCKENREGEN_INFO } from './info.ts';
 import {
@@ -579,7 +580,9 @@ class Sockenregen implements Minigame {
   }
 
   private buildMachine(scene: Scene): void {
-    const machine = this.track(new TransformNode('socken-wumms', scene));
+    const machine = this.track(
+      markVisual(new TransformNode('socken-wumms', scene), 'waschmaschine'),
+    );
     machine.position.set(0, 0, LAUNCH_POINT.z + 1.45);
     this.machine = machine;
     const part = <T extends Mesh>(mesh: T, hex: string, emissive = 0.05): T => {
@@ -697,6 +700,7 @@ class Sockenregen implements Minigame {
       shine.parent = bubble;
       shine.position.set(-size * 0.22, size * 0.24, -size * 0.3);
       shine.material = this.material(PALETTE.white, { emissive: 1 });
+      markVisual(bubble, 'seifenblase', index);
       this.bubbles.push(bubble);
     });
   }
@@ -712,6 +716,7 @@ class Sockenregen implements Minigame {
         scene,
       ),
     );
+    markVisual(ring, 'fangring', player.slot);
     ring.material = this.material(player.color, { emissive: 0.2 });
     const spot = this.track(
       CreateDisc(
@@ -725,6 +730,7 @@ class Sockenregen implements Minigame {
     spot.material = this.material(player.color, { emissive: 0.3, alpha: 0.45 });
     // Schwebendes Slot-Symbol (Farbe + Form, auch ohne Farbsehen lesbar).
     const badge = this.track(new TransformNode(`socken-abzeichen-${String(player.slot)}`, scene));
+    markVisual(badge, 'abzeichen', player.slot);
     badge.billboardMode = TransformNode.BILLBOARDMODE_ALL;
     const plate = this.track(
       CreateDisc(
@@ -757,6 +763,7 @@ class Sockenregen implements Minigame {
       star.position.set(Math.cos(a) * 0.55, 0.15 * index, Math.sin(a) * 0.55);
       star.material = this.material(PALETTE.star, { emissive: 0.6 });
     }
+    markVisual(stars, 'sterne', player.slot);
     stars.setEnabled(false);
     this.runners.set(player.slot, {
       slot: player.slot,
@@ -797,7 +804,8 @@ class Sockenregen implements Minigame {
 
   private createItemMeshes(scene: Scene, kind: ItemKind): ItemMeshes {
     const n = String(this.disposables.length);
-    const root = this.track(new TransformNode(`socken-ding-${n}`, scene));
+    const role = kind === 'iron' ? 'buegeleisen' : kind === 'gold' ? 'goldsocke' : 'socke';
+    const root = this.track(markVisual(new TransformNode(`socken-ding-${n}`, scene), role, n));
     const add = (mesh: Mesh, hex: string, emissive = 0.12): Mesh => {
       this.track(mesh);
       mesh.parent = root;
@@ -853,6 +861,7 @@ class Sockenregen implements Minigame {
         scene,
       ),
     );
+    markVisual(shadow, `${role}-schatten`, n);
     shadow.rotation.x = Math.PI / 2;
     shadow.material = iron
       ? this.material(PALETTE.danger, { emissive: 0.4, alpha: 0.4 })
@@ -872,6 +881,7 @@ class Sockenregen implements Minigame {
       iron ? PALETTE.danger : kind === 'gold' ? PALETTE.gold : PALETTE.white,
       { emissive: 0.6 },
     );
+    markVisual(ring, `${role}-zielring`, n);
     return { kind, scale: iron ? 1.5 : 1.35, root, shadow, ring };
   }
 
