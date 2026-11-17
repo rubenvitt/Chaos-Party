@@ -91,6 +91,7 @@ Umgesetzt in **einem** PR ([#16](https://github.com/rubenvitt/chaos-party/pull/1
 | CHAOS-78 (Backlog CHAOS-44) | RealityKit-App (`spikes/renderer-realitykit`): macOS, tvOS, iPhone/iPad nur als Benchmark; USDZ-Konverter, GPU-Instancing, Host-Client an `/ws` ([EXP-017](experiments.md)) | abgeschlossen: Apple TV 4K bei 4K 20 fps (R12), Mac R13/R14 gemessen; abgelöst durch ADR-019 (W2) und CHAOS-138 |
 | CHAOS-51 (Backlog CHAOS-44) | Zurückgestellte Balance-Ideen per Bot-Simulation ([EXP-019](experiments.md)): **Trostpreis** (1 Item für den letzten Minispiel-Platz) neuer Standard, am PC und Handy angezeigt; Stellschrauben `trophy.placement`, `items.minigameWinItems`, `items.shieldBlocksTrap` bleiben aus | im PR, Playtest offen |
 | CHAOS-65 (Backlog CHAOS-44) | Aufholhilfe: Trophäen-Ziel `trophy.placement: 'nearest-to-last'` (neu, Standard) und Münz-Hilfen `RuleSet.catchUp` (Rabatt, Rückenwind, Finale-Fieber, Standard aus), Simulation mit 1000 Seeds; neuer Standard: Trophäe wandert vor die Letzten ([EXP-022](experiments.md)) | im PR, Gefühl im Playtest offen |
+| CHAOS-134 (Backlog CHAOS-44) | Wackelnder E2E `m2-brett-durchstich`: Ursache gemessen (Bühne unter SwiftShader 3–5 s nach Spielstart bereit, Bilder bis 11 s, Minispiel-Uhr holt je Bild nur 4 s nach → Ergebnis nach der 15-s-Frist, Server bricht ab); Test mit 60-s-Ergebnisfrist, `aborted = false` bleibt geprüft; KI-25 ergänzt | im PR |
 
 ### Messwerte Performance (CHAOS-39)
 
