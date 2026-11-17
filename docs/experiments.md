@@ -1832,7 +1832,7 @@ Code: `packages/game-core/src/rules/experimentsBalance.ts`. Basis-Commit `474ac6
 - R: **Rabatt** (`catchUp.discount`): Preis 10 statt 15 ab 2 Trophäen Rückstand. Bräuchte einen Preis je Spieler in der Anzeige.
 - W / W3: **Rückenwind** (`catchUp.tailwind`): Nach jedem Minispiel außer dem letzten 2 (3) Münzen je Trophäe Rückstand, höchstens 6 (9). Bräuchte einen sichtbaren Moment („Rückenwind +4“).
 - F: **Finale-Fieber** (`catchUp.finale`): In den letzten 3 Runden zählen Minispiel-Münzen doppelt.
-- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf.
+- X: **Bonus-Trophäen** am Ende: Die Titel „Minispiel-Ass“ und „Pechvogel“ vom Siegerbildschirm geben je eine Trophäe (nur nachgerechnet, keine Regel). „Pechvogel“ zählt hier Verluste ohne Trophäenkauf. Seit CHAOS-123 zählt `coinsLost` selbst nur Pech (Minus-Feld, Klau, Falle); ein Nachlauf auf `main` `82a1a0b` ergab für X mit der alten Näherung und mit der neuen Zählung dieselben Zahlen.
 - TW, T2W, TW3: Kombinationen.
 
 **Objektive Messgrößen:** Siegquote des alleinigen Halbzeit-Führenden bzw. -Letzten (gegen fair 1/n), Trophäen je Partie, Anteil Spieler ohne Trophäe, Sieg per Trophäen (statt Münzen), Trophäen-Abstand Platz 1 zu 2, Siegquote eines Minispiel-Profis (Slot 1, +10 von 40 Punkten, wie EXP-012 S; eigener Lauf je Zeile).
