@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "paths": {
+      "@chaos-party/protocol": ["../../../packages/protocol/src/index.ts"],
+      "@chaos-party/game-core": ["../../../packages/game-core/src/index.ts"],
+      "@chaos-party/minigames": ["../../../packages/minigames/src/index.ts"],
+      "@chaos-party/minigame-sdk/babylon": ["../../../packages/minigame-sdk/src/babylon/index.ts"],
+      "@babylonjs/core/*": ["../../../packages/minigame-sdk/node_modules/@babylonjs/core/*"],
+      "@babylonjs/havok": ["../../../packages/minigame-sdk/node_modules/@babylonjs/havok"],
+      "node:crypto": ["./src/nodeCrypto.ts"]
+    }
+  },
+  "include": ["src"]
+}

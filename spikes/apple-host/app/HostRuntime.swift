@@ -1,0 +1,214 @@
+import Foundation
+import JavaScriptCore
+import QuartzCore
+import Security
+import os
+
+private let logger = Logger(subsystem: "dev.rubeen.chaosparty.tvhost", category: "host")
+
+func hostLog(_ text: String) {
+    print(text)
+    fflush(stdout)
+    logger.log("\(text, privacy: .public)")
+}
+
+/// `renderState()` of the JS bundle, see CONTRACT.md. Lenient: everything the renderer can live without is optional.
+struct RenderState: Decodable {
+    var phase: String
+    var lobby: Lobby?
+    var board: Board?
+    var minigame: Minigame?
+
+    struct Lobby: Decodable { var joinUrl: String?; var players: [Player]? }
+    struct Player: Decodable { var slot: Int; var name: String?; var color: String?; var connected: Bool?; var ready: Bool? }
+    struct Board: Decodable {
+        var round: Int?; var rounds: Int?; var activeSlot: Int?
+        var spaces: [Space]?; var pawns: [Pawn]?; var messages: [String]?
+    }
+    struct Space: Decodable { var id: String; var x: Float; var z: Float; var kind: String? }
+    struct Pawn: Decodable { var slot: Int; var x: Float; var z: Float }
+    struct Minigame: Decodable { var id: String; var stage: String?; var bodies: [Body]?; var hud: String? }
+    struct Body: Decodable { var id: String; var shape: String; var pos: [Float]; var rot: [Float]?; var size: [Float]?; var color: String? }
+}
+
+struct Overlay: Equatable {
+    var phase = "start"
+    var status = "startet …"
+    var joinUrl = ""
+    var players: [String] = []
+    var lines: [String] = []
+    var stats = ""
+}
+
+/// One JSContext on a serial queue; the network runs on the same queue. Frames come from the main thread.
+final class HostRuntime: ObservableObject {
+    @Published private(set) var overlay = Overlay()
+
+    private let queue = DispatchQueue(label: "dev.rubeen.chaosparty.tvhost.js")
+    private let context = JSContext()!
+    private var instance: JSValue? // queue only
+    private var server: HttpWsServer? // queue only
+    private var connections = 0 // main only, refreshed per frame
+    private var ready = false // main only
+    private var busy = false // main only
+    private var frameMs: [Double] = []
+    private var jsMs: [Double] = []
+    private var skipped = 0
+    private var windowStart = CACurrentMediaTime()
+    private var lastState: RenderState?
+    private var decodeFailed = false
+    /// `--autostart`: start as soon as all lobby players are ready (no remote/keyboard needed for tests).
+    private let autostart = CommandLine.arguments.contains("--autostart")
+
+    func start() { queue.async { self.boot() } }
+
+    func command(_ cmd: String) {
+        queue.async { _ = self.instance?.invokeMethod("hostCommand", withArguments: [cmd]) }
+    }
+
+    private func boot() {
+        context.exceptionHandler = { _, error in
+            hostLog("JS-FEHLER \(error?.toString() ?? "?") \(error?.objectForKeyedSubscript("stack")?.toString() ?? "")")
+        }
+        guard let payload = Bundle.main.url(forResource: "payload", withExtension: nil),
+              let source = try? String(contentsOf: payload.appending(path: "chaos-host.js"), encoding: .utf8),
+              let wasm = try? Data(contentsOf: payload.appending(path: "HavokPhysics.wasm"))
+        else { return fail("payload fehlt – erst prepare.sh ausführen") }
+        let t0 = CACurrentMediaTime()
+        context.evaluateScript(source, withSourceURL: URL(string: "chaos-host.js"))
+        hostLog(String(format: "Bündel geladen: %d KB in %.0f ms", source.utf8.count / 1024, (CACurrentMediaTime() - t0) * 1000))
+
+        let server = HttpWsServer(queue: queue, webRoot: payload.appending(path: "controller"))
+        server.onOpen = { [weak self] id in _ = self?.instance?.invokeMethod("open", withArguments: [id]) }
+        server.onMessage = { [weak self] id, text in _ = self?.instance?.invokeMethod("message", withArguments: [id, text]) }
+        server.onClosed = { [weak self] id in _ = self?.instance?.invokeMethod("closed", withArguments: [id]) }
+        self.server = server
+        server.start(port: 8787) { [weak self] port in self?.create(port: port, wasm: wasm) }
+    }
+
+    private func create(port: UInt16, wasm: Data) {
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") // like apps/server/src/ids.ts
+        let code = String((0..<4).map { _ in alphabet.randomElement()! })
+        let joinUrl = "http://\(lanIPv4() ?? "127.0.0.1"):\(port)/?code=\(code)"
+        hostLog("JOIN-URL \(joinUrl)")
+
+        let env = JSValue(newObjectIn: context)!
+        let send: @convention(block) (Int, String) -> Void = { [weak self] id, text in self?.server?.send(id, text) }
+        let close: @convention(block) (Int, Int, String) -> Void = { [weak self] id, code, reason in
+            self?.server?.close(id, code: code, reason: reason)
+        }
+        let log: @convention(block) (String) -> Void = { hostLog("JS \($0)") }
+        let randomBytes: @convention(block) (Int) -> [NSNumber] = { n in
+            var bytes = [UInt8](repeating: 0, count: max(0, min(n, 65536)))
+            precondition(SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess, "SecRandomCopyBytes")
+            return bytes.map { NSNumber(value: $0) }
+        }
+        env.setValue(unsafeBitCast(send, to: AnyObject.self), forProperty: "send")
+        env.setValue(unsafeBitCast(close, to: AnyObject.self), forProperty: "close")
+        env.setValue(unsafeBitCast(log, to: AnyObject.self), forProperty: "log")
+        env.setValue(unsafeBitCast(randomBytes, to: AnyObject.self), forProperty: "randomBytes")
+        env.setValue(joinUrl, forProperty: "joinUrl")
+        env.setValue(code, forProperty: "joinCode")
+        let ref = context.jsGlobalContextRef
+        let typed = JSObjectMakeTypedArray(ref, kJSTypedArrayTypeUint8Array, wasm.count, nil)
+        wasm.copyBytes(to: JSObjectGetTypedArrayBytesPtr(ref, typed, nil).assumingMemoryBound(to: UInt8.self), count: wasm.count)
+        env.setValue(JSValue(jsValueRef: typed, in: context), forProperty: "havokWasm")
+
+        let t0 = CACurrentMediaTime()
+        let created = context.objectForKeyedSubscript("ChaosHost")?.invokeMethod("create", withArguments: [env])
+        guard let created, created.isObject else { return fail("ChaosHost.create fehlgeschlagen (siehe JS-FEHLER)") }
+        instance = created
+        hostLog(String(format: "ChaosHost.create in %.0f ms", (CACurrentMediaTime() - t0) * 1000))
+        DispatchQueue.main.async {
+            self.ready = true
+            self.overlay.joinUrl = joinUrl
+            self.overlay.status = "Bereit – Controller scannen den QR-Code"
+        }
+    }
+
+    private func fail(_ message: String) {
+        hostLog("FEHLER \(message)")
+        DispatchQueue.main.async { self.overlay.status = "Fehler: \(message)" }
+    }
+
+    /// Main thread, once per displayed frame. Skips the JS tick while the previous one still runs.
+    func frame(dtMs: Double, apply: @escaping (RenderState) -> Void) {
+        if dtMs > 0 { frameMs.append(dtMs) }
+        report()
+        guard ready else { return }
+        guard !busy else { skipped += 1; return }
+        busy = true
+        let now = CACurrentMediaTime() * 1000 // monotonic, as jscore expects
+        queue.async {
+            let t0 = CACurrentMediaTime()
+            _ = self.instance?.invokeMethod("tick", withArguments: [now])
+            let json = self.instance?.invokeMethod("renderState", withArguments: [])?.toString() ?? ""
+            let ms = (CACurrentMediaTime() - t0) * 1000
+            var state: RenderState?
+            do { state = try JSONDecoder().decode(RenderState.self, from: Data(json.utf8)) } catch {
+                if !self.decodeFailed { hostLog("FEHLER renderState: \(error) – \(json.prefix(300))") }
+                self.decodeFailed = true
+            }
+            let connections = self.server?.connectionCount ?? 0
+            DispatchQueue.main.async {
+                self.busy = false
+                self.jsMs.append(ms)
+                self.connections = connections
+                guard let state else { return }
+                self.lastState = state
+                apply(state)
+                self.publish(state)
+            }
+        }
+    }
+
+    private func publish(_ s: RenderState) {
+        var o = overlay
+        o.phase = s.phase
+        if let url = s.lobby?.joinUrl, !url.isEmpty { o.joinUrl = url }
+        o.players = (s.lobby?.players ?? []).map {
+            "\($0.slot). \($0.name ?? "?")\($0.connected == false ? " (getrennt)" : "")\($0.ready == true ? " ✓" : "")"
+        }
+        if s.phase == "minigame", let m = s.minigame {
+            o.lines = ["\(m.id) · \(m.stage ?? "")", m.hud ?? ""].filter { !$0.isEmpty }
+        } else if let b = s.board {
+            o.lines = ["Runde \(b.round ?? 0)/\(b.rounds ?? 0) – am Zug: Spieler \(b.activeSlot.map(String.init) ?? "–")"]
+                + (b.messages ?? []).suffix(4)
+        } else {
+            o.lines = [s.phase]
+        }
+        if o != overlay { overlay = o }
+        let players = s.lobby?.players ?? []
+        if autostart, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) { command("start") }
+    }
+
+    private func report() {
+        let now = CACurrentMediaTime()
+        guard now - windowStart >= 10, !frameMs.isEmpty else { return }
+        let frames = frameMs.sorted(), js = jsMs.sorted()
+        #if os(tvOS)
+        let platform = "tvos"
+        #else
+        let platform = "macos"
+        #endif
+        let result: [String: Any] = [
+            "spike": "CHAOS-138", "plattform": platform, "phase": lastState?.phase ?? "start",
+            "verbindungen": connections, "koerper": lastState?.minigame?.bodies?.count ?? 0,
+            "bilder": frames.count, "bildabstand_ms_median": percentile(frames, 0.5), "bildabstand_ms_p95": percentile(frames, 0.95),
+            "js_ticks": js.count, "js_ms_median": percentile(js, 0.5), "js_ms_p95": percentile(js, 0.95), "js_ms_max": js.last ?? 0,
+            "js_uebersprungen": skipped,
+        ]
+        let json = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        hostLog("SPIKE-ERGEBNIS \(json)")
+        overlay.stats = String(format: "Bild %.1f/%.1f ms · JS %.2f/%.2f ms (Median/p95) · %d Verbindungen",
+                               percentile(frames, 0.5), percentile(frames, 0.95), percentile(js, 0.5), percentile(js, 0.95), connections)
+        frameMs.removeAll(keepingCapacity: true)
+        jsMs.removeAll(keepingCapacity: true)
+        skipped = 0
+        windowStart = now
+    }
+}
+
+func percentile(_ sorted: [Double], _ p: Double) -> Double {
+    sorted.isEmpty ? 0 : sorted[min(sorted.count - 1, Int(Double(sorted.count) * p))]
+}
