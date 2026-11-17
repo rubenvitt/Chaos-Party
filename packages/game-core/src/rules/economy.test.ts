@@ -93,6 +93,7 @@ describe('DEFAULT_RULES und withRules', () => {
         weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
         stealAmount: 5,
         trapAmount: 4,
+        sabotageGrowthRounds: 5,
         trapTrigger: 'pass',
       },
       pacing: {

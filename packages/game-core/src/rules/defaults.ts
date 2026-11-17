@@ -4,8 +4,8 @@ import type { Pacing, RuleSet } from '../types.ts';
  * Standardregeln. Festgelegt per Bot-Simulation in CHAOS-24 (`docs/experiments.md`,
  * EXP-001 … EXP-004; Startwerte davor: `START_RULES` in `experiments.ts`). In M4 (CHAOS-40,
  * EXP-012/013) mit echter Minispiel-Rotation und 10–20 Runden geprüft und unverändert
- * behalten; der Hebel war die Rundenzahl (`apps/server/src/game.ts`). Ob sich das gut anfühlt,
- * entscheidet der Playtest.
+ * behalten; der Hebel war die Rundenzahl (`apps/server/src/game.ts`). Seit CHAOS-67 (EXP-018)
+ * wächst die Sabotage mit der Runde. Ob sich das gut anfühlt, entscheidet der Playtest.
  */
 export const DEFAULT_RULES: RuleSet = {
   diceFaces: [1, 2, 3, 4, 5, 6],
@@ -25,6 +25,9 @@ export const DEFAULT_RULES: RuleSet = {
     weights: { 'double-dice': 3, 'coin-steal': 3, trap: 3, shield: 2 },
     stealAmount: 5,
     trapAmount: 4,
+    // EXP-018: +1 alle 5 Runden (Runde 6–10: Klau 6/Falle 5, 11–15: 7/6 …). Der Bestand wächst
+    // mit den Minispiel-Münzen; feste Werte bissen im letzten Drittel nur noch halb so stark.
+    sabotageGrowthRounds: 5,
     trapTrigger: 'pass',
   },
   pacing: {

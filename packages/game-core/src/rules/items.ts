@@ -4,7 +4,7 @@
  */
 import { pickWeighted } from '../rng.ts';
 import type { ItemKind, Slot } from '../types.ts';
-import { transferCoins } from './economy.ts';
+import { sabotageAmount, transferCoins } from './economy.ts';
 import { activePlayer, playerOf, type Ctx } from './internal.ts';
 import { openRollPrompt, openTargetPrompt } from './prompts.ts';
 import { openReaction } from './reaction.ts';
@@ -85,7 +85,7 @@ export function triggerTrap(ctx: Ctx): void {
   const trap = d.traps[index];
   if (!trap) return;
   d.traps.splice(index, 1);
-  const amount = Math.min(ctx.rules.items.trapAmount, player.coins);
+  const amount = Math.min(sabotageAmount(ctx.rules.items, 'trap', d.round), player.coins);
   ctx.events.push({
     type: 'trap-triggered',
     slot: player.slot,

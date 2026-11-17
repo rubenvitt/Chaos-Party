@@ -1,11 +1,13 @@
 /**
  * Regel-Stellschrauben aus CHAOS-24 (EXP-002/EXP-003): mehrere wandernde Trophäen
  * (`trophy.activeCount`), Start-Items (`items.startItems`) und Fallen beim Darüberlaufen
- * (`items.trapTrigger: 'pass'`).
+ * (`items.trapTrigger: 'pass'`). Dazu aus CHAOS-67 (EXP-018) die wachsende Sabotage
+ * (`items.sabotageGrowthRounds`).
  */
 import { describe, expect, it } from 'vitest';
 import type { BoardEventKind, GameState, Slot } from '../types.ts';
 import { withRules } from './defaults.ts';
+import { sabotageAmount } from './economy.ts';
 import { createGame } from './machine.ts';
 import { loopBoard, TEST_BOARD } from './testBoards.ts';
 import {
@@ -258,5 +260,96 @@ describe('Falle beim Darüberlaufen (items.trapTrigger)', () => {
     expect(ofType(r.events, 'trap-triggered')).toHaveLength(1);
     expect(r.events.some((e) => e.type === 'trophy-bought')).toBe(false);
     expect(playerAt(r.state, slot).spaceId).toBe('l3');
+  });
+});
+
+describe('Wachsende Sabotage (items.sabotageGrowthRounds)', () => {
+  const items = (sabotageGrowthRounds: number) =>
+    withRules({ items: { stealAmount: 5, trapAmount: 4, sabotageGrowthRounds } }, TEST_RULES).items;
+
+  it('0: feste Werte in jeder Runde', () => {
+    for (const round of [0, 1, 6, 20]) {
+      expect(sabotageAmount(items(0), 'coin-steal', round)).toBe(5);
+      expect(sabotageAmount(items(0), 'trap', round)).toBe(4);
+    }
+  });
+
+  it('5: Runde 1–5 Grundwert, 6–10 +1, 11–15 +2, 16–20 +3; vor Runde 1 Grundwert', () => {
+    const steal = [0, 1, 5, 6, 10, 11, 15, 16, 20].map((r) =>
+      sabotageAmount(items(5), 'coin-steal', r),
+    );
+    expect(steal).toEqual([5, 5, 5, 6, 6, 7, 7, 8, 8]);
+    const trap = [1, 5, 6, 11, 16].map((r) => sabotageAmount(items(5), 'trap', r));
+    expect(trap).toEqual([4, 4, 5, 6, 7]);
+  });
+
+  function stealInRound(round: number) {
+    const s0 = startToRoll(
+      newGame({
+        board: loopBoard(['start', 'start']),
+        rounds: 20,
+        rules: { items: { stealAmount: 5, sabotageGrowthRounds: 5 } },
+      }),
+    ).state;
+    const attacker = activeSlot(s0);
+    const target = (attacker === 1 ? 2 : 1) as Slot;
+    let s = patchPlayer(s0, attacker, { items: ['coin-steal'] });
+    s = patchPlayer(s, target, { items: [], coins: 20 });
+    s = settle(patchState(s, { round, phase: 'turn-start', prompt: null, resumeAt: s.now })).state;
+    return { state: s, attacker, target };
+  }
+
+  it('Würfel-Prompt zeigt den Klau-Wert der aktuellen Runde', () => {
+    const detail = (round: number) =>
+      stealInRound(round).state.prompt?.options.find((o) => o.id === 'item:coin-steal')?.detail;
+    expect(detail(5)).toBe('Bis zu 5 Münzen klauen');
+    expect(detail(6)).toBe('Bis zu 6 Münzen klauen');
+  });
+
+  it('Klau in Runde 11 nimmt 7 Münzen (Fristablauf), Festhalten halbiert das', () => {
+    const { state, attacker, target } = stealInRound(11);
+    const opened = choose(choose(state, 'item:coin-steal').state, `slot:${String(target)}`).state;
+    const deadline = opened.prompt?.deadline ?? 0;
+    const full = tick(opened, deadline);
+    expect(ofType(full.events, 'coins-stolen')).toEqual([
+      { type: 'coins-stolen', from: target, to: attacker, amount: 7 },
+    ]);
+    const braced = choose(opened, 'brace');
+    expect(ofType(braced.events, 'coins-stolen')[0]?.amount).toBe(3);
+  });
+
+  it('Falle zahlt den Wert der Runde, in der sie auslöst', () => {
+    const board = loopBoard(['coins-plus', 'coins-plus', 'coins-plus']);
+    const s = startToRoll(
+      newGame({
+        board,
+        rounds: 20,
+        rules: { diceFaces: [1], items: { trapAmount: 4, sabotageGrowthRounds: 5 } },
+      }),
+    ).state;
+    const slot = activeSlot(s);
+    const other = (slot === 1 ? 2 : 1) as Slot;
+    const prepared = patchState(patchPlayer(s, slot, { coins: 20 }), {
+      round: 16,
+      traps: [{ spaceId: 'l1', owner: other }],
+    });
+    const r = chain(prepared, (x) => choose(x, 'roll'), settle);
+    expect(ofType(r.events, 'trap-triggered')).toEqual([
+      { type: 'trap-triggered', slot, owner: other, spaceId: 'l1', amount: 7 },
+    ]);
+  });
+
+  it('wirft bei negativer oder nicht ganzzahliger Zahl', () => {
+    for (const sabotageGrowthRounds of [-1, 2.5]) {
+      expect(() =>
+        createGame({
+          board: TEST_BOARD,
+          rules: withRules({ items: { sabotageGrowthRounds } }, TEST_RULES),
+          rounds: 1,
+          seed: 1,
+          players: [{ slot: 1, name: 'A' }],
+        }),
+      ).toThrow(RangeError);
+    }
   });
 });

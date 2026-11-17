@@ -29,6 +29,7 @@ Gameplay-, Art- und Technik-Experimente nach dem Protokoll aus `CLAUDE.md` („E
 | EXP-013 | Sabotage-Häufigkeit und Item-Stärke über lange Partien | CHAOS-40 | keep Klau 5/Falle 4; iterate nach Playtest (erster Hebel Klau 6/Falle 5) |
 | EXP-014 | Host-Grafik auf echter GPU: Engpass der Grafikstufen | CHAOS-73 | keep: PCSS mit Filterstufe LOW, Auflösungsgrenze je Stufe, Automatik merkt sich die Stufe; WebGPU → CHAOS-75 |
 | EXP-016 | Kuckucks-Klatsche überarbeitet: Arcade nur mit A | CHAOS-54 | keep K2: eigene Türen, Gong-Klau, Finten, 1 s benommen, Mitternacht; Finten-Beutel (K8) discard |
+| EXP-018 | Wachsende Sabotage über die Partiedauer | CHAOS-67 | keep F: Klau 5/Falle 4, **+1 alle 5 Runden**; Klau 6/Falle 5 fest discard (Anfang zu hart) |
 
 ---
 
@@ -1401,3 +1402,100 @@ Code: `packages/minigames/src/prototypes/arcade/kuckucksKlatscheBot.ts` (Bots f�
 
 **Entscheidung:** **iterate** – RealityKit rendert die Szene mit allen Instanzen auf allen Apple-Plattformen. Auf der echten Apple TV 4K reicht es bei 4K-Ausgabe nur für 20 fps; weil Ruben bei 4K-Ausgabe bleibt, muss ein tvOS-Host die Pixelkosten senken: geringere interne Auflösung mit Hochskalierung (z. B. MetalFX, eigene Render-Pipeline statt ARView) und gezielte Profilierung mit Instruments. Danach ADR für den tvOS-Host als Entwurf; Rubens Entscheidung zu CHAOS-74 (Produktsäule) steht aus.
 
+---
+
+## EXP-018: Wachsende Sabotage über die Partiedauer (2026-11-17, CHAOS-67)
+
+**Hypothese / gewünschtes Spielerlebnis:** Sabotage (Münzklau, Falle) soll über die ganze Partie spürbar bleiben: Schadenfreude statt Achselzucken, aber kein Frust (VISION, Produktsäule 1). EXP-013 hat gezeigt, dass Sabotage insgesamt nur 3–5 % aller Münzen kostet. Vermutung: Mit festen Werten wird sie zum Ende hin **zahmer**, weil der Bestand mit den Minispiel-Münzen wächst, der Klau aber bei 5 bleibt. Ein Wert, der mit der Runde wächst, sollte das ausgleichen, ohne den Anfang härter zu machen. Klau 6 / Falle 5 (der erste Hebel aus EXP-013) macht dagegen jeden Treffer stärker, auch früh, wenn alle wenig haben.
+
+**Varianten** (10, 16, 20 Runden; 2–4 Spieler):
+- A: Klau 5, Falle 4 fest (Stand vor diesem Experiment)
+- B: Klau 6, Falle 5 fest (Hebel aus EXP-013): stärker, aber auch am Anfang
+- F: 5/4, **+1 alle 5 Runden** (Runde 6–10: 6/5, 11–15: 7/6, 16–20: 8/7)
+- G: 5/4, +1 alle 4 Runden
+- H: 5/4, +1 alle 3 Runden
+- I: 6/5, +1 alle 5 Runden (B und F zusammen)
+
+**Neue Regel-Stellschraube:** `items.sabotageGrowthRounds` im `RuleSet` (`packages/game-core/src/types.ts`, `0` = fest). `sabotageAmount()` in `economy.ts` liefert den Wert der laufenden Runde. Er gilt beim Auslösen: für den Klau beim Auflösen des Reaktionsfensters („Festhalten!“ halbiert den gewachsenen Wert), für die Falle, wenn jemand hineinläuft, nicht beim Legen. Der Würfel-Prompt am Controller zeigt den Wert der laufenden Runde („Bis zu 6 Münzen klauen“). Protokoll und Apps bleiben unverändert, weil Host und Controller die Beträge aus den Ereignissen bzw. dem Prompt-Text nehmen.
+
+**Objektive Messgrößen:** wie EXP-013 (Sabotagen je Partie, Verlust/Einnahmen, Verlust/Bestand mit p90, Münzen je Treffer, Spitzenopfer), neu **Verlust/Bestand im ersten und im letzten Drittel** der Partie (`SabotageLoss.round`) und Münzen je Treffer im letzten Drittel; als Nebenwirkung Sieg per Trophäen, Siegquote des Halbzeit-Führenden, Trophäen je Partie. Zielwerte aus EXP-003/013: Verlust je Treffer im Mittel ≤ 25 % des Bestands, Spitzenopfer über die Partie im Mittel höchstens etwa eine Trophäe (15 Münzen).
+
+**Subjektive Playtest-Fragen (für Ruben):** Merkt man, dass der Klau später mehr bringt (6, 7, 8 Münzen), und macht das das Ende spannender? Fühlt sich ein Klau über 8 Münzen in Runde 16+ gemein an? Bleibt Sabotage zu zweit trotzdem zu selten (Häufigkeit ändert diese Stellschraube nicht)?
+
+**Testumgebung:** wie „Gemeinsamer Aufbau von EXP-011 … EXP-013“, aber mit der aktuellen Rotation aus **vier** Minispielen (inkl. Kuckucks-Klatsche, CHAOS-54). Seeds 1–200 je Zeile, Node 22, Linux-Container, Basis-Commit `3703994`. Die Zahlen für A weichen deshalb leicht von EXP-013 ab. Alle Varianten setzen `sabotageGrowthRounds` ausdrücklich und bleiben unabhängig vom Standard wiederholbar (≈ 8 s):
+
+```sh
+EXPERIMENTS=growth pnpm exec vitest run packages/game-core/src/rules/experimentsM4.test.ts --silent=false
+```
+
+**Ergebnisse:**
+
+| Runden | Variante | Sp. | Sabotagen/Partie | Verlust/Einnahmen | Verlust/Bestand | p90 | 1. Drittel | 3. Drittel | Münzen/Treffer | Münzen/Treffer 3. Drittel | Spitzenopfer Münzen | p90 | Spitzenopfer/Einnahmen | Sieg per Trophäen | Führender (Hälfte) gewinnt | Trophäen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 1,73 | 3 % | 19 % | 42 % | 25 % | 13 % | 3,6 | 3,7 | 4,2 | 8 | 5 % | 85 % | 77 % | 5,03 |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 2,85 | 4 % | 17 % | 36 % | 23 % | 14 % | 3,7 | 3,8 | 6,2 | 10 | 8 % | 72 % | 59 % | 6,01 |
+| 10 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 3,92 | 5 % | 19 % | 38 % | 22 % | 18 % | 3,7 | 3,8 | 7,3 | 12 | 12 % | 67 % | 55 % | 6,53 |
+| 10 | B: Klau 6, Falle 5 | 2 | 1,74 | 4 % | 24 % | 50 % | 32 % | 16 % | 4,6 | 4,7 | 5,3 | 11 | 6 % | 86 % | 77 % | 5,04 |
+| 10 | B: Klau 6, Falle 5 | 3 | 2,85 | 5 % | 22 % | 45 % | 29 % | 18 % | 4,7 | 4,8 | 7,8 | 12 | 10 % | 73 % | 60 % | 6,00 |
+| 10 | B: Klau 6, Falle 5 | 4 | 3,94 | 7 % | 24 % | 46 % | 28 % | 23 % | 4,7 | 4,8 | 9,1 | 14 | 14 % | 66 % | 56 % | 6,58 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 1,73 | 3 % | 21 % | 46 % | 25 % | 16 % | 4,1 | 4,7 | 4,7 | 9 | 5 % | 85 % | 76 % | 5,01 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 2,86 | 5 % | 19 % | 38 % | 23 % | 17 % | 4,2 | 4,8 | 7,1 | 11 | 9 % | 72 % | 59 % | 5,99 |
+| 10 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 3,92 | 6 % | 21 % | 38 % | 22 % | 22 % | 4,2 | 4,8 | 8,3 | 13 | 13 % | 67 % | 55 % | 6,51 |
+| 10 | G: 5/4, +1 alle 4 Runden | 2 | 1,73 | 4 % | 22 % | 50 % | 25 % | 18 % | 4,3 | 5,2 | 5,1 | 9 | 6 % | 85 % | 76 % | 5,01 |
+| 10 | G: 5/4, +1 alle 4 Runden | 3 | 2,86 | 5 % | 20 % | 38 % | 23 % | 19 % | 4,5 | 5,3 | 7,6 | 12 | 10 % | 72 % | 58 % | 5,99 |
+| 10 | G: 5/4, +1 alle 4 Runden | 4 | 3,94 | 6 % | 22 % | 38 % | 22 % | 24 % | 4,5 | 5,2 | 8,9 | 14 | 14 % | 66 % | 55 % | 6,53 |
+| 10 | H: 5/4, +1 alle 3 Runden | 2 | 1,73 | 4 % | 22 % | 50 % | 25 % | 19 % | 4,6 | 5,7 | 5,4 | 10 | 6 % | 84 % | 76 % | 5,01 |
+| 10 | H: 5/4, +1 alle 3 Runden | 3 | 2,86 | 5 % | 21 % | 41 % | 23 % | 21 % | 4,8 | 5,9 | 8,2 | 13 | 10 % | 72 % | 59 % | 6,00 |
+| 10 | H: 5/4, +1 alle 3 Runden | 4 | 3,94 | 7 % | 24 % | 40 % | 22 % | 26 % | 4,8 | 5,8 | 9,6 | 15 | 15 % | 67 % | 56 % | 6,52 |
+| 10 | I: 6/5, +1 alle 5 Runden | 2 | 1,74 | 4 % | 25 % | 50 % | 32 % | 18 % | 4,9 | 5,5 | 5,7 | 11 | 6 % | 86 % | 77 % | 5,02 |
+| 10 | I: 6/5, +1 alle 5 Runden | 3 | 2,85 | 6 % | 23 % | 46 % | 29 % | 20 % | 5,1 | 5,6 | 8,5 | 13 | 11 % | 73 % | 60 % | 5,99 |
+| 10 | I: 6/5, +1 alle 5 Runden | 4 | 3,96 | 7 % | 26 % | 46 % | 28 % | 27 % | 5,1 | 5,5 | 9,9 | 16 | 16 % | 66 % | 55 % | 6,57 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 2,67 | 3 % | 15 % | 29 % | 24 % | 8 % | 3,6 | 3,8 | 6,3 | 10 | 4 % | 88 % | 82 % | 9,38 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 4,46 | 4 % | 14 % | 29 % | 21 % | 9 % | 3,7 | 3,8 | 8,9 | 14 | 7 % | 78 % | 66 % | 11,43 |
+| 16 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 5,89 | 5 % | 17 % | 33 % | 20 % | 13 % | 3,7 | 3,8 | 10,0 | 15 | 10 % | 72 % | 56 % | 13,28 |
+| 16 | B: Klau 6, Falle 5 | 2 | 2,68 | 4 % | 19 % | 37 % | 30 % | 10 % | 4,6 | 4,8 | 8,0 | 13 | 5 % | 88 % | 80 % | 9,36 |
+| 16 | B: Klau 6, Falle 5 | 3 | 4,47 | 5 % | 18 % | 35 % | 27 % | 12 % | 4,7 | 4,8 | 11,2 | 17 | 9 % | 79 % | 67 % | 11,40 |
+| 16 | B: Klau 6, Falle 5 | 4 | 5,95 | 6 % | 21 % | 43 % | 25 % | 15 % | 4,7 | 4,8 | 12,4 | 18 | 12 % | 72 % | 55 % | 13,24 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 2,67 | 4 % | 18 % | 35 % | 24 % | 12 % | 4,7 | 5,8 | 8,1 | 14 | 6 % | 88 % | 80 % | 9,35 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 4,46 | 5 % | 17 % | 37 % | 21 % | 15 % | 4,8 | 5,8 | 11,4 | 17 | 9 % | 78 % | 66 % | 11,44 |
+| 16 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 5,86 | 6 % | 20 % | 38 % | 20 % | 18 % | 4,7 | 5,7 | 12,5 | 18 | 12 % | 74 % | 56 % | 13,21 |
+| 16 | G: 5/4, +1 alle 4 Runden | 2 | 2,67 | 4 % | 18 % | 36 % | 25 % | 13 % | 5,0 | 6,2 | 8,7 | 15 | 6 % | 88 % | 80 % | 9,35 |
+| 16 | G: 5/4, +1 alle 4 Runden | 3 | 4,45 | 5 % | 18 % | 38 % | 22 % | 15 % | 5,1 | 6,3 | 12,2 | 19 | 10 % | 78 % | 67 % | 11,42 |
+| 16 | G: 5/4, +1 alle 4 Runden | 4 | 5,88 | 7 % | 21 % | 40 % | 20 % | 20 % | 5,1 | 6,3 | 13,6 | 20 | 13 % | 76 % | 54 % | 13,18 |
+| 16 | H: 5/4, +1 alle 3 Runden | 2 | 2,67 | 4 % | 20 % | 40 % | 25 % | 15 % | 5,6 | 7,3 | 9,8 | 17 | 7 % | 89 % | 80 % | 9,34 |
+| 16 | H: 5/4, +1 alle 3 Runden | 3 | 4,44 | 6 % | 20 % | 39 % | 22 % | 18 % | 5,7 | 7,3 | 13,6 | 21 | 11 % | 78 % | 66 % | 11,46 |
+| 16 | H: 5/4, +1 alle 3 Runden | 4 | 5,88 | 7 % | 23 % | 46 % | 21 % | 23 % | 5,6 | 7,3 | 15,0 | 21 | 14 % | 76 % | 54 % | 13,18 |
+| 16 | I: 6/5, +1 alle 5 Runden | 2 | 2,68 | 4 % | 21 % | 40 % | 30 % | 14 % | 5,6 | 6,7 | 9,7 | 17 | 7 % | 88 % | 79 % | 9,32 |
+| 16 | I: 6/5, +1 alle 5 Runden | 3 | 4,46 | 6 % | 21 % | 41 % | 27 % | 16 % | 5,7 | 6,8 | 13,6 | 20 | 11 % | 79 % | 69 % | 11,43 |
+| 16 | I: 6/5, +1 alle 5 Runden | 4 | 5,95 | 7 % | 24 % | 46 % | 25 % | 21 % | 5,6 | 6,7 | 14,8 | 21 | 14 % | 74 % | 56 % | 13,21 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 2 | 3,21 | 3 % | 14 % | 28 % | 23 % | 7 % | 3,7 | 3,9 | 7,5 | 13 | 4 % | 90 % | 79 % | 11,77 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 3 | 5,31 | 4 % | 13 % | 27 % | 20 % | 7 % | 3,7 | 3,8 | 10,3 | 15 | 7 % | 83 % | 65 % | 14,45 |
+| 20 | A: Klau 5, Falle 4 (fest, vorher Stand) | 4 | 7,10 | 5 % | 16 % | 33 % | 20 % | 11 % | 3,7 | 3,7 | 11,5 | 16 | 9 % | 78 % | 54 % | 16,80 |
+| 20 | B: Klau 6, Falle 5 | 2 | 3,23 | 4 % | 17 % | 32 % | 30 % | 9 % | 4,7 | 4,9 | 9,5 | 16 | 5 % | 91 % | 79 % | 11,72 |
+| 20 | B: Klau 6, Falle 5 | 3 | 5,33 | 5 % | 17 % | 32 % | 25 % | 10 % | 4,8 | 4,9 | 12,9 | 19 | 8 % | 83 % | 65 % | 14,35 |
+| 20 | B: Klau 6, Falle 5 | 4 | 7,20 | 6 % | 20 % | 38 % | 25 % | 14 % | 4,7 | 4,7 | 14,3 | 21 | 11 % | 78 % | 55 % | 16,75 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 2 | 3,22 | 4 % | 16 % | 31 % | 24 % | 11 % | 5,0 | 6,4 | 10,2 | 18 | 6 % | 91 % | 80 % | 11,71 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 3 | 5,29 | 5 % | 16 % | 33 % | 21 % | 12 % | 5,1 | 6,4 | 14,0 | 20 | 9 % | 84 % | 64 % | 14,41 |
+| 20 | F: 5/4, +1 alle 5 Runden (neuer Stand) | 4 | 7,08 | 6 % | 20 % | 38 % | 20 % | 18 % | 5,0 | 6,1 | 15,1 | 23 | 12 % | 80 % | 55 % | 16,74 |
+| 20 | G: 5/4, +1 alle 4 Runden | 2 | 3,23 | 4 % | 17 % | 33 % | 24 % | 13 % | 5,4 | 7,1 | 11,1 | 19 | 6 % | 91 % | 80 % | 11,71 |
+| 20 | G: 5/4, +1 alle 4 Runden | 3 | 5,28 | 6 % | 17 % | 35 % | 21 % | 13 % | 5,5 | 7,1 | 15,1 | 22 | 10 % | 84 % | 66 % | 14,38 |
+| 20 | G: 5/4, +1 alle 4 Runden | 4 | 7,09 | 7 % | 21 % | 41 % | 21 % | 20 % | 5,4 | 6,9 | 16,6 | 25 | 13 % | 79 % | 55 % | 16,66 |
+| 20 | H: 5/4, +1 alle 3 Runden | 2 | 3,22 | 5 % | 19 % | 36 % | 25 % | 15 % | 6,1 | 8,4 | 12,6 | 22 | 7 % | 91 % | 80 % | 11,71 |
+| 20 | H: 5/4, +1 alle 3 Runden | 3 | 5,25 | 6 % | 19 % | 38 % | 21 % | 16 % | 6,2 | 8,4 | 17,0 | 25 | 11 % | 84 % | 67 % | 14,38 |
+| 20 | H: 5/4, +1 alle 3 Runden | 4 | 7,04 | 7 % | 23 % | 46 % | 21 % | 23 % | 6,0 | 8,1 | 18,4 | 28 | 14 % | 80 % | 51 % | 16,72 |
+| 20 | I: 6/5, +1 alle 5 Runden | 2 | 3,23 | 5 % | 20 % | 38 % | 30 % | 13 % | 5,9 | 7,3 | 12,0 | 21 | 6 % | 91 % | 79 % | 11,69 |
+| 20 | I: 6/5, +1 alle 5 Runden | 3 | 5,28 | 6 % | 20 % | 38 % | 26 % | 14 % | 6,0 | 7,3 | 16,3 | 23 | 10 % | 83 % | 66 % | 14,34 |
+| 20 | I: 6/5, +1 alle 5 Runden | 4 | 7,18 | 7 % | 23 % | 46 % | 25 % | 20 % | 5,9 | 7,0 | 17,8 | 27 | 14 % | 79 % | 52 % | 16,66 |
+
+- **Feste Werte werden zahm:** Bei A nimmt ein Treffer im ersten Drittel 20–25 % des Bestands, im letzten Drittel nur noch 13–18 % (10 Runden), 8–13 % (16 Runden) und 7–11 % (20 Runden). Die Hypothese stimmt.
+- **Klau 6 / Falle 5 (B) trifft den Falschen:** Im ersten Drittel steigt der Biss auf 28–32 % und liegt damit über dem Ziel ≤ 25 % aus EXP-003. Am Ende bleibt es bei 9–14 % (20 Runden). B macht den Anfang härter, ohne das Ende zu retten.
+- **Wachsend (F) gleicht aus:** Im ersten Drittel ist F identisch mit A (20–25 %). Im letzten Drittel steigt der Biss auf 16–22 % (10 Runden) bzw. 11–18 % (20 Runden). Insgesamt 16–21 % je Treffer (p90 ≤ 46 %), Sabotage kostet 3–6 % aller Münzen. Das Spitzenopfer verliert bei 10 Runden 4,7–8,3 Münzen (p90 9–13), bei 20 Runden 10–15 (p90 18–23), also auch in langen Partien im Mittel höchstens eine Trophäe.
+- **Schneller wachsend (G, H) überzieht lange Partien:** H bringt im letzten Drittel 8 Münzen je Treffer, das Spitzenopfer verliert bei 20 Runden / 4 Spielern 18 Münzen (p90 28, fast zwei Trophäen). G liegt dazwischen (16,6, p90 25). I (6/5 + Wachstum) erbt die harte Anfangsphase von B.
+- **Wertung unberührt:** Trophäen je Partie, Sieg per Trophäen und die Siegquote des Halbzeit-Führenden ändern sich in keiner Variante über das Rauschen hinaus (± 2 Prozentpunkte). Wachsende Sabotage ist also **keine Aufholhilfe**; dafür bleibt CHAOS-65.
+- **Häufigkeit unverändert:** Die Stellschraube ändert nur die Stärke. Zu zweit gibt es weiterhin nur etwa alle 6 Runden eine Sabotage (1,7 je 10-Runden-Partie).
+
+**Entscheidung:** **keep F** – `sabotageGrowthRounds: 5` in `DEFAULT_RULES` (`packages/game-core/src/rules/defaults.ts`). F ist die stärkste Variante, die alle Zielwerte einhält. Sie lässt den bewährten Anfang unverändert und gibt das zurück, was der wachsende Bestand der Sabotage nimmt. Beim Standard von 10 Runden heißt das: Ab Runde 6 klaut man 6 statt 5 Münzen, eine Falle kostet 5 statt 4. **discard** B als Standard (Anfang zu hart), G und H (lange Partien zu hart), I (wie B). Rückweg ohne Codeänderung: `sabotageGrowthRounds: 0`.
+
+Die Aufgabe sah „nach Playtest-Feedback“ vor. Die Sabotage-Frage aus der M4-Abnahme (CHAOS-43, Frage 4) blieb unbeantwortet, weil die Partie auf Rubens Hardware ruckelte. Die Entscheidung beruht deshalb nur auf der Simulation. Sie ist klein, lässt sich mit einem Wert zurücknehmen und gehört in den nächsten Playtest.
+
+**Offen für Playtest:** Fühlt sich das Ende mit 6–8 Münzen Klau spannender an oder gemeiner? Fällt das Wachsen überhaupt auf? Der Host kündigt es bisher nicht an, nur der Controller zeigt den höheren Wert (Idee: CHAOS-120 im Backlog CHAOS-44). Die Falle zahlt den Wert der Runde, in der sie auslöst; wer sie in Runde 5 legt, sieht dort noch „Kostet andere 4 Münzen“, auch wenn sie erst in Runde 6 fünf Münzen bringt.
