@@ -145,6 +145,7 @@ const lobbyMask = (page: Page) => [
       '.lobby-player-label',
       '.lobby-player-state',
       '.player-symbol',
+      '.lobby-toggle-text',
       '.start-button',
       '.start-hint',
       '.hud-title',

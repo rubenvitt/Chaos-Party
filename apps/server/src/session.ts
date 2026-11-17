@@ -59,7 +59,7 @@ import {
   type PickCharacterMessage,
 } from '@chaos-party/protocol';
 import { randomInt } from 'node:crypto';
-import { BoardGame, DEFAULT_GAME_SETTINGS, type BoardGameSettings } from './game.ts';
+import { BoardGame, DEFAULT_GAME_SETTINGS, rulesForGame, type BoardGameSettings } from './game.ts';
 import { generateToken, isValidJoinCode } from './ids.ts';
 import { DEFAULT_RATE_LIMIT, TokenBucket, type RateLimitOptions } from './rate-limit.ts';
 
@@ -223,6 +223,8 @@ export interface SessionSnapshot {
   game: { seed: number; state: BoardGame['state'] } | null;
   /** Rundenzahl der nächsten Partie (Lobby-Einstellung, v4). */
   rounds: number;
+  /** „Mehr Zeit zum Reagieren“ für die nächste Partie (Lobby-Einstellung, CHAOS-124). */
+  moreReactionTime: boolean;
   /**
    * Wer die laufende Pause ausgelöst hat: `host` (Befehl `pause`), `host-lost` (Auto-Pause,
    * weil der Host die Verbindung verlor, CHAOS-38) oder `null` (keine Pause).
@@ -289,6 +291,11 @@ export class Session {
   private game: BoardGame | null = null;
   /** Rundenzahl der nächsten Partie (`configure`, `start.rounds`). */
   private rounds: number;
+  /**
+   * „Mehr Zeit zum Reagieren“ (CHAOS-124, `configure`): gilt ab dem nächsten Start und bleibt
+   * über `rematch` erhalten.
+   */
+  private moreReactionTime: boolean;
   /** Zuletzt gesendeter Kontext je Slot (nur bei Änderung neu senden). */
   private readonly contextKeys = new Map<SlotNumber, string>();
   /** Auslöser der laufenden Pause (`null` = keine). */
@@ -342,6 +349,7 @@ export class Session {
       throw new Error(`Ungültige Spiel-Einstellungen: ${JSON.stringify(settings)}`);
     }
     this.rounds = this.gameSettings.rounds;
+    this.moreReactionTime = this.gameSettings.moreReactionTime ?? false;
     this.randomSeed = options.randomSeed ?? (() => randomInt(0, 2 ** 31));
     this.onGameStart = options.onGameStart;
   }
@@ -457,6 +465,7 @@ export class Session {
       droppedInputs: this.droppedInputs,
       game: this.game ? { seed: this.game.seed, state: this.game.state } : null,
       rounds: this.rounds,
+      moreReactionTime: this.moreReactionTime,
       pausedBy: this.game?.paused ? this.pauseCause : null,
       awaitingHostReady: this.hostReadyDeadline !== null,
     };
@@ -557,8 +566,16 @@ export class Session {
         return;
       case 'configure':
         // Rundenzahl der nächsten Partie (Schema prüft 1–MAX_ROUNDS); Lobby und Controller zeigen sie.
-        if (this.rounds !== message.rounds) {
+        if (message.rounds !== undefined && this.rounds !== message.rounds) {
           this.rounds = message.rounds;
+          this.lobbyDirty = true;
+        }
+        // Längeres Reaktionsfenster (CHAOS-124); die Lobby am PC zeigt den Schalter.
+        if (
+          message.moreReactionTime !== undefined &&
+          this.moreReactionTime !== message.moreReactionTime
+        ) {
+          this.moreReactionTime = message.moreReactionTime;
           this.lobbyDirty = true;
         }
         return;
@@ -908,7 +925,11 @@ export class Session {
    */
   private startBoardGame(players: Player[], rounds: number): void {
     const seed = this.gameSettings.seed ?? this.randomSeed();
-    const settings = { ...this.gameSettings, rounds };
+    const settings = {
+      ...this.gameSettings,
+      rounds,
+      rules: rulesForGame(this.gameSettings.rules, this.moreReactionTime),
+    };
     const game = new BoardGame(
       players.map((player) => ({
         slot: player.slot,
@@ -1259,7 +1280,11 @@ export class Session {
         : { joinUrlAlternatives: [...this.joinUrlAlternatives] }),
       phase: this.phaseValue,
       players,
-      settings: { rounds: this.rounds, roundPresets: [...this.gameSettings.roundPresets] },
+      settings: {
+        rounds: this.rounds,
+        roundPresets: [...this.gameSettings.roundPresets],
+        moreReactionTime: this.moreReactionTime,
+      },
     });
   }
 
