@@ -5,9 +5,15 @@ import {
   type BoardView,
 } from '@chaos-party/protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { FLIGHT_EVENT_MS, GUST_FLIGHT_MS, POPUP_MS, SWAP_FLIGHT_MS } from './animation.ts';
+import {
+  FLIGHT_EVENT_MS,
+  GUST_FLIGHT_MS,
+  POPUP_MS,
+  SABOTAGE_NOTICE_PAUSE_MS,
+  SWAP_FLIGHT_MS,
+} from './animation.ts';
 import { DEMO_VIEW } from './demo.ts';
-import { createBoardDirector, MESSAGE_MS, toQueueItems } from './director.ts';
+import { createBoardDirector, MESSAGE_MS, NOTICE_MS, toQueueItems } from './director.ts';
 
 const STEP = DEMO_VIEW.stepMs;
 
@@ -193,6 +199,40 @@ describe('createBoardDirector', () => {
     expect(director.getFrame().popups).toEqual([]);
     director.advance(MESSAGE_MS);
     expect(director.getHud().messages).toEqual([]);
+  });
+
+  it('blendet „Sabotage wird stärker!“ ein, hält kurz an und blendet aus (CHAOS-120)', () => {
+    const director = started();
+    const next: BoardView = { ...DEMO_VIEW, round: 3, gamePhase: 'turn-start', prompt: null };
+    director.receive(
+      msg(
+        next,
+        [
+          { type: 'round-started', round: 3, sabotage: { steal: 6, trap: 5 } },
+          { type: 'turn-started', slot: 1, round: 3 },
+        ],
+        0,
+      ),
+    );
+    expect(director.getHud().notice).toMatchObject({
+      title: 'Sabotage wird stärker!',
+      detail: 'Klau: 6 Münzen · Falle: 5 Münzen',
+    });
+    expect(director.getHud().messages.map((m) => m.text)).toEqual(['Runde 3 beginnt!']);
+    // Kurze Pause vor dem Zugbeginn: Stand wird erst danach übernommen.
+    director.advance(SABOTAGE_NOTICE_PAUSE_MS - 1);
+    expect(director.getHud().view?.round).toBe(DEMO_VIEW.round);
+    director.advance(1);
+    expect(director.getHud().view?.round).toBe(3);
+    director.advance(NOTICE_MS - SABOTAGE_NOTICE_PAUSE_MS);
+    expect(director.getHud().notice).toBeNull();
+  });
+
+  it('keine Einblendung bei einem gewöhnlichen Rundenstart', () => {
+    const director = started();
+    director.receive(msg({ ...DEMO_VIEW, round: 3 }, [{ type: 'round-started', round: 3 }], 0));
+    expect(director.getHud().notice).toBeNull();
+    expect(director.animating).toBe(false);
   });
 
   it('zählt den Reaktions-Countdown ab Empfang herunter', () => {

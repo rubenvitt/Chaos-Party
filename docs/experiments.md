@@ -379,6 +379,8 @@ EXPERIMENTS=1 pnpm exec vitest run packages/game-core/src/rules/experiments.test
 
 **Entscheidung:** **keep 3000 ms.** Bei typischen Reaktionszeiten gelingen ≥ 95 %, die Zeitkosten sind vernachlässigbar, und der Druckmoment bleibt kurz. **iterate** nach dem Playtest: Liegt die gemessene Reaktionszeit im Median über ≈ 2 s, auf 3500 ms erhöhen.
 
+**Nachtrag (2026-11-17, CHAOS-124):** Standard bleibt 3000 ms. Für langsamere Reaktionen gibt es die Lobby-Option „Mehr Zeit zum Reagieren“ mit **5000 ms** (Barrierefreiheit, keine Balance-Variante; ADR-015 Nachtrag 5). Begründung aus dem Modell oben, nur aus der Verteilung gerechnet und ohne neue Simulation: Für das Profil „abgelenkt“ (Median 2,3 s, σ 0,45) liegt der Anteil unter der Frist bei 3 s bei 72 % (Simulation: 69 %), bei 4 s bei 89 % und bei 5 s bei 96 %. Mit 5 s gelingt also auch einer deutlich langsameren Person fast jede Reaktion. Zeit kostet das nur, wenn niemand reagiert: höchstens +2 s je Fenster. Ob 5 s reichen, prüft die Gerätecheckliste §23 (RT1–RT4).
+
 **Offen für Playtest:** Ob Menschen das Fenster bemerken, lässt sich nur am echten Gerät beurteilen. Dafür am besten die echten Reaktionszeiten mitschreiben (Vorschlag als Folgeaufgabe).
 
 **Für später (CHAOS-44):** Kurzer Hinweiston am Controller beim Angriff (iOS kann nicht vibrieren). Längeres Fenster als Barrierefreiheits-Option.
@@ -1247,7 +1249,7 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **Fehler im Spike gefunden und behoben:** Der Babylon-Serializer rechnet linkshändig → rechtshändig durch Spiegeln von **x** um, nicht von z. Mit z-Spiegelung stand die Bevy-Kamera auf der Gegenseite (Schrift spiegelverkehrt); jetzt stimmen Kamera, Licht, Figuren und Instanzen mit dem GLB überein.
 - Bevy-API: zwischen den bekannten Versionen und 0.20 viele Umbenennungen (`SceneRoot` → `WorldAssetRoot`, `shadows_enabled` → `shadow_maps_enabled`, `FontSize`); glTF-Erweiterung `EXT_mesh_gpu_instancing` nicht unterstützt (Instanzen deshalb als eigene Datei).
 
-**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 sind offen, sie misst Ruben. Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
+**Ergebnisse auf echter Hardware:** Mac gemessen am 17.11. (MacBook Pro M3 Max, zwei 4K-Monitore mit 60 Hz, nichts anderes lief). PC-Zeilen R1–R6 entfallen: Ruben hat keinen PC zum Messen (17.11., CHAOS-131: „es wird nur mac geben“). Messbogen: [`renderer-spike.md`](renderer-spike.md#5-messbogen).
 
 | # | Kandidat, 1920×1080 | Median | p95 | Bemerkung |
 |---|---|---|---|---|
@@ -1283,7 +1285,7 @@ Neu gerechnet mit `EXPERIMENTS=m4` (Seeds 1–200, gleicher Aufbau, Code `repeat
 - **discard** für Bevy (WebAssembly und nativ) als Host-Renderer. Der Prototyp bleibt als Messlatte.
 - **WebGPU:** bleibt Mess-Schalter. Neu bewertet wird es erst, wenn CHAOS-117 behoben ist.
 - **tvOS:** eigener RealityKit-Spike CHAOS-78 (EXP-017).
-- **Offen:** Die PC-Zeilen R1–R6 trägt CHAOS-131 nach. Verfehlt Babylon dort das Ziel, kommt die Entscheidung wieder zu Ruben.
+- **PC-Messung entfällt (CHAOS-131, 17.11.):** Es gibt keinen PC zum Messen. Die Entscheidung stützt sich dauerhaft auf die Mac-Zeilen. R8 (WebGPU am Mac) ist seit CHAOS-117 gemessen: kein Vorteil.
 
 **Nachtrag 2026-11-17 (CHAOS-117): Warum R8 kein Bild hatte.**
 - **Ursache:** Babylons `MultiRenderTarget` registriert nur die WebGL-Variante von `createMultipleRenderTarget`. `webgpuEngine.js` lädt die WebGPU-Variante (`Engines/WebGPU/Extensions/engine.multiRender.js`) nicht mit. Ab Stufe `hoch` baut SSAO2 einen Geometriepuffer mit mehreren Renderzielen; dort bricht der Aufbau des Bretts mit `createMultipleRenderTarget is not a function` ab. Die Render-Schleife startet nie: 0 Bilder, „Schleifen 0“. `mittel`/`niedrig` brachen nicht ab, hingen aber an der zweiten Ursache (Nachtrag unten).
@@ -1584,6 +1586,8 @@ EXPERIMENTS=growth pnpm exec vitest run packages/game-core/src/rules/experiments
 **Entscheidung:** **keep F** – `sabotageGrowthRounds: 5` in `DEFAULT_RULES` (`packages/game-core/src/rules/defaults.ts`). F ist die stärkste Variante, die alle Zielwerte einhält. Sie lässt den bewährten Anfang unverändert und gibt das zurück, was der wachsende Bestand der Sabotage nimmt. Beim Standard von 10 Runden heißt das: Ab Runde 6 klaut man 6 statt 5 Münzen, eine Falle kostet 5 statt 4. **discard** B als Standard (Anfang zu hart), G und H (lange Partien zu hart), I (wie B). Rückweg ohne Codeänderung: `sabotageGrowthRounds: 0`.
 
 Die Aufgabe sah „nach Playtest-Feedback“ vor. Die Sabotage-Frage aus der M4-Abnahme (CHAOS-43, Frage 4) blieb unbeantwortet, weil die Partie auf Rubens Hardware ruckelte. Die Entscheidung beruht deshalb nur auf der Simulation. Sie ist klein, lässt sich mit einem Wert zurücknehmen und gehört in den nächsten Playtest.
+
+**Nachtrag 2026-11-17 (CHAOS-120):** Das Wachstum wird jetzt angesagt. In jeder Wachstumsrunde trägt `round-started` die neuen Werte (`sabotage: { steal, trap }`, Protokoll v4-Nachtrag), der Host blendet „Sabotage wird stärker!“ mit Klau- und Fallenwert ein (1,2 s Pause vor dem Zugbeginn, tiefer Fallen-Klang). Der Fallen-Text am Controller heißt „Kostet andere ab 4 Münzen“, solange die Falle bis zum Partieende noch mehr bringen kann. Die Regeln selbst ändern sich nicht; die Simulationswerte oben gelten weiter. Gerätetest: Checkliste Abschnitt 24.
 
 **Offen für Playtest:** Fühlt sich das Ende mit 6–8 Münzen Klau spannender an oder gemeiner? Fällt das Wachsen überhaupt auf? Der Host kündigt es bisher nicht an, nur der Controller zeigt den höheren Wert (Idee: CHAOS-120 im Backlog CHAOS-44). Die Falle zahlt den Wert der Runde, in der sie auslöst; wer sie in Runde 5 legt, sieht dort noch „Kostet andere 4 Münzen“, auch wenn sie erst in Runde 6 fünf Münzen bringt.
 
@@ -2119,3 +2123,45 @@ Reihenfolge der Löcher: 2 Personen vorn links, hinten rechts; 3 Personen vorn l
 - **Darstellung (Ruben, 17.11.):** „die app ist unspielbar auf dem tv weil das garnicht die echten grafiken sind“. Erwartet für den Spike, der nur Grundkörper zeichnet. Die echte Grafik ist der nächste Schritt.
 
 **Entscheidung:** **keep (W2 bestätigt).** Hosten allein auf der Apple TV ist machbar: Die Spiellogik kostet im Median unter 1 ms je Bild. Weiter geht es mit der echten Darstellung (Brett-Kulisse und Figuren als USDZ, Regie, Minispiel-Grafik) und mit der Bühnen-Spitze (Aufbau verteilen).
+
+---
+
+## EXP-025: Minispiel-Bühne und Brett ohne Shader-Standbild (2026-11-17, CHAOS-132)
+
+**Hypothese / gewünschtes Spielerlebnis:** Beim Wechsel Brett → Minispiel → Brett steht das Bild nicht. Bisher übersetzten Minispiel-Bühne und Brett alle Shader am Stück (`whenReadyAsync`, KI-25); die Anleitungskarte und ihr Countdown blieben dabei stehen. Annahme: Mit `prepareSceneGradually` aus CHAOS-71 (EXP-021) zerfällt die Vorbereitung in kleine Blöcke.
+
+**Testumgebung:** Sandbox-Linux, 4 Kerne, Headless-Chromium mit SwiftShader (**kein** `KHR_parallel_shader_compile`), 1280×720, Production-Build, frischer Browser je Lauf. Zwei Abläufe:
+- **Minispiel allein:** `/host/?local=1&minigame=<id>&flow=1&players=4&seed=7` (ohne Testmodus, Sparstufe automatisch `minimal`; Stufe `hoch` per `&qualitaet=hoch`), alle 6 Minispiele, je 2 Läufe.
+- **Echter Ablauf:** Perf-Partie (`pnpm perf`, Szenario „Partie“, 4 Bots, Server im selben Rechner), Stufe `minimal`.
+
+Gemessen: Long Tasks (`PerformanceObserver`, > 50 ms) zwischen dem Ende von `runner.prepare` und dem ersten Bild, gelinkte WebGL-Programme je Phase. Messmarken und Skripte nur temporär (Scratchpad), nicht eingecheckt.
+
+**Varianten und Ergebnisse (Minispiel allein):**
+
+| Variante | Längster Block `minimal` | Längster Block `hoch` | Programme im ersten Bild (`hoch`) |
+|---|---|---|---|
+| A: alt, `whenReadyAsync` am Stück | 0,61–0,88 s (Median 0,68) | **1,02–1,81 s** (Median 1,48) | 1 |
+| B: nur `prepareSceneGradually` | ≈ 0,7 s, kein Gewinn | – | – |
+| C: B + Shader-Quellen vorab laden | Vorbereitung ≤ 0,1 s | längster 1,7–2,3 s (erstes Bild) | **21** |
+| D: C + Pre-Pass wie `scene.isReady` + Bildpause vor der ersten Runde (**gewählt**) | 0,54–0,75 s (Median 0,66); davon Shader ≤ 0,14 s | **0,50–0,77 s** (Median 0,63); davon Shader ≤ 0,33 s | 1 |
+
+- **B scheitert an nachgeladenen Shader-Quellen:** Babylon 9 importiert die Quellen je Material-Klasse (`PBRMaterial`, `StandardMaterial`, …) erst beim ersten Effekt. Alle Effekte, die bis dahin entstehen, warten auf denselben Import und übersetzen danach gemeinsam in **einer** Aufgabe (≈ 0,64 s, 15 Programme). Beim Podest fiel das nicht auf, weil das Brett die Quellen schon geladen hatte. `preloadShaderSources` lädt sie vorab über Babylons `_ShaderLoader` (intern, aber stabil seit Babylon 9).
+- **C scheitert bei `hoch` am Pre-Pass:** SSAO2 braucht den Pre-Pass; `scene.isReady` schaltet ihn mit `prePassRenderer.update()` ein, bevor es Materialien prüft. Die Schritte taten das nicht und übersetzten Varianten ohne Pre-Pass. Das erste Bild übersetzte dann 21 Programme neu (≈ 2,1 s).
+- **Restblock bei D liegt vor der Shader-Vorbereitung:** `runner.prepare` (Minispiel-Szene, Figuren) kostet 0,5–0,8 s am Stück, in A und D gleich.
+
+**Echter Ablauf (Perf-Partie, `minimal`), längster Block zwischen Figuren geladen und erstem Bild:**
+
+| | alt (A) | neu (Brett und Bühne schrittweise, Quellen vorab; noch ohne Bildpause vor der ersten Runde) |
+|---|---|---|
+| Brett → Minispiel | 0,74–1,87 s | 0,70–1,25 s |
+| Minispiel → Brett | 0,69–1,84 s | 0,31–1,11 s |
+
+Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung und bleiben offen (CHAOS-152; Kennzahl in `pnpm perf`: CHAOS-153):
+- `new Engine(…)` der Minispiel-Bühne direkt nach dem Entsorgen des Brett-Kontexts: 0,7–2,7 s am Stück. SwiftShader wartet beim neuen Kontext auf das Aufräumen des alten.
+- Brett-Neuaufbau nach jedem Minispiel (Kontext + `buildNatureBoard`, synchron): 1,5–3,4 s.
+- Erste Bilder nach der Vorbereitung: 0,3–1,3 s (vermutlich SwiftShader-JIT beim ersten Zeichnen).
+- Unter Perf-Last kostet ein einzelner Shader-Schritt 0,3–0,7 s; kleiner geht es von JavaScript aus nicht.
+
+**Entscheidung:** keep D. Minispiel-Bühne (`minigame/stage.ts`) und Brett (`board/createBoardScene.ts`) nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt die Shader-Quellen vorab, schaltet den Pre-Pass ein und lässt vor der ersten Runde ein Bild zeichnen. Das Podest (CHAOS-71) profitiert mit.
+
+**Offen (nur auf echter Hardware):** Mit Grafikkarte ohne `KHR_parallel_shader_compile` kostet ein Programm wenige ms; dort war der gebündelte Import-Block (A/B) die wahrscheinliche Spitze. Rubens Messung N4 (Gerätecheckliste) steht aus; ob Kontext-Neuaufbau und Brett-Neuaufbau dort spürbar sind, entscheidet über CHAOS-152.

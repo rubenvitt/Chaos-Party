@@ -28,7 +28,7 @@ import {
   type Outgoing,
 } from '../../server/src/session.ts';
 import { spreadPawns } from '../../host/src/board/layout.ts';
-import { eventText, playerName } from '../../host/src/board/texts.ts';
+import { eventNotice, eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
   type HostCommand,
@@ -284,6 +284,10 @@ function create(env: HostEnv): ChaosHostInstance {
     for (const event of fresh) {
       const text = eventText(event, view, labelOf);
       if (text) messages.push(text.text);
+      // Ansage „Sabotage wird stärker!“ (CHAOS-120): als eigene Ticker-Zeile, bis der native
+      // Host eine große Einblendung hat.
+      const notice = eventNotice(event);
+      if (notice) messages.push(`${notice.title} ${notice.detail}`);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
     resultSender.onView(view);

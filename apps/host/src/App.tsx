@@ -315,6 +315,13 @@ export function App({ config }: AppProps) {
     },
     [command],
   );
+  // „Mehr Zeit zum Reagieren“ (CHAOS-124): Der Schalter zeigt die Server-Einstellung.
+  const onMoreReactionTime = useCallback(
+    (on: boolean) => {
+      command({ type: 'configure', moreReactionTime: on });
+    },
+    [command],
+  );
   const onStart = useCallback(() => {
     // Der Klick auf „Los geht’s!“ ist die Nutzer-Geste, die den Ton freischaltet (CHAOS-33).
     soundEngine().unlock();
@@ -419,6 +426,7 @@ export function App({ config }: AppProps) {
           joinHintSeconds={config.joinHintSeconds}
           onStart={onStart}
           onRounds={onRounds}
+          onMoreReactionTime={onMoreReactionTime}
         />
       )}
     </main>
