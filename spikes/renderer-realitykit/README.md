@@ -1,4 +1,4 @@
-# Renderer-Spike mit RealityKit (CHAOS-78)
+# Renderer-Spike mit RealityKit (CHAOS-78, CHAOS-114)
 
 Wegwerf-Prototyp, nicht Teil des Spiels: dieselbe Testszene wie [`spikes/renderer-bevy`](../renderer-bevy/README.md), nativ mit SwiftUI und RealityKit.
 
@@ -66,6 +66,13 @@ Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` a
 | `bildrate` | – | Undokumentiert (`ARView.__preferredFrameRate`), Wunschbildrate. |
 | `assets` | – | Anderer Ordner mit Assets (Entwicklung). |
 | `server` | – | `ws://<pc>:8787/ws`: als Host verbinden, siehe unten. |
+| `hochskalieren` | 0 | `1`: eigene Render-Schleife mit interner Auflösung und Hochskalierung (CHAOS-114, siehe unten). |
+| `skala` | 0,5 | Interne Auflösung je Achse als Anteil der Anzeige: 0,5 = 1920×1080 bei 4K, 0,667 = 2560×1440, 1 = nativ. |
+| `skalierer` | metalfx | `metalfx` (MetalFX Spatial, tvOS erst ab 27.2, sonst automatisch bilinear) oder `bilinear`. |
+| `imflug` | 2 | Bilder gleichzeitig in Arbeit (1–3). |
+| `tonemapping` | 1 | Nur `RealityRenderer` (offscreen, hochskaliert): `0` schaltet Tonemapping ab. |
+| `ibl` | 1 | `0` lässt das Himmelslicht (IBL) weg. |
+| `material` | voll | Diagnose: `einfach` (ein PBR-Material ohne Texturen für alles) oder `unbeleuchtet` (`UnlitMaterial`). |
 
 ### Szene
 
@@ -121,6 +128,47 @@ Die ARView zeigt 20 fps, weil 34,7 ms GPU-Zeit knapp über 33,3 ms liegen (vsync
 Funktionsproben im Simulator (keine Messungen): iPhone 17 Pro (Querformat), iPad (A16) mit 2360×1640 und tvOS (Apple TV 4K, 3. Generation) mit 3840×2160 laufen beide mit voller Szene und 64 246 Instanzen bei 60 Hz.
 
 Bilder: [`docs/screenshots/chaos78-realitykit-macos.jpg`](../../docs/screenshots/chaos78-realitykit-macos.jpg) (ARView-Schnappschuss ohne HUD), [`…-ipad-sim.jpg`](../../docs/screenshots/chaos78-realitykit-ipad-sim.jpg), [`…-iphone-sim.jpg`](../../docs/screenshots/chaos78-realitykit-iphone-sim.jpg), [`…-tvos-sim.jpg`](../../docs/screenshots/chaos78-realitykit-tvos-sim.jpg).
+
+### Hochskalierter Pfad und Profilierung (CHAOS-114)
+
+**Warum:** Die Apple TV 4K ist bei 4K-Ausgabe pixelgebunden (ARView: 34,7 ms GPU je Bild, 20 fps). Ruben bleibt bei 4K-Ausgabe, also muss die Szene intern kleiner rendern und auf 4K hochskaliert werden. Die ARView bietet dafür keinen Schalter (`contentScaleFactor` wirkte nicht).
+
+**Wie (`--hochskalieren=1`, `Upscaled.swift`):**
+
+- Eine `MetalLayerView` mit `CAMetalLayer` in voller Bildpunktgröße (Apple TV: 3840×2160, `nativeScale` 2).
+- Ein `CADisplayLink` taktet die Schleife. Je Takt übergibt sie ein Bild an `RealityRenderer.updateAndRender` (interne Auflösung, `bgra8Unorm_srgb`, eigene Textur je Platz), sofern einer von `--imflug` Plätzen frei ist. Sonst zählt sie einen ausgelassenen Takt.
+- In `onComplete` (beliebiger Thread) skaliert der `Presenter` hoch: per **MetalFX Spatial** direkt in den Drawable, oder über eine Zwischentextur, wenn der Drawable die nötige Nutzung nicht hat. Alternativ zeichnet ein **bilinearer** Vollbild-Shader. Danach präsentiert er den Drawable.
+- MetalFX **Temporal** ist nicht eingebaut: Es braucht Tiefe und Bewegungsvektoren, `RealityRenderer.CameraOutput` liefert nur Farbe.
+- Gemessen werden die Abstände der wirklich angezeigten Bilder (`MTLDrawable.presentedTime`), nicht die Takte. `SPIKE-ERGEBNIS` (`"spike":"CHAOS-114"`) enthält zusätzlich `intern`, `skalierer`, `imflug`, die GPU-Zeit des Hochskalierens (`hochskalieren_gpu_ms_*`), die Zeit von der Übergabe bis zum fertigen Bild (`uebergabe_bis_fertig_ms_*`), `ausgelassene_takte`, `nicht_angezeigt` und die OS-Version (`os`). Die GPU-Zeit **je Bild insgesamt** (RealityKit + Hochskalieren) zeigt der Metal-HUD.
+- `--bild=…` speichert das hochskalierte Bild in voller Auflösung, zum Vergleich der Schärfe gegen die ARView.
+
+**Messreihe auf der Apple TV** (nach Bauen und Installieren wie oben, Release):
+
+```bash
+cd spikes/renderer-realitykit
+./messreihe-atv.sh <GERÄTE-ID> 20
+```
+
+Das Skript startet alle Varianten nacheinander mit Metal-HUD (ARView als Bezug, interne Auflösungen 0,5/0,667, MetalFX gegen bilinear, MSAA, Bilder im Flug, dazu Diagnose bei nativer 4K-Auflösung: MSAA, Tonemapping, IBL, einfache bzw. unbeleuchtete Materialien und alles aus). Es schreibt je Variante ein Log und `zusammenfassung.tsv` mit Anzeige-fps, Median/p95 und GPU je Bild aus dem HUD. Einzelne Varianten: Namen anhängen, z. B. `./messreihe-atv.sh <ID> 20 arview hoch-0.5-metalfx`. Logs nachträglich auswerten: `./messreihe-atv.sh --auswerten <ordner>`. Eine Runde mit allen 15 Varianten dauert bei 20 s etwa 10 Minuten.
+
+**Instruments (Metal System Trace),** um zu sehen, welche RealityKit-Durchgänge die Zeit kosten:
+
+```bash
+xcrun xctrace record --template 'Metal System Trace' --device <GERÄTE-ID> --time-limit 15s --output atv-4k.trace --launch -- build/Build/Products/Release-appletvos/ChaosRenderSpike.app --sekunden=12
+open atv-4k.trace
+```
+
+Startet `xctrace` die App so nicht, geht es auch in der Instruments-App: Apple TV als Ziel, Vorlage „Metal System Trace“, App wählen, Argumente eintragen, aufnehmen. Zu prüfen sind die GPU-Spur und die Encoder-Namen von RealityKit: Schatten, Hauptdurchgang, MSAA-Auflösung, Tonemapping und Nachbearbeitung, jeweils mit Dauer. Dazu Vertex- gegen Fragmentzeit und, wenn angeboten, die GPU-Zähler (Begrenzer: ALU, Texturabtastung, Bandbreite). Je eine Aufnahme mit ARView und mit `--hochskalieren=1 --skala=1` genügt.
+
+**Erwartung (Hypothese, nicht gemessen):** Bei 0,5 fallen die Pixelkosten auf etwa ein Viertel. Ist die ARView wirklich pixelgebunden, liegt die Szene dann deutlich unter 16,7 ms, plus etwa 1–2 ms für MetalFX bei 4K. Die Offscreen-Werte von CHAOS-78 sprechen nicht dagegen: 720p seriell 33 ms entspricht genau zwei Bildwechseln. Vermutlich wartete jede serielle Runde auf den Takt der Anzeige; erst die überlappende Schleife zeigt die echte Reserve.
+
+**Bekannte Risiken (ungeprüft, kein Mac im Container beim Schreiben):**
+
+- Der Code ist **gebaut, aber nie gelaufen:** Die CI (Xcode 26.6) übersetzt ihn für macOS, iOS und tvOS. Ob die Schleife ein Bild zeigt, ist ungeprüft; zuerst `--hochskalieren=1` am Mac starten (RK8).
+- MetalFX gibt es auf tvOS erst ab **27.2**, und nur, wenn das tvOS-SDK von Xcode es enthält (`#if canImport(MetalFX)`). Sonst fällt der Pfad still auf bilinear zurück; `SPIKE-ERGEBNIS` nennt den tatsächlichen `skalierer`. Weil `RealityRenderer` auf tvOS ab 26.0 läuft, MetalFX aber erst ab 27.2, sollte der Linker MetalFX schwach einbinden. Startet die App auf tvOS < 27.2 nicht, fehlt `-weak_framework MetalFX`.
+- Ob `RealityRenderer` mehrere Bilder gleichzeitig verträgt (`--imflug=2/3`), ist unbekannt. Bei Fehlern oder Bildfehlern `--imflug=1` vergleichen.
+- MetalFX bekommt `bgra8Unorm_srgb` mit `colorProcessingMode = .linear`. Wirkt das Bild zu hell oder zu dunkel, `.perceptual` probieren.
+- `--ibl=0` setzt nur keine Lichtressource. Ob RealityKit dann wirklich ohne IBL rendert oder ein Standardlicht nimmt, ist offen.
 
 ### Unterschiede zu Babylon/Bevy
 
