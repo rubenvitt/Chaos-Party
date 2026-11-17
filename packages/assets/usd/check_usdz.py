@@ -16,7 +16,7 @@ Exit-Code 1 bei Fehlern. Geprüft wird:
   Ort, alle Grundmeshes der Instanz-Gruppen vorhanden, Texturen eingebettet.
 
 RealityKit selbst prüft das nicht: Laden und Aussehen bleiben eine Prüfung am Mac
-(`spikes/renderer-realitykit/convert/check.swift`, Gerätecheckliste).
+(`packages/assets/usd/check_realitykit.swift`, Gerätecheckliste).
 """
 
 from __future__ import annotations

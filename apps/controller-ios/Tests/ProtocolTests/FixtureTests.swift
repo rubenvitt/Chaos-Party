@@ -89,6 +89,18 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
         }
     }
 
+    /// v4 addendum (CHAOS-66/CHAOS-128): optional `repeat`, missing = full intro.
+    @Test func minigameRepeatFlagIsDecoded() throws {
+        func minigame(_ name: String) throws -> ControllerMinigameInfo? {
+            guard case .context(let context) = try ServerMessage.decode(try Fixtures.text("server-to-controller", name))
+            else { return nil }
+            return context.minigame
+        }
+        #expect(try minigame("context-minigame-intro-repeat.json")?.`repeat` == true)
+        let full = try #require(try minigame("context-minigame-intro.json"))
+        #expect(full.`repeat` == nil)
+    }
+
     @Test func enumsMatchProtocolConstants() throws {
         let data = Data(try Fixtures.text(".", "protocol-constants.json").utf8)
         let constants = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
