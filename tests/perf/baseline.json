@@ -6,11 +6,7 @@
     "platform": "linux x64",
     "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz ×4",
     "memoryGB": 16,
-    "loadAverage": [
-      3.97,
-      4.1,
-      2.62
-    ],
+    "loadAverage": [3.97, 4.1, 2.62],
     "browser": "Chromium 153.0.8010.12 headless, SwiftShader (ANGLE), 1280×720, DPR 1"
   },
   "scenarios": {
