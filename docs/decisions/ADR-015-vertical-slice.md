@@ -63,7 +63,7 @@ Unverändert ADR-009: `reconnect` schickt `welcome` + aktuellen Kontext je Slot.
 
 ### Testhelfer
 
-`apps/server/src/testHarness.ts` (aus dem M2/M3-Integrationstest herausgelöst): `Harness` mit künstlicher Uhr, Bots, synthetischem Host (`boards`, `lobbies`, `acks`, `hostInputs`, `errors`) und den Host-Befehlen v4 (`pickCharacter`, `configure`, `pause`, `resume`, `endGame`, `rematch`, `runUntil`). Der komplette Lebenszyklus (Lobby → Figuren → Start → zwei Runden mit echten Minispielen und Pausen → Endstand → Revanche → neue Partie) läuft deterministisch in `apps/server/src/lifecycle.integration.test.ts`.
+`apps/server/src/testHarness.ts` (aus dem M2/M3-Integrationstest herausgelöst): `Harness` mit künstlicher Uhr, Bots, synthetischem Host (`boards`, `lobbies`, `acks`, `hostInputs`, `errors`) und den Host-Befehlen v4 (`pickCharacter`, `configure`, `pause`, `resume`, `endGame`, `rematch`, `runUntil`). Der komplette Lebenszyklus (Lobby → Figuren → Start → zwei Runden mit echten Minispielen und Pausen → Endstand → Revanche → zweite Partie bis zum Endstand mit denselben Controller-Verbindungen, CHAOS-50) läuft deterministisch in `apps/server/src/lifecycle.integration.test.ts`.
 
 ## Betrachtete Alternativen
 

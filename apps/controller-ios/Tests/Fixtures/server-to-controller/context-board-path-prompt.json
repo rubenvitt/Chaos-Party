@@ -1,0 +1,43 @@
+{
+  "v": 4,
+  "type": "context",
+  "slot": 1,
+  "phase": "board",
+  "layout": "board",
+  "actions": [
+    "choose"
+  ],
+  "prompt": {
+    "id": 9,
+    "slot": 1,
+    "kind": "path",
+    "title": "Welcher Weg?",
+    "options": [
+      {
+        "id": "s12",
+        "label": "Links",
+        "detail": "Zum Pilzhain"
+      },
+      {
+        "id": "s20",
+        "label": "Rechts"
+      }
+    ],
+    "remainingMs": 8000
+  },
+  "board": {
+    "gamePhase": "choose-path",
+    "round": 2,
+    "rounds": 5,
+    "coins": 12,
+    "trophies": 1,
+    "items": [
+      "double-dice",
+      "shield"
+    ],
+    "activeSlot": 1,
+    "paused": false,
+    "character": "cactus",
+    "minigameWins": 1
+  }
+}
