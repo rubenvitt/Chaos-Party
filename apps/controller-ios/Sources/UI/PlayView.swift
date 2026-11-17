@@ -388,10 +388,19 @@ struct MinigameCard: View {
                 Text("\(score.formatted(.number.locale(Locale(identifier: "de_DE")))) \(minigame.scoreUnit)")
                     .font(.title3.weight(.semibold))
             }
-            if let reward = minigame.reward {
+            if let reward = minigame.rewardText {
                 HStack(spacing: 8) {
                     GameIcon(name: "coin", size: 28)
-                    Text(reward == 0 ? "Keine Münzen" : reward == 1 ? "+1 Münze" : "+\(reward) Münzen").font(.title3.bold())
+                    Text(reward).font(.title3.bold())
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if let prize = minigame.prizeText {
+                HStack(spacing: 8) {
+                    ForEach(Array((minigame.prizes ?? []).enumerated()), id: \.offset) { _, item in
+                        GameIcon(name: item.rawValue, size: 28)
+                    }
+                    Text(prize).font(.title3.bold()).multilineTextAlignment(.center)
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -401,4 +410,23 @@ struct MinigameCard: View {
     }
 
     private static let cheers = [1: "Gewonnen!", 2: "Stark gespielt!", 3: "Gut gemacht!", 4: "Nächstes Mal!"]
+}
+
+extension ControllerMinigameInfo {
+    /// Coin reward as text (`rewardText` in `minigame/view.ts`); `nil` without `reward`.
+    var rewardText: String? {
+        guard let reward else { return nil }
+        return switch reward {
+        case 0: "Keine Münzen"
+        case 1: "+1 Münze"
+        default: "+\(reward) Münzen"
+        }
+    }
+
+    /// Consolation prize line as in the web controller (`ui/minigame.tsx`, CHAOS-51):
+    /// „Trostpreis: Falle“, several items comma-separated; `nil` when there is none.
+    var prizeText: String? {
+        guard let prizes, !prizes.isEmpty else { return nil }
+        return "Trostpreis: " + prizes.map(\.displayName).joined(separator: ", ")
+    }
 }

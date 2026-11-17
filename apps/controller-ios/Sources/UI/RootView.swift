@@ -25,7 +25,8 @@ extension ControllerState {
         "lobbyReady": .lobbyReadySample, "boardWaiting": .boardWaitingSample,
         "rollPrompt": .rollPromptSample, "targetPrompt": .targetPromptSample,
         "minigameIntro": .minigameIntroSample, "minigamePlay": .minigamePlaySample,
-        "minigameResults": .minigameResultsSample, "minigameAborted": .minigameAbortedSample,
+        "minigameResults": .minigameResultsSample,
+        "minigameConsolation": .minigameConsolationSample, "minigameAborted": .minigameAbortedSample,
         "paused": .pausedSample, "final": .finalSample, "reconnecting": .reconnectingSample,
         "toast": .toastSample, "sessionFull": .sessionFullSample,
         "versionMismatch": .versionMismatchSample, "badCode": .badCodeSample,
@@ -188,6 +189,7 @@ private struct SamplePreview: View {
 #Preview("minigameIntro") { SamplePreview(.minigameIntroSample) }
 #Preview("minigamePlay", traits: .landscapeRight) { SamplePreview(.minigamePlaySample) }
 #Preview("minigameResults") { SamplePreview(.minigameResultsSample) }
+#Preview("minigameConsolation") { SamplePreview(.minigameConsolationSample) }
 #Preview("minigameAborted") { SamplePreview(.minigameAbortedSample) }
 #Preview("paused") { SamplePreview(.pausedSample) }
 #Preview("final") { SamplePreview(.finalSample) }

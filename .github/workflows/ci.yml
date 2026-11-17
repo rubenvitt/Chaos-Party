@@ -137,6 +137,20 @@ jobs:
         if: hashFiles('apps/controller-ios/project.yml') != ''
         run: apps/controller-ios/scripts/run-tests.sh
 
+      # Beleg für geänderte Controller-Bildschirme (CHAOS-127): Beispielzustände im Simulator.
+      - name: Controller-Screenshots (Simulator)
+        if: hashFiles('apps/controller-ios/scripts/screenshots.sh') != ''
+        run: apps/controller-ios/scripts/screenshots.sh minigameConsolation minigameResults
+
+      - name: Controller-Screenshots hochladen
+        if: always() && hashFiles('apps/controller-ios/scripts/screenshots.sh') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: controller-ios-screenshots
+          path: apps/controller-ios/build/screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
       - name: Renderer-Spike bauen (macOS, iOS, tvOS, ohne Signatur)
         if: hashFiles('spikes/renderer-realitykit/project.yml') != ''
         working-directory: spikes/renderer-realitykit

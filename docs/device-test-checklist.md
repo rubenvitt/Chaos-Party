@@ -442,3 +442,14 @@ Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Te
 | TV3 | App Store Connect → TestFlight: Build erscheint, interne Gruppe hinzufügen | Build „Bereit zum Testen“, keine Exportfrage | | |
 | TV4 | Apple TV: TestFlight-App, „Chaos Party“ installieren und starten | Icon mit Parallaxe, Brett mit Gras, Figuren und Schatten wie in RK3 | | Foto |
 | TV5 | Apple TV: App in die oberste Reihe legen | Top-Shelf-Bild erscheint | | |
+
+## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)
+
+**Stand:** 2026-11-17 · **Aufgabe:** CHAOS-127 · **Bild:** [`chaos127-iphone-minigameConsolation.jpg`](screenshots/chaos127-iphone-minigameConsolation.jpg) (Beispielzustand im Simulator, aus CI)
+
+Automatisch geprüft (CI „Native Apps“, Simulator): Die App dekodiert `minigame.prizes` aus der Fixture, die Texte stimmen mit dem Browser-Controller überein („Trostpreis: Falle“), der Beispielzustand `-sample minigameConsolation` wird fotografiert. **Nicht** automatisch geprüft: das echte Ergebnis einer Partie auf einem iPhone mit der TestFlight-App.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| NT1 | Partie mit der nativen App auf einem iPhone, dort im Minispiel klar Letzte(r) werden | Ergebnis zeigt unter den Münzen das Item-Symbol und „Trostpreis: …“ mit dem Item-Namen; die anderen Controller zeigen keinen Trostpreis | | Foto |
+| NT2 | VoiceOver an, Ergebnis vorlesen lassen | „Trostpreis: …“ wird als eine Zeile vorgelesen, das Symbol nicht extra | | |

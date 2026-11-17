@@ -264,6 +264,9 @@ struct ControllerMinigameInfo: Codable, Equatable, Sendable {
     var tied: Bool
     var aborted: Bool
     var reward: Int?
+    /// v4 addendum (CHAOS-51, EXP-019): items won with the result (consolation prize), only
+    /// in `results`; missing when there are none (1–4 entries on the wire).
+    var prizes: [ItemKind]?
 }
 
 /// Element of `ControllerLobbyInfoSchema.takenBy`.
