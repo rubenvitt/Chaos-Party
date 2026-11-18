@@ -19,6 +19,8 @@ const gpu = process.env.PERF_GPU === '1';
 
 export default defineConfig({
   testDir: 'tests/perf',
+  // Nur die Messläufe; `*.test.ts` daneben sind Vitest-Unit-Tests der Auswertung (CHAOS-165).
+  testMatch: '**/*.spec.ts',
   globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: 1,
