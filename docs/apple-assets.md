@@ -67,6 +67,9 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
 
 - **Skin-Modifier-Enden (CHAOS-161):** Skin-Modifier plus Subdivision runden ein Körperende etwa um den Knotenradius ab. Wer ein Teil auf ein Ende setzt (Bündchen, Blüte, Hut), braucht einen Knoten, der bis ins Teil reicht, oder muss das Teil auf die Kuppel absenken; die Auflage-Prüfung meldet es sonst. Rippen und andere Wellen um eine Achse brauchen eine Wellenzahl, die zu den Punkten rundum passt (16 bei Subdivision 2), sonst knittert die Fläche.
 
+- **Nahbilder ohne Mac (CHAOS-162):** `packages/assets/blender/nahbild.py <id> <ziel.png>` rendert eine Figur in Cycles aus drei Blickwinkeln (Dreiviertel, Profil, von oben). Die Babylon-Vitrine zeigt eine Figur aus der Nähe mit `preview.html?nah=<Slot 1–4>`. RealityKit-Nahbilder (`--nah`) gibt es weiter nur am Mac.
+- **Farbatlas packen (CHAOS-162):** Smart UV Project allein legte bei fein unterteilten Figuren Inseln übereinander (Knopffarbe auf der Sockenspitze). `bake_vertex_colors` packt die Inseln danach neu (`pack_islands`, ohne Überlappung).
+
 - **Nicht bitgleich:** Zwei Läufe erzeugen gleichwertige, aber nicht bitgleiche Dateien. Blender packt die UV-Inseln über mehrere Objekte nicht immer gleich, und die Reihenfolge der Prims im USD schwankt. Das galt schon für die GLB-Figuren. Prims, Materialien, Clips und Anker sind gleich; die Prüfungen laufen auf den Inhalt.
 - Die Kulisse ist eine Momentaufnahme: Beispiel-Spielstand, Tageslicht-Stimmung, ohne Wasseranimation, Laternen, Glühwürmchen, Lichtstimmungen und Nachbearbeitung (SSAO, Tiefenschärfe). Was davon der native Host braucht, klärt CHAOS-142/CHAOS-148.
 - Himmelskuppeln und Dunst (`himmel_*`, `dunst`) sind im USDZ spiegelnde Kugeln; der Host blendet sie aus (wie der Spike).

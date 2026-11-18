@@ -457,6 +457,10 @@ def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Ima
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.006)
+    # CHAOS-162: Smart UV Project packte bei den feiner unterteilten Figuren Inseln übereinander
+    # (blaue Knopf-Flecken auf der Sockenspitze). Neu packen, mit Rand, ohne Überlappung.
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.pack_islands(udim_source="CLOSEST_UDIM", rotate=True, margin_method="FRACTION", margin=0.008, shape_method="CONCAVE")
     bpy.ops.object.mode_set(mode="OBJECT")
 
     image = bpy.data.images.new(image_name, size, size, alpha=False)
@@ -473,9 +477,9 @@ def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Ima
     scene.cycles.device = "CPU"
     scene.cycles.samples = 1
     bake = scene.render.bake
-    bake.margin = 8
+    bake.margin = 16
     bake.margin_type = "EXTEND"
-    bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"}, use_clear=True, margin=8)
+    bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"}, use_clear=True, margin=16)
 
     for mat in materials:
         tree = mat.node_tree
@@ -650,3 +654,173 @@ def solid(obj: bpy.types.Object, color: Color) -> bpy.types.Object:
     """Einfarbig per Vertexfarbe (für Teile, die sich ein Material teilen)."""
     paint(obj, lambda p, n: color)
     return obj
+
+
+# ---------------------------------------------------------------------------------------------
+# Röhren und Ringflächen (CHAOS-162: Nahansicht)
+# ---------------------------------------------------------------------------------------------
+
+
+def rings_mesh(name: str, rings: Sequence[Sequence[Vector]], *, cap_start: bool = True, cap_end: bool = True) -> bpy.types.Object:
+    """Fläche aus geschlossenen Ringen gleicher Punktzahl; Enden mit Mittelpunkt-Fächer zu.
+
+    Grundlage für Formen, die Skin-Modifier plus Subdivision nicht sauber hergeben: Rippen
+    brauchen genug Punkte rundum, Strick-Ringel genug Ringe entlang (docs/apple-assets.md,
+    „Bekannte Grenzen“).
+    """
+    n = len(rings[0])
+    verts: list[Vector] = [p for ring in rings for p in ring]
+    faces: list[tuple[int, ...]] = []
+    for r in range(len(rings) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append((r * n + i, r * n + j, (r + 1) * n + j, (r + 1) * n + i))
+    if cap_start:
+        c = len(verts)
+        verts.append(sum(rings[0], Vector()) / n)
+        faces += [(c, (i + 1) % n, i) for i in range(n)]
+    if cap_end:
+        c = len(verts)
+        last = (len(rings) - 1) * n
+        verts.append(sum(rings[-1], Vector()) / n)
+        faces += [(c, last + i, last + (i + 1) % n) for i in range(n)]
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = _link(bpy.data.objects.new(name, mesh))
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    return obj
+
+
+def _catmull(points: Sequence[Vector], t: float) -> Vector:
+    """Punkt auf einer Catmull-Rom-Kurve durch `points`, t in 0…1."""
+    segs = len(points) - 1
+    x = min(segs - 1e-9, max(0.0, t * segs))
+    i = int(x)
+    u = x - i
+    p0 = points[max(0, i - 1)]
+    p1, p2 = points[i], points[i + 1]
+    p3 = points[min(segs, i + 2)]
+    return 0.5 * (
+        2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (-p0 + 3 * p1 - 3 * p2 + p3) * u * u * u
+    )
+
+
+@dataclass
+class Frame:
+    """Ort und Achsen eines Röhren-Querschnitts: `t` (0…1 nach Bogenlänge), Tangente, u, v."""
+
+    t: float
+    at: Vector
+    tangent: Vector
+    u: Vector
+    v: Vector
+
+
+def path_frames(points: Sequence[Vec], count: int, ref: Vec = (1, 0, 0)) -> list[Frame]:
+    """`count` Querschnitte gleichmäßig nach Bogenlänge entlang einer glatten Kurve durch
+    `points`, Achsen per Parallelverschiebung (kein Verdrehen). `u` startet bei `ref`."""
+    pts = [Vector(p) for p in points]
+    dense = [_catmull(pts, i / 400) for i in range(401)]
+    lengths = [0.0]
+    for a, b in zip(dense, dense[1:]):
+        lengths.append(lengths[-1] + (b - a).length)
+    total = lengths[-1]
+    samples: list[Vector] = []
+    j = 0
+    for i in range(count):
+        target = total * i / (count - 1)
+        while j < len(lengths) - 2 and lengths[j + 1] < target:
+            j += 1
+        span = lengths[j + 1] - lengths[j]
+        f = 0.0 if span < 1e-12 else (target - lengths[j]) / span
+        samples.append(dense[j].lerp(dense[j + 1], f))
+    frames: list[Frame] = []
+    u = Vector(ref)
+    for i, at in enumerate(samples):
+        a, b = samples[max(0, i - 1)], samples[min(count - 1, i + 1)]
+        tangent = (b - a).normalized()
+        u = (u - tangent * u.dot(tangent)).normalized()
+        frames.append(Frame(i / (count - 1), at, tangent, u, tangent.cross(u)))
+    return frames
+
+
+def tube(
+    name: str,
+    frames: Sequence[Frame],
+    radius: Callable[[Frame, float], tuple[float, float]],
+    *,
+    around: int,
+    dome_start: float = 0.0,
+    dome_end: float = 0.0,
+    dome_rings: int = 6,
+) -> bpy.types.Object:
+    """Röhre entlang `frames`. `radius(frame, winkel)` → (ru, rv): Halbachsen des Querschnitts
+    beim Winkel (Rippen, Abflachung). `dome_*`: Kuppel am Ende (Höhe als Anteil des Radius,
+    0 = flacher Deckel)."""
+
+    def ring(fr: Frame, scale: float = 1.0, push: float = 0.0) -> list[Vector]:
+        out = []
+        for i in range(around):
+            a = 2 * math.pi * i / around
+            ru, rv = radius(fr, a)
+            out.append(fr.at + fr.tangent * push + (fr.u * math.cos(a) * ru + fr.v * math.sin(a) * rv) * scale)
+        return out
+
+    def dome(fr: Frame, sign: float, height: float) -> list[list[Vector]]:
+        r0 = sum(radius(fr, 2 * math.pi * i / 8)[0] for i in range(8)) / 8
+        out = []
+        for k in range(1, dome_rings):
+            phi = math.pi / 2 * k / dome_rings
+            out.append(ring(fr, math.cos(phi), sign * math.sin(phi) * height * r0))
+        return out
+
+    rings = [ring(fr) for fr in frames]
+    if dome_start > 0:
+        rings = list(reversed(dome(frames[0], -1, dome_start))) + rings
+    if dome_end > 0:
+        rings = rings + dome(frames[-1], 1, dome_end)
+    obj = rings_mesh(name, rings)
+    if dome_start > 0 or dome_end > 0:
+        # Kuppelspitze: Mittelpunkt etwas vorziehen, sonst bleibt eine flache Delle.
+        mesh = obj.data
+        n_verts = len(mesh.vertices)
+        if dome_start > 0:
+            fr = frames[0]
+            r0 = sum(radius(fr, 2 * math.pi * i / 8)[0] for i in range(8)) / 8
+            mesh.vertices[n_verts - 2].co = fr.at - fr.tangent * dome_start * r0
+        if dome_end > 0:
+            fr = frames[-1]
+            r0 = sum(radius(fr, 2 * math.pi * i / 8)[0] for i in range(8)) / 8
+            mesh.vertices[n_verts - 1].co = fr.at + fr.tangent * dome_end * r0
+        mesh.update()
+    return obj
+
+
+def weight(obj: bpy.types.Object, weights_of: Callable[[Vector], dict[str, float]]) -> None:
+    """Skinning-Gewichte von Hand (statt Wärmeverteilung): je Punkt Knochen → Gewicht.
+    Vor `join` aufrufen; `join` führt gleichnamige Gruppen zusammen. Danach `skin_named`."""
+    for v in obj.data.vertices:
+        ws = weights_of(v.co)
+        total = sum(ws.values()) or 1.0
+        for bone, w in ws.items():
+            if w <= 0:
+                continue
+            group = obj.vertex_groups.get(bone) or obj.vertex_groups.new(name=bone)
+            group.add([v.index], w / total, "REPLACE")
+
+
+def skin_named(mesh: bpy.types.Object, rig: bpy.types.Object) -> None:
+    """An das Skelett hängen und die vorhandenen Gruppen (aus `weight`) als Gewichte nutzen."""
+    bpy.context.view_layer.update()
+    world = mesh.matrix_world.copy()
+    mesh.parent = rig
+    mesh.matrix_world = world
+    mod = mesh.modifiers.new("skelett", "ARMATURE")
+    mod.object = rig
