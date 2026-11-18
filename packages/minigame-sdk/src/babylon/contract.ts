@@ -178,6 +178,14 @@ export interface MinigameContext {
   readonly testMode: boolean;
   /** Look der Laufzeit (Host); fehlt in Tests und Vorschauen ohne Look. */
   readonly look?: MinigameLook;
+  /**
+   * Gibt das Bild ab, sobald das Zeitbudget für den Aufbau verbraucht ist (CHAOS-141): in
+   * `prepare` zwischen Bauschritten `await ctx.pace()`, damit der Aufbau über mehrere Bilder
+   * verteilt läuft statt ein Bild lang zu blockieren. Ohne Taktgeber des Hosts (Tests) löst es
+   * sofort auf. Wirft `PrepareAborted`, wenn die Laufzeit inzwischen entsorgt wurde: Dann nichts
+   * mehr bauen (das Werfen beendet `prepare` von selbst).
+   */
+  readonly pace: () => Promise<void>;
 }
 
 /** Laufende Anzeige für den Host-HUD (Punkte je Slot, Restzeit, optional Status). */

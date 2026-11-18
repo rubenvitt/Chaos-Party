@@ -62,6 +62,29 @@ export interface RunnerOptions {
   readonly maxStepsPerAdvance?: number;
   /** Einmal, sobald ein gültiges Ergebnis feststeht. */
   readonly onResult?: (result: RunnerResult) => void;
+  /**
+   * Taktgeber für einen verteilten Aufbau (CHAOS-141). Fehlt er, rechnet `prepare` am Stück
+   * (`ctx.pace()` löst sofort auf; Tests bleiben deterministisch und schnell).
+   */
+  readonly pacing?: PrepareThrottle;
+}
+
+/** Aufbau über mehrere Bilder verteilen (`MinigameContext.pace`, CHAOS-141). */
+export interface PrepareThrottle {
+  /** Löst im nächsten Bild auf (Host: nächster `tick` bzw. nächstes Render-Bild). */
+  readonly nextFrame: () => Promise<void>;
+  /** Echte Uhr in ms (nicht die Spieluhr): misst, wie lange ein Bild schon rechnet. */
+  readonly now: () => number;
+  /** So viele ms darf der Aufbau je Bild rechnen, dann gibt `pace()` ab. */
+  readonly budgetMs: number;
+}
+
+/** `prepare` wurde abgebrochen, weil die Laufzeit inzwischen entsorgt ist (kein Fehler). */
+export class PrepareAborted extends Error {
+  constructor() {
+    super('Minispiel-Aufbau abgebrochen: Laufzeit entsorgt');
+    this.name = 'PrepareAborted';
+  }
 }
 
 export interface RunnerResult {
@@ -118,6 +141,20 @@ export function createMinigameRunner(
   let steps = 0;
   let result: RunnerResult | null = null;
   let physicsStep: ((seconds: number) => void) | null = null;
+  const pacing = options.pacing;
+  let sliceStartedAt = pacing ? pacing.now() : 0;
+
+  /** `MinigameContext.pace`: abgeben, wenn das Budget des Bildes verbraucht ist. */
+  const abortIfDisposed = () => {
+    if (state === 'disposed') throw new PrepareAborted();
+  };
+  const pace = async (): Promise<void> => {
+    abortIfDisposed();
+    if (!pacing || pacing.now() - sliceStartedAt < pacing.budgetMs) return;
+    await pacing.nextFrame();
+    sliceStartedAt = pacing.now();
+    abortIfDisposed();
+  };
 
   const elapsedMs = () => Math.round(steps * FIXED_STEP_SECONDS * 1000);
 
@@ -192,6 +229,7 @@ export function createMinigameRunner(
     async prepare() {
       if (state !== 'created') throw new Error(`prepare in Zustand ${state}`);
       state = 'preparing';
+      if (pacing) sliceStartedAt = pacing.now();
       if (info.physics) {
         if (!options.havok) throw new Error(`Minispiel ${info.id} braucht Havok`);
         const plugin = new HavokPlugin(false, options.havok);
@@ -222,6 +260,7 @@ export function createMinigameRunner(
         },
         testMode: options.testMode ?? false,
         ...(options.look ? { look: options.look } : {}),
+        pace,
       });
       // Während `prepare` entsorgt? Dann nicht wiederbeleben.
       if ((state as RunnerState) === 'preparing') state = 'ready';

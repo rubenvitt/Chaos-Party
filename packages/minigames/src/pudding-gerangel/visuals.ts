@@ -158,9 +158,14 @@ export function buildStump(scene: Scene, disposables: ToyParts): void {
 
 /**
  * Teller und Pudding als Kinder der (unsichtbaren) Pudding-Hitbox. Gibt den Knoten zurück,
- * der fürs Schwabbeln skaliert wird.
+ * der fürs Schwabbeln skaliert wird. `pace` verteilt den Aufbau auf mehrere Bilder (CHAOS-141).
  */
-export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts): Mesh {
+export async function buildPudding(
+  scene: Scene,
+  hitbox: Mesh,
+  disposables: ToyParts,
+  pace: () => Promise<void>,
+): Promise<Mesh> {
   const half = TUNING.thickness / 2;
   const pudding = track(
     CreateCylinder(
@@ -182,6 +187,7 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts):
     translucency: 0.5,
   });
   pudding.material = jelly;
+  await pace();
   const top = track(
     CreateCylinder(
       'pudding-deckel',
@@ -197,6 +203,7 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts):
     translucency: 0.4,
   });
 
+  await pace();
   const plate = track(
     CreateCylinder(
       'pudding-teller',
@@ -208,6 +215,7 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts):
   plate.parent = hitbox;
   plate.position.y = -half - 0.15;
   plate.material = toyMaterial('pudding-teller-mat', COLORS.plate, scene, disposables, 0.3);
+  await pace();
   const rim = track(
     CreateTorus(
       'pudding-tellerrand',
@@ -224,6 +232,7 @@ export function buildPudding(scene: Scene, hitbox: Mesh, disposables: ToyParts):
   const cream = toyMaterial('pudding-tupfer-mat', COLORS.cream, scene, disposables, 0.4);
   const count = 20;
   for (let index = 0; index < count; index++) {
+    await pace();
     const angle = (index / count) * Math.PI * 2;
     const dollop = track(
       CreateSphere(`pudding-tupfer-${index}`, { diameter: 0.7, segments: 8 }, scene),
@@ -248,7 +257,12 @@ export interface ZoneVisual {
 }
 
 /** Kirschfleck (Sahnefleck mit rotem Rand und schwebender Kirsche) und Vorwarn-Ring. */
-export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): ZoneVisual {
+export async function buildZone(
+  scene: Scene,
+  hitbox: Mesh,
+  disposables: ToyParts,
+  pace: () => Promise<void>,
+): Promise<ZoneVisual> {
   const root = track(
     markVisual(new TransformNode('pudding-kirschfleck', scene), 'kirschfleck'),
     disposables,
@@ -264,6 +278,7 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
   );
   spot.parent = root;
   spot.material = toyMaterial('pudding-kirschfleck-mat', COLORS.creamSpot, scene, disposables, 0.5);
+  await pace();
   const border = track(
     CreateTorus(
       'pudding-kirschfleck-rand',
@@ -283,6 +298,7 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
   );
   cherry.parent = root;
   cherry.position.y = 2.6;
+  await pace();
   // Dünne Stange vom Fleck zur Kirsche: zeigt auch aus der Schräge, wo der Fleck ist.
   const pole = track(
     CreateCylinder('pudding-kirschstange', { diameter: 0.08, height: 2.6, tessellation: 8 }, scene),
@@ -293,6 +309,7 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
   const stemMaterial = toyMaterial('pudding-stiel-mat', COLORS.stem, scene, disposables);
   pole.material = red;
   for (const side of [-1, 1]) {
+    await pace();
     const fruit = track(
       CreateSphere(`pudding-kirsche-${side}`, { diameter: 0.7, segments: 12 }, scene),
       disposables,
@@ -310,6 +327,7 @@ export function buildZone(scene: Scene, hitbox: Mesh, disposables: ToyParts): Zo
     stem.material = stemMaterial;
   }
 
+  await pace();
   const ghost = track(
     CreateTorus(
       'pudding-kirschfleck-vorwarnung',

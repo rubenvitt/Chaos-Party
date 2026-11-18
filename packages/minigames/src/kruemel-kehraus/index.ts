@@ -188,7 +188,7 @@ export class KruemelKehraus implements Minigame {
 
   constructor(private readonly rules: KruemelRules = KRUEMEL_RULES) {}
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const { scene } = ctx;
     this.disposables = toyParts(ctx.look);
@@ -207,12 +207,16 @@ export class KruemelKehraus implements Minigame {
     } else {
       buildPlainStage(scene, this.disposables);
     }
+    // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
+    await ctx.pace();
     buildLegs(scene, this.disposables);
+    await ctx.pace();
 
     const count = ctx.players.length;
     this.corners = cornersFor(count);
     this.area = dropAreaFor(count);
     const materials = boardMaterials(scene, this.disposables);
+    await ctx.pace();
     this.buildBoard(count, materials);
 
     // Startkrümel liegen schon auf dem Blech (nicht direkt vor einer Figur), alle anderen
@@ -237,11 +241,18 @@ export class KruemelKehraus implements Minigame {
       this.crumbs.push(this.createCrumb(index, kind, materials, start));
       index++;
     };
-    for (let i = 0; i < this.rules.crumbs; i++) add('crumb');
-    if (this.rules.goldEveryMs !== null) add('gold');
-    if (this.rules.rainMs !== null) for (let i = 0; i < this.rules.rainCrumbs; i++) add('rain');
+    const kinds: Crumb['kind'][] = [
+      ...Array<Crumb['kind']>(this.rules.crumbs).fill('crumb'),
+      ...(this.rules.goldEveryMs !== null ? (['gold'] as const) : []),
+      ...Array<Crumb['kind']>(this.rules.rainMs !== null ? this.rules.rainCrumbs : 0).fill('rain'),
+    ];
+    for (const kind of kinds) {
+      await ctx.pace();
+      add(kind);
+    }
 
     if (this.rules.ball) {
+      await ctx.pace();
       const hitbox = CreateSphere(
         'kruemel-wolle',
         { diameter: TUNING.ballRadius * 2, segments: 14 },
@@ -261,14 +272,15 @@ export class KruemelKehraus implements Minigame {
       this.ball = { hitbox, aggregate };
     }
 
-    ctx.players.forEach((player, playerIndex) => {
+    for (const [playerIndex, player] of ctx.players.entries()) {
       const corner = this.corners[playerIndex];
-      if (corner) this.pawns.push(this.createPawn(player, corner));
-    });
+      if (!corner) continue;
+      await ctx.pace();
+      this.pawns.push(this.createPawn(player, corner));
+    }
 
     if (this.rules.goldEveryMs !== null) this.nextGoldAtMs = this.rules.goldEveryMs;
     this.syncVisuals(0);
-    return Promise.resolve();
   }
 
   /** Boden, Rand, Schrägen und Stürze (sichtbar und zugleich statische Körper). */

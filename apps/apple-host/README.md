@@ -4,12 +4,12 @@ Mac oder Apple TV hosten eine Partie allein, ohne PC ([ADR-019](../../docs/decis
 
 Hervorgegangen aus dem Spike CHAOS-138 ([EXP-024](../../docs/experiments.md)), seit CHAOS-139 Produktcode.
 
-| Teil | Ort | Aufgabe |
-|---|---|---|
-| JS-Kern | `src/` → `dist/chaos-host.js` | Session-Server (`apps/server`), game-core, Host-Rolle (`apps/host`) und Minispiele headless mit Havok, als ein Bündel für JavaScriptCore |
-| Vertrag | [`src/contract.ts`](src/contract.ts), Übersicht in [`CONTRACT.md`](CONTRACT.md) | `HostEnv`, `ChaosHostInstance`, `renderState` (zod-Schema) |
-| Swift-App | `app/`, `project.yml` | ein Ziel für macOS und tvOS: JavaScriptCore, HTTP + WebSocket auf einem Port, Lobby mit QR-Code, RealityKit-Darstellung |
-| Harness | `harness/` | spielt in JavaScriptCore eine Bot-Partie und dekodiert die Beispielnachrichten mit dem `RenderState` der App |
+| Teil      | Ort                                                                             | Aufgabe                                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| JS-Kern   | `src/` → `dist/chaos-host.js`                                                   | Session-Server (`apps/server`), game-core, Host-Rolle (`apps/host`) und Minispiele headless mit Havok, als ein Bündel für JavaScriptCore |
+| Vertrag   | [`src/contract.ts`](src/contract.ts), Übersicht in [`CONTRACT.md`](CONTRACT.md) | `HostEnv`, `ChaosHostInstance`, `renderState` (zod-Schema)                                                                               |
+| Swift-App | `app/`, `project.yml`                                                           | ein Ziel für macOS und tvOS: JavaScriptCore, HTTP + WebSocket auf einem Port, Lobby mit QR-Code, RealityKit-Darstellung                  |
+| Harness   | `harness/`                                                                      | spielt in JavaScriptCore eine Bot-Partie und dekodiert die Beispielnachrichten mit dem `RenderState` der App                             |
 
 Swift ist nur Transport, Uhr und Darstellung. Regeln, Server-Prüfungen und Minispiel-Logik sind dieselbe TypeScript-Wahrheit wie am PC.
 
@@ -19,12 +19,13 @@ Swift ist nur Transport, Uhr und Darstellung. Regeln, Server-Prüfungen und Mini
 pnpm --filter @chaos-party/apple-host build        # dist/chaos-host.js (≈ 5 MB) + dist/HavokPhysics.wasm; auch Teil von `pnpm build`
 pnpm --filter @chaos-party/apple-host bots         # Bot-Partie bis zum ersten Minispiel im nackten node:vm-Kontext
 pnpm --filter @chaos-party/apple-host bots --full  # ganze Partie: 10 Runden, alle Minispiele der Rotation (≈ 20 s)
+pnpm --filter @chaos-party/apple-host bots --full --matches 3  # drei Partien mit Revanche, Speicher je Partie, Grenze +20 MB (CHAOS-141, ≈ 40 s)
 pnpm check:bundle                                  # Budget, kein node:crypto/ws/import.meta im Bündel
 node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Swift neu schreiben (--check prüft)
 ```
 
 - `src/main.ts` – `ChaosHost.create(env)`. Controller-Verbindungen gehen unverändert an die `Session`. Die Host-Rolle ist `connectHost` aus `apps/host` an einem Socket im Prozess (negative Verbindungs-IDs): `host-hello`, Herzschlag, `host-ready`, Start und Befehle. Minispiel-Ablauf, Ergebnisversand und Texte kommen aus `apps/host` (`plan.ts`, `results.ts`, `resultSender.ts`, `texts.ts`, `layout.ts`). Zustellungen zwischen Host und Session laufen über eine Warteschlange, nie verschachtelt.
-- `src/stage.ts` – Minispiel-Bühne ohne Canvas: NullEngine-Szene, Runner aus dem minigame-sdk, Kapsel-Figuren, keine Effekte. `bodies()` liest Meshes generisch aus der Szene.
+- `src/stage.ts` – Minispiel-Bühne ohne Canvas: NullEngine-Szene, Runner aus dem minigame-sdk, Kapsel-Figuren, keine Effekte. `bodies()` liest Meshes generisch aus der Szene. Der Aufbau ist über mehrere `tick` verteilt (CHAOS-141, siehe unten).
 - `src/install.ts` + `src/polyfills.ts` – virtuelle Uhr (`setTimeout`/`clearTimeout` feuern in `tick`, `performance.now`), `structuredClone` (JSON), `global`. `install.ts` ist das erste Modul des Bündels.
 - `src/nodeCrypto.ts` – Ersatz für `node:crypto` (esbuild-Alias), Zufall aus `env.randomBytes` (Swift: `SecRandomCopyBytes`).
 - `src/examples.ts` – Beispielnachrichten je Phase, Quelle für `harness/Fixtures/render-state/`.
@@ -38,7 +39,7 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 - Havok: ESM-Build, synchron über `instantiateWasm` mit `new WebAssembly.Instance` (der asynchrone Weg löst in JSC nie auf). Swift übergibt `havokWasm` als `Uint8Array` ohne Umweg über `NSNumber`-Arrays (2 MB wären langsam).
 - Ohne Rendern zählt Babylon die Render-ID nicht hoch, und `computeWorldMatrix()` liefert die Matrix aus dem ersten Aufruf. `advance()` erhöht die Render-ID darum wie ein gerendertes Bild. Die Lage eines Meshes wird nur neu gerechnet, wenn sich seine Weltmatrix ändert (`updateFlag`).
 - Promises in JSC: Mikrotasks laufen nach jedem Aufruf aus Swift leer. Abgelehnte Promises meldet JSC nicht, darum hat jeder Promise-Weg ein `catch` → `env.log`. Der Node-Test bildet das nach (`settle()` nach jedem Aufruf).
-- Der Aufbau einer Minispiel-Bühne läuft synchron in einem `tick` (EXP-024: bis 98 ms auf der Apple TV). Abhilfe: CHAOS-141.
+- Der Aufbau einer Minispiel-Bühne lief synchron in einem `tick` (EXP-024: bis 98 ms auf der Apple TV). Seit CHAOS-141 rufen die Minispiele in `prepare` zwischen ihren Bauschritten `ctx.pace()`; der Kern gibt nach 2 ms (`PREPARE_BUDGET_MS`, echte Uhr `Date.now()`) ab und baut im nächsten `tick` weiter (Zeitgeber der virtuellen Uhr). Danach werden die Grundformen bestimmt, ebenfalls verteilt; bis dahin liefert `bodies()` nichts und das Minispiel startet nicht. Neue Minispiele brauchen dasselbe: kein großer Bauschritt ohne `await ctx.pace()` (eine Kugel mit Standard-Segmenten kostet ohne JIT schon gut 10 ms). Messung im EXP-024-Nachtrag.
 
 ### Uhr und Koordinaten
 
@@ -139,7 +140,7 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 
 ## CI
 
-- Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full`, Beispielnachrichten aktuell.
+- Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full --matches 3` (Speicher über drei Partien, CHAOS-141), Beispielnachrichten aktuell.
 - macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur).
 - macOS-Job, letzter Schritt: `release-macos.sh` als Probelauf (ad hoc signiert, Hardened Runtime, Selbsttest der fertigen App).
 - Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“).

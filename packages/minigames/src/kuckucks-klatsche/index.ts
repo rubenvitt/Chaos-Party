@@ -150,7 +150,7 @@ export class KuckucksKlatsche implements Minigame {
     return this.logic;
   }
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const slots = ctx.players.map((player) => player.slot);
     this.logic = new KuckucksKlatscheLogic(slots, ctx.rng, ctx.timeLimitMs);
@@ -183,15 +183,17 @@ export class KuckucksKlatsche implements Minigame {
       ground.position.set(0, -0.02, 6);
       ground.material = this.material(PALETTE.grass);
     }
+    // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
+    await ctx.pace();
     this.buildHouse(scene, width);
+    await ctx.pace();
     this.buildStage(scene, width);
-    ctx.players.forEach((player, index) => {
+    for (const [index, player] of ctx.players.entries()) {
       const x = (index - (ctx.players.length - 1) / 2) * DOOR_SPACING;
-      this.buildDoor(scene, player, x);
-      this.buildClapper(scene, player, x);
-    });
+      await this.buildDoor(scene, player, x);
+      await this.buildClapper(scene, player, x);
+    }
     this.animate(0);
-    return Promise.resolve();
   }
 
   start(): void {
@@ -733,8 +735,14 @@ export class KuckucksKlatsche implements Minigame {
     edge.position.set(0, -0.03, CHARACTER_Z - 1.5);
   }
 
-  private buildDoor(scene: Scene, player: MinigamePlayer, x: number): void {
+  /** Bild abgeben, wenn das Aufbau-Budget verbraucht ist (CHAOS-141). */
+  private async pace(): Promise<void> {
+    await this.ctx?.pace();
+  }
+
+  private async buildDoor(scene: Scene, player: MinigamePlayer, x: number): Promise<void> {
     const slot = player.slot;
+    await this.pace();
     const name = (part: string) => `kuckuck-tuer-${String(slot)}-${part}`;
     const z = FRONT_Z;
     // Dunkles Loch, Rahmen in Slot-Farbe, Leuchtring.
@@ -750,6 +758,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     hole.rotation.x = Math.PI / 2;
     hole.position.set(x, DOOR_Y, z + 0.1);
+    await this.pace();
     const frame = this.mesh(
       CreateTorus(
         name('rahmen'),
@@ -762,6 +771,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     frame.rotation.x = Math.PI / 2;
     frame.position.set(x, DOOR_Y, z - 0.04);
+    await this.pace();
     const glow = this.mesh(
       CreateTorus(
         name('leuchten'),
@@ -777,6 +787,7 @@ export class KuckucksKlatsche implements Minigame {
     markVisual(glow, 'tuer-leuchten', slot);
     glow.setEnabled(false);
     // Türflügel am linken Scharnier.
+    await this.pace();
     const hinge = this.track(markVisual(new TransformNode(name('scharnier'), scene), 'tuer', slot));
     hinge.position.set(x - DOOR_RADIUS, DOOR_Y, z - 0.08);
     const leaf = this.mesh(
@@ -791,6 +802,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     leaf.rotation.x = Math.PI / 2;
     leaf.position.x = DOOR_RADIUS;
+    await this.pace();
     const knob = this.mesh(
       CreateSphere(name('knauf'), { diameter: 0.12, segments: 8 }, scene),
       PALETTE.gold,
@@ -799,6 +811,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     knob.position.set(DOOR_RADIUS * 1.6, 0, -0.07);
     // Schild mit Slot-Symbol über der Tür (Farbe + Form).
+    await this.pace();
     const plate = this.mesh(
       CreateDisc(name('schild'), { radius: 0.3, tessellation: 32 }, scene),
       PALETTE.white,
@@ -814,6 +827,7 @@ export class KuckucksKlatsche implements Minigame {
       if (flat.material) flat.material.backFaceCulling = false;
     }
     // Bewohner auf einer Feder: Kuckuck und drei Finten, je einer sichtbar.
+    await this.pace();
     const perch = this.track(markVisual(new TransformNode(name('feder'), scene), 'feder', slot));
     perch.position.set(x, DOOR_Y - 0.1, z + 0.25);
 
@@ -826,11 +840,13 @@ export class KuckucksKlatsche implements Minigame {
     spring.rotation.x = Math.PI / 2;
     spring.position.set(0, -0.12, 0.55);
     const occupants = new Map<OccupantKind, TransformNode>();
+    await this.pace();
     occupants.set(
       'kuckuck',
-      markVisual(this.buildCuckoo(scene, perch, name('kuckuck')), 'kuckuck', slot),
+      markVisual(await this.buildCuckoo(scene, perch, name('kuckuck')), 'kuckuck', slot),
     );
     for (const kind of FINTE_KINDS) {
+      await this.pace();
       occupants.set(
         kind,
         markVisual(this.buildFinte(scene, perch, name(kind), kind), `finte-${kind}`, slot),
@@ -853,7 +869,11 @@ export class KuckucksKlatsche implements Minigame {
     });
   }
 
-  private buildCuckoo(scene: Scene, parent: TransformNode, name: string): TransformNode {
+  private async buildCuckoo(
+    scene: Scene,
+    parent: TransformNode,
+    name: string,
+  ): Promise<TransformNode> {
     const root = this.track(new TransformNode(name, scene));
     root.parent = parent;
     const body = this.mesh(
@@ -888,6 +908,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     beak.rotation.x = -Math.PI / 2;
     beak.position.set(0, 0.3, -0.38);
+    await this.pace();
     [-1, 1].forEach((side) => {
       const eye = this.mesh(
         CreateSphere(`${name}-auge-${String(side)}`, { diameter: 0.13, segments: 8 }, scene),
@@ -1013,15 +1034,17 @@ export class KuckucksKlatsche implements Minigame {
     return root;
   }
 
-  private buildClapper(scene: Scene, player: MinigamePlayer, doorX: number): void {
+  private async buildClapper(scene: Scene, player: MinigamePlayer, doorX: number): Promise<void> {
     const ctx = this.ctx;
     if (!ctx) return;
     const slot = player.slot;
+    await ctx.pace();
     const character = ctx.characters.create(scene, player);
     const home = new Vector3(doorX + CHARACTER_DX, 0, CHARACTER_Z);
     character.root.position.copyFrom(home);
     // Halb zur Tür, halb zum Fernseher gedreht (Gesicht bleibt sichtbar).
     character.root.rotation.y = -2.15;
+    await ctx.pace();
     const ring = this.mesh(
       CreateTorus(
         `kuckuck-ring-${String(slot)}`,
@@ -1034,6 +1057,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     markVisual(ring, 'spielerring', slot);
     ring.position.set(home.x, 0.06, home.z);
+    await ctx.pace();
     // Fliegenklatsche: Stiel und gitterartiges Blatt in Slot-Farbe.
     const swatter = this.track(
       markVisual(new TransformNode(`kuckuck-klatsche-${String(slot)}`, scene), 'klatsche', slot),
@@ -1061,6 +1085,7 @@ export class KuckucksKlatsche implements Minigame {
     blade.position.y = 0.66;
     const stars = this.track(new TransformNode(`kuckuck-sterne-${String(slot)}`, scene));
     for (let index = 0; index < 3; index++) {
+      await ctx.pace();
       const star = this.mesh(
         CreateSphere(
           `kuckuck-stern-${String(slot)}-${String(index)}`,
