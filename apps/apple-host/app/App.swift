@@ -64,6 +64,11 @@ struct OverlayView: View {
                 }
                 .font(.title3).padding(12).background(.black.opacity(0.55), in: .rect(cornerRadius: 12)).padding(20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                // Sabotage-Ansage oben mittig über dem Brett (CHAOS-157).
+                if let notice = overlay.notice {
+                    NoticeView(notice: notice).padding(.top, 28)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
             }
             Text(overlay.stats).font(.caption.monospaced()).padding(8).foregroundStyle(.white.opacity(0.8))
         }
@@ -238,6 +243,28 @@ struct Portrait: View {
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         cache[name] = image
         return image
+    }
+}
+
+/// Big banner like `.board-notice` in the PC host (apps/host/src/styles.css), CHAOS-157.
+struct NoticeView: View {
+    let notice: RenderState.Notice
+    private static let ink = Color(red: 0x1b / 255, green: 0x15 / 255, blue: 0x30 / 255)
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(notice.title).font(.system(size: 40, weight: .black)).foregroundStyle(Color(red: 0xe8 / 255, green: 0x45 / 255, blue: 0x4a / 255))
+                .shadow(color: Self.ink, radius: 0, x: 2, y: 2)
+            if let detail = notice.detail, !detail.isEmpty {
+                Text(detail).font(.system(size: 24, weight: .heavy).monospacedDigit()).foregroundStyle(Self.ink)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 28).padding(.top, 10).padding(.bottom, 12)
+        .background(RoundedRectangle(cornerRadius: 28).fill(Color(red: 1, green: 0xe6 / 255, blue: 0xe6 / 255)))
+        .overlay(RoundedRectangle(cornerRadius: 28).stroke(Self.ink, lineWidth: 5))
+        .background(RoundedRectangle(cornerRadius: 28).fill(Self.ink).offset(y: 7))
+        .transition(.scale(scale: 0.8).combined(with: .opacity))
     }
 }
 

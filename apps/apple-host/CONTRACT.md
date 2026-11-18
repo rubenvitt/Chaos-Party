@@ -51,7 +51,9 @@ interface ChaosHostInstance {
     "round": 1, "rounds": 10, "activeSlot": 1 | null,
     "spaces": [{ "id": "s01", "x": 0, "z": 0, "kind": "start" | "coins-plus" | "coins-minus" | "event" | "item" | "trophy" }],
     "pawns": [{ "slot": 1, "spaceId": "s03", "x": 1.2, "z": -3.4, "character": "raccoon" }],
-    "messages": ["Anna würfelt eine 4."]                                 // höchstens 6, älteste zuerst
+    "messages": ["Anna würfelt eine 4."],                                // höchstens 6, älteste zuerst
+    "notice": null | { "title": "Sabotage wird stärker!", "detail": "Klau: 6 Münzen · Falle: 5 Münzen" }
+                                                                         // große Einblendung, 4 s (CHAOS-157)
   },
   "minigame": null | {
     "id": "pudding-gerangel", "stage": "intro" | "play" | "results", "elapsedMs": 1234,
@@ -62,6 +64,7 @@ interface ChaosHostInstance {
 }
 ```
 
+- `board.notice` kommt aus `eventNotice` (`apps/host/src/board/texts.ts`): bisher nur in Wachstumsrunden der Sabotage (`round-started` mit `sabotage`), bei `sabotageGrowthRounds: 0` nie. Der Kern hält sie 4 s (`src/notice.ts`); Swift zeigt sie nur in der Phase `board`.
 - `phase` ist `lobby`, solange die Session nicht im Brettspiel ist (auch die M1-Arena erscheint als `lobby`). `paused` hat Vorrang vor `minigame` und `final`.
 - Koordinaten roh aus Babylon/game-core (linkshändig). Pawns: Feldmitte plus Versatz bei mehreren Figuren auf einem Feld.
 - Körper: `pos` = Weltmitte der Bounding-Box, `rot` = Weltrotation (x, y, z, w), `size` = lokale Ausdehnung × Skalierung (vor der Rotation). `shape` wird aus den Eckpunkten geschätzt (Kugel / Zylinder inkl. Scheibe, Kapsel und Torus / sonst Quader). `color` ist `diffuseColor` bzw. `albedoColor`. Unsichtbare und deaktivierte Meshes fehlen; Thin Instances werden nicht einzeln ausgegeben. Eine stabile Zuordnung Körper → Darstellung folgt mit CHAOS-144/149.

@@ -28,7 +28,7 @@ import {
   type Outgoing,
 } from '../../server/src/session.ts';
 import { spreadPawns } from '../../host/src/board/layout.ts';
-import { eventNotice, eventText, playerName } from '../../host/src/board/texts.ts';
+import { eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
   type HostCommand,
@@ -56,6 +56,7 @@ import type {
   RenderState,
 } from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
+import { createNoticeTracker } from './notice.ts';
 import { createHeadlessStage, describe, type HeadlessStage } from './stage.ts';
 
 const now = clock.now;
@@ -210,6 +211,8 @@ function create(env: HostEnv): ChaosHostInstance {
   let receivedAt = 0;
   let nextEventSeq: number | null = null;
   const messages: string[] = [];
+  /** Große Einblendung „Sabotage wird stärker!“ (CHAOS-157). */
+  const notices = createNoticeTracker();
   let stage: { key: string; headless: HeadlessStage } | null = null;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
@@ -284,10 +287,7 @@ function create(env: HostEnv): ChaosHostInstance {
     for (const event of fresh) {
       const text = eventText(event, view, labelOf);
       if (text) messages.push(text.text);
-      // Ansage „Sabotage wird stärker!“ (CHAOS-120): als eigene Ticker-Zeile, bis der native
-      // Host eine große Einblendung hat.
-      const notice = eventNotice(event);
-      if (notice) messages.push(`${notice.title} ${notice.detail}`);
+      notices.push(event, receivedAt);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
     resultSender.onView(view);
@@ -307,6 +307,7 @@ function create(env: HostEnv): ChaosHostInstance {
           view = null;
           nextEventSeq = null;
           messages.length = 0;
+          notices.clear();
           disposeStage();
         }
       },
@@ -377,6 +378,7 @@ function create(env: HostEnv): ChaosHostInstance {
         };
       }),
       messages: [...messages],
+      notice: notices.current(now()),
     };
   };
 

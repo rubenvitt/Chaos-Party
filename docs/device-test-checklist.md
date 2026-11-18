@@ -507,7 +507,7 @@ Automatisch geprüft: Ansage nur in Wachstumsrunden (Spielkern-Test, bei `sabota
 | SA2 | Runde 2–5 und 7–10 | Keine Ansage, nur „Runde n beginnt!“ in der Meldungsleiste | | |
 | SA3 | Falle im Würfel-Menü am iPhone/iPad, Runde 1–5 | Zusatzzeile „Kostet andere ab 4 Münzen“; in Runde 6–10 (letzte Stufe bei 10 Runden) „Kostet andere 5 Münzen“ | | Foto |
 | SA4 | Gefühl in der Gruppe | Hat jemand die Ansage bemerkt und verstanden? Zu laut, zu leise, zu lang? | | Notiz |
-| SA5 | Nativer Apple-Host (Mac, Abschnitt 22) bis Runde 6 | Meldungsleiste zeigt „Sabotage wird stärker! Klau: 6 Münzen · Falle: 5 Münzen“ (noch ohne große Einblendung und Klang) | | |
+| SA5 | Nativer Apple-Host (Mac oder Apple TV, Abschnitt 22) bis Runde 6 | Große Einblendung oben mittig „Sabotage wird stärker!“ / „Klau: 6 Münzen · Falle: 5 Münzen“, rund 4 s sichtbar, nicht in Runde 2–5; die Meldungsleiste zeigt die Ansage nicht mehr als eigene Zeile. Noch ohne Klang (CHAOS-157) | | Foto |
 
 ## 25. Notarisierte Mac-App auf einem fremden Mac (für CHAOS-118)
 
