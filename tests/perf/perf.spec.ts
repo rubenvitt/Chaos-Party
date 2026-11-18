@@ -39,6 +39,7 @@ import { collectProblems, expectNoProblems } from '../e2e/fixtures/pages.ts';
 import { startChaosServer, type RunningServer } from '../e2e/fixtures/server.ts';
 import { PerfBot, startEventLoopMonitor } from './perfBot.ts';
 import {
+  createRetainedHeapTracker,
   compareScenes,
   compareTransitions,
   comparisonTable,
@@ -63,6 +64,15 @@ const PLAY_MS = 15_000;
 const LOBBY_MS = 10_000;
 /** So lange bleibt der Messlauf auf dem Siegerpodest. */
 const PODIUM_MS = 10_000;
+/** Takt der Heap-Proben je Szene (CDP). */
+const HEAP_SAMPLE_MS = 2000;
+/**
+ * Heap nach GC erst, wenn eine Szene so viele Takte in Folge aktiv ist (≥ 6 s): Dann ist sie
+ * aufgebaut und hat ihr erstes Bild, die erzwungene GC fällt nicht in den gemessenen Wechsel.
+ * Anleitung und Ergebnis der Minispiele (je 5 s) erreichen das nie und bleiben ohne Wert, statt
+ * je nach Takt mal gemessen zu werden und mal nicht.
+ */
+const RETAINED_HEAP_AFTER_TICKS = 4;
 const GPU = process.env.PERF_GPU === '1';
 const [VIEW_W, VIEW_H] = (process.env.PERF_VIEWPORT ?? '1280x720').split('x').map(Number) as [
   number,
@@ -231,9 +241,14 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
       // Lobby mit vier Figuren eine Weile messen (Arena läuft hinter dem Lobby-Panel).
       await host.page.waitForTimeout(LOBBY_MS);
       await startGame(host.page);
-      // Heap-Verlauf je Szene (CDP, ohne GC: wie im Spiel).
+      // Heap je Szene (CDP): Höchstwert ohne GC (wie im Spiel, nur informativ) und Heap nach
+      // erzwungener GC einmal je Vorkommen einer Szene (verglichen, CHAOS-158).
       const heapByScene: Record<string, number> = {};
+      const retained = createRetainedHeapTracker(RETAINED_HEAP_AFTER_TICKS);
+      let sampling = false;
       const sampler = setInterval(() => {
+        if (sampling) return;
+        sampling = true;
         void (async () => {
           try {
             const [scenes, usage] = await Promise.all([
@@ -242,11 +257,15 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
             ]);
             for (const scene of scenes)
               heapByScene[scene] = Math.max(heapByScene[scene] ?? 0, usage.usedSize);
+            const due = retained.tick(scenes);
+            if (due.length > 0) retained.record(due, await heapAfterGc(host.cdp));
           } catch {
             // Seite navigiert/schließt: Probe auslassen.
+          } finally {
+            sampling = false;
           }
         })();
-      }, 2000);
+      }, HEAP_SAMPLE_MS);
       await waitForPodium(host.page, 10 * 60_000);
       await host.page.waitForTimeout(PODIUM_MS);
       clearInterval(sampler);
@@ -257,7 +276,10 @@ test.describe('Messläufe (SwiftShader, nur relative Vergleiche)', () => {
         () => window.__chaosPerf?.transitions() ?? [],
       );
       const scenes: Record<string, FlatMetrics> = Object.fromEntries(
-        report.map((scene: ScenePerf) => [scene.scene, flatten(scene)]),
+        report.map((scene: ScenePerf) => [
+          scene.scene,
+          { ...flatten(scene), heapRetainedMB: retained.megabytes(scene.scene) },
+        ]),
       );
       const seenMinigames = Object.keys(scenes).filter((scene) => /^minispiel:[^:]+$/.test(scene));
       expect(seenMinigames.sort(), 'jedes Minispiel der Rotation gemessen').toEqual(
