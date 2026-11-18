@@ -121,7 +121,7 @@ class Sockenregen implements Minigame {
   /** Sieger hüpfen nach dem Ende. */
   private readonly winners = new Set<Slot>();
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     this.logic = new SockenregenLogic(
       ctx.players.map((player) => player.slot),
@@ -153,16 +153,25 @@ class Sockenregen implements Minigame {
       this.disposables.push(hemi, sun);
     }
 
-    this.buildArena(scene);
-    this.buildMachine(scene);
-    this.buildBubbles(scene);
-    for (const player of ctx.players) this.buildRunner(scene, player);
+    // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
+    await this.buildArena(scene);
+    await this.buildMachine(scene);
+    await this.buildBubbles(scene);
+    for (const player of ctx.players) {
+      await ctx.pace();
+      this.buildRunner(scene, player);
+    }
     // Ein paar Socken vorwärmen, damit mitten im Spiel selten neue Meshes entstehen.
-    for (let index = 0; index < 10; index++) this.release(this.createItemMeshes(scene, 'sock'));
-    for (let index = 0; index < 4; index++) this.release(this.createItemMeshes(scene, 'iron'));
-    this.release(this.createItemMeshes(scene, 'gold'));
+    const warm: ItemKind[] = [
+      ...Array<ItemKind>(10).fill('sock'),
+      ...Array<ItemKind>(4).fill('iron'),
+      'gold',
+    ];
+    for (const kind of warm) {
+      await ctx.pace();
+      this.release(this.createItemMeshes(scene, kind));
+    }
     this.syncRunners(0);
-    return Promise.resolve();
   }
 
   start(): void {
@@ -484,14 +493,20 @@ class Sockenregen implements Minigame {
     return item;
   }
 
-  private buildArena(scene: Scene): void {
+  /** Bild abgeben, wenn das Aufbau-Budget verbraucht ist (CHAOS-141). */
+  private async pace(): Promise<void> {
+    await this.ctx?.pace();
+  }
+
+  private async buildArena(scene: Scene): Promise<void> {
     const R = SOCKENREGEN_RULES.arenaRadius;
-    if (!this.ctx?.look) this.buildLaundry(scene);
-    this.buildMat(scene, R);
+    if (!this.ctx?.look) await this.buildLaundry(scene);
+    await this.buildMat(scene, R);
   }
 
   /** Waschküche ohne Natur-Look: Boden, Wand mit Fliesenstreifen, Wäscheleinen. */
-  private buildLaundry(scene: Scene): void {
+  private async buildLaundry(scene: Scene): Promise<void> {
+    await this.pace();
     const floor = this.track(CreateGround('socken-boden', { width: 90, height: 40 }, scene));
     floor.position.set(0, -0.32, 4);
     floor.material = this.material(PALETTE.floor);
@@ -505,7 +520,8 @@ class Sockenregen implements Minigame {
     stripe.position.set(0, 1.6, 14.4);
     stripe.material = this.material(PALETTE.machinePanel, { emissive: 0.15 });
     // Wäscheleinen links und rechts von Wumms, mit Socken (Deko).
-    [-1, 1].forEach((side) => {
+    for (const side of [-1, 1]) {
+      await this.pace();
       const cord = this.track(
         CreateCylinder(`socken-leine-${String(side)}`, { diameter: 0.08, height: 11 }, scene),
       );
@@ -513,6 +529,7 @@ class Sockenregen implements Minigame {
       cord.position.set(side * 10, 4.6, 14);
       cord.material = this.material(PALETTE.white, { emissive: 0.3 });
       for (let index = 0; index < 4; index++) {
+        await this.pace();
         const sock = this.track(
           new TransformNode(`socken-leine-socke-${String(side)}-${String(index)}`, scene),
         );
@@ -523,12 +540,13 @@ class Sockenregen implements Minigame {
         const hex = SOCK_COLORS[(index + (side < 0 ? 0 : 3)) % SOCK_COLORS.length] ?? '#fff';
         this.buildSockBody(scene, sock, `leine-${String(side)}-${String(index)}`, hex, 0.2);
       }
-    });
+    }
   }
 
   /** Badvorleger und Wäschekörbe (Spielfläche, in jedem Look). */
-  private buildMat(scene: Scene, R: number): void {
+  private async buildMat(scene: Scene, R: number): Promise<void> {
     // Badvorleger: Grundscheibe, Streifenringe, dicker gelber Rand.
+    await this.pace();
     const mat = this.track(
       CreateCylinder(
         'socken-matte',
@@ -538,7 +556,8 @@ class Sockenregen implements Minigame {
     );
     mat.position.y = -0.15;
     mat.material = this.material(PALETTE.mat, { emissive: 0.08 });
-    [4.8, 2.6].forEach((radius, index) => {
+    for (const [index, radius] of [4.8, 2.6].entries()) {
+      await this.pace();
       const ring = this.track(
         CreateTorus(
           `socken-matte-streifen-${String(index)}`,
@@ -549,7 +568,8 @@ class Sockenregen implements Minigame {
       ring.scaling.y = 0.05;
       ring.position.y = 0.005;
       ring.material = this.material(PALETTE.matStripe, { emissive: 0.15 });
-    });
+    }
+    await this.pace();
     const rim = this.track(
       CreateTorus(
         'socken-rand',
@@ -560,7 +580,8 @@ class Sockenregen implements Minigame {
     rim.position.y = 0.02;
     rim.material = this.material(PALETTE.rim, { emissive: 0.1 });
     // Wäschekörbe links und rechts als Deko.
-    [-1, 1].forEach((side) => {
+    for (const side of [-1, 1]) {
+      await this.pace();
       const basket = this.track(
         CreateCylinder(
           `socken-korb-${String(side)}`,
@@ -576,10 +597,11 @@ class Sockenregen implements Minigame {
       pile.scaling.y = 0.45;
       pile.position.set(side * 9.2, 1.0, 2.5);
       pile.material = this.material(side < 0 ? SOCK_COLORS[2] : SOCK_COLORS[3], { emissive: 0.1 });
-    });
+    }
   }
 
-  private buildMachine(scene: Scene): void {
+  private async buildMachine(scene: Scene): Promise<void> {
+    await this.pace();
     const machine = this.track(
       markVisual(new TransformNode('socken-wumms', scene), 'waschmaschine'),
     );
@@ -603,6 +625,7 @@ class Sockenregen implements Minigame {
       0.12,
     );
     panel.position.y = 4.95;
+    await this.pace();
     ['#ff6b6b', '#ffd43b', '#4dabf7'].forEach((hex, index) => {
       const knob = part(
         CreateCylinder(
@@ -617,6 +640,7 @@ class Sockenregen implements Minigame {
       knob.position.set(1.0 + index * 0.65, 4.95, -1.45);
     });
     const front = -1.32;
+    await this.pace();
     const door = part(
       CreateTorus('socken-wumms-tuer', { diameter: 2.7, thickness: 0.38, tessellation: 40 }, scene),
       PALETTE.chrome,
@@ -628,7 +652,8 @@ class Sockenregen implements Minigame {
     drum.parent = machine;
     drum.position.set(0, 2.3, front + 0.25);
     this.drum = drum;
-    SOCK_COLORS.slice(0, 4).forEach((hex, index) => {
+    for (const [index, hex] of SOCK_COLORS.slice(0, 4).entries()) {
+      await this.pace();
       const blob = this.track(
         CreateSphere(`socken-wumms-waesche-${String(index)}`, { diameter: 0.75 }, scene),
       );
@@ -636,7 +661,8 @@ class Sockenregen implements Minigame {
       const a = (index / 4) * Math.PI * 2;
       blob.position.set(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0.1);
       blob.material = this.material(hex, { emissive: 0.15 });
-    });
+    }
+    await this.pace();
     const glass = part(
       CreateCylinder('socken-wumms-glas', { diameter: 2.4, height: 0.08, tessellation: 40 }, scene),
       PALETTE.glass,
@@ -646,20 +672,23 @@ class Sockenregen implements Minigame {
     glass.rotation.x = Math.PI / 2;
     glass.position.set(0, 2.3, front - 0.05);
     // Glupschaugen oben auf der Blende.
-    [-0.75, 0.75].forEach((x, index) => {
+    for (const [index, x] of [-0.75, 0.75].entries()) {
+      await this.pace();
       const eye = part(
         CreateSphere(`socken-wumms-auge-${String(index)}`, { diameter: 1.05 }, scene),
         PALETTE.white,
         0.35,
       );
       eye.position.set(x, 5.75, -0.6);
+      await this.pace();
       const pupil = part(
         CreateSphere(`socken-wumms-pupille-${String(index)}`, { diameter: 0.45 }, scene),
         PALETTE.dark,
       );
       pupil.position.set(x, 5.65, -1.05);
       this.pupils.push(pupil);
-    });
+    }
+    await this.pace();
     [-2, 2].forEach((x, index) => {
       [-0.9, 0.9].forEach((z, row) => {
         const foot = part(
@@ -675,7 +704,7 @@ class Sockenregen implements Minigame {
     });
   }
 
-  private buildBubbles(scene: Scene): void {
+  private async buildBubbles(scene: Scene): Promise<void> {
     const spots: readonly [number, number, number][] = [
       [-8.5, -1.5, 1.1],
       [-7.2, 6.5, 0.8],
@@ -684,7 +713,8 @@ class Sockenregen implements Minigame {
       [-4.4, 9.5, 0.7],
       [4.6, 10, 0.9],
     ];
-    spots.forEach(([x, z, size], index) => {
+    for (const [index, [x, z, size]] of spots.entries()) {
+      await this.pace();
       const bubble = this.track(
         CreateSphere(`socken-blase-${String(index)}`, { diameter: size, segments: 12 }, scene),
       );
@@ -702,7 +732,7 @@ class Sockenregen implements Minigame {
       shine.material = this.material(PALETTE.white, { emissive: 1 });
       markVisual(bubble, 'seifenblase', index);
       this.bubbles.push(bubble);
-    });
+    }
   }
 
   private buildRunner(scene: Scene, player: MinigamePlayer): void {

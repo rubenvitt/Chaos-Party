@@ -169,7 +169,7 @@ export class PuddingGerangel implements Minigame {
   private readonly inverseRotation = Quaternion.Identity();
   private readonly spoonRotation = Quaternion.Identity();
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const { scene } = ctx;
     this.disposables = toyParts(ctx.look);
@@ -199,6 +199,8 @@ export class PuddingGerangel implements Minigame {
       buildCreamLake(scene, this.disposables);
     }
 
+    // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
+    await ctx.pace();
     // Pudding: unsichtbare Zylinder-Hitbox, Oberseite bei y = 0, Drehpunkt oben in der Mitte.
     const platterBox = CreateCylinder(
       'pudding-hitbox',
@@ -210,8 +212,11 @@ export class PuddingGerangel implements Minigame {
     platterBox.position.y = -TUNING.thickness / 2;
     platterBox.rotationQuaternion = Quaternion.Identity();
     this.platter = this.kinematic(platterBox, PhysicsShapeType.CYLINDER, TUNING.friction);
-    this.pudding = buildPudding(scene, platterBox, this.disposables);
-    this.zoneVisual = buildZone(scene, platterBox, this.disposables);
+    await ctx.pace();
+    this.pudding = await buildPudding(scene, platterBox, this.disposables, ctx.pace);
+    await ctx.pace();
+    this.zoneVisual = await buildZone(scene, platterBox, this.disposables, ctx.pace);
+    await ctx.pace();
 
     // Rührlöffel: unsichtbare Box-Hitbox, Startlage gesetzt (sonst springt er im 1. Schritt).
     this.spoonAngle = ctx.rng.next() * Math.PI * 2;
@@ -230,8 +235,10 @@ export class PuddingGerangel implements Minigame {
     spoonBox.position.copyFrom(spoonStart.position);
     spoonBox.rotationQuaternion = spoonStart.rotation.clone();
     this.spoon = this.kinematic(spoonBox, PhysicsShapeType.BOX, 0.2);
+    await ctx.pace();
     buildSpoon(scene, spoonBox, this.disposables);
 
+    await ctx.pace();
     this.crown = buildCrown(scene, this.disposables);
     this.wobblePhase = ctx.rng.next() * Math.PI * 2;
     this.zone = nextZone(ctx.rng, null);
@@ -239,17 +246,17 @@ export class PuddingGerangel implements Minigame {
     this.placeZoneVisual();
 
     const count = ctx.players.length;
-    ctx.players.forEach((player, index) => {
+    for (const [index, player] of ctx.players.entries()) {
       const angle = Math.PI + (index * Math.PI * 2) / count;
+      await ctx.pace();
       this.pawns.push(
         this.createPawn(
           player,
           new Vector3(Math.cos(angle) * 3.4, HALF_HEIGHT + 0.02, Math.sin(angle) * 3.4),
         ),
       );
-    });
+    }
     this.syncVisuals(0);
-    return Promise.resolve();
   }
 
   private kinematic(mesh: Mesh, shape: PhysicsShapeType, friction: number): PhysicsAggregate {

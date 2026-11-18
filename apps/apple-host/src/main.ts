@@ -57,9 +57,25 @@ import type {
 } from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { createNoticeTracker } from './notice.ts';
-import { createHeadlessStage, describe, type HeadlessStage } from './stage.ts';
+import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
 
 const now = clock.now;
+
+/**
+ * Minispiel-Aufbau über mehrere `tick` verteilen (CHAOS-141): weiter geht es im nächsten `tick`
+ * (Zeitgeber der virtuellen Uhr feuern nur dort). Gemessen wird mit der echten Uhr: `Date.now()`
+ * hat JavaScriptCore von Haus aus, die virtuelle Uhr steht innerhalb eines `tick`.
+ */
+const PACING = {
+  nextFrame: () =>
+    new Promise<void>((resolve) => {
+      clock.setTimeout(() => {
+        resolve();
+      }, 0);
+    }),
+  now: () => Date.now(),
+  budgetMs: PREPARE_BUDGET_MS,
+};
 
 /** So viele Ticker-Meldungen hält `renderState().board.messages`. */
 const MAX_MESSAGES = 6;
@@ -254,6 +270,7 @@ function create(env: HostEnv): ChaosHostInstance {
           timeLimitMs: plan.kind === 'play' ? plan.timeLimitMs : module.info.durationMs,
           havok,
           log,
+          pacing: PACING,
           onResult: (result) => {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
@@ -482,5 +499,9 @@ function create(env: HostEnv): ChaosHostInstance {
 }
 
 const api: ChaosHostApi = { create };
-const internals: ChaosHostInternals = { base64url, rotation: ROTATION };
+const internals: ChaosHostInternals = {
+  base64url,
+  rotation: ROTATION,
+  pendingTimers: () => clock.pending(),
+};
 Object.assign(globalThis, { ChaosHost: api, ChaosHostInternals: internals });
