@@ -564,6 +564,6 @@ Automatisch bzw. von Claude geprüft (M3 Max, macOS 27.2, 18.11.): App am Mac un
 | NH2 | iPhone per QR beitreten, Figur wählen, „Bereit!“ | Karte mit Porträt der Figur, Rahmen und Halstuch in Slot-Farbe, „bereit ✓“ | | Foto |
 | NH3 | Zweiter Spieler, beide bereit, Return (Mac) | Brett mit echten Figuren auf dem Start; Kamera wie am PC | | Foto neben dem Babylon-Host |
 | NH4 | Würfeln am iPhone | Figur läuft zum neuen Feld (geradlinig, Laufen-Animation), Kamera rückt leicht zum aktiven Spieler | | |
-| NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | | Foto |
-| NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | | Log-Auszug |
+| NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | Entfällt (18.11., Ruben: „ignorieren wir den tv teil & gehen davon aus, dass alles passt“) | Foto |
+| NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | Entfällt (18.11., Ruben, siehe NH5) | Log-Auszug |
 | NH7 | Ruben: Urteil zur Optik von Lobby und Brett | „passt“ oder eine Liste, was fehlt (bekannt: keine Lichtstimmungen je Runde, kein SSAO/Tiefenschärfe, Hintergrund hellblau statt warm) | | Kommentar an CHAOS-142 |
