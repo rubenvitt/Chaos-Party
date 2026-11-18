@@ -1,3 +1,4 @@
+import QuartzCore
 import RealityKit
 #if os(macOS)
 import AppKit
@@ -7,12 +8,91 @@ import UIKit
 typealias PlatformColor = UIColor
 #endif
 
-/// Generic renderer for `renderState`: board spaces as discs, pawns as spheres, minigame bodies by shape.
-/// Babylon is left-handed, RealityKit right-handed: z and the quaternion's x/y flip.
+/// Darstellung von `renderState` im `RealityRenderer` (CHAOS-142):
+/// - Lobby und Brett mit echter Grafik (`BoardScene`), sobald die USDZ-Assets geladen sind;
+/// - Minispiele und Brett ohne Assets als Grundkörper (`Primitives`); echte Minispiel-Grafik folgt mit CHAOS-144/149.
 @MainActor
 final class Stage {
-    private let root = AnchorEntity(world: .zero)
-    private let camera = PerspectiveCamera()
+    private let renderer: RealityRenderer
+    private let primitives = Primitives()
+    private var board: BoardScene?
+    private(set) var phase = ""
+    private var lastApply: CFTimeInterval = 0
+    /// `true`, sobald das Brett geladen ist oder feststeht, dass es ohne Assets (Grundkörper) läuft.
+    private(set) var loaded = false
+    var onPhase: ((String) -> Void)?
+
+    init(renderer: RealityRenderer) {
+        self.renderer = renderer
+        renderer.entities.append(primitives.root)
+        renderer.activeCamera = primitives.camera
+        renderer.cameraSettings.colorBackground = .color(CGColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
+    }
+
+    /// Lädt Kulisse und Figuren. Ohne Assets bleibt es bei Grundkörpern (Entwicklung, CI ohne `build:apple-assets`).
+    func load(assets override: String?) async {
+        defer { loaded = true }
+        guard let folder = BoardScene.assetFolder(override: override) else {
+            hostLog("FEHLER Brett-Assets fehlen (payload/szene) – Grundkörper statt echter Grafik")
+            return
+        }
+        do {
+            let scene = try await BoardScene.load(from: folder)
+            board = scene
+            renderer.entities.append(scene.root)
+            primitives.boardEnabled = false
+            show(board: true)
+        } catch {
+            hostLog("FEHLER Brett laden: \(error)")
+        }
+    }
+
+    func apply(_ s: RenderState) {
+        let now = CACurrentMediaTime()
+        let dt = lastApply > 0 ? min(0.1, now - lastApply) : 0
+        lastApply = now
+        if s.phase != phase {
+            phase = s.phase
+            onPhase?(phase)
+        }
+        if s.phase == "minigame", s.minigame != nil {
+            show(board: false)
+            primitives.apply(s)
+            return
+        }
+        if let board {
+            show(board: true)
+            primitives.apply(RenderState(phase: "lobby"))
+            if s.phase != "lobby", let b = s.board {
+                board.apply(b, players: s.lobby?.players ?? [], dt: dt)
+            } else {
+                board.showOverview(dt: dt)
+            }
+        } else {
+            primitives.apply(s)
+        }
+    }
+
+    private func show(board visible: Bool) {
+        guard let board else { return }
+        board.root.isEnabled = visible
+        primitives.root.isEnabled = !visible
+        renderer.activeCamera = visible ? board.camera : primitives.camera
+        renderer.lighting.resource = visible ? board.sky : nil
+        renderer.lighting.intensityExponent = visible ? board.skyExponent : 0
+        renderer.cameraSettings.colorBackground = .color(visible ? board.clearColor
+            : CGColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
+    }
+}
+
+/// Generischer Renderer aus dem Spike: Brettfelder als Scheiben, Figuren als Kugeln, Minispiel-Körper nach Form.
+/// Babylon ist linkshändig, RealityKit rechtshändig: z und die x/y-Anteile der Quaternion kippen.
+@MainActor
+final class Primitives {
+    let root = Entity()
+    let camera = PerspectiveCamera()
+    /// Brett als Grundkörper; aus, sobald das echte Brett geladen ist.
+    var boardEnabled = true
     private var entities: [String: ModelEntity] = [:]
     private var targets: [String: SIMD3<Float>] = [:]
     private var materials: [String: SimpleMaterial] = [:]
@@ -25,14 +105,13 @@ final class Stage {
         "start": "#e2e8f0", "coins-plus": "#4ade80", "coins-minus": "#f87171", "event": "#a78bfa", "item": "#fbbf24", "trophy": "#f59e0b",
     ]
 
-    init(view: ARView) {
-        view.environment.background = .color(PlatformColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
+    init() {
         let light = DirectionalLight()
         light.light.intensity = 4000
         light.look(at: .zero, from: [4, 10, 6], relativeTo: nil)
         root.addChild(light)
         root.addChild(camera)
-        view.scene.addAnchor(root)
+        camera.look(at: .zero, from: [0, 12, 12], relativeTo: nil)
     }
 
     func apply(_ s: RenderState) {
@@ -66,7 +145,7 @@ final class Stage {
                     r.count == 4 ? simd_quatf(ix: -r[0], iy: -r[1], iz: r[2], r: r[3]) : simd_quatf(ix: 0, iy: 0, iz: 0, r: 1))
             }
             aim("mg:\(m.id)", target: [0, 0, 0.6], from: [0, 13.5, 13.5], fov: 44.7)
-        } else if s.phase != "lobby", let b = s.board {
+        } else if boardEnabled, s.phase != "lobby", let b = s.board {
             let spaces = b.spaces ?? []
             for space in spaces {
                 put("space:\(space.id)", "cylinder", Self.kindColors[space.kind ?? ""] ?? "#94a3b8", [space.x, 0, -space.z], [1.6, 0.15, 1.6])
@@ -99,10 +178,7 @@ final class Stage {
 
     private func material(_ hex: String) -> SimpleMaterial {
         if let cached = materials[hex] { return cached }
-        let v = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0xcccccc
-        let color = PlatformColor(red: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255,
-                                  blue: CGFloat(v & 0xff) / 255, alpha: 1)
-        let made = SimpleMaterial(color: color, roughness: 0.6, isMetallic: false)
+        let made = SimpleMaterial(color: platformColor(hex), roughness: 0.6, isMetallic: false)
         materials[hex] = made
         return made
     }

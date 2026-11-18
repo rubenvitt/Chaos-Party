@@ -37,7 +37,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
-      # Vorabversion, solange der native Host Grundkörper zeichnet (CHAOS-142/144); danach auf 'false'.
+      # Vorabversion, solange Minispiele im nativen Host Grundkörper zeichnen (CHAOS-144); danach auf 'false'.
       PRERELEASE: 'true'
     steps:
       - uses: actions/checkout@v7
@@ -56,6 +56,24 @@ jobs:
         run: |
           brew install xcodegen
           xcodebuild -version
+
+      # Brett-Kulisse und Figuren als USDZ (CHAOS-140/142): prepare.sh bricht ohne sie ab, damit kein Build mit
+      # Grundkörpern ausgeliefert wird. Blender als Python-Modul (bpy 5.3 nur für Python 3.13), Brett aus dem
+      # Web-Host über Chromium.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: packages/assets/blender/requirements.txt
+
+      - name: USDZ-Assets bauen
+        env:
+          BOARD_EXPORT_TIMEOUT: '900000'
+        run: |
+          python -m venv .venv-blender
+          .venv-blender/bin/pip install -r packages/assets/blender/requirements.txt
+          pnpm exec playwright install chromium
+          BLENDER_PYTHON="$PWD/.venv-blender/bin/python" pnpm build:apple-assets
 
       - name: Version
         run: |

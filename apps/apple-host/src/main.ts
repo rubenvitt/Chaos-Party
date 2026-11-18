@@ -338,8 +338,9 @@ function create(env: HostEnv): ChaosHostInstance {
     },
   );
   resultSender.setTransport((result) => connection.sendMinigameResult(result));
-  // Keine Ladezeit für Brett oder Bühne: der Host ist sofort bereit (CHAOS-68).
-  connection.setSceneReady(true);
+  // `host-ready` erst, wenn die App Brett und Figuren geladen hat (CHAOS-142, CHAOS-68); ohne
+  // `deferSceneReady` (Harness, Tests) ist der Host sofort bereit.
+  if (env.deferSceneReady !== true) connection.setSceneReady(true);
   flush();
 
   // --- renderState ----------------------------------------------------------------------------
@@ -465,6 +466,11 @@ function create(env: HostEnv): ChaosHostInstance {
         minigame: view ? minigameState(view) : null,
       };
       return JSON.stringify(state);
+    },
+    sceneReady() {
+      log('Szene geladen: host-ready');
+      connection.setSceneReady(true);
+      flush();
     },
     hostCommand(cmd) {
       const command = Object.hasOwn(COMMANDS, cmd)

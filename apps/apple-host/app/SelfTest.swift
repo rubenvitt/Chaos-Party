@@ -12,7 +12,7 @@ enum SelfTest {
     private static let timeout: TimeInterval = 60
     private static let minTicks = 300 // 5 s at 60 Hz
 
-    private static let runtime = HostRuntime()
+    private static let runtime = HostRuntime(deferScene: false)
     private static var started = Date()
     private static var port: UInt16?
     private static var code = ""

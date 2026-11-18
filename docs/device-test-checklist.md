@@ -551,3 +551,19 @@ Automatisch geprüft (Linux, ohne Mac): USDZ entstehen mit `pnpm build:apple-ass
 | UA2 | Mac: Spike mit den neuen Assets bauen und starten (`spikes/renderer-realitykit/convert/convert.sh`, dann wie im Spike-README, `--sekunden=60 --bleiben=1`; Nahansicht je Figur mit `--nah=<figur>`) | Brett wie bisher, vier Figuren mit Glanz, Roboter-Augen und Glühbirne leuchten, Figuren wippen in `idle` (keine anderen Clips, kein Springen am Schleifenende) | 18.11. (Claude, M3 Max, macOS 27.2.1, Xcode 27.0): Brett, Glanz und Materialien wie erwartet, 59,5 fps. **Fehler:** Socken-Bündchen und Kaktus-Blüte stehen ein Stück über dem Körper, der Kaktus wirkt unten zerknittert, auch ohne Animation (`--idle=0`). Wippen in `idle` nicht beurteilt. | [`chaos140-realitykit-brett.jpg`](screenshots/chaos140-realitykit-brett.jpg), [`…-nah.jpg`](screenshots/chaos140-realitykit-nah.jpg), [`…-ruhepose.jpg`](screenshots/chaos140-realitykit-ruhepose.jpg) |
 | UA3 | Mac: Babylon-Host daneben (`pnpm play`, Brett im Beispielstand) und Screenshots aus ähnlicher Kamera | Figuren und Kulisse erkennbar dieselben; Unterschiede notieren (Fell-Sheen fehlt, kein SSAO/HDRI) | Entfällt (18.11.): Die Figuren werden ohnehin überarbeitet (CHAOS-162), dort mit Vorher-nachher-Bildern aus beiden Hosts. | zwei Screenshots nach `docs/screenshots/chaos140-*.jpg` |
 | UA4 | Ruben: Urteil zur Optik | „sieht aus wie am PC“ oder eine Liste, was fehlt | 18.11., Ruben: „passt so“ zum fehlenden Sheen. Die Figuren müssen in der Nähe detaillierter werden, Kaktus und Socke sind kaputt bzw. nicht schön → CHAOS-161, CHAOS-162. | Kommentar an CHAOS-140 |
+
+## 28. Nativer Host mit echter Grafik: Lobby, Brett, 4K auf der Apple TV (für CHAOS-142)
+
+**Stand:** 2026-11-18 · **Aufgabe:** CHAOS-142 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitte „App“ und „Bauen“
+
+Automatisch bzw. von Claude geprüft (M3 Max, macOS 27.2, 18.11.): App am Mac und im tvOS-Simulator (Apple TV 4K, 3840×2160, intern 1920×1080) mit zwei Bot-Controllern bis ins erste Minispiel. Brett mit Instanzen und vier Figuren lädt in 1,3–1,4 s (Mac) bzw. 5,9 s (Simulator), danach `host-ready`; Figuren stehen auf den Feldern und laufen zum neuen Feld; Mac 55–58 fps, Simulator 59,5 fps (nur Anhaltspunkt). Bilder: [`chaos142-mac-lobby.jpg`](screenshots/chaos142-mac-lobby.jpg) (Lobby als Einzelbild gerendert, Hintergrund verzerrt), [`chaos142-tvos-brett.jpg`](screenshots/chaos142-tvos-brett.jpg). **Nicht** geprüft: echte Apple TV, echtes iPhone, Bildrate bei 4K am Gerät, Rubens Urteil.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| NH1 | Mac: `pnpm build:apple-assets`, dann wie im README bauen und `ChaosHost.app` starten | Lobby über dem Brett: QR-Code, Join-Code, vier Plätze; „Partie starten“ grau, bis das Brett geladen ist | | Foto |
+| NH2 | iPhone per QR beitreten, Figur wählen, „Bereit!“ | Karte mit Porträt der Figur, Rahmen und Halstuch in Slot-Farbe, „bereit ✓“ | | Foto |
+| NH3 | Zweiter Spieler, beide bereit, Return (Mac) | Brett mit echten Figuren auf dem Start; Kamera wie am PC | | Foto neben dem Babylon-Host |
+| NH4 | Würfeln am iPhone | Figur läuft zum neuen Feld (geradlinig, Laufen-Animation), Kamera rückt leicht zum aktiven Spieler | | |
+| NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | | Foto |
+| NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | | Log-Auszug |
+| NH7 | Ruben: Urteil zur Optik von Lobby und Brett | „passt“ oder eine Liste, was fehlt (bekannt: keine Lichtstimmungen je Runde, kein SSAO/Tiefenschärfe, Hintergrund hellblau statt warm) | | Kommentar an CHAOS-142 |

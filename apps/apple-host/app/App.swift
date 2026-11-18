@@ -1,5 +1,6 @@
 import Combine
 import CoreImage.CIFilterBuiltins
+import ImageIO
 import RealityKit
 import SwiftUI
 
@@ -34,6 +35,9 @@ struct ChaosHostApp: App {
                 UIApplication.shared.isIdleTimerDisabled = true
                 #endif
                 runtime.start()
+                #if os(macOS)
+                LobbySnapshot.schedule(runtime: runtime)
+                #endif
             }
         }
     }
@@ -44,41 +48,103 @@ struct OverlayView: View {
     let start: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ZStack(alignment: .bottomLeading) {
             if overlay.phase == "lobby" || overlay.phase == "start" {
-                HStack(alignment: .top, spacing: 48) {
-                    if let qr = qrImage(overlay.joinUrl) {
-                        Image(decorative: qr, scale: 1).interpolation(.none).resizable()
-                            .frame(width: 360, height: 360).padding(16).background(.white)
-                    }
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Chaos Party").font(.largeTitle.bold())
-                        Text(overlay.joinUrl).font(.title3.monospaced())
-                        Text(overlay.status)
-                        ForEach(overlay.players, id: \.self) { Text($0).font(.title2) }
-                        startButton
-                    }
+                // Gestaltet für 1920×1080, skaliert auf jede Fenstergröße (Mac) bzw. 4K (Apple TV).
+                GeometryReader { geo in
+                    let scale = min(geo.size.width / 1920, geo.size.height / 1080)
+                    LobbyView(overlay: overlay, start: start)
+                        .frame(width: 1920, height: 1080)
+                        .scaleEffect(scale)
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
-                .padding(40)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(.black.opacity(0.55))
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(overlay.lines.enumerated()), id: \.offset) { Text($0.element) }
                 }
-                .font(.title3).padding(12).background(.black.opacity(0.55)).padding(20)
+                .font(.title3).padding(12).background(.black.opacity(0.55), in: .rect(cornerRadius: 12)).padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            Spacer()
-            Text(overlay.stats).font(.caption.monospaced()).padding(8)
+            Text(overlay.stats).font(.caption.monospaced()).padding(8).foregroundStyle(.white.opacity(0.8))
         }
         .foregroundStyle(.white)
+    }
+}
+
+/// Lobby wie im Babylon-Host (`apps/host/src/lobby/LobbyPanel.tsx`): QR-Code, Join-Code und Link, je Spieler eine
+/// Karte mit Porträt der Figur, Slot-Farbe und Status; Start über Return (Mac) bzw. die Fernbedienung (tvOS).
+struct LobbyView: View {
+    let overlay: Overlay
+    let start: () -> Void
+
+    private var players: [RenderState.Player] { overlay.players.sorted { $0.slot < $1.slot } }
+    private var canStart: Bool { overlay.sceneLoaded && !players.isEmpty && players.allSatisfy { $0.ready == true } }
+    private var hint: String {
+        if !overlay.sceneLoaded { return overlay.status.hasPrefix("Fehler") ? overlay.status : "Brett lädt …" }
+        if players.isEmpty { return "Warte auf Spieler …" }
+        let waiting = players.filter { $0.ready != true }.count
+        return waiting == 0 ? "Alle bereit!" : waiting == 1 ? "Ein Spieler ist noch nicht bereit" : "\(waiting) Spieler sind noch nicht bereit"
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 56) {
+            VStack(spacing: 22) {
+                Text("Mitspielen!").font(.system(size: 52, weight: .heavy, design: .rounded))
+                Text("Handy-Kamera auf den Code – gleiches WLAN wie dieses Gerät.")
+                    .font(.system(size: 22, weight: .medium, design: .rounded)).multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.85))
+                if let qr = qrImage(overlay.joinUrl) {
+                    Image(decorative: qr, scale: 1).interpolation(.none).resizable()
+                        .frame(width: 400, height: 400).padding(20).background(.white, in: .rect(cornerRadius: 24))
+                } else {
+                    RoundedRectangle(cornerRadius: 24).fill(.white.opacity(0.15)).frame(width: 440, height: 440)
+                        .overlay { Text(overlay.status).font(.title2) }
+                }
+                VStack(spacing: 2) {
+                    Text("Join-Code").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.75))
+                    Text(overlay.joinCode.isEmpty ? "––––" : overlay.joinCode)
+                        .font(.system(size: 76, weight: .black, design: .monospaced)).tracking(10)
+                }
+                Text(overlay.joinUrl).font(.system(size: 20, design: .monospaced)).foregroundStyle(.white.opacity(0.75))
+            }
+            .padding(44)
+            .frame(width: 620)
+            .background(.black.opacity(0.62), in: .rect(cornerRadius: 36))
+
+            VStack(alignment: .leading, spacing: 28) {
+                Text("Chaos Party").font(.system(size: 84, weight: .black, design: .rounded))
+                    .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+                LazyVGrid(columns: [GridItem(.fixed(520), spacing: 28), GridItem(.fixed(520))], spacing: 28) {
+                    ForEach(1...4, id: \.self) { slot in
+                        PlayerCard(slot: slot, player: players.first { $0.slot == slot })
+                    }
+                }
+                HStack(spacing: 28) {
+                    startButton
+                    Text(hint).font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .shadow(color: .black.opacity(0.6), radius: 6)
+                }
+            }
+        }
+        .padding(.horizontal, 80)
+        .padding(.vertical, 70)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.05)], startPoint: .leading, endPoint: .trailing))
     }
 
     @ViewBuilder private var startButton: some View {
         #if os(macOS)
-        Button("Partie starten (⏎)", action: start).keyboardShortcut(.defaultAction)
+        Button(action: start) {
+            Text("Partie starten  ⏎").font(.system(size: 34, weight: .heavy, design: .rounded))
+                .padding(.horizontal, 40).padding(.vertical, 18)
+                .background(canStart ? Color.orange : Color.gray.opacity(0.6), in: .capsule)
+        }
+        .buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(!canStart)
         #else
-        Button("Partie starten", action: start)
+        Button(action: start) {
+            Text("Partie starten").font(.system(size: 34, weight: .heavy, design: .rounded)).padding(.horizontal, 24)
+        }
+        .disabled(!canStart)
         #endif
     }
 
@@ -92,35 +158,135 @@ struct OverlayView: View {
     }
 }
 
+/// Spielerkarte: Porträt der Figur mit Akzent in Slot-Farbe, Name, Figur, verbunden/bereit.
+struct PlayerCard: View {
+    let slot: Int
+    let player: RenderState.Player?
+
+    private static let names = ["robot": "Schraubi", "cactus": "Kalle Kaktus", "raccoon": "Wusel", "sock": "Socke Sigi"]
+    private static let fallbackColors = ["#0072B2", "#D55E00", "#009E73", "#CC79A7"]
+
+    var body: some View {
+        let color = Color(platformColor(player?.color ?? Self.fallbackColors[(slot - 1) & 3]))
+        HStack(spacing: 22) {
+            Portrait(character: player?.character, color: color)
+                .frame(width: 150, height: 150)
+                .background(color.opacity(0.25), in: .rect(cornerRadius: 22))
+                .opacity(player?.character == nil ? 0.35 : 1)
+            VStack(alignment: .leading, spacing: 8) {
+                if let player {
+                    Text(player.name ?? "Spieler \(slot)").font(.system(size: 38, weight: .heavy, design: .rounded)).lineLimit(1)
+                    Text(player.character.flatMap { Self.names[$0] } ?? "wählt noch …")
+                        .font(.system(size: 24, weight: .medium, design: .rounded)).foregroundStyle(.white.opacity(0.8))
+                    HStack(spacing: 10) {
+                        if player.connected == false { chip("getrennt", .red) }
+                        chip(player.ready == true ? "bereit ✓" : "nicht bereit", player.ready == true ? .green : .white.opacity(0.35))
+                    }
+                } else {
+                    Text("Platz \(slot) frei").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(width: 520, height: 190)
+        .background(.black.opacity(player == nil ? 0.35 : 0.62), in: .rect(cornerRadius: 28))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28)
+                .strokeBorder(player == nil ? Color.white.opacity(0.3) : color, style: StrokeStyle(lineWidth: player == nil ? 3 : 6, dash: player == nil ? [12, 10] : []))
+        }
+    }
+
+    private func chip(_ text: String, _ color: Color) -> some View {
+        Text(text).font(.system(size: 22, weight: .bold, design: .rounded))
+            .padding(.horizontal, 14).padding(.vertical, 6).background(color, in: .capsule)
+    }
+}
+
+/// Porträt aus `payload/portraits` (CHAOS-36): weißer Akzent, eingefärbt über die Maske `<id>-akzent`.
+struct Portrait: View {
+    let character: String?
+    let color: Color
+
+    var body: some View {
+        if let character, let image = Self.image("\(character)") {
+            ZStack {
+                Image(decorative: image, scale: 1).resizable().scaledToFit()
+                if let mask = Self.image("\(character)-akzent") {
+                    color.mask { Image(decorative: mask, scale: 1).resizable().scaledToFit() }.blendMode(.multiply)
+                }
+            }
+        } else {
+            Image(systemName: "person.fill").resizable().scaledToFit().padding(36).foregroundStyle(.white.opacity(0.6))
+        }
+    }
+
+    @MainActor private static var cache: [String: CGImage] = [:]
+
+    @MainActor static func image(_ name: String) -> CGImage? {
+        if let cached = cache[name] { return cached }
+        guard let url = Bundle.main.url(forResource: "payload", withExtension: nil)?.appending(path: "portraits/\(name).webp"),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        cache[name] = image
+        return image
+    }
+}
+
 #if os(macOS)
 struct StageView: NSViewRepresentable {
     let runtime: HostRuntime
-    func makeNSView(context: Context) -> ARView { makeView(context.coordinator) }
-    func updateNSView(_ view: ARView, context: Context) {}
+    func makeNSView(context: Context) -> MetalLayerView { makeView(context.coordinator) }
+    func updateNSView(_ view: MetalLayerView, context: Context) {}
 }
 #else
 struct StageView: UIViewRepresentable {
     let runtime: HostRuntime
-    func makeUIView(context: Context) -> ARView { makeView(context.coordinator) }
-    func updateUIView(_ view: ARView, context: Context) {}
+    func makeUIView(context: Context) -> MetalLayerView { makeView(context.coordinator) }
+    func updateUIView(_ view: MetalLayerView, context: Context) {}
 }
 #endif
 
 extension StageView {
-    final class Coordinator {
+    @MainActor final class Coordinator {
         var stage: Stage?
-        var subscription: (any Cancellable)?
+        var loop: RenderLoop?
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    @MainActor func makeView(_ coordinator: Coordinator) -> ARView {
-        let view = ARView(frame: .zero)
-        let stage = Stage(view: view)
-        coordinator.stage = stage
-        // SceneEvents.Update is display-paced on both platforms and drives tick/renderState.
-        coordinator.subscription = view.scene.subscribe(to: SceneEvents.Update.self) { [runtime] event in
-            MainActor.assumeIsolated { runtime.frame(dtMs: event.deltaTime * 1000) { stage.apply($0) } }
+    /// `RealityRenderer` hinter einer eigenen Metal-Ebene (CHAOS-114); die Anzeige taktet JS-Tick und Darstellung.
+    @MainActor func makeView(_ coordinator: Coordinator) -> MetalLayerView {
+        let view = MetalLayerView(frame: .zero)
+        let settings = RenderSettings()
+        do {
+            let loop = try RenderLoop(view: view, settings: settings) { [runtime, weak coordinator] dt in
+                guard let stage = coordinator?.stage else { return }
+                runtime.frame(dtMs: dt * 1000) { stage.apply($0) }
+            }
+            loop.onPresented = { [runtime] ms in runtime.presented(ms: ms) }
+            let stage = Stage(renderer: loop.renderer)
+            if let path = settings.screenshot {
+                stage.onPhase = { [weak loop] phase in
+                    // Kurz warten, bis Figuren stehen und die Kamera nachgezogen hat.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { loop?.capture(to: "\(path)-\(phase).png") }
+                }
+            }
+            if let path = settings.screenshot, let every = settings.screenshotEvery {
+                var n = 0
+                Timer.scheduledTimer(withTimeInterval: every, repeats: true) { [weak loop] _ in
+                    n += 1
+                    MainActor.assumeIsolated { loop?.capture(to: "\(path)-\(String(format: "%03d", n)).png") }
+                }
+            }
+            coordinator.loop = loop
+            coordinator.stage = stage
+            Task { @MainActor in
+                await stage.load(assets: settings.assets)
+                runtime.sceneReady()
+            }
+        } catch {
+            hostLog("FEHLER Renderer: \(error)")
         }
         #if os(macOS)
         NSApplication.shared.activate()
@@ -128,3 +294,30 @@ extension StageView {
         return view
     }
 }
+
+#if os(macOS)
+/// `--lobbybild=<pfad>`: rendert die Lobby (SwiftUI) über dem Brettbild `--bild=<pfad>-lobby.png` als PNG,
+/// 20 s nach dem Start (Sichtprüfung ohne Bildschirmaufnahme-Recht, CHAOS-142).
+@MainActor
+enum LobbySnapshot {
+    static func schedule(runtime: HostRuntime) {
+        let args = RenderSettings()
+        guard let path = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--lobbybild=") })?.dropFirst(12) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+            let background = args.screenshot.flatMap { NSImage(contentsOfFile: "\($0)-lobby.png") }
+            let view = ZStack {
+                if let background { Image(nsImage: background).resizable() } else { Color.gray }
+                LobbyView(overlay: runtime.overlay, start: {})
+            }
+            .frame(width: 1920, height: 1080).foregroundStyle(.white)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 1
+            guard let image = renderer.cgImage,
+                  let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: String(path)) as CFURL, "public.png" as CFString, 1, nil)
+            else { return hostLog("FEHLER Lobbybild") }
+            CGImageDestinationAddImage(dest, image, nil)
+            if CGImageDestinationFinalize(dest) { hostLog("Lobbybild gespeichert: \(path)") }
+        }
+    }
+}
+#endif

@@ -43,7 +43,8 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 ### Uhr und Koordinaten
 
 - `tick(nowMs)`: jede monotone ms-Uhr (`CACurrentMediaTime() * 1000`). Der Kern zählt ab dem ersten `tick` von 0; Rücksprünge werden ignoriert, Vorsprünge lassen Fristen ablaufen.
-- Koordinaten sind roh aus Babylon/game-core: linkshändig, y oben, x rechts, z nach hinten. RealityKit (rechtshändig): `z → -z`, Quaternion `(x, y, z, w) → (-x, -y, z, w)`.
+- Koordinaten sind roh aus Babylon/game-core: linkshändig, y oben, x rechts, z nach hinten. Grundkörper (Minispiele) in RealityKit (rechtshändig): `z → -z`, Quaternion `(x, y, z, w) → (-x, -y, z, w)`.
+- Achtung, das Brett: `brett.usdz` entsteht mit `(x, y, z) → (-x, y, z)` (`apps/host/src/export/boardExport.ts`). Figuren stehen darum auf den Feld-Ankern; nur der Versatz mehrerer Figuren auf einem Feld wird mit `x → -x` übernommen, ebenso der Kamerafokus. Geprüft: Die Felder einer Bot-Partie liegen mit `-x` auf 0 mm genau auf `fields` aus `brett.szene.json`.
 
 ## App
 
@@ -51,7 +52,12 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 
 - **Ein Port für alles** (8787, sonst der nächste freie): `NWListener` mit reinem TCP. `GET /ws` mit Upgrade wird zur WebSocket-Verbindung (RFC 6455 von Hand: Maskierung, 7/16/64-Bit-Längen, Fragmente, Ping/Pong, Close, Grenze 1 MiB), alles andere liefert den Controller-Build aus dem Bundle (`/?code=…` → `index.html`, nichts außerhalb des Controller-Ordners).
 - **Join-Link** `http://<LAN-IPv4>:<port>/?code=<4 Zeichen>`: erste IPv4 eines `en*`-Interfaces (en0 bevorzugt), Code aus dem Alphabet von `apps/server/src/ids.ts`.
-- **Darstellung** (noch Grundkörper): Lobby als SwiftUI-Overlay mit QR-Code, Link, Spielerliste und „Partie starten“ (macOS: Return, tvOS: Auswahl auf der Fernbedienung). Brett: Felder als Scheiben, Figuren als Kugeln; Minispiel: `minigame.bodies` als Kugel/Quader/Zylinder. Echte Grafik folgt in CHAOS-142/148/149, der hochskalierte 4K-Pfad (CHAOS-114) mit CHAOS-142.
+- **Darstellung** (CHAOS-142): `RealityRenderer` in einer eigenen Metal-Ebene, getaktet von der Anzeige (`app/RenderLoop.swift`, aus dem Spike, CHAOS-114). Interne Auflösung höchstens 1920 Bildpunkte breit auf tvOS (EXP-020: 4K-Ausgabe, bilinear, drei Bilder im Flug, ohne MSAA) bzw. 2560 am Mac (MetalFX, MSAA 4×), hochskaliert auf die Anzeige. Fordert die Anzeige keine Bilder an (Fenster verdeckt), läuft das Spiel über einen Ersatztakt weiter.
+  - **Lobby** (`App.swift`): Brett als Übersicht im Hintergrund, darüber QR-Code, Join-Code, Link und je Slot eine Karte mit Porträt der Figur (Akzent in Slot-Farbe), Name, Figur, getrennt/bereit. „Partie starten“ erst, wenn das Brett geladen ist und alle bereit sind (macOS: Return, tvOS: Auswahl auf der Fernbedienung).
+  - **Brett** (`app/BoardScene.swift`): `brett.usdz` mit Gras- und Blumen-Instanzen, Sonne mit Schatten und Himmelslicht aus `brett.szene.json`, Figuren als USDZ (je Figur einmal geladen, je Slot geklont, Akzent in Slot-Farbe, Clips `idle`/`run` aus `clips.json`, Maßstab 1,3 wie im Babylon-Host). Figuren stehen auf den Feld-Ankern `feld_<id>`; sie laufen geradlinig zum neuen Feld, bis die Brett-Regie (CHAOS-143) die Hüpfer übernimmt. Kamera wie im Babylon-Host: Brettmitte, zum aktiven Spieler um (0,12; 0,04) verschoben, Halbwertszeit 0,7 s.
+  - **Minispiele** und Brett ohne Assets: Grundkörper (`Primitives` in `app/Stage.swift`); echte Minispiel-Grafik folgt mit CHAOS-144/149.
+  - **`host-ready`** erst, wenn Brett, Instanzen und Figuren geladen sind (`deferSceneReady`, CHAOS-68).
+- **Startparameter** (`--name=wert`): `--assets=<ordner>` (USDZ statt aus dem Bundle), `--skala=0.5` (fester Anteil statt Höchstbreite), `--skalierer=metalfx|bilinear`, `--imflug=1…3`, `--msaa=0|1`, `--bild=<pfad>` (PNG der 3D-Szene bei jedem Phasenwechsel, `<pfad>-<phase>.png`), `--bildtakt=<s>` (zusätzlich alle s Sekunden), `--lobbybild=<pfad>` (nur macOS: Lobby als PNG über `<bild>-lobby.png`, 20 s nach dem Start).
 - **Messung**: alle 10 s eine Zeile `HOST-MESSUNG {json}` (Bildabstand und JS-Zeit je Tick, Median/p95/max, ausgelassene Ticks, Verbindungen, Körper).
 - `app/RenderState.swift` dekodiert `renderState` nachsichtig (alles Entbehrliche optional) und ist mit dem Harness geteilt.
 
@@ -59,7 +65,8 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 
 ```sh
 cd apps/apple-host
-./prepare.sh            # baut JS-Kern + Controller, legt payload/ an (SKIP_BUILD=1 nimmt vorhandene Builds)
+pnpm build:apple-assets # USDZ nach build/apple-assets (CHAOS-140, ≈ 1 min am Mac); prepare.sh bricht ohne sie ab
+./prepare.sh            # baut JS-Kern + Controller, legt payload/ an (SKIP_BUILD=1 nimmt vorhandene Builds, OHNE_ASSETS=1 Grundkörper)
 xcodegen generate
 # macOS
 xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost -destination 'platform=macOS' -configuration Release -derivedDataPath build build
@@ -122,7 +129,8 @@ Die App kommt als „Chaos Party“ mit der Bundle-ID `dev.rubeen.chaosparty.tv`
   ```
 
 - **Icons:** tvOS verlangt Bildstapel mit Parallaxe-Ebenen und Top-Shelf-Bilder. Sie liegen in `app-tv/Assets.xcassets` (nur für tvOS eingebunden) und entstehen mit `python3 -I apps/apple-host/scripts/tv-icons.py` aus dem Icon der Controller-App.
-- **Nicht übernommen:** die Messvarianten-Auswahl des Spikes (CHAOS-147). Der Host hat den hochskalierten 4K-Pfad noch nicht; er kommt mit CHAOS-142. Die USDZ-Assets aus CHAOS-140 kommen in die Nutzlast, sobald die App sie lädt; `prepare.sh` ist dafür die einzige Stelle, TestFlight übernimmt sie dann ohne eigene Änderung.
+- **Nicht übernommen:** die Messvarianten-Auswahl des Spikes (CHAOS-147). Den hochskalierten 4K-Pfad hat der Host seit CHAOS-142 fest (Startparameter wie oben).
+- **USDZ:** Der Workflow baut sie vor `prepare.sh` mit `pnpm build:apple-assets` (Python 3.13 mit `bpy`, Chromium). Ohne sie bricht `prepare.sh` ab, damit kein Build mit Grundkörpern auf die Apple TV geht. Dasselbe gilt für „Release (Mac-App)“.
 - **Gerätetest:** [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §20, Schritte TH1–TH4.
 
 ## Harness (nur macOS)
@@ -140,7 +148,7 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 ## CI
 
 - Linux-Job: Typecheck, Lint, Unit-Tests (inkl. Bündel im `node:vm`), `pnpm build`, `pnpm check:bundle`, `bots --full`, Beispielnachrichten aktuell.
-- macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur).
+- macOS-Job „Native Apps“: JS-Kern und Controller bauen, Harness `full` in JavaScriptCore, App für macOS und tvOS bauen (ohne Signatur, ohne USDZ: `OHNE_ASSETS=1`).
 - macOS-Job, letzter Schritt: `release-macos.sh` als Probelauf (ad hoc signiert, Hardened Runtime, Selbsttest der fertigen App).
 - Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“).
 - Workflow „TestFlight (Apple TV)“: tvOS-Archiv zu TestFlight (Abschnitt „TestFlight“, CHAOS-151).
