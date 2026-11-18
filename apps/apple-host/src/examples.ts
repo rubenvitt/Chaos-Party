@@ -45,6 +45,7 @@ const BOARD: BoardState = {
     { slot: 2, spaceId: 's03', x: 6.45, z: 3.4, character: 'sock' },
   ],
   messages: ['Anna würfelt eine 4.', 'Anna bekommt 3 Münzen.', 'Ben ist am Zug.'],
+  notice: null,
 };
 
 const PLAYERS_IN_GAME: LobbyPlayer[] = [ANNA, { ...BEN, ready: true, character: 'sock' }];
@@ -125,6 +126,18 @@ export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = {
       players: [ANNA, { ...BEN, connected: false, ready: true, character: 'sock' }],
     },
     board: { ...BOARD, activeSlot: 1, messages: [] },
+    minigame: null,
+  },
+  'board-sabotage-notice': {
+    phase: 'board',
+    lobby: { ...JOIN, players: PLAYERS_IN_GAME },
+    board: {
+      ...BOARD,
+      round: 6,
+      activeSlot: 1,
+      messages: ['Runde 6 beginnt!'],
+      notice: { title: 'Sabotage wird stärker!', detail: 'Klau: 6 Münzen · Falle: 5 Münzen' },
+    },
     minigame: null,
   },
   'minigame-intro': {

@@ -24,6 +24,9 @@ struct ChaosHostApp: App {
             ZStack(alignment: .topLeading) {
                 StageView(runtime: runtime).ignoresSafeArea()
                 OverlayView(overlay: runtime.overlay) { runtime.command("start") }
+                if let notice = runtime.overlay.notice {
+                    NoticeView(notice: notice).frame(maxWidth: .infinity).padding(.top, 28)
+                }
             }
             #if os(macOS)
             .frame(minWidth: 960, minHeight: 540)
@@ -89,6 +92,28 @@ struct OverlayView: View {
         filter.correctionLevel = "M"
         guard let image = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) else { return nil }
         return CIContext().createCGImage(image, from: image.extent)
+    }
+}
+
+/// Big banner like `.board-notice` in the PC host (apps/host/src/styles.css), CHAOS-157.
+struct NoticeView: View {
+    let notice: RenderState.Notice
+    private static let ink = Color(red: 0x1b / 255, green: 0x15 / 255, blue: 0x30 / 255)
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(notice.title).font(.system(size: 40, weight: .black)).foregroundStyle(Color(red: 0xe8 / 255, green: 0x45 / 255, blue: 0x4a / 255))
+                .shadow(color: Self.ink, radius: 0, x: 2, y: 2)
+            if let detail = notice.detail, !detail.isEmpty {
+                Text(detail).font(.system(size: 24, weight: .heavy).monospacedDigit()).foregroundStyle(Self.ink)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 28).padding(.top, 10).padding(.bottom, 12)
+        .background(RoundedRectangle(cornerRadius: 28).fill(Color(red: 1, green: 0xe6 / 255, blue: 0xe6 / 255)))
+        .overlay(RoundedRectangle(cornerRadius: 28).stroke(Self.ink, lineWidth: 5))
+        .background(RoundedRectangle(cornerRadius: 28).fill(Self.ink).offset(y: 7))
+        .transition(.scale(scale: 0.8).combined(with: .opacity))
     }
 }
 

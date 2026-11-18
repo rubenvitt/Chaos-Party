@@ -25,6 +25,7 @@ struct Overlay: Equatable {
     var joinUrl = ""
     var players: [String] = []
     var lines: [String] = []
+    var notice: RenderState.Notice?
     var stats = ""
 }
 
@@ -168,6 +169,7 @@ final class HostRuntime: ObservableObject {
         } else {
             o.lines = [s.phase]
         }
+        o.notice = s.phase == "board" ? s.board?.notice : nil
         if o != overlay { overlay = o }
         let players = s.lobby?.players ?? []
         if autostart, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) { command("start") }

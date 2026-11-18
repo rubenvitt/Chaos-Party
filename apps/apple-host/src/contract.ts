@@ -103,6 +103,11 @@ export const PawnSchema = z.strictObject({
   character,
 });
 
+export const NoticeSchema = z.strictObject({
+  title: z.string(),
+  detail: z.string(),
+});
+
 export const BoardStateSchema = z.strictObject({
   round: z.number().int().min(1),
   rounds: z.number().int().min(1),
@@ -111,6 +116,11 @@ export const BoardStateSchema = z.strictObject({
   pawns: z.array(PawnSchema),
   /** Die letzten Ereignistexte (höchstens `MAX_MESSAGES`), älteste zuerst. */
   messages: z.array(z.string()),
+  /**
+   * Große Einblendung oben mittig (CHAOS-157), z. B. „Sabotage wird stärker!“ /
+   * „Klau: 6 Münzen · Falle: 5 Münzen“ in Wachstumsrunden; 4 s sichtbar, sonst `null`.
+   */
+  notice: NoticeSchema.nullable(),
 });
 
 export const BodySchema = z.strictObject({
@@ -146,6 +156,7 @@ export const RenderStateSchema = z.strictObject({
 });
 
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
+export type Notice = z.infer<typeof NoticeSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
 export type Body = z.infer<typeof BodySchema>;
 export type MinigameState = z.infer<typeof MinigameStateSchema>;

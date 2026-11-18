@@ -103,6 +103,8 @@ export interface BotMatchResult {
   readonly virtualMs: number;
   readonly finalReached: boolean;
   readonly roundsPlayed: number;
+  /** Runden, in denen `board.notice` zu sehen war (CHAOS-157). */
+  readonly noticeRounds: readonly number[];
   readonly minigamesBuilt: readonly string[];
   readonly resultsAccepted: number;
   /** Ausnahmen, die aus dem Bündel bis zum Aufrufer durchschlugen. */
@@ -115,6 +117,12 @@ export interface BotMatchResult {
   readonly maxRenderStateBytes: number;
   readonly rotation: readonly string[];
 }
+
+/**
+ * „Sabotage wird stärker!“ in einer ganzen Partie (10 Runden, `sabotageGrowthRounds: 5`): nur in
+ * Runde 6 (CHAOS-157).
+ */
+export const FULL_MATCH_NOTICE_ROUNDS = '6';
 
 /** Log-Zeilen, die eine Partie zwar überlebt, die aber nie vorkommen dürfen. */
 export const PROBLEM_MARKERS = [
@@ -275,6 +283,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   let maxRenderStateBytes = 0;
   let finalReached = false;
   let roundsPlayed = 0;
+  const noticeRounds: number[] = [];
   let firstResults = false;
 
   while (now < limitMs) {
@@ -307,6 +316,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       lastKey = key;
     }
     roundsPlayed = Math.max(roundsPlayed, raw.board?.round ?? 0);
+    if (raw.board?.notice && !noticeRounds.includes(raw.board.round)) {
+      noticeRounds.push(raw.board.round);
+    }
     if (!started && raw.lobby.players.length === 2 && raw.lobby.players.every((p) => p.ready)) {
       started = true;
       guard('hostCommand', () => {
@@ -342,13 +354,15 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       contractErrors.length === 0 &&
       resultsAccepted >= 1 &&
       resultsAccepted === minigamesBuilt.length &&
-      (!options.full || (finalReached && allRotation)) &&
+      (!options.full ||
+        (finalReached && allRotation && noticeRounds.join() === FULL_MATCH_NOTICE_ROUNDS)) &&
       (options.full || firstResults);
     return {
       ok,
       virtualMs: Math.round(now),
       finalReached,
       roundsPlayed,
+      noticeRounds,
       minigamesBuilt,
       resultsAccepted,
       exceptions,
