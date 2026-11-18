@@ -36,6 +36,11 @@ interface BoardStageProps {
   readonly onRematch: (() => void) | null;
   /** Grafik-Schnittstelle (`?gpu=`, CHAOS-75); Standard WebGL2. */
   readonly gpu?: GpuBackend;
+  /**
+   * Minispiel läuft (CHAOS-152): Brett bleibt eingehängt, aber unsichtbar und angehalten
+   * (kein Rendern, keine Regie). Beim Zeigen holt die Regie auf, ohne Neuaufbau.
+   */
+  readonly hidden?: boolean;
 }
 
 export function BoardStage({
@@ -48,6 +53,7 @@ export function BoardStage({
   finaleSpeed,
   onRematch,
   gpu = 'webgl',
+  hidden = false,
 }: BoardStageProps) {
   const subscribe = useCallback((listener: () => void) => director.subscribe(listener), [director]);
   const getHud = useCallback(() => director.getHud(), [director]);
@@ -67,12 +73,31 @@ export function BoardStage({
   const finaleShown = hud.view?.gamePhase === 'game-results' && Boolean(hud.view.ranking);
   const finaleRef = useRef(finaleShown);
   const sceneRef = useRef<BoardScene | null>(null);
+  /** Messung des Bretts an- bzw. abmelden (beim Zeigen auch die Marke `erstes-bild`). */
+  const perfRef = useRef<((on: boolean) => void) | null>(null);
   useEffect(() => {
     finaleRef.current = finaleShown;
     // Hinter dem Finale (fast deckend, Podest ganz deckend) rendert das Brett nicht weiter:
     // eine Render-Schleife statt zwei, die GPU gehört dem Podest (CHAOS-39).
     sceneRef.current?.setRenderPaused(finaleShown);
   }, [finaleShown]);
+
+  const hiddenRef = useRef(hidden);
+  useEffect(() => {
+    if (hiddenRef.current === hidden) return;
+    hiddenRef.current = hidden;
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (!hidden) {
+      // Was während des Minispiels aufgelaufen ist, nicht nachträglich animieren (wie früher
+      // beim Neuaufbau). Standbild-Kennzahl (CHAOS-153): Zeigen bis zum ersten Bild.
+      director.settle();
+      markScene('brett', 'aufbau');
+    }
+    // Messung (nur Debug): Ausgeblendet zählt das Brett weder Zeit noch Heap (Minispiel misst).
+    perfRef.current?.(!hidden);
+    scene.setHidden(hidden);
+  }, [hidden, director]);
 
   // Klänge zu den Ereignissen, sobald die Regie sie abspielt (CHAOS-33).
   useEffect(
@@ -94,7 +119,8 @@ export function BoardStage({
     // Standbild-Kennzahl je Szenenwechsel (nur Debug, CHAOS-153): ab hier bis zum ersten Bild.
     // Steht das Finale schon beim Aufbau (z. B. Neuladen während der Zählung), zeichnet das Brett
     // dahinter nie ein Bild; der Aufbau fällt dann ins Fenster „zählung → podest“.
-    const marked = !finaleRef.current;
+    // Ausgeblendet (Neuladen während eines Minispiels): Das Fenster öffnet erst das Zeigen.
+    const marked = !finaleRef.current && !hiddenRef.current;
     if (marked) markScene('brett', 'aufbau');
     const canvas = document.createElement('canvas');
     canvas.className = 'game-canvas';
@@ -113,6 +139,7 @@ export function BoardStage({
       });
       sceneRef.current = scene;
       scene.setRenderPaused(finaleRef.current);
+      scene.setHidden(hiddenRef.current);
       onSceneRef.current(scene);
 
       let active = true;
@@ -177,9 +204,23 @@ export function BoardStage({
         : undefined;
       if (hook) window.__chaos = hook;
 
-      // Messung (nur Debug, CHAOS-39): hinter dem Finale heißt das Brett „finale“.
-      const stopPerf = attachPerf(() => (finaleRef.current ? 'finale' : 'brett'), scene);
-      const stopFirstFrame = marked ? markFirstFrame('brett', scene) : () => undefined;
+      // Messung (nur Debug, CHAOS-39): hinter dem Finale heißt das Brett „finale“. Während eines
+      // Minispiels abgemeldet (CHAOS-152); `markFirstFrame` nach `attachPerf` anmelden.
+      let stopPerf: (() => void) | null = null;
+      let stopFirstFrame: () => void = () => undefined;
+      const setPerf = (on: boolean, firstFrame: boolean): void => {
+        stopFirstFrame();
+        stopFirstFrame = () => undefined;
+        stopPerf?.();
+        stopPerf = null;
+        if (!on) return;
+        stopPerf = attachPerf(() => (finaleRef.current ? 'finale' : 'brett'), scene);
+        if (firstFrame) stopFirstFrame = markFirstFrame('brett', scene);
+      };
+      setPerf(!hiddenRef.current, marked);
+      perfRef.current = (on) => {
+        setPerf(on, on);
+      };
 
       scene.ready.then(
         () => {
@@ -196,8 +237,8 @@ export function BoardStage({
 
       return () => {
         active = false;
-        stopPerf();
-        stopFirstFrame();
+        setPerf(false, false);
+        perfRef.current = null;
         scene.dispose();
         if (sceneRef.current === scene) sceneRef.current = null;
         onSceneRef.current(null);
@@ -232,7 +273,13 @@ export function BoardStage({
   }, [board, director, test, local, gpu]);
 
   return (
-    <>
+    // Ausgeblendet per `visibility` statt `display: none`: Die Leinwand behält ihre Größe.
+    <div
+      className="board-layer"
+      data-hidden={hidden || undefined}
+      inert={hidden}
+      aria-hidden={hidden || undefined}
+    >
       <div className="stage" ref={stageRef} />
       <BoardHud hud={hud} boardName={board.name} connection={connection} />
       {hud.view?.gamePhase === 'game-results' && hud.view.ranking && (
@@ -245,6 +292,6 @@ export function BoardStage({
           onRematch={connection === null || connection === 'connected' ? onRematch : null}
         />
       )}
-    </>
+    </div>
   );
 }
