@@ -1,0 +1,92 @@
+{
+  "phase": "board",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "players": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "color": "#0072B2",
+        "connected": true,
+        "ready": true,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "color": "#E69F00",
+        "connected": true,
+        "ready": true,
+        "character": "sock"
+      }
+    ]
+  },
+  "board": {
+    "round": 6,
+    "rounds": 10,
+    "activeSlot": 1,
+    "spaces": [
+      {
+        "id": "s00",
+        "x": 0,
+        "z": 0,
+        "kind": "start"
+      },
+      {
+        "id": "s01",
+        "x": 2.4,
+        "z": 0.5,
+        "kind": "coins-plus"
+      },
+      {
+        "id": "s02",
+        "x": 4.6,
+        "z": 1.6,
+        "kind": "coins-minus"
+      },
+      {
+        "id": "s03",
+        "x": 6.2,
+        "z": 3.4,
+        "kind": "event"
+      },
+      {
+        "id": "s04",
+        "x": 6.8,
+        "z": 5.8,
+        "kind": "item"
+      },
+      {
+        "id": "s05",
+        "x": 5.9,
+        "z": 8.1,
+        "kind": "trophy"
+      }
+    ],
+    "pawns": [
+      {
+        "slot": 1,
+        "spaceId": "s03",
+        "x": 5.95,
+        "z": 3.4,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "spaceId": "s03",
+        "x": 6.45,
+        "z": 3.4,
+        "character": "sock"
+      }
+    ],
+    "messages": [
+      "Runde 6 beginnt!"
+    ],
+    "notice": {
+      "title": "Sabotage wird stärker!",
+      "detail": "Klau: 6 Münzen · Falle: 5 Münzen"
+    }
+  },
+  "minigame": null
+}
