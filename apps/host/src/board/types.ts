@@ -64,5 +64,13 @@ export interface BoardScene {
    * Im Testmodus ohne Wirkung (dort rendert nur `stepFrames`).
    */
   setRenderPaused(paused: boolean): void;
+  /**
+   * Brett ausgeblendet, weil ein Minispiel läuft (CHAOS-152): `true` hält Rendern **und** Regie
+   * an (die Regie holt `BoardStage` beim Zeigen mit `settle()` ein) und bereitet die Stimmung
+   * der nächsten Runde vor (Himmel, Nachtlichter, Shader schrittweise), solange niemand
+   * hinsieht. `false` zeigt das Brett wieder: kein Neuaufbau, kein neuer WebGL-Kontext.
+   * Im Testmodus ohne Wirkung auf die Schleife (dort rendert nur `stepFrames`).
+   */
+  setHidden(hidden: boolean): void;
   dispose(): void;
 }

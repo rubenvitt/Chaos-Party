@@ -62,7 +62,8 @@ const NO_PLAYERS: readonly HostPlayer[] = [];
  *
  * Szenen nach Phase: `lobby` und `play` zeigen die Arena (M1), `board` die Brett-Szene (M2).
  * In den Minispiel-Phasen eines bekannten Minispiels ersetzt die Minispiel-Bühne (M3,
- * `MinigameScreen`) das Brett; danach wird das Brett neu aufgebaut. Maßgeblich ist der
+ * `MinigameScreen`) das Brett; das Brett bleibt dabei unsichtbar und angehalten eingehängt
+ * (CHAOS-152). Maßgeblich ist der
  * neueste Server-Stand (`feed`), nicht der animierte Stand der Regie.
  */
 const isKnownMinigame = (id: string) => getMinigameInfo(id) !== undefined;
@@ -97,6 +98,7 @@ export function App({ config }: AppProps) {
       ? getMinigameInfo(latest.view.minigame.id)
       : undefined;
   const [minigameReady, setMinigameReady] = useState(false);
+  const minigameShown = boardMode && minigameInfo !== undefined && latest.view !== null;
 
   const [physics, setPhysics] = useState<PhysicsStatus>('loading');
   const [sceneReady, setSceneReady] = useState(false);
@@ -295,8 +297,15 @@ export function App({ config }: AppProps) {
   }, [localBoard, config.demo, test, director]);
 
   const getRenderer = useCallback(
-    () => (boardMode ? boardSceneRef.current : sceneRef.current)?.getRendererInfo() ?? null,
-    [boardMode],
+    () =>
+      // Während eines Minispiels ist das Brett nur ausgeblendet (CHAOS-152); es zählt nicht.
+      (boardMode
+        ? minigameShown
+          ? null
+          : boardSceneRef.current
+        : sceneRef.current
+      )?.getRendererInfo() ?? null,
+    [boardMode, minigameShown],
   );
   const onBoardScene = useCallback((scene: BoardScene | null) => {
     boardSceneRef.current = scene;
@@ -372,7 +381,39 @@ export function App({ config }: AppProps) {
       data-paused={!local && boardMode ? (latest.view?.paused ?? false) : undefined}
     >
       <Suspense fallback={null}>
-        {boardMode && minigameInfo && latest.view ? (
+        {boardMode ? (
+          // Das Brett bleibt die ganze Partie eingehängt (CHAOS-152): Während eines Minispiels ist
+          // es unsichtbar und angehalten, statt entsorgt und danach neu gebaut zu werden.
+          <BoardStage
+            director={director}
+            connection={session.status}
+            test={test}
+            local={local}
+            onReady={setBoardReady}
+            onScene={onBoardScene}
+            finaleSpeed={finaleSpeedOf(config)}
+            onRematch={onRematch}
+            gpu={config.gpu}
+            hidden={minigameShown}
+          />
+        ) : (
+          <>
+            <div className="stage" ref={stageRef} />
+            <Hud
+              players={players}
+              // Lobby vor dem Brettspiel: nicht „Schubs-Arena“ (die läuft nur dahinter, CHAOS-40).
+              subtitle={phase === 'play' || arena ? 'Schubs-Arena' : 'Party-Brettspiel'}
+              physics={physics}
+              showKeyHints={local}
+              showPlayers={local || phase === 'play'}
+              connection={session.status}
+            />
+          </>
+        )}
+      </Suspense>
+      {/* Eigene Grenze: Lädt der Minispiel-Chunk, bleibt das Brett unberührt. */}
+      <Suspense fallback={null}>
+        {minigameShown && (
           <MinigameScreenById
             key={minigameKey}
             minigameId={minigameInfo.id}
@@ -391,31 +432,6 @@ export function App({ config }: AppProps) {
             getResultState={getResultState}
             resultAck={session.resultAck}
           />
-        ) : boardMode ? (
-          <BoardStage
-            director={director}
-            connection={session.status}
-            test={test}
-            local={local}
-            onReady={setBoardReady}
-            onScene={onBoardScene}
-            finaleSpeed={finaleSpeedOf(config)}
-            onRematch={onRematch}
-            gpu={config.gpu}
-          />
-        ) : (
-          <>
-            <div className="stage" ref={stageRef} />
-            <Hud
-              players={players}
-              // Lobby vor dem Brettspiel: nicht „Schubs-Arena“ (die läuft nur dahinter, CHAOS-40).
-              subtitle={phase === 'play' || arena ? 'Schubs-Arena' : 'Party-Brettspiel'}
-              physics={physics}
-              showKeyHints={local}
-              showPlayers={local || phase === 'play'}
-              connection={session.status}
-            />
-          </>
         )}
       </Suspense>
       {!local && boardMode && (
