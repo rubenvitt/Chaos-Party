@@ -81,6 +81,9 @@ Wie bei Bevy als `--name=wert`; im Simulator hängt man sie an `simctl launch` a
 | `tonemapping` | 1 | Nur `RealityRenderer` (offscreen, hochskaliert): `0` schaltet Tonemapping ab. |
 | `ibl` | 1 | `0` lässt das Himmelslicht (IBL) weg. |
 | `material` | voll | Diagnose: `einfach` (ein PBR-Material ohne Texturen für alles) oder `unbeleuchtet` (`UnlitMaterial`). |
+| `nah` | – | Figur (`robot`, `cactus`, `raccoon`, `sock`): Kamera auf Augenhöhe vor diese Figur statt Brettkamera (CHAOS-140, Sichtprüfung). |
+| `abstand` | 2,6 | Abstand der Nahkamera zur Figur in Metern. |
+| `idle` | 1 | `0`: Figuren ohne Animation in der Ruhepose des USDZ (Diagnose). |
 
 ### Szene
 
