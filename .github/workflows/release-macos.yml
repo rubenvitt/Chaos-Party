@@ -8,6 +8,11 @@ name: Release (Mac-App)
 #
 # Secrets: MACOS_CERTIFICATE_P12 (base64 der .p12 mit „Developer ID Application“ samt Schlüssel),
 # MACOS_CERTIFICATE_PASSWORD, dazu APPLE_API_KEY, APPLE_API_KEY_P8, APPLE_API_ISSUER (wie TestFlight).
+#
+# Sparkle-Updates (CHAOS-156): Secret SPARKLE_ED_PRIVATE_KEY (privater EdDSA-Schlüssel aus `generate_keys -x`)
+# und Repository-Variable SPARKLE_PUBLIC_ED_KEY (öffentlicher Schlüssel, landet als SUPublicEDKey in der App).
+# Der Workflow signiert den Zip, schreibt eine signierte appcast.xml und legt sie an den festen Release
+# `macos-appcast` (stabile Adresse für SUFeedURL). Fehlt eins von beiden, gibt es das Release ohne Feed.
 on:
   workflow_dispatch:
   push:
@@ -39,6 +44,8 @@ jobs:
     env:
       # Vorabversion, solange der native Host Grundkörper zeichnet (CHAOS-142/144); danach auf 'false'.
       PRERELEASE: 'true'
+      SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+      SPARKLE_FEED_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/macos-appcast/appcast.xml
     steps:
       - uses: actions/checkout@v7
 
@@ -57,8 +64,19 @@ jobs:
           brew install xcodegen
           xcodebuild -version
 
-      - name: Version
+      - name: Version und Sparkle-Feed prüfen
+        env:
+          HAS_SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY != '' }}
         run: |
+          if [ -n "$SPARKLE_PUBLIC_ED_KEY" ] && [ "$HAS_SPARKLE_PRIVATE_KEY" = true ]; then
+            echo "SPARKLE_FEED=true" >> "$GITHUB_ENV"
+          elif [ -n "$SPARKLE_PUBLIC_ED_KEY" ]; then
+            # Eine App mit Schlüssel, aber ohne signierten Feed fände nie ein Update: lieber abbrechen.
+            echo "::error::Variable SPARKLE_PUBLIC_ED_KEY ist gesetzt, Secret SPARKLE_ED_PRIVATE_KEY fehlt"; exit 1
+          else
+            echo "::warning::Ohne SPARKLE_PUBLIC_ED_KEY und SPARKLE_ED_PRIVATE_KEY: Release ohne Sparkle-Updates (CHAOS-156)"
+            echo "SPARKLE_FEED=false" >> "$GITHUB_ENV"
+          fi
           base=$(sed -nE "s/^ *MARKETING_VERSION: '?([0-9]+\.[0-9]+)'?.*/\1/p" apps/apple-host/project.yml)
           [ -n "$base" ] || { echo "::error::MARKETING_VERSION in project.yml nicht gefunden"; exit 1; }
           echo "VERSION=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
@@ -113,6 +131,7 @@ jobs:
         run: |
           tag="macos-v$VERSION"
           files=("$ZIP" "$ZIP.sha256")
+          echo "TAG=$tag" >> "$GITHUB_ENV"
           if gh release view "$tag" > /dev/null 2>&1; then
             # Wiederholter Lauf derselben Nummer: Dateien ersetzen.
             gh release upload "$tag" "${files[@]}" --clobber
@@ -127,12 +146,35 @@ jobs:
           - **Start:** Zip entpacken, „Chaos Party.app“ nach „Programme“ ziehen und öffnen. Signiert mit Developer ID und von Apple notarisiert.
           - **Erster Start:** macOS fragt nach dem lokalen Netzwerk bzw. eingehenden Verbindungen. Erlauben, sonst erreichen die Controller die App nicht.
           - **Mitspielen:** Mit dem iPhone den QR-Code scannen (Browser) oder die Controller-App aus TestFlight nutzen.
+          - **Updates:** Die App sucht selbst nach neuen Versionen (Sparkle), sofort über „Chaos Party → Nach Updates suchen …“.
           - **Stand:** Vorabversion. Brett und Minispiele sind noch Grundkörper; die echte Grafik folgt.
 
-          Quelltext dieses Builds: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }} (GPL-3.0). Lizenzhinweise liegen in der App unter \`Contents/Resources/payload/\`.
+          Quelltext dieses Builds: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }} (GPL-3.0). Lizenzhinweise liegen in der App unter \`Contents/Resources/payload/\`, die von Sparkle unter \`Contents/Resources/Sparkle-LICENSE.txt\`.
           NOTES
           gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" \
             --title "Chaos Party für macOS $VERSION" --notes-file "$RUNNER_TEMP/notes.md" ${flags[@]+"${flags[@]}"}
+
+      # Erst nach dem Release: der Feed zeigt auf dessen Zip. Der private Schlüssel geht nur über stdin an
+      # sign_update, nie in eine Datei oder ins Log.
+      - name: Sparkle-Feed signieren und veröffentlichen
+        if: env.SPARKLE_FEED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.build.outputs.zip }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          base="${{ github.server_url }}/${{ github.repository }}/releases"
+          ZIP="$GITHUB_WORKSPACE/$ZIP" BUILD_NUMBER="$GITHUB_RUN_NUMBER" APPCAST="$RUNNER_TEMP/appcast.xml" \
+            DOWNLOAD_URL="$base/download/$TAG/$(basename "$ZIP")" RELEASE_URL="$base/tag/$TAG" \
+            apps/apple-host/scripts/sparkle-feed.sh
+
+          feed_tag=macos-appcast
+          if ! gh release view "$feed_tag" > /dev/null 2>&1; then
+            gh release create "$feed_tag" --target "$GITHUB_SHA" --prerelease --title "Sparkle-Feed der Mac-App" \
+              --notes "Feste Adresse für die automatischen Updates der Mac-App (CHAOS-156). Nicht löschen: installierte Apps lesen \`appcast.xml\` von hier. Die Apps selbst liegen an den Releases \`macos-v…\`."
+          fi
+          gh release upload "$feed_tag" "$RUNNER_TEMP/appcast.xml" --clobber
+          echo "Feed: $SPARKLE_FEED_URL"
 
       - name: Schlüsselbund und API-Key löschen
         if: always()

@@ -107,6 +107,30 @@ RELEASE_DRY_RUN=1 apps/apple-host/scripts/release-macos.sh
   - `MACOS_CERTIFICATE_P12`: base64 der `.p12` mit dem Zertifikat „Developer ID Application“ **samt privatem Schlüssel** (Schlüsselbundverwaltung → Zertifikat und Schlüssel markieren → exportieren; dann `base64 -i developer-id.p12 | pbcopy`)
   - `MACOS_CERTIFICATE_PASSWORD`: Passwort dieser `.p12`
   - `APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`: dieselben wie für TestFlight (CHAOS-115); `notarytool` braucht mindestens die Rolle „Developer“.
+  - `SPARKLE_ED_PRIVATE_KEY` und die Variable `SPARKLE_PUBLIC_ED_KEY`: Updates per Sparkle, siehe unten.
+
+### Automatische Updates (Sparkle, CHAOS-156)
+
+Die Mac-App sucht mit [Sparkle](https://sparkle-project.org) 2.10.1 selbst nach neuen Versionen: einmal täglich und sofort über „Chaos Party → Nach Updates suchen …“. Sie zeigt die neue Version an, lädt den Zip, prüft beide Signaturen (EdDSA und Developer ID) und startet neu. Nur macOS; die Apple TV aktualisiert über TestFlight. Hintergrund: ADR-019 Nachtrag 4.
+
+- **Feed:** `appcast.xml` am Release [`macos-appcast`](https://github.com/rubenvitt/chaos-party/releases/tag/macos-appcast), feste Adresse `SPARKLE_FEED_URL` in `project.yml`. Den Feed schreibt [`scripts/sparkle-feed.sh`](scripts/sparkle-feed.sh) nach jedem Release: `sign_update` signiert den Zip, [`scripts/appcast.mjs`](scripts/appcast.mjs) prüft die Signatur gegen den Schlüssel der App und schreibt den Eintrag, `sign_update` signiert den Feed.
+- **Schlüssel** (nie ins Repository): Variable `SPARKLE_PUBLIC_ED_KEY` (öffentlich, Repository → Settings → Secrets and variables → Actions → Variables) und Secret `SPARKLE_ED_PRIVATE_KEY`. Ohne beide gibt es Releases ohne Updater; die App zeigt den Menüpunkt dann ausgegraut.
+- **Einmalig einrichten** auf dem Mac (der private Schlüssel bleibt zusätzlich im Schlüsselbund, als Sicherung):
+
+  ```sh
+  cd "$(mktemp -d)"
+  curl -fsSLO https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz
+  echo "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27  Sparkle-2.10.1.tar.xz" | shasum -a 256 -c -
+  tar -xf Sparkle-2.10.1.tar.xz ./bin/generate_keys
+  ./bin/generate_keys --account chaos-party            # legt das Paar im Schlüsselbund an, gibt den öffentlichen aus
+  gh variable set SPARKLE_PUBLIC_ED_KEY -R rubenvitt/chaos-party --body "$(./bin/generate_keys --account chaos-party -p)"
+  ./bin/generate_keys --account chaos-party -x sparkle-private.key
+  gh secret set SPARKLE_ED_PRIVATE_KEY -R rubenvitt/chaos-party < sparkle-private.key
+  rm -P sparkle-private.key
+  ```
+
+- **Schlüssel verloren?** Dann können installierte Apps keine Updates mehr annehmen; man müsste die App einmal von Hand neu laden. Darum den Eintrag „chaos-party“ im Schlüsselbund nicht löschen.
+- **CI:** Jeder PR baut die App ad hoc mit einem Wegwerf-Schlüssel und läuft `sparkle-feed.sh` einmal durch (Job „Native Apps“). Der echte Update-Weg von einer installierten Version auf die nächste ist nur am Mac prüfbar: Gerätecheckliste §28.
 
 ## TestFlight (Apple TV, CHAOS-151)
 

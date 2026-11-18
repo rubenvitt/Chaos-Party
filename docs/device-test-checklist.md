@@ -551,3 +551,20 @@ Automatisch geprüft (Linux, ohne Mac): USDZ entstehen mit `pnpm build:apple-ass
 | UA2 | Mac: Spike mit den neuen Assets bauen und starten (`spikes/renderer-realitykit/convert/convert.sh`, dann wie im Spike-README, `--sekunden=60 --bleiben=1`; Nahansicht je Figur mit `--nah=<figur>`) | Brett wie bisher, vier Figuren mit Glanz, Roboter-Augen und Glühbirne leuchten, Figuren wippen in `idle` (keine anderen Clips, kein Springen am Schleifenende) | 18.11. (Claude, M3 Max, macOS 27.2.1, Xcode 27.0): Brett, Glanz und Materialien wie erwartet, 59,5 fps. **Fehler:** Socken-Bündchen und Kaktus-Blüte stehen ein Stück über dem Körper, der Kaktus wirkt unten zerknittert, auch ohne Animation (`--idle=0`). Wippen in `idle` nicht beurteilt. | [`chaos140-realitykit-brett.jpg`](screenshots/chaos140-realitykit-brett.jpg), [`…-nah.jpg`](screenshots/chaos140-realitykit-nah.jpg), [`…-ruhepose.jpg`](screenshots/chaos140-realitykit-ruhepose.jpg) |
 | UA3 | Mac: Babylon-Host daneben (`pnpm play`, Brett im Beispielstand) und Screenshots aus ähnlicher Kamera | Figuren und Kulisse erkennbar dieselben; Unterschiede notieren (Fell-Sheen fehlt, kein SSAO/HDRI) | Entfällt (18.11.): Die Figuren werden ohnehin überarbeitet (CHAOS-162), dort mit Vorher-nachher-Bildern aus beiden Hosts. | zwei Screenshots nach `docs/screenshots/chaos140-*.jpg` |
 | UA4 | Ruben: Urteil zur Optik | „sieht aus wie am PC“ oder eine Liste, was fehlt | 18.11., Ruben: „passt so“ zum fehlenden Sheen. Die Figuren müssen in der Nähe detaillierter werden, Kaktus und Socke sind kaputt bzw. nicht schön → CHAOS-161, CHAOS-162. | Kommentar an CHAOS-140 |
+
+## 28. Automatisches Update der Mac-App (für CHAOS-156)
+
+**Stand:** 2026-11-18 · **Aufgabe:** CHAOS-156 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „Automatische Updates“
+
+Automatisch geprüft (CI, jeder PR): App mit Sparkle ad hoc gebaut, Sparkle samt Helfern neu signiert, Selbsttest lädt Sparkle; mit einem Wegwerf-Schlüssel signiert `sign_update` einen Zip, die Signatur passt zum Schlüssel im Info.plist, die `appcast.xml` ist signiert und geprüft. **Nicht** geprüft: dass eine installierte, notarisierte App das nächste Release wirklich findet, lädt, ohne Gatekeeper-Warnung ersetzt und neu startet.
+
+Voraussetzung: Variable `SPARKLE_PUBLIC_ED_KEY` und Secret `SPARKLE_ED_PRIVATE_KEY` sind gesetzt; danach liefen **zwei** Releases (z. B. zweimal „Release (Mac-App)“ → „Run workflow“), und `…/releases/download/macos-appcast/appcast.xml` zeigt die zweite Version.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| SU1 | Den **ersten** der beiden Releases (`macos-v0.1.N`) laden und nach „Programme“ legen, öffnen | Startet wie in §25; im App-Menü ist „Nach Updates suchen …“ aktiv | | |
+| SU2 | „Chaos Party → Nach Updates suchen …“ | Fenster „Eine neue Version von Chaos Party ist verfügbar“ mit der Version des zweiten Releases und dem Hinweistext | | Bildschirmfoto |
+| SU3 | „Update installieren“, dann „Installieren und neu starten“ | Lädt, beendet die App und startet sie neu; **keine** Gatekeeper-Rückfrage, kein „beschädigt“ | | |
+| SU4 | „Über Chaos Party“ | Version des zweiten Releases | | |
+| SU5 | App mit der alten Version erneut installieren, einen Tag offen lassen (oder `defaults delete dev.rubeen.chaosparty.host SULastCheckTime` und neu starten) | Sparkle meldet das Update ohne Klick auf den Menüpunkt | | |
+
