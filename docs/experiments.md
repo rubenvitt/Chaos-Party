@@ -2248,6 +2248,7 @@ Umgesetzt und gemessen wurde nur **a**: Es deckt beide Blöcke ab. b und c löse
 | Heap nach GC am Brett | 85 MB | 93 MB (Himmel der nächsten Runde) |
 | Revanche ×3 (Lobby nach jeder Partie) | 38,6 → 51,7 MB, 1 Kontext | 38,6 → 51,6 MB, 1 Kontext |
 
+- **Zweiter Lauf** (beim Neuschreiben der Baseline): brett → minispiel 491 / 523 ms, minispiel → brett 580 / 2069 ms, erstes Brett-Bild nach 13 ms. Bestätigt den ersten Lauf.
 - Der Höchstwert „brett → minispiel“ (vorher 9 s) ist das kalte erste Minispiel; er schwankt stark (EXP-025: 3,6–8,6 s). Ein Lauf belegt also keine Verbesserung um Faktor 12. Plausibel ist sie trotzdem: Das Warten auf das Aufräumen des alten Kontexts entfällt.
 - Der verbleibende Block „minispiel → brett“ (Median 0,57 s) ist das Entsorgen der Minispiel-Bühne samt Kontext; das Brett zeichnet sein erstes Bild nach 9 ms.
 - Bildabstand/Render-Zeit p95 bei Sockenregen und Wackelturm über der Schwelle: genauso im Vorher-Lauf (CHAOS-165, zu wenige Bilder).
