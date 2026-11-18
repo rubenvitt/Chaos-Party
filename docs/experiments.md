@@ -2208,3 +2208,32 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 **Entscheidung:** **B behalten.** Clearcoat, Metall und Leuchten bleiben erhalten, und `check_usdz.py` hält das in der CI fest. Sheen (Fell, Strick) und Subsurface fehlen weiter; für Fell und Socke ist das die größte sichtbare Abweichung. Ob sie stört, entscheidet Rubens Blick am Mac. Wenn ja, wäre der nächste Versuch, Sheen über eine hellere Kante in der gebackenen Farbe anzunähern. B′ ist verworfen; Bitgleichheit ist für nicht eingecheckte Artefakte kein Muss.
 
 **Subjektive Fragen an Ruben (am Mac, Spike neben dem Babylon-Host):** Wirken die Figuren wie dieselben Figuren? Glänzt der Lack, leuchten Augen und Glühbirne? Fehlt dem Fell der weiche Schimmer so, dass es stört?
+
+## EXP-027: Figuren für die Nahansicht – Kaktus und Socke neu geformt (2026-11-18, CHAOS-162)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ruben über die RealityKit-Nahbilder (CHAOS-140): „die figuren müssen im nahbereich detaillierter werden - und der kaktuS und die wurst sind kaputt bzw. nicht schön“. Aus 2–3 m wirken Kaktus und Socke grob: Der Kaktus hat fleckige, knittrige Rippen (weiße Flecken aus Dornenfarbe auf zu wenigen Punkten), kantige Arme, einen Schwimmring als Halstuch, Mund und Brille schweben vor dem Gesicht. Die Socke liest sich als Wurst: ein Schlauch mit kaum sichtbarem Fuß, verwaschenen Ringeln, ohne Ferse und Spitze (die Farbmaske dafür griff nicht), Knöpfe und Mund schweben 4 cm vor dem Schaft, das Bündchen ist ein glatter Zylinder. Annahme: Mit Formen, die nicht aus Skin-Modifier plus Subdivision kommen, sondern als Röhren mit eigenem Querschnitt gebaut werden, werden beide aus der Nähe sauber, ohne dass die Brettansicht leidet.
+
+**Varianten:**
+
+| | Weg | Erwartung |
+|---|---|---|
+| A (Stand CHAOS-161) | Skin-Modifier + Subdivision 2, Rippen und Strick als nachträgliche Verformung bzw. Vertexfarbe | wenige Punkte (Kaktus 1 200, Socke 480), Rippen und Ringel bleiben grob |
+| B | Skin-Modifier mit Subdivision 3 | 4× Punkte, aber Rippen weiter an das 4er-Raster des Skin-Modifiers gebunden, Enden weiter rund abgeschnitten (CHAOS-161) |
+| C | neue Bausteine `path_frames`/`tube`/`rings_mesh` in `figurkit.py`: Röhre entlang einer glatten Mittellinie, Querschnitt je Winkel frei (Rippenprofil, Abflachung), Kuppel-Enden; Gesicht und Halstuch exakt auf die Oberfläche gerechnet, Gewichte von Hand (`k.weight`) | saubere Grate und Ringel, Silhouette frei formbar; kostet Punkte und damit Dateigröße |
+| D | Normal- oder Rauheitstextur für Strick, Fell, Lack | feinste Struktur ohne Punkte; braucht Texturen im GLB und eine zweite UV-Abwicklung neben dem Farbatlas des USDZ – eigener Umbau, nicht in diesem Schritt |
+
+**Messgrößen:** Nahbilder (Blender-Cycles, Babylon-Vitrine mit `nah=<Slot>`, USDZ mit Farbatlas), Brettblick der Vitrine, Dreiecke, Dateigröße, Auflage-Prüfung (`check_usdz.py`), Höhe und Grundfläche (`pnpm check:assets`). Umgebung: Linux-Container, bpy 5.3.0, Chromium mit SwiftShader.
+
+**Ergebnisse (Variante C):**
+
+- **Kaktus:** Rumpf mit 56 Punkten rundum (8 Rippen, breite runde Grate, schmale Rillen), Arme als gebogene Röhren mit Kuppel, 2–3 Areolen mit Dornen je Grat (je 1–2 Dornen, nicht im Gesicht und unter dem Halstuch), Sonnenbrille mit Fassung, Steg und Glanzlicht, Grinsen als Rille auf der Oberfläche, Halstuch als enges Band mit Knoten und zwei Zipfeln, Blüte aus 6 + 5 gewölbten Blättern mit Staubgefäßen, Topf mit Randwulst, Drehrillen und Erde mit Kieseln. 14 386 Dreiecke (vorher 6 444), GLB 486 KiB (vorher 220 KiB), USDZ 1,3 MiB. Höhe 1,58 m (Blüte etwas größer).
+- **Socke:** Röhre entlang einer L-Linie (gerader Schaft, Ferse hinten unten mit Ausbeulung, flacher Fuß, runde Spitze), Strickrippen mit zwei Punkten je Rippe (am Fuß schwächer), vier scharfe Ringel, Ferse und Spitze in Dunkelrot, Bäckchen, Knöpfe auf dem Schaft mit Rand, Löchern und Faden (Kreuz bzw. zwei Striche), gestickter Mund aus fünf Stichen, gestickte Augenbraue, Bündchen mit 24 runden Rippen und umgeschlagenem Rand. 11 452 Dreiecke (vorher 2 968), GLB 371 KiB (vorher 114 KiB), USDZ 995 KiB.
+- **Auflage (CHAOS-161):** Bündchen auf Schaft 0,0 cm, Blüte auf Kaktus 2,3 cm, Kaktus im Topf 0,0 cm; alle USDZ-Prüfungen grün.
+- **Farbatlas:** Mit den feiner unterteilten Figuren legte Smart UV Project Inseln übereinander; auf der Sockenspitze erschienen blaue und braune Flecken aus den Knöpfen. Abhilfe: nach Smart UV Project neu packen (`pack_islands`, konkav, ohne Überlappung) und den Back-Rand auf 16 px. Danach fleckenfrei (`docs/screenshots/chaos162-usdz-nachher.jpg`).
+- **Brettansicht:** Im Brettblick der Vitrine bleiben beide Figuren klar lesbar; der Kaktus ist ohne die weißen Flecken ruhiger und etwas dunkler, die Socke zeigt jetzt die rote Spitze. Vergleich in `docs/screenshots/chaos162-babylon-vorher-nachher.jpg`.
+- **Budgets:** Der Kaktus sprengt mit 486 KiB das Figurenbudget von 384 KiB. Budget je Figur auf 512 KiB angehoben, nur Kaktus und Socke nutzen es; Wusel und Schraubi bleiben bei 384 KiB. Begründung: Die Größe kommt aus Punkten (Skinning, Normalen, Vertexfarben je Punkt), nicht aus Texturen; die Apple TV ist bei 4K pixel-, nicht vertexgebunden, und im Web lädt der Host die Figuren nach dem Start-Bundle (`pnpm check:bundle` bleibt unverändert). Die Dreiecksgrenze von 15 000 hält.
+- **Nicht geprüft:** RealityKit selbst (kein Mac im Container), daher keine neuen `--nah`-Bilder aus dem Spike. Schraubi und Wusel sind in diesem Schritt unverändert.
+
+**Entscheidung:** **C behalten** für Kaktus und Socke. B verworfen, weil die Rippen am 4er-Raster des Skin-Modifiers hängen bleiben. D ist der nächste Schritt für Feinstruktur (Strickmaschen, Fell, Lackkratzer) und betrifft alle vier Figuren.
+
+**Subjektive Fragen an Ruben:** Ist die Socke jetzt klar eine Socke und schön? Ist der Kaktus sauber? Passen Dornen und Strickrippen zum Stil, oder sind sie zu fein bzw. zu grob? Wie wirken beide in RealityKit (`--nah=cactus`, `--nah=sock`) auf dem Fernseher?

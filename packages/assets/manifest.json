@@ -3,7 +3,7 @@
   "version": 1,
   "budgets": {
     "model": {
-      "maxBytes": 393216,
+      "maxBytes": 524288,
       "maxMeshes": 12,
       "maxPrimitives": 24,
       "maxMaterials": 6,
@@ -38,13 +38,13 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/cactus.glb",
-      "description": "Figur Kalle Kaktus (gerippter Saguaro im Tontopf mit Sonnenbrille, Blüte und Halstuch; Skinning); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Kalle Kaktus (gerippter Saguaro mit Areolen und Dornen im Tontopf, Sonnenbrille mit Fassung, Blüte und Halstuch; Skinning); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 393216,
+      "budgetBytes": 524288,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
-      "height": 1.55
+      "height": 1.58
     },
     {
       "id": "figur-raccoon",
@@ -64,11 +64,11 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/sock.glb",
-      "description": "Figur Socke Sigi (Strick-Socke mit Ringeln und ungleichen Knopfaugen; Skinning); Material „akzent“ = Rippbündchen in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Socke Sigi (Strick-Socke mit Ferse, Spitze, Ringeln, ungleichen Knopfaugen und gesticktem Mund; Skinning); Material „akzent“ = Rippbündchen in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 393216,
+      "budgetBytes": 524288,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
       "height": 1.507
     },
