@@ -69,6 +69,8 @@ jobs:
       - name: USDZ-Assets bauen
         env:
           BOARD_EXPORT_TIMEOUT: '900000'
+          # Die RealityKit-Prüfung braucht Metal; auf den VM-Runnern nicht verlässlich. usd-core prüft trotzdem.
+          RK_CHECK: '0'
         run: |
           python -m venv .venv-blender
           .venv-blender/bin/pip install -r packages/assets/blender/requirements.txt

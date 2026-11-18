@@ -76,6 +76,9 @@ struct OverlayView: View {
 struct LobbyView: View {
     let overlay: Overlay
     let start: () -> Void
+    #if os(tvOS)
+    @Namespace private var focus
+    #endif
 
     private var players: [RenderState.Player] { overlay.players.sorted { $0.slot < $1.slot } }
     private var canStart: Bool { overlay.sceneLoaded && !players.isEmpty && players.allSatisfy { $0.ready == true } }
@@ -130,6 +133,9 @@ struct LobbyView: View {
         .padding(.vertical, 70)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.05)], startPoint: .leading, endPoint: .trailing))
+        #if os(tvOS)
+        .focusScope(focus)
+        #endif
     }
 
     @ViewBuilder private var startButton: some View {
@@ -141,10 +147,12 @@ struct LobbyView: View {
         }
         .buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(!canStart)
         #else
-        Button(action: start) {
+        // tvOS: nicht `.disabled`, sonst bekommt der Knopf keinen Fokus und die Fernbedienung erreicht ihn nie.
+        Button { if canStart { start() } } label: {
             Text("Partie starten").font(.system(size: 34, weight: .heavy, design: .rounded)).padding(.horizontal, 24)
+                .opacity(canStart ? 1 : 0.45)
         }
-        .disabled(!canStart)
+        .prefersDefaultFocus(true, in: focus)
         #endif
     }
 
