@@ -2295,3 +2295,23 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 **Entscheidung:** **C behalten** für Kaktus und Socke. B verworfen, weil die Rippen am 4er-Raster des Skin-Modifiers hängen bleiben. D ist der nächste Schritt für Feinstruktur (Strickmaschen, Fell, Lackkratzer) und betrifft alle vier Figuren.
 
 **Subjektive Fragen an Ruben:** Ist die Socke jetzt klar eine Socke und schön? Ist der Kaktus sauber? Passen Dornen und Strickrippen zum Stil, oder sind sie zu fein bzw. zu grob? Wie wirken beide in RealityKit (`--nah=cactus`, `--nah=sock`) auf dem Fernseher?
+
+## EXP-028: Schraubi und Wusel für die Nahansicht (2026-11-18, CHAOS-171)
+
+**Hypothese / gewünschtes Spielerlebnis:** Nach EXP-027 (Kaktus und Socke) fragte Ruben: „ja viel besser. kann man die anderen auch nochmal verbessern?“ Schraubi wirkt aus der Nähe wie glatte Kisten mit Stäben, Wusel hat ein leeres Gesicht (kein Mund, keine Schnurrhaare), stummelige Pfoten ohne Finger und einen Schwanz mit weichen, verwaschenen Ringeln. Annahme: Mit den Röhren-Bausteinen aus EXP-027 und kleinen, auf die Oberfläche gesetzten Details werden beide aus der Nähe so lesbar wie Kaktus und Socke, ohne dass der Brettblick unruhig wird.
+
+**Varianten:** wie EXP-027 Variante C (Röhren, Teile auf die Oberfläche gerechnet). Normal-/Rauheitstexturen bleiben CHAOS-172.
+
+**Messgrößen:** Nahbilder (Blender-Cycles mit `nahbild.py`, Babylon-Vitrine `nah=1`/`nah=3`, USDZ mit Farbatlas), Dreiecke, Dateigröße, Höhe und Grundfläche (`pnpm check:assets`), USDZ-Prüfung. Umgebung: Linux-Container, bpy 5.3.0, Chromium mit SwiftShader.
+
+**Ergebnisse:**
+
+- **Schraubi:** Rumpf und Kopf mit gefasten Kanten, Nietenreihen, Naht und Gürtel, Bedienleiste über dem Abzeichen (drei Knöpfe, Drehregler mit Zeiger), je vier Lüftungsschlitze an den Seiten; Bildschirm mit dunklem Rahmen, Wangenstriche, Ohrschrauben mit Schlitz, Eck-Nieten, Schlitze oben; Arme und Beine als gerippte Schläuche mit Schulterkugel, Manschetten, Daumen, Stiefel mit Sohle und Kappe; Antenne mit Spiralfeder und Messingsockel. 14 056 Dreiecke (vorher 6 312), GLB 372 KiB (vorher 212 KiB), USDZ 903 KiB. Weiter 12 Meshes, keine Skin-Gewichte.
+- **Wusel:** Kopf feiner unterteilt, Maske als Tropfenform mit schärferem Rand, je drei Wangenbüschel, Nasenlinie, „w“-Mund und je drei Schnurrhaare (per `ray_cast` auf die Kopfoberfläche gesetzt), Halstuch als eng anliegendes Band mit Knoten und zwei Zipfeln, Schwanz als Röhre mit 5,5 scharfen Ringeln, leichtem Bausch je Ringel und dunkler Spitze, dunkle Pfoten mit je drei Fingern und Zehen. Finger und Zehen sitzen per `closest_point_on_mesh` auf der Körperoberfläche (die Skin-Form schrumpft durch die Unterteilung, feste Koordinaten schwebten daneben) und übernehmen die Gewichte der nächsten Körperstelle. 14 120 Dreiecke (vorher 10 272), GLB 430 KiB (vorher 323 KiB), USDZ 1,1 MiB.
+- **Budget:** Wusel überschreitet mit 430 KiB die 384 KiB und bekommt wie Kaktus und Socke 512 KiB (Begründung wie EXP-027: Punkte, keine Texturen). Schraubi bleibt mit 372 KiB unter 384 KiB.
+- **Brettansicht:** Beide bleiben im Brettblick klar lesbar; bei Schraubi sind Bedienleiste und Nieten aus der Ferne nur noch als Punkte sichtbar, bei Wusel fallen Schnurrhaare und Ringel auf. Vergleich in `docs/screenshots/chaos171-babylon-vorher-nachher.jpg`, Blender in `docs/screenshots/chaos171-blender-vorher-nachher.jpg`, USDZ in `docs/screenshots/chaos171-usdz-nachher.jpg`.
+- **Nicht geprüft:** RealityKit selbst (kein Mac im Container).
+
+**Entscheidung:** **behalten**, vorbehaltlich Rubens Urteil über die Nahbilder.
+
+**Subjektive Fragen an Ruben:** Ist Schraubi mit Nieten und Bedienleiste schöner oder zu kleinteilig? Passt Wusels Gesicht mit Mund und Schnurrhaaren? Wie wirken beide in RealityKit (`--nah=robot`, `--nah=raccoon`)?
