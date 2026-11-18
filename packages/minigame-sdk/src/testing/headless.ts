@@ -6,6 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
 import { Color3 } from '@babylonjs/core/Maths/math.color.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
@@ -278,7 +279,24 @@ export async function runMinigameHeadless(
   runner.dispose();
   const residue = sceneResidue(headless.scene);
   if (!options.keepScene) headless.dispose();
+  await flushBabylonTimers();
   return { outcome, runner, fx: fx.record, animations: characters.animations, residue, headless };
+}
+
+/**
+ * Babylon verschiebt Arbeit per `setTimeout`: `Scene.addMesh`/`addMaterial`/`addCamera` …
+ * melden sich über `TimingTools.SetImmediate` (eine modulweite Warteschlange, geleert von einem
+ * 1-ms-Zeitgeber), `Observable.remove` trägt Beobachter per `setTimeout(0)` aus. Bis der
+ * Zeitgeber feuert, hält die Warteschlange jedes Mesh, jedes Material und damit die ganze
+ * entsorgte Szene fest. Eine Schleife, die nur Promises abwartet (Mikrotasks), lässt den
+ * Zeitgeber nie laufen; dann wächst der Heap je Lauf um MB (CHAOS-126). Im Host leert der
+ * Render-Takt die Warteschlange von selbst, im Apple-Host `tick(nowMs)` über die virtuelle Uhr.
+ *
+ * Zwei Makrotask-Runden: Node führt Zeitgeber gleicher Dauer in Anlegereihenfolge aus (0 ms
+ * zählt als 1 ms), und die verschobenen Rückrufe dürfen selbst noch einmal verschieben.
+ */
+export async function flushBabylonTimers(rounds = 2): Promise<void> {
+  for (let i = 0; i < rounds; i++) await sleep(1);
 }
 
 /** Sekunden in feste Schritte (für Skripte, die „nach 2 s“ handeln). */
