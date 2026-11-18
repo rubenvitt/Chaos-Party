@@ -97,13 +97,30 @@ struct SceneBuilder {
             figure.position = at
             figure.orientation = simd_quatf(angle: atan2(camPos.x - at.x, camPos.z - at.z), axis: [0, 1, 0])
             root.addChild(figure)
-            playIdle(figure, character: pawn.character)
+            if settings.idle { playIdle(figure, character: pawn.character) }
             HostClient.shared.pawns[pawn.slot] = figure
         }
+        if let id = settings.closeUp { aimCloseUp(camera, at: id, meta: meta) }
         if settings.materials != "voll" { overrideMaterials(in: root) }
         return Built(root: root, camera: camera, instances: instanceCount,
                      clearColor: CGColor(red: CGFloat(clear[0]), green: CGFloat(clear[1]), blue: CGFloat(clear[2]), alpha: 1),
                      sky: skyResource, skyExponent: log2(max(meta.sky?.intensity ?? 0.35, 0.01) * Float(settings.skyScale)))
+    }
+
+    /// `--nah=<figur>` (CHAOS-140): Kamera auf Augenhöhe vor die Figur, aus der Richtung der Brettkamera,
+    /// zu der die Figur schaut. Sichtfeld, near und far bleiben wie bei der Brettkamera.
+    private func aimCloseUp(_ camera: PerspectiveCamera, at id: String, meta: SceneMeta) {
+        guard let pawn = meta.pawns.first(where: { $0.character == id }) else {
+            log("--nah=\(id): keine solche Figur (\(meta.pawns.map(\.character).joined(separator: ", "))), Brettkamera bleibt")
+            return
+        }
+        let at = vec(pawn.position)
+        var toCamera = vec(meta.camera.position) - at
+        toCamera.y = 0
+        let dir = simd_length(toCamera) > 0.001 ? simd_normalize(toCamera) : SIMD3<Float>(0, 0, 1)
+        let eye = at + dir * settings.closeUpDistance + SIMD3<Float>(0, 1.25, 0)
+        camera.look(at: at + SIMD3<Float>(0, 0.8, 0), from: eye, relativeTo: nil)
+        log("Nahkamera vor \(id), Abstand \(settings.closeUpDistance) m")
     }
 
     /// Babylon-Thin-Instances als `MeshInstancesComponent` (ein Draw je Mesh-Teil, GPU-Instanzen).

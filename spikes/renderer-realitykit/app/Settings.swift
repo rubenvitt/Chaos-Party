@@ -96,6 +96,14 @@ struct Settings {
     var ibl: Bool { flag("ibl", true) }
     /// `voll` (Standard), `einfach` (ein PBR-Material ohne Texturen für alles) oder `unbeleuchtet` (UnlitMaterial).
     var materials: String { raw["material"] ?? "voll" }
+
+    // CHAOS-140: Sichtprüfung der Figuren (Glanz, Leuchten, Fell und Strick) aus der Nähe.
+    /// Figur (`robot`, `cactus`, `raccoon`, `sock`), vor die die Kamera rückt; sonst die Brettkamera.
+    var closeUp: String? { raw["nah"] }
+    /// Abstand der Nahkamera zur Figur in Metern.
+    /// `0`: Figuren ohne Animation, in der Ruhepose des USDZ (Diagnose).
+    var idle: Bool { flag("idle", true) }
+    var closeUpDistance: Float { Float(min(20, max(0.8, num("abstand", 2.6)))) }
 }
 
 /// Beschreibung der Testszene aus dem Babylon-Export (`brett.szene.json`, rechtshändig, y oben).
