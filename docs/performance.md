@@ -249,6 +249,17 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 
 **Verbleibende Abweichung:** Beide Kontrollläufe sind in allen Heap-Werten, allen Szenenwechseln und allen strukturellen Werten grün. Rot blieb nur die **Render-Zeit p95 von Sockenregen** (22,1 bzw. 47,3 ms, Grenze 19,5 ms). Über fünf Läufe desselben Stands lag sie bei 24, 46, 14, 22 und 47 ms, der Median bei 6,5–8,6 ms. Bei ≈ 30 Bildern ist p95 praktisch der zweithöchste Einzelwert; eine Schwelle auf diesen Wert ist Zufall. Das ist kein Heap-Thema und als CHAOS-165 offen (Baseline aus mehreren Läufen, mehr Bilder je Minispiel oder anderes Perzentil).
 
+## 3g. Brett bleibt während des Minispiels eingehängt (CHAOS-152)
+
+`BoardStage` wird nach dem Minispiel nicht mehr neu gebaut, sondern nur ausgeblendet und angehalten (kein Rendern, keine Regie; [EXP-027](experiments.md)). Vergleich vorher (`main` 1604c06) / nachher, je ein Lauf, gleicher Rechner:
+
+| Übergang | längster Block Median / max ms | Aufbau→erstes Bild Median ms |
+|---|---|---|
+| brett → minispiel | 500 / 9069 → 485 / 742 | 1259 → 1172 |
+| minispiel → brett | 2200 / 3380 → 570 / 2412 | 1653 → 9 |
+
+**Gewollte Strukturänderung:** Kontexte im Minispiel 1 → 2, Heap nach GC im Minispiel 52–74 → 112–145 MB (Brett bleibt im Speicher; Finale/Podest liegen bei ≈ 120 MB). Revanche ×3 unverändert (Lobby 1 Kontext, kein Wachstum). Baseline der Partie danach neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`).
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
@@ -259,13 +270,14 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 | Alter Endstand nach „Nochmal spielen“: Der Server zählt `eventSeq` je Partie ab 0, die Regie hielt die neue Partie für „veraltet“ und zeigte weiter den Siegerbildschirm samt Podest (zwei Szenen) | Regie (`director.ts`) erkennt eine neue Partie (eventSeq 0 nach `game-results`) und springt auf den Stand; Unit-Test und Prüfung im Revanche-Messlauf | gefunden durch den Revanche-Messlauf; funktionaler Fehler, nicht nur Performance |
 
 | Siegerpodest baut erst beim Erscheinen und übersetzt alle Shader am Stück (`whenReadyAsync`): 3 Blöcke bis 0,84–1,04 s am Übergang (SwiftShader, `minimal`), KI-25 (CHAOS-71) | Das Finale baut das Podest zu Beginn der Trophäenzählung auf einer unsichtbaren Leinwand (ohne Render-Schleife); Pausen zwischen den Aufbauschritten, Shader je Mesh in ≈ 12-ms-Abschnitten mit Bildpause (`scene/prepareGradually.ts`), erstes Bild vorab. Der Siegerbildschirm hängt die Leinwand nur ein und startet die Schleife. Während der Zählung zwei WebGL-Kontexte (Brett pausiert + Podest), wie bisher am Podest | Übergang 35–47 ms (`minimal`) bzw. 46–110 ms (`hoch`), kein Long Task; während der Zählung ein Block bis ≈ 1 s ([EXP-021](experiments.md)) |
-| Minispiel-Bühne und Brett übersetzen alle Shader am Stück (`whenReadyAsync`): Anleitung steht 0,6–0,9 s (`minimal`) bzw. 1,0–1,8 s (`hoch`), SwiftShader, KI-25 (CHAOS-132) | Beide nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt jetzt die Shader-Quellen vorab (sonst übersetzen alle Effekte nach Babylons Nach-Import in einer Aufgabe), schaltet den Pre-Pass ein wie `scene.isReady` (sonst übersetzt bei `hoch` das erste Bild 21 Programme neu) und lässt vor der ersten Runde ein Bild zeichnen | Shader-Blöcke ≤ 0,14 s (`minimal`) bzw. ≤ 0,33 s (`hoch`); längster Block nach `runner.prepare` bei `hoch` 1,0–1,8 → 0,5–0,77 s. Offen: Kontext- und Brett-Neuaufbau beim Wechsel (CHAOS-152) ([EXP-025](experiments.md)) |
+| Minispiel-Bühne und Brett übersetzen alle Shader am Stück (`whenReadyAsync`): Anleitung steht 0,6–0,9 s (`minimal`) bzw. 1,0–1,8 s (`hoch`), SwiftShader, KI-25 (CHAOS-132) | Beide nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt jetzt die Shader-Quellen vorab (sonst übersetzen alle Effekte nach Babylons Nach-Import in einer Aufgabe), schaltet den Pre-Pass ein wie `scene.isReady` (sonst übersetzt bei `hoch` das erste Bild 21 Programme neu) und lässt vor der ersten Runde ein Bild zeichnen | Shader-Blöcke ≤ 0,14 s (`minimal`) bzw. ≤ 0,33 s (`hoch`); längster Block nach `runner.prepare` bei `hoch` 1,0–1,8 → 0,5–0,77 s. Kontext- und Brett-Neuaufbau beim Wechsel: seit CHAOS-152 entfallen ([EXP-025](experiments.md)) |
+| Nach jedem Minispiel neuer WebGL-Kontext und synchroner Brett-Neuaufbau: Minispiel → Brett längster Block Median 2,2 s, Kontext-Warten bis 2,7 s (KI-25, CHAOS-152) | Brett bleibt während des Minispiels eingehängt, ausgeblendet (`visibility`) und angehalten (`BoardScene.setHidden`: keine Schleife, keine Regie); `director.settle()` beim Zeigen; Stimmung der nächsten Runde wird währenddessen vorbereitet (`NatureLook.prepareMood`) | Minispiel → Brett Median 2,2 → 0,57 s, erstes Brett-Bild nach 9 ms; Preis: 2 Kontexte und +60 MB Heap im Minispiel ([EXP-027](experiments.md), Abschnitt 3g) |
 
 Geprüft und **nicht** geändert:
 
 | Kandidat | Befund |
 |---|---|
-| Brett-Szene während der Minispiele | Wird bereits entsorgt (App zeigt Brett **oder** Minispiel-Bühne); je 1 Kontext, 1 Schleife |
+| Brett-Szene während der Minispiele | Früher entsorgt (je 1 Kontext, 1 Schleife). **Seit CHAOS-152** bewusst eingehängt und angehalten (2 Kontexte, 1 Schleife), siehe Abschnitt 3g |
 | Render-Schleife bei verdecktem Tab | Babylon nutzt `requestAnimationFrame`; Browser pausieren es in Hintergrund-Tabs. Die Messanzeige zählt solche Lücken als „Pausen“; Prüfung am Gerät: PF9 |
 | Speicher über mehrere Partien | Kein Wachstum (Revanche ×3); Dispose beim Szenenwechsel greift |
 | Server-Broadcast der `board`-Views | ≈ 0,5 Nachrichten/s mit ≈ 1,4 kB; nur bei Ereignis oder geänderter Sicht (`lastViewKey`). Nicht relevant, nicht geändert |

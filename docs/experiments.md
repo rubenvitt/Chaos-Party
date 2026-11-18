@@ -2208,3 +2208,52 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 **Entscheidung:** **B behalten.** Clearcoat, Metall und Leuchten bleiben erhalten, und `check_usdz.py` hält das in der CI fest. Sheen (Fell, Strick) und Subsurface fehlen weiter; für Fell und Socke ist das die größte sichtbare Abweichung. Ob sie stört, entscheidet Rubens Blick am Mac. Wenn ja, wäre der nächste Versuch, Sheen über eine hellere Kante in der gebackenen Farbe anzunähern. B′ ist verworfen; Bitgleichheit ist für nicht eingecheckte Artefakte kein Muss.
 
 **Subjektive Fragen an Ruben (am Mac, Spike neben dem Babylon-Host):** Wirken die Figuren wie dieselben Figuren? Glänzt der Lack, leuchten Augen und Glühbirne? Fehlt dem Fell der weiche Schimmer so, dass es stört?
+
+---
+
+## EXP-027: Brett bleibt während des Minispiels eingehängt (2026-11-18, CHAOS-152)
+
+**Hypothese / gewünschtes Spielerlebnis:** Beim Wechsel Brett → Minispiel → Brett steht das Bild nicht mehr sekundenlang. Nach EXP-025 lagen die großen Blöcke außerhalb der Shader: `new Engine(…)` der Minispiel-Bühne direkt nach dem Entsorgen des Brett-Kontexts (SwiftShader wartet auf das Aufräumen) und der synchrone Brett-Neuaufbau nach jedem Minispiel. Annahme: Wird das Brett nicht entsorgt, sondern nur ausgeblendet und angehalten, entfallen beide.
+
+**Auftrag:** Ruben hat die Aufgabe am 2026-11-18 direkt beauftragt („CHAOS-152“), ohne die Messung N4 abzuwarten. Ob die Blöcke auf echter Hardware spürbar waren, ist damit weiter offen.
+
+**Varianten:**
+
+| | Idee | Erwartung |
+|---|---|---|
+| a | Brett während des Minispiels ausblenden statt entsorgen (wie im Finale; zwei Kontexte) | beide Blöcke weg; Preis: Speicher des Bretts bleibt belegt |
+| b | Minispiel-Bühne schon während der Brett-Ansage auf unsichtbarer Leinwand anlegen (wie das Podest, CHAOS-71) | Block Brett → Minispiel kleiner; Brett-Neuaufbau bleibt |
+| c | `buildNatureBoard` in Schritte zerlegen | Block Minispiel → Brett kleiner, aber Kontext-Neuaufbau bleibt; viel Umbau |
+
+Umgesetzt und gemessen wurde nur **a**: Es deckt beide Blöcke ab. b und c lösen jeweils nur eine Hälfte.
+
+**Umsetzung (a):** `App.tsx` hängt `BoardStage` in der ganzen Brettphase ein; die Minispiel-Bühne liegt darüber (eigene Suspense-Grenze). `BoardStage hidden` blendet die Brett-Ebene per `visibility: hidden` aus (Leinwand behält ihre Größe; `inert`, `aria-hidden`) und ruft `BoardScene.setHidden`: keine Render-Schleife, **keine** Regie. Beim Zeigen holt `director.settle()` die Regie ein, wie früher beim Neuaufbau. Weil das Brett jetzt die ganze Partie lebt, lädt es die Stimmung der Runde nach dem Minispiel währenddessen nach (`NatureLook.prepareMood`: Himmel, ggf. Nachtlichter, danach `prepareSceneGradually`), solange niemand hinsieht. Messung (`attachPerf`) ist während des Minispiels abgemeldet; das Zeigen setzt die Marke `brett:aufbau`, damit „minispiel → brett“ weiter gemessen wird.
+
+**Testumgebung:** Sandbox-Linux, 4 Kerne, Headless-Chromium mit SwiftShader, `pnpm perf` (Partie: 4 Bots, 3 Runden, 5 Minispiele, Stufe `minimal`; Revanche ×3). Je ein Lauf vorher (`main` 1604c06) und nachher, gleicher Rechner direkt hintereinander.
+
+**Ergebnisse (Long Tasks ≥ 50 ms je Übergang):**
+
+| Übergang | längster Block Median / max, vorher | nachher | Aufbau→erstes Bild Median, vorher | nachher |
+|---|---|---|---|---|
+| brett → minispiel | 500 / 9069 ms | 485 / **742 ms** | 1259 ms | 1172 ms |
+| minispiel → brett | 2200 / 3380 ms (1 ohne erstes Bild) | **570 / 2412 ms** (alle mit Bild) | 1653 ms | **9 ms** |
+| lobby → brett | 1976 ms | 1868 ms | 1859 ms | 1856 ms |
+| zählung → podest | 331 ms | 297 ms | 1737 ms | 1343 ms |
+
+| Preis | vorher | nachher |
+|---|---|---|
+| WebGL-Kontexte während eines Minispiels | 1 | 2 (wie Finale/Podest) |
+| Render-Schleifen während eines Minispiels | 1 | 1 (Brett ohne Schleife) |
+| Heap nach GC im Minispiel | 52–74 MB | 112–145 MB |
+| Heap nach GC am Brett | 85 MB | 93 MB (Himmel der nächsten Runde) |
+| Revanche ×3 (Lobby nach jeder Partie) | 38,6 → 51,7 MB, 1 Kontext | 38,6 → 51,6 MB, 1 Kontext |
+
+- Der Höchstwert „brett → minispiel“ (vorher 9 s) ist das kalte erste Minispiel; er schwankt stark (EXP-025: 3,6–8,6 s). Ein Lauf belegt also keine Verbesserung um Faktor 12. Plausibel ist sie trotzdem: Das Warten auf das Aufräumen des alten Kontexts entfällt.
+- Der verbleibende Block „minispiel → brett“ (Median 0,57 s) ist das Entsorgen der Minispiel-Bühne samt Kontext; das Brett zeichnet sein erstes Bild nach 9 ms.
+- Bildabstand/Render-Zeit p95 bei Sockenregen und Wackelturm über der Schwelle: genauso im Vorher-Lauf (CHAOS-165, zu wenige Bilder).
+- Graskolorit: Die Grasspitzen behalten die Farbe der Stimmung beim Aufbau (Vertexfarben). Früher wechselten sie nach jedem Minispiel mit, jetzt erst mit der nächsten Partie. Licht, Himmel und Feldleuchten blenden weiter über.
+
+**Entscheidung:** **keep a.** Baseline der Partie neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`): Kontexte 2 und Heap im Minispiel sind gewollt. b und c nicht umgesetzt; nur angehen, falls N4 auf echter Hardware noch ein Standbild zeigt.
+
+**Offen (nur auf echter Hardware):** N4 (Gerätecheckliste). Speicher: Zwei Kontexte gibt es seit CHAOS-39/71 schon im Finale; neu ist, dass sie während jedes Minispiels bestehen. Auf einem PC mit wenig Grafikspeicher (integrierte GPU) wäre ein Kontextverlust denkbar; nicht beobachtet.
+
