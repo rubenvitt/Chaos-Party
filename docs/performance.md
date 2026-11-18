@@ -280,7 +280,7 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 
 ## 3h. Brett bleibt während des Minispiels eingehängt (CHAOS-152)
 
-`BoardStage` wird nach dem Minispiel nicht mehr neu gebaut, sondern nur ausgeblendet und angehalten (kein Rendern, keine Regie; [EXP-028](experiments.md)). Vergleich vorher (`main` 1604c06) / nachher, je ein Lauf, gleicher Rechner:
+`BoardStage` wird nach dem Minispiel nicht mehr neu gebaut, sondern nur ausgeblendet und angehalten (kein Rendern, keine Regie; [EXP-029](experiments.md)). Vergleich vorher (`main` 1604c06) / nachher, je ein Lauf, gleicher Rechner:
 
 | Übergang | längster Block Median / max ms | Aufbau→erstes Bild Median ms |
 |---|---|---|
@@ -300,7 +300,7 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 
 | Siegerpodest baut erst beim Erscheinen und übersetzt alle Shader am Stück (`whenReadyAsync`): 3 Blöcke bis 0,84–1,04 s am Übergang (SwiftShader, `minimal`), KI-25 (CHAOS-71) | Das Finale baut das Podest zu Beginn der Trophäenzählung auf einer unsichtbaren Leinwand (ohne Render-Schleife); Pausen zwischen den Aufbauschritten, Shader je Mesh in ≈ 12-ms-Abschnitten mit Bildpause (`scene/prepareGradually.ts`), erstes Bild vorab. Der Siegerbildschirm hängt die Leinwand nur ein und startet die Schleife. Während der Zählung zwei WebGL-Kontexte (Brett pausiert + Podest), wie bisher am Podest | Übergang 35–47 ms (`minimal`) bzw. 46–110 ms (`hoch`), kein Long Task; während der Zählung ein Block bis ≈ 1 s ([EXP-021](experiments.md)) |
 | Minispiel-Bühne und Brett übersetzen alle Shader am Stück (`whenReadyAsync`): Anleitung steht 0,6–0,9 s (`minimal`) bzw. 1,0–1,8 s (`hoch`), SwiftShader, KI-25 (CHAOS-132) | Beide nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt jetzt die Shader-Quellen vorab (sonst übersetzen alle Effekte nach Babylons Nach-Import in einer Aufgabe), schaltet den Pre-Pass ein wie `scene.isReady` (sonst übersetzt bei `hoch` das erste Bild 21 Programme neu) und lässt vor der ersten Runde ein Bild zeichnen | Shader-Blöcke ≤ 0,14 s (`minimal`) bzw. ≤ 0,33 s (`hoch`); längster Block nach `runner.prepare` bei `hoch` 1,0–1,8 → 0,5–0,77 s. Kontext- und Brett-Neuaufbau beim Wechsel: seit CHAOS-152 entfallen ([EXP-025](experiments.md)) |
-| Nach jedem Minispiel neuer WebGL-Kontext und synchroner Brett-Neuaufbau: Minispiel → Brett längster Block Median 2,2 s, Kontext-Warten bis 2,7 s (KI-25, CHAOS-152) | Brett bleibt während des Minispiels eingehängt, ausgeblendet (`visibility`) und angehalten (`BoardScene.setHidden`: keine Schleife, keine Regie); `director.settle()` beim Zeigen; Stimmung der nächsten Runde wird währenddessen vorbereitet (`NatureLook.prepareMood`) | Minispiel → Brett Median 2,2 → 0,57 s, erstes Brett-Bild nach 9 ms; Preis: 2 Kontexte und +60 MB Heap im Minispiel ([EXP-028](experiments.md), Abschnitt 3h) |
+| Nach jedem Minispiel neuer WebGL-Kontext und synchroner Brett-Neuaufbau: Minispiel → Brett längster Block Median 2,2 s, Kontext-Warten bis 2,7 s (KI-25, CHAOS-152) | Brett bleibt während des Minispiels eingehängt, ausgeblendet (`visibility`) und angehalten (`BoardScene.setHidden`: keine Schleife, keine Regie); `director.settle()` beim Zeigen; Stimmung der nächsten Runde wird währenddessen vorbereitet (`NatureLook.prepareMood`) | Minispiel → Brett Median 2,2 → 0,57 s, erstes Brett-Bild nach 9 ms; Preis: 2 Kontexte und +60 MB Heap im Minispiel ([EXP-029](experiments.md), Abschnitt 3h) |
 
 Geprüft und **nicht** geändert:
 
