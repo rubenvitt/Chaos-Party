@@ -28,7 +28,7 @@ Die Messanzeige aus M1 misst jetzt **je Szene**. Jede Szene meldet sich beim Auf
 | Eingabe→Frame | Eintreffen einer Controller-Eingabe (`input`) im Host-JS bis Ende des nächsten Bildes (ADR-010) |
 | Brett→Frame | Eintreffen eines neuen Brett-Stands (`board`, z. B. nach „Würfeln“ am Handy) bis Ende des nächsten Bildes |
 | Kontexte / Schleifen | lebende Babylon-Engines (= WebGL-Kontexte) und laufende Render-Schleifen der ganzen Seite, Höchstwert je Szene |
-| Heap | `performance.memory.usedJSHeapSize` (nur Chromium/Edge; Safari/Firefox: „–“) |
+| Heap | `performance.memory.usedJSHeapSize` (nur Chromium/Edge; Safari/Firefox: „–“), Höchstwert je Szene. Der Messlauf `pnpm perf` misst zusätzlich den **Heap nach GC** je Szene (CDP, Abschnitt 3f) |
 | Bestand | Meshes, Materialien, Texturen und geschätzter Texturspeicher (B·H·4, Würfel ·6, Mipmaps ·4/3) |
 
 - „Kopieren“ legt wie bisher eine Zeile mit den Gesamtwerten ab; **„Alle Szenen kopieren“** eine Zeile je Szene plus Grafikkarte, Auflösung und User-Agent. Auf der Konsole liefert `__chaosPerf.summary()` denselben Text, `__chaosPerf.report()` die Zahlen.
@@ -226,6 +226,29 @@ Baseline: Lauf auf `main` d28cc48 plus CHAOS-153 (2026-11-17, gleicher Messrechn
 - PR #69 (CHAOS-132) war beim Messen noch nicht gemergt. Nach dem Merge die Baseline der Übergänge neu schreiben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`, schreibt auch `partie`).
 - Wie bei allen zeitlichen Werten: nur relativ, nur auf diesem Rechner. Ob ein Block auf echter Hardware spürbar ist, zeigt nur die Gerätecheckliste (N4).
 
+## 3f. Heap nach GC statt Heap-Höchstwert (CHAOS-158)
+
+**Befund:** `PERF_STRICT=1 pnpm perf -g Partie` scheiterte auf dem Messrechner (Xeon 2,10 GHz ×4, wie 3d) auch auf `main` ohne Codeänderung an `heapMaxMB`, jedes Mal an anderen Szenen. Referenzlauf auf `main` 73036b7 (2026-11-18): Krümel-Kehraus-Anleitung 81 → **184 MB**, Wackelturm-Ergebnis 76 → 119 MB, Pudding-Ergebnis 83 → 111 MB über der Grenze; zugleich **fallen** andere Szenen deutlich (Podest 172 → 135 MB, Wackelturm-Anleitung 146 → 124 MB). Der Höchstwert ohne GC zeigt, wie viel Müll bis zur nächsten Garbage Collection liegen bleibt, und hängt am GC-Zeitpunkt, nicht am Stand. Kein Leck: Revanche ×3 bleibt grün.
+
+**Änderung:** Der Messlauf erzwingt je Vorkommen einer Szene einmal eine GC (`HeapProfiler.collectGarbage`) und liest danach den Heap (`heapRetainedMB`), sobald die Szene ≥ 6 s (4 Takte à 2 s) in Folge aktiv ist: aufgebaut, mit erstem Bild, die GC fällt nicht in den gemessenen Szenenwechsel. Je Szene zählt der Höchstwert über die Vorkommen (Brett 3×). Anleitung, Ergebnis (je 5 s) und Lobby (vor dem Start der Proben) bleiben ohne Wert. `heapMaxMB` bleibt in Tabelle und Baseline („Heap max / nach GC“), wird aber nicht mehr verglichen. Zusätzlich vergleicht `PERF_STRICT=1` Bildabstand p95 und Render-Zeit p95 erst ab 25 Bildern je Szene: Die Anleitung von Sockenregen zeichnet 3–4 Bilder, ihr p95 schwankte im selben Stand zwischen 10 und 619 ms.
+
+**Baseline neu geschrieben** (`PERF_UPDATE_BASELINE=1`, Stand 73036b7 plus CHAOS-158, 2026-11-18), danach zwei Kontrollläufe mit `PERF_STRICT=1`:
+
+| Szene | Heap max MB (Baseline / Lauf 2 / Lauf 3) | Heap nach GC MB (Baseline / Lauf 2 / Lauf 3) |
+|---|---|---|
+| brett | 206 / 203 / 206 | 84,7 / 85,2 / 85,5 |
+| minispiel:pudding-gerangel | 101 / 109 / 93 | 54,9 / 55,3 / 54,9 |
+| minispiel:kruemel-kehraus | 95 / 110 / 113 | 51,7 / 51,1 / 51,0 |
+| minispiel:kuckucks-klatsche | 133 / 104 / 133 | 62,8 / 62,8 / 62,4 |
+| minispiel:sockenregen | 153 / 146 / 144 | 73,1 / 73,8 / 74,8 |
+| minispiel:wackelturm | 140 / 139 / 138 | 66,0 / 67,7 / 64,8 |
+| finale | 228 / 253 / 247 | 112,1 / 112,6 / 112,7 |
+| podest | 135 / 135 / 130 | 112,9 / 113,4 / 112,8 |
+
+Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die Toleranz bleibt deshalb bei +20 % + 10 MB; ein echter Anstieg (z. B. eine Textur von 16 MB mehr im Speicher) fällt im Brett bei 85 MB trotzdem auf. Die erzwungene GC kostet je Vorkommen eine kurze Pause in der Szene; bei 30–200 Bildern je Szene verschiebt ein einzelnes langes Bild p95 kaum, die Szenenwechsel blieben in allen drei Läufen `ok`.
+
+**Verbleibende Abweichung:** Beide Kontrollläufe sind in allen Heap-Werten, allen Szenenwechseln und allen strukturellen Werten grün. Rot blieb nur die **Render-Zeit p95 von Sockenregen** (22,1 bzw. 47,3 ms, Grenze 19,5 ms). Über fünf Läufe desselben Stands lag sie bei 24, 46, 14, 22 und 47 ms, der Median bei 6,5–8,6 ms. Bei ≈ 30 Bildern ist p95 praktisch der zweithöchste Einzelwert; eine Schwelle auf diesen Wert ist Zufall. Das ist kein Heap-Thema und als CHAOS-165 offen (Baseline aus mehreren Läufen, mehr Bilder je Minispiel oder anderes Perzentil).
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |
@@ -262,7 +285,8 @@ Geprüft und **nicht** geändert:
 | Draw Calls je Szene (Median) | ≤ Baseline · 1,1 + 5 | eigene Baseline; Rest-Schwankung durch Spielverlauf | immer |
 | Bildabstand p95 je Szene | ≤ Baseline · 1,25 + 4 ms | eigene Baseline (SwiftShader) | nur `PERF_STRICT=1` auf dem Baseline-Rechner |
 | Render-Zeit p95 je Szene | ≤ Baseline · 1,25 + 2 ms | eigene Baseline | nur `PERF_STRICT=1` |
-| Heap max je Szene | ≤ Baseline · 1,2 + 10 MB | eigene Baseline | nur `PERF_STRICT=1` |
+| Heap nach GC je Szene (CHAOS-158) | ≤ Baseline · 1,2 + 10 MB | eigene Baseline; erzwungene GC einmal je Vorkommen nach ≥ 6 s, Höchstwert über die Vorkommen (Abschnitt 3f). Der Heap-**Höchstwert** ohne GC wird nur noch berichtet | nur `PERF_STRICT=1` |
+| Mindestzahl Bilder für Bildabstand p95 und Render-Zeit p95 (CHAOS-158) | ≥ 25 Bilder je Szene, sonst „zu wenige Bilder“ statt Vergleich | Anleitung und Ergebnis der Minispiele zeichnen 3–20 Bilder (Abschnitt 3f) | nur `PERF_STRICT=1` |
 | Längster Block je Szenenwechsel, Median über die Vorkommen (CHAOS-153) | ≤ Baseline · 1,5 + 150 ms | eigene Baseline, Szenario `partie-uebergaenge`; weiter als beim Bildabstand, weil Long Tasks unter SwiftShader stärker schwanken (EXP-025) | nur `PERF_STRICT=1` |
 | Längster Block je Szenenwechsel, Höchstwert | ≤ Baseline · 1,5 + 250 ms | wie oben; fängt einen einzelnen Rückfall (z. B. Shader wieder am Stück) | nur `PERF_STRICT=1` |
 | Heap über drei Partien | Partie 3 ≤ max(Partie 1 · 1,1; Partie 1 + 5 MB) | im selben Lauf | immer |
