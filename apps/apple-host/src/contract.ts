@@ -62,6 +62,11 @@ export interface ChaosHostInternals {
   base64url(bytes: Uint8Array): string;
   /** Minispiele der Rotation; eine ganze Partie muss jedes davon aufbauen. */
   rotation: readonly string[];
+  /**
+   * Wartende Zeitgeber der virtuellen Uhr (CHAOS-141): wächst die Zahl über Partien, hält eine
+   * Warteschlange entsorgte Szenen fest (vgl. CHAOS-126).
+   */
+  pendingTimers(): number;
 }
 
 // --- JS → Swift: renderState -----------------------------------------------------------------

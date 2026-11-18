@@ -19,7 +19,13 @@ import {
   testPlayers,
 } from '../testing/headless.ts';
 import type { Minigame, MinigameContext, MinigameModule } from './contract.ts';
-import { createMinigameRunner, MAX_STEPS_PER_ADVANCE, type RunnerOptions } from './runner.ts';
+import {
+  createMinigameRunner,
+  MAX_STEPS_PER_ADVANCE,
+  PrepareAborted,
+  type PrepareThrottle,
+  type RunnerOptions,
+} from './runner.ts';
 
 const BASE_INFO: MinigameInfo = {
   id: 'test-spiel',
@@ -115,7 +121,7 @@ function probe(options: {
 async function setup(
   module: MinigameModule,
   players = 2,
-  extra: Partial<Pick<RunnerOptions, 'maxStepsPerAdvance' | 'look'>> = {},
+  extra: Partial<Pick<RunnerOptions, 'maxStepsPerAdvance' | 'look' | 'pacing'>> = {},
 ) {
   const headless = createHeadlessScene();
   const runner = createMinigameRunner(module, {
@@ -282,5 +288,96 @@ describe('Minispiel-Laufzeit', () => {
     runner.dispose();
     expect(sceneResidue(headless.scene)).toEqual(EMPTY_RESIDUE);
     headless.dispose();
+  });
+
+  describe('verteilter Aufbau (ctx.pace, CHAOS-141)', () => {
+    /** Minispiel, das in `prepare` zehn Kisten baut und vor jeder `pace` ruft. */
+    function pacedModule(built: string[]): MinigameModule {
+      const { module } = probe({});
+      return {
+        info: module.info,
+        create() {
+          const game = module.create();
+          return {
+            ...game,
+            async prepare(context) {
+              for (let index = 0; index < 10; index++) {
+                await context.pace();
+                built.push(`kiste-${String(index)}`);
+              }
+              await game.prepare(context);
+            },
+          };
+        },
+      };
+    }
+
+    /** Bilder von Hand: `nextFrame` wartet, bis der Test `frame()` ruft; je Schritt 1 ms. */
+    function manualFrames(budgetMs: number) {
+      let clock = 0;
+      const waiting: (() => void)[] = [];
+      const pacing: PrepareThrottle = {
+        budgetMs,
+        now: () => (clock += 1),
+        nextFrame: () =>
+          new Promise((resolve) => {
+            waiting.push(resolve);
+          }),
+      };
+      const frame = async () => {
+        for (const resolve of waiting.splice(0)) resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      };
+      return { pacing, frame, pending: () => waiting.length };
+    }
+
+    it('ohne Taktgeber baut prepare am Stück', async () => {
+      const built: string[] = [];
+      const { runner, headless } = await setup(pacedModule(built));
+      await runner.prepare();
+      expect(built).toHaveLength(10);
+      expect(runner.state).toBe('ready');
+      runner.dispose();
+      headless.dispose();
+    });
+
+    it('gibt nach dem Budget ab und baut im nächsten Bild weiter', async () => {
+      const built: string[] = [];
+      const frames = manualFrames(3);
+      const { runner, headless } = await setup(pacedModule(built), 2, { pacing: frames.pacing });
+      const prepared = runner.prepare();
+      await Promise.resolve();
+      // Jede Abfrage der Uhr kostet 1 ms: Nach wenigen Kisten ist das Budget weg.
+      expect(built.length).toBeGreaterThan(0);
+      expect(built.length).toBeLessThan(10);
+      expect(runner.state).toBe('preparing');
+      let frameCount = 0;
+      while (runner.state === 'preparing' && frameCount < 50) {
+        await frames.frame();
+        frameCount++;
+      }
+      await prepared;
+      expect(built).toHaveLength(10);
+      expect(frameCount).toBeGreaterThan(1);
+      expect(runner.state).toBe('ready');
+      runner.dispose();
+      headless.dispose();
+    });
+
+    it('bricht ab, wenn die Laufzeit während des Aufbaus entsorgt wird', async () => {
+      const built: string[] = [];
+      const frames = manualFrames(0);
+      const { runner, headless } = await setup(pacedModule(built), 2, { pacing: frames.pacing });
+      const prepared = runner.prepare();
+      await frames.frame();
+      const before = built.length;
+      runner.dispose();
+      await frames.frame();
+      await expect(prepared).rejects.toBeInstanceOf(PrepareAborted);
+      expect(built).toHaveLength(before);
+      expect(runner.state).toBe('disposed');
+      headless.dispose();
+    });
   });
 });

@@ -15,12 +15,14 @@ import { Logger } from '@babylonjs/core/Misc/logger.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import {
   createMinigameRunner,
+  PrepareAborted,
   type CharacterFactory,
   type HavokInstance,
   type MinigameFx,
   type MinigameModule,
   type MinigamePlayer,
   type MinigameRunner,
+  type PrepareThrottle,
   type RunnerResult,
 } from '@chaos-party/minigame-sdk/babylon';
 import type { Body, BodyShape } from './contract.ts';
@@ -34,10 +36,24 @@ export interface HeadlessStageOptions {
   readonly havok: HavokInstance | null;
   readonly onResult: (result: RunnerResult) => void;
   readonly log: (line: string) => void;
+  /**
+   * Verteilt den Aufbau auf mehrere `tick` (CHAOS-141). Fehlt er, baut die Bühne am Stück
+   * (Tests).
+   */
+  readonly pacing?: PrepareThrottle;
 }
+
+/**
+ * So viele ms rechnet der Aufbau einer Bühne höchstens je `tick`, dann geht es im nächsten weiter
+ * (CHAOS-141). Klein gegen das Bildbudget von 16,7 ms: Dazu kommen Session, `renderState` und ein
+ * Bauschritt, der das Budget überschreitet, bevor `pace` wieder fragt.
+ */
+export const PREPARE_BUDGET_MS = 2;
 
 export interface HeadlessStage {
   readonly runner: MinigameRunner;
+  /** Aufbau fertig (Szene steht, Körper klassifiziert); vorher liefert `bodies()` nichts. */
+  readonly ready: boolean;
   /** Spielzeit starten (idempotent; vor Ende von `prepare`: direkt danach). */
   start(): void;
   /** Partie-Pause wie `stage.pause()/resume()` im Browser-Host; idempotent. */
@@ -85,9 +101,9 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
   Logger.LogLevels = Logger.WarningLogLevel | Logger.ErrorLogLevel;
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const flags = { startRequested: false, paused: false, disposed: false };
+  const flags = { startRequested: false, paused: false, disposed: false, ready: false };
   const startNow = () => {
-    if (runner.state === 'ready') runner.start();
+    if (flags.ready && runner.state === 'ready') runner.start();
   };
   const runner = createMinigameRunner(options.module, {
     scene,
@@ -98,24 +114,60 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     characters: CAPSULE_CHARACTERS,
     havok: options.havok,
     onResult: options.onResult,
+    ...(options.pacing ? { pacing: options.pacing } : {}),
   });
   /** Lage je Mesh, gültig solange sich die Weltmatrix nicht ändert (`updateFlag`). */
   const placed = new Map<number, { flag: number; body: Body }>();
+  /** Grundform je Mesh; die Eckpunkte zu prüfen kostet, darum einmal und im Aufbau. */
+  const shapes = new Map<number, BodyShape>();
+  const shapeOf = (mesh: AbstractMesh): BodyShape => {
+    let shape = shapes.get(mesh.uniqueId);
+    if (shape === undefined) {
+      shape = classify(mesh);
+      shapes.set(mesh.uniqueId, shape);
+    }
+    return shape;
+  };
+
+  /** Nach `prepare` die Formen aller Meshes vorab bestimmen, ebenfalls verteilt. */
+  const classifyAll = async () => {
+    const pacing = options.pacing;
+    let sliceStartedAt = pacing?.now() ?? 0;
+    const disposed = () => flags.disposed;
+    for (const mesh of [...scene.meshes]) {
+      if (pacing && pacing.now() - sliceStartedAt >= pacing.budgetMs) {
+        await pacing.nextFrame();
+        sliceStartedAt = pacing.now();
+      }
+      if (disposed()) return;
+      if (!mesh.isDisposed() && mesh.getTotalVertices() > 0) shapeOf(mesh);
+    }
+  };
 
   // JSContext verschluckt abgelehnte Promises: Fehler ausdrücklich melden.
-  runner.prepare().then(
-    () => {
-      if (flags.startRequested && !flags.disposed) startNow();
-    },
-    (error: unknown) => {
-      options.log(
-        `Minispiel ${options.module.info.id}: prepare fehlgeschlagen: ${describe(error)}`,
-      );
-    },
-  );
+  runner
+    .prepare()
+    .then(classifyAll)
+    .then(
+      () => {
+        if (flags.disposed) return;
+        flags.ready = true;
+        if (flags.startRequested) startNow();
+      },
+      (error: unknown) => {
+        // Bühne während des Aufbaus entsorgt (Phasenwechsel, Lobby): gewollt, kein Fehler.
+        if (error instanceof PrepareAborted) return;
+        options.log(
+          `Minispiel ${options.module.info.id}: prepare fehlgeschlagen: ${describe(error)}`,
+        );
+      },
+    );
 
   return {
     runner,
+    get ready() {
+      return flags.ready;
+    },
     start() {
       flags.startRequested = true;
       startNow();
@@ -133,6 +185,8 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
       scene.incrementRenderId();
     },
     bodies() {
+      // Halb gebaute Szene nicht zeigen: Swift sähe sonst Körper nach und nach auftauchen.
+      if (!flags.ready || flags.disposed) return [];
       const out: Body[] = [];
       for (const mesh of scene.meshes) {
         if (!mesh.isEnabled() || !mesh.isVisible || mesh.visibility === 0) continue;
@@ -141,7 +195,7 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
         const flag = mesh.computeWorldMatrix().updateFlag;
         let entry = placed.get(mesh.uniqueId);
         if (entry?.flag !== flag) {
-          entry = { flag, body: place(mesh, entry?.body.shape ?? classify(mesh)) };
+          entry = { flag, body: place(mesh, entry?.body.shape ?? shapeOf(mesh)) };
           placed.set(mesh.uniqueId, entry);
         }
         // Farbe immer frisch: Minispiele färben Meshes um, ohne sie zu bewegen.

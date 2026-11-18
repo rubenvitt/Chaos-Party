@@ -6,9 +6,10 @@
  * - **strukturell** (immer geprüft, rechnerunabhängig): WebGL-Kontexte und Render-Schleifen je
  *   Szene dürfen nicht steigen; Draw Calls höchstens +10 % (+5).
  * - **zeitlich** (nur mit `PERF_STRICT=1`, gleicher Rechner nötig): Bildabstand p95 und
- *   Render-Zeit p95 höchstens +25 % (+4 ms bzw. +2 ms), Heap nach GC +20 % (+10 MB);
+ *   Render-Zeit (Median und p95) höchstens +25 % (+4 ms bzw. +2 ms), Heap nach GC +20 % (+10 MB);
  *   längster Block je Szenenwechsel (CHAOS-153) höchstens +50 % (+250 ms bzw. +150 ms).
- *   Die p95-Werte nur bei mindestens {@link MIN_FRAMES_FOR_P95} Bildern je Szene.
+ *   Mediane erst ab {@link MIN_FRAMES_FOR_MEDIAN}, p95 erst ab {@link MIN_FRAMES_FOR_P95} Bildern
+ *   je Szene (CHAOS-165).
  *
  * Der Heap-**Höchstwert** ohne GC (`heapMaxMB`) wird nur noch berichtet: Er hängt davon ab, ob
  * kurz vor der Probe eine Garbage Collection lief, und schwankte im selben Stand um bis zu
@@ -29,7 +30,9 @@ export const STRUCTURAL: Readonly<Record<string, Tolerance>> = {
 };
 
 export const TIMING: Readonly<Record<string, Tolerance>> = {
+  frameMedian: { relative: 0.25, absolute: 4 },
   frameP95: { relative: 0.25, absolute: 4 },
+  renderMedian: { relative: 0.25, absolute: 2 },
   renderP95: { relative: 0.25, absolute: 2 },
   heapRetainedMB: { relative: 0.2, absolute: 10 },
 };
@@ -138,13 +141,26 @@ export function flattenTransitions(
 }
 
 /**
- * Bildabstand p95 und Render-Zeit p95 werden nur verglichen, wenn die Szene so viele Bilder hat
- * (CHAOS-158). Anleitung und Ergebnis der Minispiele zeichnen unter SwiftShader 3–20 Bilder; ihr
- * p95 ist dann der Höchstwert eines einzelnen Bildes und schwankte im selben Stand um das
- * Fünfzigfache (z. B. 10 → 619 ms). Die Minispiele selbst haben ≥ 29 Bilder.
+ * Ab so vielen Bildern je Szene werden Bildabstand und Render-Zeit (Median) verglichen
+ * (CHAOS-158). Anleitung und Ergebnis der Minispiele zeichnen unter SwiftShader 3–20 Bilder;
+ * selbst ihr Median hängt dann an wenigen Einzelbildern.
  */
-export const MIN_FRAMES_FOR_P95 = 25;
-const P95_METRICS = new Set(['frameP95', 'renderP95']);
+export const MIN_FRAMES_FOR_MEDIAN = 25;
+
+/**
+ * Ab so vielen Bildern je Szene werden auch die p95-Werte verglichen (CHAOS-165). Darunter ist
+ * p95 praktisch einer der höchsten Einzelwerte: Die Render-Zeit p95 von Sockenregen (≈ 30 Bilder)
+ * lag in fünf Läufen desselben Stands zwischen 14 und 47 ms, der Median bei 6,5–8,6 ms. Betrifft
+ * unter SwiftShader alle Minispiele (29–62 Bilder), Lobby und Podest; das Brett hat ≈ 200.
+ */
+export const MIN_FRAMES_FOR_P95 = 100;
+
+const MIN_FRAMES: Readonly<Record<string, number>> = {
+  frameMedian: MIN_FRAMES_FOR_MEDIAN,
+  renderMedian: MIN_FRAMES_FOR_MEDIAN,
+  frameP95: MIN_FRAMES_FOR_P95,
+  renderP95: MIN_FRAMES_FOR_P95,
+};
 
 export type SceneResult = Omit<RegressionResult, 'status'> & {
   readonly status: RegressionResult['status'] | 'zu wenige Bilder';
@@ -174,10 +190,7 @@ export function compareScenes(
         ...compareToBaseline(base, now, TIMING).map((r): SceneResult => ({
           ...r,
           kind: 'zeitlich',
-          status:
-            P95_METRICS.has(r.metric) && (now.frames ?? 0) < MIN_FRAMES_FOR_P95
-              ? 'zu wenige Bilder'
-              : r.status,
+          status: (now.frames ?? 0) < (MIN_FRAMES[r.metric] ?? 0) ? 'zu wenige Bilder' : r.status,
         })),
       ],
     };

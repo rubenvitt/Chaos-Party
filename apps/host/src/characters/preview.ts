@@ -5,7 +5,8 @@
  *   http://localhost:5173/host/src/characters/preview.html?anim=idle
  *
  * Parameter: `anim` (Animation für alle), `test=1` (keine Render-Schleife, feste Schritte über
- * `window.__vitrine.step(n)`), `names=0` (ohne Namensschilder), `view=top` (Brett-Blickwinkel).
+ * `window.__vitrine.step(n)`), `names=0` (ohne Namensschilder), `view=top` (Brett-Blickwinkel),
+ * `nah=<Slot 1–4>` (eine Figur aus der Nähe, CHAOS-162).
  */
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
@@ -45,9 +46,14 @@ const scene = new Scene(engine);
 scene.clearColor = new Color4(0, 0, 0, 0);
 scene.useConstantAnimationDeltaTime = testMode;
 
+// `nah=<Slot 1–4>`: Kamera ≈ 2,6 m vor dieser Figur (Nahansicht, CHAOS-162).
+const near = Number(params.get('nah') ?? 0);
+const nearX = near >= 1 && near <= 4 ? (1.5 - (near - 1)) * 2.2 : null;
 const camera = top
   ? new ArcRotateCamera('kamera', -Math.PI / 2, 0.98, 14, new Vector3(0, 0.6, 0), scene)
-  : new ArcRotateCamera('kamera', Math.PI / 2, 1.38, 10.2, new Vector3(0, 0.95, 0), scene);
+  : nearX !== null
+    ? new ArcRotateCamera('kamera', Math.PI / 2, 1.42, 4.6, new Vector3(nearX, 0.78, 0), scene)
+    : new ArcRotateCamera('kamera', Math.PI / 2, 1.38, 10.2, new Vector3(0, 0.95, 0), scene);
 camera.fov = 0.55;
 camera.minZ = 0.1;
 

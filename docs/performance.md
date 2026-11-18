@@ -247,11 +247,40 @@ Baseline: Lauf auf `main` d28cc48 plus CHAOS-153 (2026-11-17, gleicher Messrechn
 
 Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die Toleranz bleibt deshalb bei +20 % + 10 MB; ein echter Anstieg (z. B. eine Textur von 16 MB mehr im Speicher) fällt im Brett bei 85 MB trotzdem auf. Die erzwungene GC kostet je Vorkommen eine kurze Pause in der Szene; bei 30–200 Bildern je Szene verschiebt ein einzelnes langes Bild p95 kaum, die Szenenwechsel blieben in allen drei Läufen `ok`.
 
-**Verbleibende Abweichung:** Beide Kontrollläufe sind in allen Heap-Werten, allen Szenenwechseln und allen strukturellen Werten grün. Rot blieb nur die **Render-Zeit p95 von Sockenregen** (22,1 bzw. 47,3 ms, Grenze 19,5 ms). Über fünf Läufe desselben Stands lag sie bei 24, 46, 14, 22 und 47 ms, der Median bei 6,5–8,6 ms. Bei ≈ 30 Bildern ist p95 praktisch der zweithöchste Einzelwert; eine Schwelle auf diesen Wert ist Zufall. Das ist kein Heap-Thema und als CHAOS-165 offen (Baseline aus mehreren Läufen, mehr Bilder je Minispiel oder anderes Perzentil).
+**Verbleibende Abweichung:** Beide Kontrollläufe sind in allen Heap-Werten, allen Szenenwechseln und allen strukturellen Werten grün. Rot blieb nur die **Render-Zeit p95 von Sockenregen** (22,1 bzw. 47,3 ms, Grenze 19,5 ms). Über fünf Läufe desselben Stands lag sie bei 24, 46, 14, 22 und 47 ms, der Median bei 6,5–8,6 ms. Bei ≈ 30 Bildern ist p95 praktisch der zweithöchste Einzelwert; eine Schwelle auf diesen Wert ist Zufall. Das ist kein Heap-Thema; gelöst mit CHAOS-165 (Abschnitt 3g).
 
-## 3g. Brett bleibt während des Minispiels eingehängt (CHAOS-152)
+## 3g. Median statt p95 bei Szenen unter 100 Bildern (CHAOS-165)
 
-`BoardStage` wird nach dem Minispiel nicht mehr neu gebaut, sondern nur ausgeblendet und angehalten (kein Rendern, keine Regie; [EXP-027](experiments.md)). Vergleich vorher (`main` 1604c06) / nachher, je ein Lauf, gleicher Rechner:
+**Befund:** Nach CHAOS-158 blieb in `PERF_STRICT=1 pnpm perf -g Partie` nur die Render-Zeit p95 von Sockenregen rot, und das zufällig: 24, 46, 14, 22 und 47 ms in fünf Läufen desselben Stands, Grenze 19,5 ms. Unter SwiftShader zeichnen die Minispiele in 15 s Spielzeit 28–62 Bilder, Lobby ≈ 80, Podest ≈ 50; bei 30 Bildern ist p95 der zweithöchste Einzelwert.
+
+**Varianten** (aus der Aufgabe):
+
+| Variante | Bewertung |
+|---|---|
+| (a) Baseline aus mehreren Läufen (Höchstwert/Median von drei) | Verschiebt nur die Grenze; der Vergleichswert bleibt ein Einzelbild und kann weiter zufällig darüber liegen. Jedes Baseline-Update kostet drei Läufe (≈ 15 min). Verworfen |
+| (b) Längere Spielzeit (z. B. 60 s statt 15 s je Minispiel) | Erst ab ≈ 100 Bildern ist p95 ein Perzentil; das hieße ≈ 50 s je Minispiel, Lauf 5 → ≈ 9 min, und Lobby/Podest bräuchten dasselbe. Verworfen |
+| (c) Unter 100 Bildern den Median statt p95 vergleichen | Kostet nichts, der Median schwankt im selben Stand um ≈ ±15 %, eine echte Verlangsamung je Bild verschiebt ihn genauso. Einzelne lange Bilder fangen die Szenenwechsel-Schwellen (3e). **Gewählt** |
+
+**Änderung** (`tests/perf/report.ts`): `PERF_STRICT=1` vergleicht Bildabstand und Render-Zeit jetzt als **Median** (Toleranz wie p95: +25 % + 4 ms bzw. + 2 ms) ab 25 Bildern und als **p95** erst ab 100 Bildern (`MIN_FRAMES_FOR_MEDIAN`, `MIN_FRAMES_FOR_P95`). Darunter steht in der Vergleichstabelle „zu wenige Bilder“; p95 bleibt in der Szenentabelle sichtbar. Unter SwiftShader wird p95 damit nur noch im Brett (≈ 200 Bilder) verglichen. Die Baseline enthält die Mediane bereits, sie blieb unverändert (12:55-Stand aus 3f). Unit-Tests: `tests/perf/report.test.ts` (Vitest-Projekt `perf-report`); das Perf-Playwright-Projekt sammelt nur noch `*.spec.ts`.
+
+**Kontrolle:** zwei aufeinanderfolgende Läufe `E2E_SKIP_BUILD=1 PERF_STRICT=1 pnpm perf -g Partie` auf `main` 1604c06 plus dieser Änderung (2026-11-18, Xeon 2,10 GHz ×4, Systemlast ≈ 3,3), beide **grün**. Werte Baseline / Lauf 1 / Lauf 2 (Grenze):
+
+| Szene | Bilder | Render Median ms | Render p95 ms (nur berichtet, außer Brett) | Bildabstand Median ms |
+|---|---|---|---|---|
+| lobby | 79 / 78 / 79 | 2,9 / 3,6 / 3,4 (≤ 5,6) | 20,5 / 13,2 / 13,8 | 208 / 217 / 214 (≤ 264) |
+| brett | 212 / 197 / 192 | 6,0 / 6,1 / 6,9 (≤ 9,5) | 18,2 / 22,4 / 20,8 (≤ 24,7, verglichen) | 521 / 541 / 572 (≤ 655) |
+| minispiel:pudding-gerangel | 38 / 40 / 37 | 5,2 / 5,6 / 5,5 (≤ 8,6) | 17,7 / 12,9 / 16,9 | 371 / 354 / 380 (≤ 468) |
+| minispiel:kruemel-kehraus | 62 / 53 / 54 | 4,5 / 5,3 / 6,0 (≤ 7,6) | 8,1 / 11,6 / 11,5 | 248 / 283 / 282 (≤ 314) |
+| minispiel:kuckucks-klatsche | 54 / 52 / 50 | 5,4 / 6,5 / 6,5 (≤ 8,7) | 12,0 / 13,1 / 13,5 | 285 / 293 / 299 (≤ 360) |
+| minispiel:sockenregen | 29 / 31 / 28 | 8,6 / 7,5 / 9,5 (≤ 12,7) | 14,0 / 18,0 / **22,1** (alte Grenze 19,5) | 525 / 489 / 532 (≤ 660) |
+| minispiel:wackelturm | 42 / 41 / 41 | 7,1 / 7,4 / 8,2 (≤ 10,9) | 13,7 / 15,4 / 14,9 | 359 / 364 / 368 (≤ 452) |
+| podest | 49 / 46 / 46 | 4,9 / 4,7 / 4,5 (≤ 8,1) | 12,7 / 8,7 / 9,4 | 216 / 229 / 227 (≤ 274) |
+
+**Lesart:** Nach der alten Regel wäre Lauf 2 wieder an Sockenregen gescheitert (22,1 > 19,5 ms), ohne Codeänderung. Die Mediane liegen in beiden Läufen mit Abstand unter ihrer Grenze (höchstens 79 % davon, Krümel-Kehraus Render 6,0 von 7,6 ms). Grenze der Methode: Ein Rückfall, der nur **einzelne** Bilder einer kurzen Szene verlängert, fällt im Median nicht auf; Standbilder beim Szenenwechsel misst 3e, Ruckler auf echter Hardware nur die Gerätecheckliste. Das Brett liegt mit p95 22,4 ms nahe an seiner Grenze 24,7 ms: Schlägt es künftig ohne Änderung an, ist dort derselbe Mechanismus zu prüfen (≈ 200 Bilder, p95 = zehnthöchster Wert).
+
+## 3h. Brett bleibt während des Minispiels eingehängt (CHAOS-152)
+
+`BoardStage` wird nach dem Minispiel nicht mehr neu gebaut, sondern nur ausgeblendet und angehalten (kein Rendern, keine Regie; [EXP-028](experiments.md)). Vergleich vorher (`main` 1604c06) / nachher, je ein Lauf, gleicher Rechner:
 
 | Übergang | längster Block Median / max ms | Aufbau→erstes Bild Median ms |
 |---|---|---|
@@ -271,7 +300,7 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 
 | Siegerpodest baut erst beim Erscheinen und übersetzt alle Shader am Stück (`whenReadyAsync`): 3 Blöcke bis 0,84–1,04 s am Übergang (SwiftShader, `minimal`), KI-25 (CHAOS-71) | Das Finale baut das Podest zu Beginn der Trophäenzählung auf einer unsichtbaren Leinwand (ohne Render-Schleife); Pausen zwischen den Aufbauschritten, Shader je Mesh in ≈ 12-ms-Abschnitten mit Bildpause (`scene/prepareGradually.ts`), erstes Bild vorab. Der Siegerbildschirm hängt die Leinwand nur ein und startet die Schleife. Während der Zählung zwei WebGL-Kontexte (Brett pausiert + Podest), wie bisher am Podest | Übergang 35–47 ms (`minimal`) bzw. 46–110 ms (`hoch`), kein Long Task; während der Zählung ein Block bis ≈ 1 s ([EXP-021](experiments.md)) |
 | Minispiel-Bühne und Brett übersetzen alle Shader am Stück (`whenReadyAsync`): Anleitung steht 0,6–0,9 s (`minimal`) bzw. 1,0–1,8 s (`hoch`), SwiftShader, KI-25 (CHAOS-132) | Beide nutzen `prepareSceneGradually`. Die Hilfsfunktion lädt jetzt die Shader-Quellen vorab (sonst übersetzen alle Effekte nach Babylons Nach-Import in einer Aufgabe), schaltet den Pre-Pass ein wie `scene.isReady` (sonst übersetzt bei `hoch` das erste Bild 21 Programme neu) und lässt vor der ersten Runde ein Bild zeichnen | Shader-Blöcke ≤ 0,14 s (`minimal`) bzw. ≤ 0,33 s (`hoch`); längster Block nach `runner.prepare` bei `hoch` 1,0–1,8 → 0,5–0,77 s. Kontext- und Brett-Neuaufbau beim Wechsel: seit CHAOS-152 entfallen ([EXP-025](experiments.md)) |
-| Nach jedem Minispiel neuer WebGL-Kontext und synchroner Brett-Neuaufbau: Minispiel → Brett längster Block Median 2,2 s, Kontext-Warten bis 2,7 s (KI-25, CHAOS-152) | Brett bleibt während des Minispiels eingehängt, ausgeblendet (`visibility`) und angehalten (`BoardScene.setHidden`: keine Schleife, keine Regie); `director.settle()` beim Zeigen; Stimmung der nächsten Runde wird währenddessen vorbereitet (`NatureLook.prepareMood`) | Minispiel → Brett Median 2,2 → 0,57 s, erstes Brett-Bild nach 9 ms; Preis: 2 Kontexte und +60 MB Heap im Minispiel ([EXP-027](experiments.md), Abschnitt 3g) |
+| Nach jedem Minispiel neuer WebGL-Kontext und synchroner Brett-Neuaufbau: Minispiel → Brett längster Block Median 2,2 s, Kontext-Warten bis 2,7 s (KI-25, CHAOS-152) | Brett bleibt während des Minispiels eingehängt, ausgeblendet (`visibility`) und angehalten (`BoardScene.setHidden`: keine Schleife, keine Regie); `director.settle()` beim Zeigen; Stimmung der nächsten Runde wird währenddessen vorbereitet (`NatureLook.prepareMood`) | Minispiel → Brett Median 2,2 → 0,57 s, erstes Brett-Bild nach 9 ms; Preis: 2 Kontexte und +60 MB Heap im Minispiel ([EXP-028](experiments.md), Abschnitt 3h) |
 
 Geprüft und **nicht** geändert:
 
@@ -295,10 +324,12 @@ Geprüft und **nicht** geändert:
 | WebGL-Kontexte je Szene | ≤ Baseline (heute: 1, am Podest/Finale 2) | eigene Baseline `tests/perf/baseline.json` | immer (`pnpm perf`) |
 | Render-Schleifen je Szene | ≤ Baseline (heute überall 1) | eigene Baseline | immer |
 | Draw Calls je Szene (Median) | ≤ Baseline · 1,1 + 5 | eigene Baseline; Rest-Schwankung durch Spielverlauf | immer |
-| Bildabstand p95 je Szene | ≤ Baseline · 1,25 + 4 ms | eigene Baseline (SwiftShader) | nur `PERF_STRICT=1` auf dem Baseline-Rechner |
-| Render-Zeit p95 je Szene | ≤ Baseline · 1,25 + 2 ms | eigene Baseline | nur `PERF_STRICT=1` |
+| Bildabstand Median je Szene (CHAOS-165) | ≤ Baseline · 1,25 + 4 ms, ab 25 Bildern | eigene Baseline (SwiftShader, Abschnitt 3g) | nur `PERF_STRICT=1` auf dem Baseline-Rechner |
+| Bildabstand p95 je Szene | ≤ Baseline · 1,25 + 4 ms, ab 100 Bildern | eigene Baseline (SwiftShader) | nur `PERF_STRICT=1` auf dem Baseline-Rechner |
+| Render-Zeit Median je Szene (CHAOS-165) | ≤ Baseline · 1,25 + 2 ms, ab 25 Bildern | eigene Baseline (Abschnitt 3g) | nur `PERF_STRICT=1` |
+| Render-Zeit p95 je Szene | ≤ Baseline · 1,25 + 2 ms, ab 100 Bildern | eigene Baseline | nur `PERF_STRICT=1` |
 | Heap nach GC je Szene (CHAOS-158) | ≤ Baseline · 1,2 + 10 MB | eigene Baseline; erzwungene GC einmal je Vorkommen nach ≥ 6 s, Höchstwert über die Vorkommen (Abschnitt 3f). Der Heap-**Höchstwert** ohne GC wird nur noch berichtet | nur `PERF_STRICT=1` |
-| Mindestzahl Bilder für Bildabstand p95 und Render-Zeit p95 (CHAOS-158) | ≥ 25 Bilder je Szene, sonst „zu wenige Bilder“ statt Vergleich | Anleitung und Ergebnis der Minispiele zeichnen 3–20 Bilder (Abschnitt 3f) | nur `PERF_STRICT=1` |
+| Mindestzahl Bilder (CHAOS-158, CHAOS-165) | Median ab 25, p95 ab 100 Bildern je Szene, sonst „zu wenige Bilder“ statt Vergleich | Anleitung und Ergebnis der Minispiele zeichnen 3–20 Bilder (3f); bei 28–62 Bildern ist p95 ein Einzelwert und schwankte 14–47 ms (3g). Unter SwiftShader wird p95 nur im Brett verglichen | nur `PERF_STRICT=1` |
 | Längster Block je Szenenwechsel, Median über die Vorkommen (CHAOS-153) | ≤ Baseline · 1,5 + 150 ms | eigene Baseline, Szenario `partie-uebergaenge`; weiter als beim Bildabstand, weil Long Tasks unter SwiftShader stärker schwanken (EXP-025) | nur `PERF_STRICT=1` |
 | Längster Block je Szenenwechsel, Höchstwert | ≤ Baseline · 1,5 + 250 ms | wie oben; fängt einen einzelnen Rückfall (z. B. Shader wieder am Stück) | nur `PERF_STRICT=1` |
 | Heap über drei Partien | Partie 3 ≤ max(Partie 1 · 1,1; Partie 1 + 5 MB) | im selben Lauf | immer |
