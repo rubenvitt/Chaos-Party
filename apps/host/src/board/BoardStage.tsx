@@ -281,7 +281,8 @@ export function BoardStage({
       aria-hidden={hidden || undefined}
     >
       <div className="stage" ref={stageRef} />
-      <BoardHud hud={hud} boardName={board.name} connection={connection} />
+      {/* Ausgeblendet ohne HUD: keine doppelten Test-IDs und Live-Regionen neben dem Minispiel. */}
+      {!hidden && <BoardHud hud={hud} boardName={board.name} connection={connection} />}
       {hud.view?.gamePhase === 'game-results' && hud.view.ranking && (
         <Finale
           view={hud.view}

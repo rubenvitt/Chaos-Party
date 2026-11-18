@@ -152,9 +152,9 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
       await expect(intro.locator('[data-control="a"]')).toContainText(INFO.controls.a);
     }
     await expect(host.getByTestId('minigame-countdown')).toBeVisible();
-    // Brett bleibt eingehängt, aber unsichtbar (CHAOS-152): zwei Leinwände, Brett-HUD verdeckt.
+    // Brett bleibt eingehängt, aber unsichtbar (CHAOS-152): zwei Leinwände, kein Brett-HUD.
     await expect(host.locator('.board-layer')).toHaveAttribute('data-hidden', 'true');
-    await expect(host.getByTestId('board-hud')).toBeHidden();
+    await expect(host.getByTestId('board-hud')).toHaveCount(0);
     await expect(host.locator('canvas')).toHaveCount(2);
     await expect(intro).toContainText('Schraubi');
     await expect(intro).toContainText('Kalle Kaktus');
