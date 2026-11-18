@@ -33,6 +33,10 @@ def sock():
         n((0, 0.04, 1.3), 0.2, 2),  # 3 unter dem Bündchen
         n((0, -0.16, 0.18), 0.18, 0),  # 4 Fuß
         n((0, -0.36, 0.16), 0.15, 4),  # 5 Spitze
+        # 6 im Bündchen (CHAOS-161): Skin + Subdivision runden das Ende etwa um den Radius ab.
+        # Ohne diesen Knoten endet der Schaft als Kuppel, die am Rand schon bei z ≈ 1,07 einzieht,
+        # und das Bündchen ab z 1,30 schwebt darüber.
+        n((0, 0.04, 1.44), 0.2, 3),
     ]
     mesh = k.skin_mesh("socke", nodes, subdivisions=2)
 
@@ -53,7 +57,8 @@ def sock():
 
 
 def cuff():
-    ring = k.lathe("buendchen", [(0.0, 1.3), (0.2, 1.3), (0.215, 1.34), (0.215, 1.5), (0.19, 1.52), (0.17, 1.5), (0.17, 1.36), (0.0, 1.36)], segments=48)
+    # Boden der Öffnung bei 1,45: Darunter steckt das Schaftende (Knoten 6 in `sock`).
+    ring = k.lathe("buendchen", [(0.0, 1.27), (0.2, 1.27), (0.215, 1.31), (0.215, 1.5), (0.19, 1.52), (0.17, 1.5), (0.17, 1.45), (0.0, 1.45)], segments=48)
 
     def ribs(p: Vector) -> Vector:
         r = math.hypot(p.x, p.y)
@@ -64,6 +69,8 @@ def cuff():
         return Vector((p.x * f, p.y * f, p.z))
 
     k.deform(ring, ribs)
+    # Mittig auf das Schaftende (Knoten 3 und 6 liegen bei y = 0,04), sonst steht vorn eine Lippe über.
+    k.deform(ring, lambda p: p + Vector((0, 0.04, 0)))
     return ring
 
 

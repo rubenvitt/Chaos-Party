@@ -44,7 +44,7 @@
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
       "budgetBytes": 393216,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
-      "height": 1.59
+      "height": 1.55
     },
     {
       "id": "figur-raccoon",
