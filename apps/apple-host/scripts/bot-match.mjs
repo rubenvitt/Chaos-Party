@@ -2,6 +2,7 @@
 //   pnpm --filter @chaos-party/apple-host bots                       # bis zum ersten angenommenen Minispiel
 //   pnpm --filter @chaos-party/apple-host bots --full                # ganze Partie, alle Minispiele der Rotation
 //   pnpm --filter @chaos-party/apple-host bots --full --matches 3    # drei Partien mit Revanche, Speicher je Partie (CHAOS-141)
+//   pnpm --filter @chaos-party/apple-host bots --full --rueckenwind  # mit Regel Rückenwind (CHAOS-188)
 // Vorher `pnpm --filter @chaos-party/apple-host build`. Exit 1, wenn die Partie nicht sauber läuft
 // oder der Speicher nach der ersten Partie um mehr als `MAX_GROWTH_MB` wächst.
 import { readFileSync } from 'node:fs';
@@ -18,6 +19,7 @@ const BUILD_KEYS = new Set(['board', 'minigame-intro', 'minigame-results']);
 const args = process.argv.slice(2);
 const full = args.includes('--full');
 const verbose = args.includes('--verbose');
+const tailwind = args.includes('--rueckenwind');
 const matchesArg = args.indexOf('--matches');
 const matches = matchesArg >= 0 ? Number(args[matchesArg + 1]) : 1;
 
@@ -34,6 +36,7 @@ const result = await runBotMatch({
   wasm: readFileSync(WASM_FILE),
   full,
   matches,
+  tailwind,
   validateEvery: 30,
   log: verbose ? (line) => console.log(line) : undefined,
   onFrame: (frame) => {

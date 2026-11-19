@@ -58,6 +58,31 @@ describe('Bündel', () => {
     expect(logs.some((line) => line.includes('Unbekannter Host-Befehl: gibt-es-nicht'))).toBe(true);
   });
 
+  it('schaltet die Regel Rückenwind nur mit HostEnv.tailwind ein (CHAOS-188)', async () => {
+    const { api } = loadBundle(code);
+    const logsOf = (tailwind: boolean | undefined) => {
+      const logs: string[] = [];
+      api.create({
+        send: () => undefined,
+        close: () => undefined,
+        log: (line) => logs.push(line),
+        randomBytes: seededBytes(4),
+        havokWasm: wasm,
+        joinUrl: 'http://10.0.0.5:8787/?code=WXYZ',
+        joinCode: 'WXYZ',
+        ...(tailwind === undefined ? {} : { tailwind }),
+      });
+      return logs;
+    };
+    const on = logsOf(true);
+    const off = logsOf(false);
+    const missing = logsOf(undefined);
+    await settle();
+    expect(on).toContain('Regel Rückenwind an');
+    expect(off).not.toContain('Regel Rückenwind an');
+    expect(missing).not.toContain('Regel Rückenwind an');
+  });
+
   it('übernimmt configure in der Lobby und meldet Ungültiges (CHAOS-166)', async () => {
     const { api } = loadBundle(code);
     const logs: string[] = [];

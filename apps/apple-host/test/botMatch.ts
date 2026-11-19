@@ -114,6 +114,8 @@ export interface BotMatchOptions {
   readonly beforeStart?: readonly string[];
   /** `hostCommand`s direkt nach `start` (Brettphase; `configure` muss dort ins Leere gehen). */
   readonly afterStart?: readonly string[];
+  /** Regel Rückenwind an (`HostEnv.tailwind`, CHAOS-188). */
+  readonly tailwind?: boolean;
 }
 
 export interface FrameTiming {
@@ -132,6 +134,8 @@ export interface BotMatchResult {
   readonly roundsPlayed: number;
   /** Runden, in denen `board.notice` zu sehen war (CHAOS-157). */
   readonly noticeRounds: readonly number[];
+  /** Runden, in denen die Rückenwind-Karte (`board.hud.tailwind`) zu sehen war (CHAOS-188). */
+  readonly tailwindRounds: readonly number[];
   readonly minigamesBuilt: readonly string[];
   readonly resultsAccepted: number;
   /** Ausnahmen, die aus dem Bündel bis zum Aufrufer durchschlugen. */
@@ -187,6 +191,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     joinUrl: `http://192.168.0.2:8787/?code=${JOIN_CODE}`,
     joinCode: JOIN_CODE,
     ...(options.deferSceneReady === true ? { deferSceneReady: true } : {}),
+    ...(options.tailwind === true ? { tailwind: true } : {}),
   };
 
   const guard = <T>(label: string, run: () => T): T | undefined => {
@@ -327,6 +332,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   let matchesPlayed = 0;
   let roundsPlayed = 0;
   const noticeRounds: number[] = [];
+  const tailwindRounds: number[] = [];
   let firstResults = false;
 
   while (now < limitMs) {
@@ -367,6 +373,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     roundsPlayed = Math.max(roundsPlayed, raw.board?.round ?? 0);
     if (raw.board?.notice && !noticeRounds.includes(raw.board.round)) {
       noticeRounds.push(raw.board.round);
+    }
+    if (raw.board?.hud?.tailwind && !tailwindRounds.includes(raw.board.round)) {
+      tailwindRounds.push(raw.board.round);
     }
     if (!started && raw.lobby.players.length === 2 && raw.lobby.players.every((p) => p.ready)) {
       started = true;
@@ -420,7 +429,11 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       resultsAccepted === minigamesBuilt.length &&
       (!options.full ||
         (finalReached && allRotation && noticeRounds.join() === FULL_MATCH_NOTICE_ROUNDS)) &&
-      (options.full || firstResults);
+      (options.full || firstResults) &&
+      // Rückenwind-Karte nur mit der Regel; mit ihr in einer ganzen Partie mindestens einmal.
+      (options.tailwind === true
+        ? !options.full || tailwindRounds.length > 0
+        : tailwindRounds.length === 0);
     return {
       ok,
       virtualMs: Math.round(now),
@@ -428,6 +441,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       matchesPlayed,
       roundsPlayed,
       noticeRounds,
+      tailwindRounds,
       minigamesBuilt,
       resultsAccepted,
       exceptions,

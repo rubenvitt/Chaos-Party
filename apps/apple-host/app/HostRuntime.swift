@@ -124,6 +124,9 @@ final class HostRuntime: ObservableObject {
         env.setValue(joinUrl, forProperty: "joinUrl")
         env.setValue(code, forProperty: "joinCode")
         env.setValue(deferScene, forProperty: "deferSceneReady")
+        let tailwind = launchTailwind(CommandLine.arguments, environment: ProcessInfo.processInfo.environment)
+        env.setValue(tailwind, forProperty: "tailwind")
+        if tailwind { hostLog("Startparameter: Regel Rückenwind an") }
         let ref = context.jsGlobalContextRef
         let typed = JSObjectMakeTypedArray(ref, kJSTypedArrayTypeUint8Array, wasm.count, nil)
         wasm.copyBytes(to: JSObjectGetTypedArrayBytesPtr(ref, typed, nil).assumingMemoryBound(to: UInt8.self), count: wasm.count)

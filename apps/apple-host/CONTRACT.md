@@ -20,6 +20,7 @@ interface HostEnv {
   joinUrl: string; // http://<ip>:<port>/?code=<CODE>
   joinCode: string;
   deferSceneReady?: boolean;                         // true: host-ready erst nach sceneReady() (CHAOS-142)
+  tailwind?: boolean;                                // true: Regel Rückenwind an (CHAOS-188, wie RUECKENWIND=1 am PC)
 }
 interface ChaosHostApi {
   create(env: HostEnv): ChaosHostInstance;
