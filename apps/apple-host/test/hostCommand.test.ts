@@ -8,6 +8,10 @@ describe('parseHostCommand', () => {
     }
   });
 
+  it('kennt den lokalen Befehl skip-finale (CHAOS-145)', () => {
+    expect(parseHostCommand('skip-finale')).toEqual({ type: 'skip-finale' });
+  });
+
   it('liest configure mit Runden, Schalter oder beidem (CHAOS-166)', () => {
     expect(parseHostCommand('configure:rounds=12')).toEqual({ type: 'configure', rounds: 12 });
     expect(parseHostCommand('configure:rounds=1')).toEqual({ type: 'configure', rounds: 1 });

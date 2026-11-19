@@ -175,5 +175,12 @@
     ],
     "sounds": []
   },
-  "minigame": null
+  "minigame": null,
+  "final": null,
+  "pause": {
+    "paused": false,
+    "canPause": true,
+    "roundText": "Runde 6/10",
+    "sounds": []
+  }
 }

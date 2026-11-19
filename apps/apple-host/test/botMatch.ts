@@ -70,7 +70,8 @@ export function seededBytes(seed: number): (n: number) => number[] {
 }
 
 interface Controller {
-  readonly id: number;
+  /** Verbindungs-ID; nach einer Wiederverbindung eine neue (CHAOS-145). */
+  id: number;
   readonly name: string;
   readonly character: string;
   seq: number;
@@ -81,6 +82,10 @@ interface Controller {
   lastInput: number;
   pressed: boolean;
   picked: boolean;
+  /** `welcome.sessionToken` für `reconnect` (CHAOS-145). */
+  token: string | null;
+  /** Getrennt bzw. ohne Netz: sendet nichts und hört nichts (CHAOS-145). */
+  offline: boolean;
 }
 
 export interface BotMatchOptions {
@@ -114,7 +119,24 @@ export interface BotMatchOptions {
   readonly beforeStart?: readonly string[];
   /** `hostCommand`s direkt nach `start` (Brettphase; `configure` muss dort ins Leere gehen). */
   readonly afterStart?: readonly string[];
+  /**
+   * CHAOS-145 (nur mit `full`): In der ersten Partie Pause im Brett und im Minispiel, Ben
+   * trennt sich sauber und kommt zurück, dann verliert er das Netz (Funkstille, der Server wirft
+   * ihn nach 15 s raus) und kommt wieder; das Finale läuft bis zum Siegerbildschirm. In jeder
+   * weiteren Partie „Überspringen“. Erfüllte Prüfungen stehen in `exercised`.
+   */
+  readonly exercise?: boolean;
 }
+
+/** Prüfungen von `exercise` in einer ganzen Partie (CHAOS-145). */
+export const EXERCISE_CHECKS = [
+  'pause-board',
+  'pause-minigame',
+  'reconnect',
+  'reconnect-silent',
+  'finale-winner',
+  'final-guards',
+] as const;
 
 export interface FrameTiming {
   readonly key: string;
@@ -143,6 +165,9 @@ export interface BotMatchResult {
   readonly phases: readonly string[];
   readonly maxRenderStateBytes: number;
   readonly rotation: readonly string[];
+  /** Erfüllte Prüfungen von `exercise` (`EXERCISE_CHECKS`, dazu `finale-skip` je Revanche). */
+  readonly exercised: readonly string[];
+  readonly exerciseErrors: readonly string[];
 }
 
 /**
@@ -170,13 +195,19 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   const serverErrors: string[] = [];
   const contractErrors: string[] = [];
   const phases: string[] = [];
+  const exercised: string[] = [];
+  const exerciseErrors: string[] = [];
+  /** Verbindungen, die der Server schließen darf (Funkstille, CHAOS-145). */
+  const expectedCloses = new Set<number>();
+  const closedByHost: number[] = [];
   const log = options.log ?? (() => undefined);
   const env: HostEnv = {
     send: (id, text) => {
       outbox.push([id, text]);
     },
     close: (id, code, reason) => {
-      exceptions.push(`Host schließt Verbindung ${String(id)}: ${String(code)} ${reason}`);
+      if (expectedCloses.delete(id)) closedByHost.push(id);
+      else exceptions.push(`Host schließt Verbindung ${String(id)}: ${String(code)} ${reason}`);
     },
     log: (line) => {
       logLines.push(line);
@@ -231,10 +262,13 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     lastInput: 0,
     pressed: false,
     picked: false,
+    token: null,
+    offline: false,
   }));
 
   let now = 0;
   const send = (c: Controller, type: string, fields: Record<string, unknown>) => {
+    if (c.offline) return;
     const text = JSON.stringify({ v: PROTOCOL_VERSION, type, ...fields });
     guard(`message ${type}`, () => {
       instance.message(c.id, text);
@@ -247,7 +281,14 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     switch (m.type) {
       case 'welcome': {
         const players = m.players as { slot: number }[];
-        c.slot = players[0]?.slot ?? null;
+        const slot = players[0]?.slot ?? null;
+        if (c.token !== null && slot !== c.slot) {
+          exerciseErrors.push(
+            `${c.name}: Wiederverbindung auf Slot ${String(slot)} statt ${String(c.slot)}`,
+          );
+        }
+        c.slot = slot;
+        c.token = typeof m.sessionToken === 'string' ? m.sessionToken : null;
         break;
       }
       case 'context': {
@@ -282,7 +323,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       for (const [id, text] of batch) {
         const c = controllers.find((entry) => entry.id === id);
         if (!c) exceptions.push(`send an unbekannte Verbindung ${String(id)}`);
-        else handle(c, text);
+        else if (!c.offline) handle(c, text);
       }
     }
   };
@@ -290,7 +331,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   /** Eingaben im Minispiel: Stick im Kreis (10/s), A abwechselnd drücken/loslassen. */
   const play = (c: Controller) => {
     const slot = c.slot;
-    if (slot === null) return;
+    if (slot === null || c.offline) return;
     if (now - c.lastHeartbeat >= 5000) {
       c.lastHeartbeat = now;
       send(c, 'heartbeat', { t: now });
@@ -328,6 +369,51 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   let roundsPlayed = 0;
   const noticeRounds: number[] = [];
   let firstResults = false;
+  const exercise = options.full && options.exercise === true;
+  /** Stand der `exercise`-Prüfungen (CHAOS-145). */
+  const ex = {
+    boardSince: 0,
+    failed: new Set<string>(),
+    pause: null as null | {
+      kind: 'board' | 'minigame';
+      sentAt: number;
+      seenAt: number | null;
+      elapsedMs: number | null;
+      resumeSentAt: number | null;
+    },
+    pauseSounds: new Set<string>(),
+    reconnect: null as null | {
+      kind: 'clean' | 'silent';
+      at: number;
+      oldId: number;
+      sawDisconnected: boolean;
+      rejoinedAt: number | null;
+    },
+    nextConnId: 101,
+    finaleBeats: [] as string[],
+    finaleSounds: new Set<string>(),
+    finaleHandled: false,
+    skipSentAt: null as number | null,
+  };
+  const settled = (check: string) => exercised.includes(check) || ex.failed.has(check);
+  const failCheck = (check: string, why: string) => {
+    ex.failed.add(check);
+    exerciseErrors.push(`${check}: ${why}`);
+  };
+  const command = async (cmd: string) => {
+    guard('hostCommand', () => {
+      instance.hostCommand(cmd);
+    });
+    await settle();
+    drain();
+  };
+  const rematch = async () => {
+    // Revanche: zurück in die Lobby, die Bots melden sich wieder bereit, `start` wie oben.
+    // Prompt-IDs zählen in der neuen Partie von vorn.
+    started = false;
+    for (const c of controllers) c.answered.clear();
+    await command('rematch');
+  };
 
   while (now < limitMs) {
     now += STEP_MS;
@@ -382,26 +468,210 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       firstResults = true;
     }
     if (!options.full && firstResults) break;
+    if (exercise && matchesPlayed === 0) await exerciseMatch(raw, key, changed);
     if (options.full && changed && raw.phase === 'final') {
       matchesPlayed++;
       await options.onMatchEnd?.(matchesPlayed, internals.pendingTimers());
-      if (matchesPlayed >= matches) {
+      if (exercise) {
+        ex.finaleBeats = [];
+        ex.finaleSounds.clear();
+        ex.finaleHandled = false;
+        ex.skipSentAt = null;
+        if (matchesPlayed > 1) {
+          ex.skipSentAt = now;
+          await command('skip-finale');
+        }
+      } else if (matchesPlayed >= matches) {
         finalReached = true;
         break;
+      } else {
+        await rematch();
       }
-      // Revanche: zurück in die Lobby, die Bots melden sich wieder bereit, `start` wie oben.
-      // Prompt-IDs zählen in der neuen Partie von vorn.
-      started = false;
-      for (const c of controllers) c.answered.clear();
-      guard('hostCommand', () => {
-        instance.hostCommand('rematch');
-      });
-      await settle();
-      drain();
+    }
+    if (exercise && raw.phase === 'final' && !ex.finaleHandled) {
+      const final = raw.final;
+      if (final) {
+        if (ex.finaleBeats.at(-1) !== final.beat) ex.finaleBeats.push(final.beat);
+        for (const cue of final.sounds) ex.finaleSounds.add(cue.name);
+      }
+      if (final?.done) {
+        ex.finaleHandled = true;
+        if (matchesPlayed === 1) await checkFinale(raw);
+        else if (ex.skipSentAt !== null && now - ex.skipSentAt < 100) exercised.push('finale-skip');
+        else
+          exerciseErrors.push(
+            `finale-skip: Siegerbildschirm erst nach ${String(now - (ex.skipSentAt ?? now))} ms`,
+          );
+        if (matchesPlayed >= matches) {
+          finalReached = true;
+          break;
+        }
+        await rematch();
+      } else if (now - (ex.skipSentAt ?? now) > 100 && ex.skipSentAt !== null) {
+        ex.finaleHandled = true;
+        exerciseErrors.push('finale-skip: Überspringen wirkt nicht');
+      }
     }
   }
 
   return summary();
+
+  /** Pause, Wiederverbindung (CHAOS-145) in der ersten Partie, je Bild. */
+  async function exerciseMatch(raw: RenderState, key: string, changed: boolean) {
+    const ben = controllers[1];
+    if (!ben) return;
+    if (changed && key === 'board') ex.boardSince = now;
+    for (const cue of raw.pause.sounds) ex.pauseSounds.add(cue.name);
+    const round = raw.board?.round ?? 0;
+    const idle = ex.pause === null && ex.reconnect === null;
+
+    // Pause im Brett, dann im laufenden Minispiel.
+    if (idle && raw.pause.canPause) {
+      const kind =
+        !settled('pause-board') && key === 'board' && now - ex.boardSince >= 3000
+          ? 'board'
+          : settled('pause-board') &&
+              !settled('pause-minigame') &&
+              key === 'minigame-play' &&
+              (raw.minigame?.elapsedMs ?? 0) > 2000
+            ? 'minigame'
+            : null;
+      if (kind) {
+        ex.pauseSounds.clear();
+        ex.pause = { kind, sentAt: now, seenAt: null, elapsedMs: null, resumeSentAt: null };
+        await command('pause');
+        return;
+      }
+    }
+    const pause = ex.pause;
+    if (pause) {
+      const check = `pause-${pause.kind}`;
+      if (pause.seenAt === null) {
+        if (raw.phase === 'paused' && raw.pause.paused) {
+          pause.seenAt = now;
+          pause.elapsedMs = raw.minigame?.elapsedMs ?? null;
+          if (pause.kind === 'minigame' && raw.minigame?.stage !== 'play') {
+            failCheck(check, 'Minispiel fehlt in der Pause');
+          }
+          if (raw.pause.canPause) failCheck(check, 'canPause in der Pause');
+        } else if (now - pause.sentAt > 1000) {
+          failCheck(check, 'Pause kam nicht an');
+          ex.pause = null;
+        }
+      } else if (pause.resumeSentAt === null) {
+        if (now - pause.seenAt >= 3000) {
+          if (pause.kind === 'minigame' && raw.minigame?.elapsedMs !== pause.elapsedMs) {
+            failCheck(
+              check,
+              `Spielzeit lief in der Pause weiter (${String(pause.elapsedMs)} → ${String(raw.minigame?.elapsedMs)})`,
+            );
+          }
+          pause.resumeSentAt = now;
+          await command('resume');
+        }
+      } else if (raw.phase !== 'paused') {
+        if (!ex.pauseSounds.has('pause') || !ex.pauseSounds.has('resume')) {
+          failCheck(check, `Klänge fehlen: ${[...ex.pauseSounds].join(', ')}`);
+        }
+        if (!ex.failed.has(check)) exercised.push(check);
+        ex.pause = null;
+      } else if (now - pause.resumeSentAt > 1000) {
+        failCheck(check, 'Fortsetzen kam nicht an');
+        ex.pause = null;
+      }
+      return;
+    }
+
+    // Ben trennt sich sauber (Runde 2), dann Funkstille (Runde 3): der Server wirft ihn raus.
+    if (idle && key === 'board' && settled('pause-minigame')) {
+      const kind =
+        !settled('reconnect') && round >= 2
+          ? 'clean'
+          : settled('reconnect') && !settled('reconnect-silent') && round >= 3
+            ? 'silent'
+            : null;
+      if (kind) {
+        ex.reconnect = { kind, at: now, oldId: ben.id, sawDisconnected: false, rejoinedAt: null };
+        ben.offline = true;
+        if (kind === 'clean') {
+          guard('closed', () => {
+            instance.closed(ben.id);
+          });
+          await settle();
+          drain();
+        } else {
+          expectedCloses.add(ben.id);
+        }
+        return;
+      }
+    }
+    const reconnect = ex.reconnect;
+    if (reconnect) {
+      const check = reconnect.kind === 'clean' ? 'reconnect' : 'reconnect-silent';
+      const player = raw.lobby.players.find((p) => p.slot === ben.slot);
+      if (reconnect.rejoinedAt === null) {
+        if (player?.connected === false) reconnect.sawDisconnected = true;
+        const kicked = closedByHost.includes(reconnect.oldId);
+        const due =
+          reconnect.kind === 'clean'
+            ? now - reconnect.at >= 3000
+            : kicked && reconnect.sawDisconnected;
+        if (reconnect.kind === 'silent' && now - reconnect.at > 25_000 && !due) {
+          failCheck(check, 'Server hat die stille Verbindung nicht getrennt');
+        }
+        if (due || ex.failed.has(check)) {
+          ben.id = ex.nextConnId++;
+          ben.offline = false;
+          ben.lastHeartbeat = now;
+          reconnect.rejoinedAt = now;
+          guard('open', () => {
+            instance.open(ben.id);
+          });
+          send(ben, 'reconnect', { sessionToken: ben.token });
+          await settle();
+          drain();
+        }
+      } else if (player?.connected === true) {
+        if (!reconnect.sawDisconnected) failCheck(check, 'Trennung war nicht zu sehen');
+        if (!ex.failed.has(check)) exercised.push(check);
+        ex.reconnect = null;
+      } else if (now - reconnect.rejoinedAt > 3000) {
+        failCheck(check, 'Wiederverbindung kam nicht an');
+        ex.reconnect = null;
+      }
+    }
+  }
+
+  /** Erstes Finale bis zum Siegerbildschirm: Abschnitte, Klänge, Podest, Befehle (CHAOS-145). */
+  async function checkFinale(raw: RenderState) {
+    const final = raw.final;
+    const beats = ex.finaleBeats.join(' → ');
+    const ordered =
+      ex.finaleBeats[0] === 'intro' &&
+      ex.finaleBeats.includes('reveal') &&
+      ex.finaleBeats.at(-1) === 'winner';
+    if (!final || !ordered) exerciseErrors.push(`finale-winner: Abschnitte ${beats}`);
+    else if (!ex.finaleSounds.has('win') || !ex.finaleSounds.has('trophy')) {
+      exerciseErrors.push(`finale-winner: Klänge ${[...ex.finaleSounds].join(', ')}`);
+    } else if (
+      final.podium.length !== controllers.length ||
+      final.winner.ranking.length !== controllers.length ||
+      !final.canRematch ||
+      final.winner.headline === ''
+    ) {
+      exerciseErrors.push('finale-winner: Podest, Endstand oder „Nochmal spielen“ fehlt');
+    } else {
+      exercised.push('finale-winner');
+    }
+    // Im Finale gehen Pause und Fortsetzen ins Leere, ohne Server-Fehler.
+    const before = logLines.length;
+    const errorsBefore = serverErrors.length;
+    await command('pause');
+    await command('resume');
+    const ignored = logLines.slice(before).filter((line) => line.includes('ignoriert')).length;
+    if (ignored === 2 && serverErrors.length === errorsBefore) exercised.push('final-guards');
+    else exerciseErrors.push(`final-guards: ${String(ignored)} ignoriert`);
+  }
 
   function summary(): BotMatchResult {
     const problems = logLines.filter((line) => PROBLEM_MARKERS.some((m) => line.includes(m)));
@@ -420,7 +690,11 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       resultsAccepted === minigamesBuilt.length &&
       (!options.full ||
         (finalReached && allRotation && noticeRounds.join() === FULL_MATCH_NOTICE_ROUNDS)) &&
-      (options.full || firstResults);
+      (options.full || firstResults) &&
+      exerciseErrors.length === 0 &&
+      (!exercise ||
+        (EXERCISE_CHECKS.every((check) => exercised.includes(check)) &&
+          exercised.filter((check) => check === 'finale-skip').length === matchesPlayed - 1));
     return {
       ok,
       virtualMs: Math.round(now),
@@ -437,6 +711,8 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       phases,
       maxRenderStateBytes,
       rotation,
+      exercised,
+      exerciseErrors,
     };
   }
 }
