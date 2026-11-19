@@ -74,3 +74,38 @@ targets:
         CODE_SIGN_IDENTITY: '-'
         DEVELOPMENT_TEAM: ''
         'CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]': NO
+  # Mac-App für TestFlight bzw. den Mac App Store (CHAOS-200): gleicher Code ohne Sparkle (der App Store aktualisiert
+  # selbst und lehnt Selbst-Updater ab), mit App Sandbox, Kategorie und Mac-Icon. Bundle-ID wie die Apple-TV-App, damit
+  # beide ein App-Eintrag „Chaos Party Host“ in App Store Connect sind (Universal Purchase). Signatur und Upload:
+  # scripts/testflight-macos.sh. Der Developer-ID-Kanal (Ziel ChaosHost, release-macos.sh) bleibt davon unberührt.
+  ChaosHostAppStore:
+    type: application
+    platform: macOS
+    sources:
+      - path: app
+      - path: payload
+        type: folder
+        buildPhase: resources
+        optional: true
+      # Mac-Icon (scripts/mac-icons.py), Pflicht im Mac App Store.
+      - path: app-mac/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_NAME: Chaos Party
+        PRODUCT_MODULE_NAME: ChaosHost
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.tv
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Chaos Party
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Controller im lokalen Netz verbinden sich mit diesem Gerät.
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.board-games
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Schaltet Sparkle (Updates.swift) und seine Prüfung im Selbsttest ab.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) APP_STORE
+        CODE_SIGN_ENTITLEMENTS: config/ChaosHost-appstore.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        LD_RUNPATH_SEARCH_PATHS: '$(inherited) @executable_path/../Frameworks'
+        # Lokal ad hoc; testflight-macos.sh setzt Team und Signatur auf der Kommandozeile.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: '-'
+        DEVELOPMENT_TEAM: ''

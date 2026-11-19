@@ -313,6 +313,19 @@ jobs:
               -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
           done
 
+      # App-Store-Variante für TestFlight am Mac (CHAOS-200): ad hoc signiert mit App Sandbox, ohne Sparkle.
+      # Der Selbsttest läuft in der Sandbox (Listener, HTTP, WebSocket); Upload nur in testflight-macos.yml.
+      - name: Apple-Host – App-Store-Variante (Sandbox, Selbsttest)
+        if: hashFiles('apps/apple-host/scripts/testflight-macos.sh') != ''
+        working-directory: apps/apple-host
+        run: |
+          xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHostAppStore \
+            -destination 'generic/platform=macOS' -configuration Release \
+            -derivedDataPath build/ci-appstore build
+          app="build/ci-appstore/Build/Products/Release/Chaos Party.app"
+          [ ! -e "$app/Contents/Frameworks/Sparkle.framework" ] || { echo "::error::Sparkle im App-Store-Build"; exit 1; }
+          "$app/Contents/MacOS/Chaos Party" --selftest
+
       # Mac-Release ohne Secrets probeweise (CHAOS-118): dasselbe Skript wie release-macos.yml, aber ad hoc
       # signiert. Prüft Archiv, Hardened Runtime, Entitlements und den Selbsttest der fertigen App (JS-Kern,
       # Havok, HTTP, WebSocket-Beitritt). Nur Notarisierung und Heften laufen erst im Release-Workflow.

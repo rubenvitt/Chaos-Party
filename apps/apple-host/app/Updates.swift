@@ -1,4 +1,5 @@
-#if os(macOS)
+// Not in the App Store build (CHAOS-200): the store updates the app itself and rejects self-updaters.
+#if os(macOS) && !APP_STORE
 import Combine
 import Foundation
 import Sparkle

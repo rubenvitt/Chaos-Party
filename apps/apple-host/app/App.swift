@@ -22,7 +22,7 @@ struct ChaosHostApp: App {
     /// Pause über Tastatur bzw. Fernbedienung (CHAOS-145).
     @StateObject private var pause = PauseControl()
     @Environment(\.scenePhase) private var scenePhase
-    #if os(macOS)
+    #if os(macOS) && !APP_STORE
     @StateObject private var updates = Updates()
     #endif
 
@@ -66,7 +66,7 @@ struct ChaosHostApp: App {
             }
             #endif
         }
-        #if os(macOS)
+        #if os(macOS) && !APP_STORE
         .commands {
             // CHAOS-156: Sparkle prüft ohnehin täglich; der Menüpunkt prüft sofort.
             CommandGroup(after: .appInfo) {
