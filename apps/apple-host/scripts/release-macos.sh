@@ -74,12 +74,13 @@ if [[ -z "${SPARKLE_PUBLIC_ED_KEY:-}" && "$DRY_RUN" != 1 ]]; then
   echo "WARNUNG: SPARKLE_PUBLIC_ED_KEY fehlt, diese App sucht nie nach Updates (CHAOS-156)" >&2
 fi
 # Universal (arm64 + x86_64): Release baut ohne ONLY_ACTIVE_ARCH. Keine Basis-Entitlements, damit kein
-# get-task-allow in die Signatur kommt (die Notarisierung lehnt es ab).
+# get-task-allow in die Signatur kommt (die Notarisierung lehnt es ab), und ohne die Ad-hoc-Entitlements aus
+# project.yml (CHAOS-176); die bekommt nur der Probelauf unten beim Signieren der App.
 xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost -configuration Release \
   -destination 'generic/platform=macOS' -archivePath "$ARCHIVE" \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="$TEAM" \
-  ENABLE_HARDENED_RUNTIME=YES CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO OTHER_CODE_SIGN_FLAGS="$SIGN_FLAGS" \
+  ENABLE_HARDENED_RUNTIME=YES CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO CODE_SIGN_ENTITLEMENTS= OTHER_CODE_SIGN_FLAGS="$SIGN_FLAGS" \
   "${SPARKLE_SETTINGS[@]}" \
   archive
 
@@ -100,7 +101,14 @@ done
 sign "$FRAMEWORK/Versions/B/Autoupdate"
 sign "$FRAMEWORK/Versions/B/Updater.app"
 sign "$FRAMEWORK"
-sign "$APP"
+# Ad hoc signiert lädt die App Sparkle unter macOS 27 nur ohne Library Validation (CHAOS-176,
+# config/ChaosHost-adhoc.entitlements). Das Developer-ID-Release braucht das nicht: App und Sparkle tragen
+# dieselbe Team-ID.
+if [[ "$DRY_RUN" == 1 ]]; then
+  sign --entitlements config/ChaosHost-adhoc.entitlements "$APP"
+else
+  sign "$APP"
+fi
 
 # Sparkle-Schlüssel im fertigen Info.plist: Feed immer, öffentlicher Schlüssel genau der übergebene.
 plist="$APP/Contents/Info.plist"
@@ -114,8 +122,13 @@ echo "Sparkle: Feed $feed, öffentlicher Schlüssel ${key:-(keiner, Updater aus)
 codesign --verify --deep --strict --verbose=2 "$APP"
 details=$(codesign --display --verbose=4 "$APP" 2>&1)
 grep -q 'flags=.*runtime' <<<"$details" || { echo "$details"; echo "Hardened Runtime fehlt" >&2; exit 1; }
-if codesign --display --entitlements - "$APP" 2>/dev/null | grep -q 'get-task-allow'; then
+entitlements=$(codesign --display --entitlements - "$APP" 2>/dev/null || true)
+if grep -q 'get-task-allow' <<<"$entitlements"; then
   echo "get-task-allow in den Entitlements: die Notarisierung würde ablehnen" >&2
+  exit 1
+fi
+if [[ "$DRY_RUN" != 1 ]] && grep -q 'disable-library-validation' <<<"$entitlements"; then
+  echo "disable-library-validation im Release: nur für ad hoc signierte Builds gedacht (CHAOS-176)" >&2
   exit 1
 fi
 lipo -archs "$APP/Contents/MacOS/ChaosHost"
