@@ -17,6 +17,9 @@ const controllerUse = {
  * – ein Prozess, ein Port. Damit prüft jeder Lauf auch C1 (Havok-WASM mit
  * `application/wasm` vom Node-Server). Screenshot-Baselines sind plattformabhängig;
  * eingecheckt ist nur die Linux-Variante (`*-<projekt>-linux.png`), passend zu CI (ADR-004).
+ * Auf macOS/Windows überspringt `ignoreSnapshots` die Vergleiche (CHAOS-175): Dort gibt es
+ * keine Baselines, und angelegte wären ungeprüft schnell veraltet. Die DOM-Assertions laufen
+ * überall; die Optik vergleicht die CI bzw. das Playwright-Docker-Image (docs/testing.md).
  *
  * Isolation (CHAOS-14): `global-setup.ts` baut einmal, danach startet die Fixture
  * `chaosServer` (`tests/e2e/fixtures/test.ts`) **pro Test** einen eigenen Server mit
@@ -36,6 +39,7 @@ export default defineConfig({
     ? [['list'], ['github'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
     : 'list',
   timeout: 60_000,
+  ignoreSnapshots: process.platform !== 'linux',
   expect: {
     timeout: 15_000,
     toHaveScreenshot: {

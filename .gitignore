@@ -9,6 +9,9 @@ coverage/
 .env.*
 test-results/
 playwright-report/
+# Screenshot-Baselines nur für Linux (CI); lokale macOS-/Windows-Varianten nicht einchecken (CHAOS-175)
+tests/e2e/__screenshots__/**/*-darwin.png
+tests/e2e/__screenshots__/**/*-win32.png
 perf-results/
 
 # Git-Worktrees der Subagenten (Claude Code)
