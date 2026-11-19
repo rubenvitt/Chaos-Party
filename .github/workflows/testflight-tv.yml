@@ -38,7 +38,7 @@ jobs:
     name: Apple TV zu TestFlight
     # macos-latest: App Store Connect verlangt ein aktuelles SDK.
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
@@ -57,7 +57,27 @@ jobs:
           brew install xcodegen
           xcodebuild -version
 
-      # JS-Kern, Havok, Lizenztexte und Browser-Controller nach apps/apple-host/payload/.
+      # Brett-Kulisse und Figuren als USDZ (CHAOS-140/142): prepare.sh bricht ohne sie ab, damit kein Build mit
+      # Grundkörpern ausgeliefert wird. Blender als Python-Modul (bpy 5.3 nur für Python 3.13), Brett aus dem
+      # Web-Host über Chromium.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: packages/assets/blender/requirements.txt
+
+      - name: USDZ-Assets bauen
+        env:
+          BOARD_EXPORT_TIMEOUT: '900000'
+          # Die RealityKit-Prüfung braucht Metal; auf den VM-Runnern nicht verlässlich. usd-core prüft trotzdem.
+          RK_CHECK: '0'
+        run: |
+          python -m venv .venv-blender
+          .venv-blender/bin/pip install -r packages/assets/blender/requirements.txt
+          pnpm exec playwright install chromium
+          BLENDER_PYTHON="$PWD/.venv-blender/bin/python" pnpm build:apple-assets
+
+      # JS-Kern, Havok, Lizenztexte, Browser-Controller, Porträts und USDZ nach apps/apple-host/payload/.
       - name: Nutzlast bauen
         run: apps/apple-host/prepare.sh
 

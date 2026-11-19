@@ -108,6 +108,8 @@ export interface BotMatchOptions {
   /** Erstes `renderState` je Phase/Stufe (für Beispielnachrichten). */
   readonly onPhase?: (key: string, state: RenderState) => void;
   readonly log?: ((line: string) => void) | undefined;
+  /** Wie die App: `host-ready` erst nach `sceneReady()`, das nach dem ersten `tick` kommt (CHAOS-142). */
+  readonly deferSceneReady?: boolean;
 }
 
 export interface FrameTiming {
@@ -180,6 +182,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     havokWasm: options.wasm,
     joinUrl: `http://192.168.0.2:8787/?code=${JOIN_CODE}`,
     joinCode: JOIN_CODE,
+    ...(options.deferSceneReady === true ? { deferSceneReady: true } : {}),
   };
 
   const guard = <T>(label: string, run: () => T): T | undefined => {
@@ -197,6 +200,19 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   await settle();
   if (!host) return summary();
   const instance: ChaosHostInstance = host;
+  if (options.deferSceneReady === true) {
+    guard('tick', () => {
+      instance.tick(CLOCK_OFFSET_MS);
+    });
+    await settle();
+    if (logLines.some((line) => line.includes('host-ready'))) {
+      exceptions.push('host-ready vor sceneReady()');
+    }
+    guard('sceneReady', () => {
+      instance.sceneReady();
+    });
+    await settle();
+  }
 
   const controllers: Controller[] = [
     { id: 1, name: 'Anna', character: 'raccoon' },

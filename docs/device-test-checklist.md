@@ -572,3 +572,18 @@ Voraussetzung: Variable `SPARKLE_PUBLIC_ED_KEY` und Secret `SPARKLE_ED_PRIVATE_K
 | SU4 | „Über Chaos Party“ | Version des zweiten Releases | | |
 | SU5 | App mit der alten Version erneut installieren, einen Tag offen lassen (oder `defaults delete dev.rubeen.chaosparty.host SULastCheckTime` und neu starten) | Sparkle meldet das Update ohne Klick auf den Menüpunkt | | |
 
+## 29. Nativer Host mit echter Grafik: Lobby, Brett, 4K auf der Apple TV (für CHAOS-142)
+
+**Stand:** 2026-11-18 · **Aufgabe:** CHAOS-142 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitte „App“ und „Bauen“
+
+Automatisch bzw. von Claude geprüft (M3 Max, macOS 27.2, 18.11.): App am Mac und im tvOS-Simulator (Apple TV 4K, 3840×2160, intern 1920×1080) mit zwei Bot-Controllern bis ins erste Minispiel. Brett mit Instanzen und vier Figuren lädt in 1,3–1,4 s (Mac) bzw. 5,9 s (Simulator), danach `host-ready`; Figuren stehen auf den Feldern und laufen zum neuen Feld; Mac 55–58 fps, Simulator 59,5 fps (nur Anhaltspunkt). Bilder: [`chaos142-mac-lobby.jpg`](screenshots/chaos142-mac-lobby.jpg) (Lobby als Einzelbild gerendert, Hintergrund verzerrt), [`chaos142-tvos-brett.jpg`](screenshots/chaos142-tvos-brett.jpg). Zum Vergleich der Babylon-Host im Beispielstand: [`host-brett-chromium-darwin.png`](../tests/e2e/__screenshots__/host-brett.spec.ts/host-brett-chromium-darwin.png). **Nicht** geprüft: echte Apple TV (am 18.11. installiert, Start scheiterte an „System is asleep“), Start mit der Fernbedienung (der Simulator lässt sich hier nicht bedienen; alle Läufe mit `--autostart`), echtes iPhone, Bildrate bei 4K am Gerät, Rubens Urteil.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| NH1 | Mac: `pnpm build:apple-assets`, dann wie im README bauen und `ChaosHost.app` starten | Lobby über dem Brett: QR-Code, Join-Code, vier Plätze; „Partie starten“ grau, bis das Brett geladen ist | | Foto |
+| NH2 | iPhone per QR beitreten, Figur wählen, „Bereit!“ | Karte mit Porträt der Figur, Rahmen und Halstuch in Slot-Farbe, „bereit ✓“ | | Foto |
+| NH3 | Zweiter Spieler, beide bereit, Return (Mac) | Brett mit echten Figuren auf dem Start; Kamera wie am PC | | Foto neben dem Babylon-Host |
+| NH4 | Würfeln am iPhone | Figur läuft zum neuen Feld (geradlinig, Laufen-Animation), Kamera rückt leicht zum aktiven Spieler | | |
+| NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | Entfällt (18.11., Ruben: „ignorieren wir den tv teil & gehen davon aus, dass alles passt“) | Foto |
+| NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | Entfällt (18.11., Ruben, siehe NH5) | Log-Auszug |
+| NH7 | Ruben: Urteil zur Optik von Lobby und Brett | „passt“ oder eine Liste, was fehlt (bekannt: keine Lichtstimmungen je Runde, kein SSAO/Tiefenschärfe, Hintergrund hellblau statt warm) | | Kommentar an CHAOS-142 |

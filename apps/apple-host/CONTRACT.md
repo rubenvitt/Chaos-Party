@@ -19,6 +19,7 @@ interface HostEnv {
   havokWasm: Uint8Array | number[]; // Inhalt von HavokPhysics.wasm
   joinUrl: string; // http://<ip>:<port>/?code=<CODE>
   joinCode: string;
+  deferSceneReady?: boolean;                         // true: host-ready erst nach sceneReady() (CHAOS-142)
 }
 interface ChaosHostApi {
   create(env: HostEnv): ChaosHostInstance;
@@ -31,8 +32,11 @@ interface ChaosHostInstance {
   // Zeitgeber, Session-Fristen und 1/60-Schritte der Minispiele
   renderState(): string; // JSON, siehe unten; je Bild nach tick
   hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch'
+  sceneReady(): void; // Brett und Figuren geladen → host-ready (CHAOS-68/142)
 }
 ```
+
+`host-ready` (CHAOS-68): Ohne `deferSceneReady` ist der Host sofort bereit (Harness, Tests, `--selftest`). Die App setzt es und ruft `sceneReady()`, sobald `brett.usdz`, die Instanzen und die Figuren geladen sind; bis dahin ist „Partie starten“ gesperrt.
 
 `setTimeout`, `performance`, `structuredClone` und `crypto` gibt es in JavaScriptCore nicht: Das Bündel polyfillt sie aus `tick` und `env.randomBytes`. Nach jedem Aufruf aus Swift laufen die Mikrotasks des Kontexts leer (JSC-Verhalten, auf das sich der Kern verlässt).
 

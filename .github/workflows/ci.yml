@@ -274,8 +274,10 @@ jobs:
       - name: Apple-Host bauen (macOS, tvOS, ohne Signatur)
         if: hashFiles('apps/apple-host/project.yml') != ''
         working-directory: apps/apple-host
+        # Nur Übersetzen und Selbsttest: ohne USDZ (die baut der Job „Apple-Assets“ unter Linux; TestFlight
+        # und Release bauen sie selbst), die App fällt dann auf Grundkörper zurück.
         run: |
-          SKIP_BUILD=1 ./prepare.sh
+          SKIP_BUILD=1 OHNE_ASSETS=1 ./prepare.sh
           xcodegen generate
           for destination in 'generic/platform=macOS' 'generic/platform=tvOS'; do
             xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost \

@@ -74,4 +74,21 @@ describe('Bündel', () => {
     expect(phases).toContain('minigame-play');
     expect(result.ok).toBe(true);
   }, 60_000);
+
+  it('schickt host-ready mit deferSceneReady erst nach sceneReady() und spielt dann normal', async () => {
+    const phases: string[] = [];
+    const result = await runBotMatch({
+      code,
+      wasm,
+      full: false,
+      seed: 5,
+      deferSceneReady: true,
+      onPhase: (key) => phases.push(key),
+    });
+    expect(result.exceptions).toEqual([]);
+    expect(result.problems).toEqual([]);
+    expect(result.serverErrors).toEqual([]);
+    expect(phases.slice(0, 2)).toEqual(['lobby', 'board']);
+    expect(result.ok).toBe(true);
+  }, 60_000);
 });

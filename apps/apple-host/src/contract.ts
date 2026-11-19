@@ -28,6 +28,11 @@ export interface HostEnv {
   joinUrl: string;
   /** 4 Zeichen aus dem Alphabet von `apps/server/src/ids.ts`. */
   joinCode: string;
+  /**
+   * `true`: `host-ready` erst nach `sceneReady()` (die App lädt Brett und Figuren, CHAOS-142,
+   * CHAOS-68). Fehlt der Wert, ist der Host sofort bereit (Harness, Tests, `--selftest`).
+   */
+  deferSceneReady?: boolean;
 }
 
 /** Host-Befehle, die `hostCommand` versteht (wie die Knöpfe am PC-Host). */
@@ -50,6 +55,8 @@ export interface ChaosHostInstance {
   renderState(): string;
   /** Einer von `HOST_COMMANDS`; Unbekanntes wird geloggt und ignoriert. */
   hostCommand(cmd: string): void;
+  /** Szene geladen (nur mit `env.deferSceneReady`): schickt `host-ready` (CHAOS-142). */
+  sceneReady(): void;
 }
 
 /** `globalThis.ChaosHost` im Bündel. */
