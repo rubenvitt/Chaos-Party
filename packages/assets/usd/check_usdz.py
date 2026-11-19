@@ -11,7 +11,9 @@ Exit-Code 1 bei Fehlern. Geprüft wird:
   Animationsnamen im Manifest; Material `akzent` vorhanden und gebunden; jedes Mesh hat ein
   Material (RealityKit zeigt Vertexfarben nur ohne Material, die Farbe muss also aus der
   Textur kommen); `UsdPreviewSurface` liest keine Vertexfarbe; Knoten `abzeichen` vorne (+z);
-  mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest;
+  mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest; aufgesetzte Teile
+  (`AUFLAGE`, z. B. Socken-Bündchen, Kaktus-Blüte) liegen in Ruhepose und in jedem Clip auf
+  ihrem Träger auf, statt darüber zu schweben (CHAOS-161);
 - Brett (`brett.usdz`): jeder Feld-Anker aus `brett.szene.json` genau einmal und am richtigen
   Ort, alle Grundmeshes der Instanz-Gruppen vorhanden, Texturen eingebettet.
 
@@ -22,18 +24,37 @@ RealityKit selbst prüft das nicht: Laden und Aussehen bleiben eine Prüfung am 
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
+import numpy as np
 from pxr import Gf, Usd, UsdGeom, UsdShade, UsdSkel, UsdValidation
 
 HEIGHT_TOLERANCE = 0.1
 """Meter. Die Manifest-Höhe gilt für die Ruhepose, gemessen wird im ersten Bild von `idle`."""
 FEET_TOLERANCE = 0.02
 ANCHOR_TOLERANCE = 1e-3
+
+AUFLAGE: dict[str, list[tuple[str, str]]] = {
+    "sock": [("buendchen", "socke")],
+    "cactus": [("bluete", "kaktus"), ("kaktus", "topf")],
+}
+"""CHAOS-161: Teil → Träger je Figur (Namen der Blender-Objekte = Xform-Prims im USD).
+
+Die Unterseite des Teils (unterste `AUFLAGE_BAND` Meter) muss den Träger berühren oder in ihm
+stecken. Gemessen wird je Punkt der Unterseite der Abstand zur Trägeroberfläche (Punkte im
+Träger zählen 0); der Median dieser Abstände darf `AUFLAGE_LUECKE` nicht übersteigen. Der Median
+lässt einen Überstand am Rand zu (das Bündchen ist dicker als der Schaft), aber keine Lücke.
+Alter Export: Bündchen 10,2 cm, Blüte 9,4 cm, obwohl die Bounds stimmten (die Kuppel aus
+Skin-Modifier und Subdivision endet weit unter der Knotenhöhe). Neuer: 1,5 cm und 0,7 cm.
+Der Waschbär-Kopf steht bewusst über (großer Kopf auf schmalem Hals) und ist nicht in der Liste.
+"""
+AUFLAGE_BAND = 0.02
+AUFLAGE_LUECKE = 0.03
 
 errors: list[str] = []
 notes: list[str] = []
@@ -66,6 +87,97 @@ def baked(path: Path, tmp: Path, end: float) -> Usd.Stage:
         if not UsdSkel.BakeSkinning(stage.Traverse(), Gf.Interval(stage.GetStartTimeCode(), end)):
             fail(f"{path.name}: Skinning lässt sich nicht backen")
     return stage
+
+
+def _mesh_world(stage: Usd.Stage, part: str, time: float) -> tuple[np.ndarray, np.ndarray] | None:
+    """Punkte (Welt) und Dreiecke aller Meshes unter dem Prim `part` zum Zeitpunkt `time`."""
+    xf = UsdGeom.XformCache(time)
+    points: list[np.ndarray] = []
+    tris: list[np.ndarray] = []
+    offset = 0
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or part not in (prim.GetName(), prim.GetParent().GetName()):
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        local = np.array(mesh.GetPointsAttr().Get(time), dtype=np.float64)
+        m = np.array(xf.GetLocalToWorldTransform(prim), dtype=np.float64)
+        world = local @ m[:3, :3] + m[3, :3]
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        indices = np.array(mesh.GetFaceVertexIndicesAttr().Get())
+        flip = mesh.GetOrientationAttr().Get() == UsdGeom.Tokens.leftHanded
+        at = 0
+        for n in counts:
+            face = indices[at : at + n]
+            for i in range(1, n - 1):
+                tri = [face[0], face[i + 1], face[i]] if flip else [face[0], face[i], face[i + 1]]
+                tris.append(np.array(tri) + offset)
+            at += n
+        points.append(world)
+        offset += len(world)
+    if not points:
+        return None
+    return np.concatenate(points), np.array(tris)
+
+
+def _surface_samples(points: np.ndarray, tris: np.ndarray, steps: int = 6) -> tuple[np.ndarray, np.ndarray]:
+    """Dichte Stichprobe der Oberfläche (baryzentrisches Raster je Dreieck) mit Flächennormalen."""
+    a, b, c = points[tris[:, 0]], points[tris[:, 1]], points[tris[:, 2]]
+    normals = np.cross(b - a, c - a)
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    samples, sample_normals = [], []
+    for i in range(steps + 1):
+        for j in range(steps + 1 - i):
+            u, v = i / steps, j / steps
+            samples.append(a + (b - a) * u + (c - a) * v)
+            sample_normals.append(normals)
+    return np.concatenate(samples), np.concatenate(sample_normals)
+
+
+def contact_gap(stage: Usd.Stage, part: str, host: str, time: float, rest: float) -> float | None:
+    """Lücke zwischen der Unterseite von `part` und der Oberfläche von `host` (Meter).
+
+    Die Unterseite wird in der Ruhepose (`rest`) bestimmt und als dieselben Punkte verfolgt;
+    sonst wäre bei `fall` (Figur kippt) eine Seite die „Unterseite“.
+    """
+    p = _mesh_world(stage, part, time)
+    h = _mesh_world(stage, host, time)
+    p_rest = _mesh_world(stage, part, rest)
+    if p is None or h is None or p_rest is None:
+        return None
+    rest_y = p_rest[0][:, 1]
+    bottom = p[0][rest_y <= rest_y.min() + AUFLAGE_BAND]
+    surface, normals = _surface_samples(*h)
+    gaps = []
+    for chunk in np.array_split(bottom, max(1, math.ceil(len(bottom) / 256))):
+        d = np.linalg.norm(chunk[:, None, :] - surface[None, :, :], axis=2)
+        nearest = d.argmin(axis=1)
+        dist = d[np.arange(len(chunk)), nearest]
+        # Im Träger (hinter der nächsten Fläche) zählt als Auflage.
+        inside = np.einsum("ij,ij->i", chunk - surface[nearest], normals[nearest]) < 0
+        gaps.append(np.where(inside, 0.0, dist))
+    return float(np.median(np.concatenate(gaps)))
+
+
+def check_contacts(path: Path, stage: Usd.Stage, clips: list[dict]) -> None:
+    """Aufgesetzte Teile schweben nicht (CHAOS-161): Ruhepose und Anfang/Mitte jedes Clips."""
+    times = [float(clips[0]["startFrame"])]
+    for clip in clips:
+        times += [float(clip["startFrame"]), (clip["startFrame"] + clip["endFrame"]) / 2]
+    for part, host in AUFLAGE.get(path.stem, []):
+        worst = (0.0, times[0])
+        for time in sorted(set(times)):
+            gap = contact_gap(stage, part, host, time, times[0])
+            if gap is None:
+                fail(f"{path.name}: Teil „{part}“ oder Träger „{host}“ fehlt")
+                return
+            worst = max(worst, (gap, time))
+        if worst[0] > AUFLAGE_LUECKE:
+            fail(
+                f"{path.name}: „{part}“ schwebt über „{host}“ ({worst[0] * 100:.1f} cm Lücke bei Bild "
+                f"{worst[1]:g}, erlaubt {AUFLAGE_LUECKE * 100:.0f} cm)"
+            )
+        else:
+            notes.append(f"{path.name}: „{part}“ liegt auf „{host}“ (höchstens {worst[0] * 100:.1f} cm)")
 
 
 def check_figure(path: Path, manifest: dict, tmp: Path) -> None:
@@ -133,6 +245,7 @@ def check_figure(path: Path, manifest: dict, tmp: Path) -> None:
         fail(f"{path.name}: Füße bei y = {feet:.3f} statt 0")
     if "height" in entry and abs(top - feet - entry["height"]) > HEIGHT_TOLERANCE:
         fail(f"{path.name}: Höhe {top - feet:.3f} m, Manifest {entry['height']} m")
+    check_contacts(path, skinned, clips)
     notes.append(
         f"{path.name}: {path.stat().st_size / 1024:.0f} KiB, {len(clips)} Clips bis "
         f"{clips[-1]['end']:.2f} s, Höhe {top - feet:.3f} m, Materialien {sorted(materials)}"

@@ -320,12 +320,17 @@ export function createBoardScene(
 
   /** Brett verdeckt (Finale): kein Rendern, nur die Regie läuft weiter. */
   let renderPaused = false;
+  /** Brett ausgeblendet (Minispiel, CHAOS-152): weder Rendern noch Regie. */
+  let hidden = false;
   /** rAF-Kennung der Regie-Schleife während der Pause. */
   let directorFrame: number | null = null;
   /** Größter Zeitschritt der Regie (Software-Rendering: größer, CHAOS-62). */
   const maxStepMs = look.software ? MAX_STEP_SOFTWARE_MS : MAX_STEP_MS;
 
   function startLoop(): void {
+    // Ausgeblendet: nichts tun. Die Regie sammelt Nachrichten, `BoardStage` holt sie beim Zeigen
+    // mit `settle()` ein (wie früher beim Neuaufbau nach dem Minispiel).
+    if (hidden) return;
     if (renderPaused) {
       // Nur die Regie weiterlaufen lassen (Stand, HUD), ohne WebGL-Arbeit. Die automatische
       // Grafikstufe misst hier nichts: ohne Rendern sagt die Bildrate nichts über die GPU.
@@ -355,6 +360,28 @@ export function createBoardScene(
     engine.stopRenderLoop();
     if (directorFrame !== null) cancelAnimationFrame(directorFrame);
     directorFrame = null;
+  }
+
+  /**
+   * Während des Minispiels (CHAOS-152): Stimmung der Runde **nach** dem Minispiel ankündigen.
+   * Früher entstand das Brett nach jedem Minispiel neu und lud dabei die Stimmungen der laufenden
+   * und der nächsten Runde; jetzt lebt es die ganze Partie und lädt eine Runde voraus nach.
+   * Neue Teile (Himmel, Nachtlichter) werden schrittweise übersetzt, solange das Brett verdeckt ist.
+   */
+  async function prepareNextRound(): Promise<void> {
+    const view = source.getFrame().view;
+    if (!lighting || look.fixedMood || !view || view.rounds <= 0 || view.round >= view.rounds) {
+      return;
+    }
+    const next = LIGHT_MOODS[moodForRound(view.round + 1, view.rounds)];
+    const cancelled = (): boolean => disposed || !hidden;
+    try {
+      if (!(await lighting.prepareMood(next)) || cancelled()) return;
+      await prepareSceneGradually(scene, { isCancelled: cancelled });
+    } catch (error: unknown) {
+      // Nur Vorbereitung: Was hier fehlt, übersetzt bzw. lädt `setMood` beim Rundenwechsel.
+      if (!disposed) console.warn('Stimmung der nächsten Runde nicht vorbereitet', error);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1090,6 +1117,14 @@ export function createBoardScene(
       if (paused === renderPaused) return;
       renderPaused = paused;
       // Im Testmodus treibt nur `stepFrames` die Szene; vor dem Aufbau startet `ready` die Schleife.
+      if (testMode || !built || disposed) return;
+      stopLoop();
+      startLoop();
+    },
+    setHidden(next) {
+      if (next === hidden) return;
+      hidden = next;
+      if (hidden) void prepareNextRound();
       if (testMode || !built || disposed) return;
       stopLoop();
       startLoop();

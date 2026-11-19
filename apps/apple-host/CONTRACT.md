@@ -8,16 +8,16 @@ Ein neues Feld in `renderState` heißt: in `RenderStateSchema` eintragen (sonst 
 
 ## Bündel
 
-`apps/apple-host/dist/chaos-host.js` (IIFE, ES2022, ohne Node- und DOM-APIs) setzt `globalThis.ChaosHost` und `globalThis.ChaosHostInternals` (nur für Harness/Tests: `base64url`, `rotation`). Havok kommt als Bytes von Swift (`env.havokWasm`), nicht per fetch.
+`apps/apple-host/dist/chaos-host.js` (IIFE, ES2022, ohne Node- und DOM-APIs) setzt `globalThis.ChaosHost` und `globalThis.ChaosHostInternals` (nur für Harness/Tests: `base64url`, `rotation`, `pendingTimers`). Havok kommt als Bytes von Swift (`env.havokWasm`), nicht per fetch.
 
 ```ts
 interface HostEnv {
-  send(connId: number, text: string): void;          // Text-Frame an eine Controller-Verbindung
+  send(connId: number, text: string): void; // Text-Frame an eine Controller-Verbindung
   close(connId: number, code: number, reason: string): void;
   log(line: string): void;
-  randomBytes(n: number): number[];                  // Swift: SecRandomCopyBytes, genau n Bytes
-  havokWasm: Uint8Array | number[];                  // Inhalt von HavokPhysics.wasm
-  joinUrl: string;                                   // http://<ip>:<port>/?code=<CODE>
+  randomBytes(n: number): number[]; // Swift: SecRandomCopyBytes, genau n Bytes
+  havokWasm: Uint8Array | number[]; // Inhalt von HavokPhysics.wasm
+  joinUrl: string; // http://<ip>:<port>/?code=<CODE>
   joinCode: string;
   deferSceneReady?: boolean;                         // true: host-ready erst nach sceneReady() (CHAOS-142)
 }
@@ -25,14 +25,14 @@ interface ChaosHostApi {
   create(env: HostEnv): ChaosHostInstance;
 }
 interface ChaosHostInstance {
-  open(connId: number): void;                        // neue WebSocket-Verbindung an /ws (IDs > 0)
-  message(connId: number, text: string): void;       // eingehender Text-Frame
+  open(connId: number): void; // neue WebSocket-Verbindung an /ws (IDs > 0)
+  message(connId: number, text: string): void; // eingehender Text-Frame
   closed(connId: number): void;
-  tick(nowMs: number): void;                         // ~60× pro s (Anzeige-Takt), monotone ms-Uhr; treibt
-                                                     // Zeitgeber, Session-Fristen und 1/60-Schritte der Minispiele
-  renderState(): string;                             // JSON, siehe unten; je Bild nach tick
-  hostCommand(cmd: string): void;                    // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch'
-  sceneReady(): void;                                // Brett und Figuren geladen → host-ready (CHAOS-68/142)
+  tick(nowMs: number): void; // ~60× pro s (Anzeige-Takt), monotone ms-Uhr; treibt
+  // Zeitgeber, Session-Fristen und 1/60-Schritte der Minispiele
+  renderState(): string; // JSON, siehe unten; je Bild nach tick
+  hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch'
+  sceneReady(): void; // Brett und Figuren geladen → host-ready (CHAOS-68/142)
 }
 ```
 

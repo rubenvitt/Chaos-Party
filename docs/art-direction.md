@@ -196,9 +196,11 @@ Wolken, Abend, Dämmerung, Nacht). Bilder: `docs/screenshots/chaos63-lichtverlau
   gleich groß, ≥ 256 px, mit Alpha); HDR vollständig lesbar, 2:1 und mit Sonne (Werte > 1);
   Natur-Texturen quadratisch mit Zweierpotenz; importierte Dateien mit Herkunft.
 - **Budgets Natur:** Textur ≤ 128 KiB (Ist 1–107 KiB), Himmel ≤ 512 KiB (Ist 291–367 KiB).
-- **Budgets je Figur:** ≤ 384 KiB (seit CHAOS-58: Skinning-Daten und Vertexfarben), ≤ 12 Meshes,
-  ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien, ≤ 15 000 Dreiecke, keine Texturen.
-  Ist (CHAOS-58): 110–324 KiB, 2 800–10 300 Dreiecke.
+- **Budgets je Figur:** ≤ 512 KiB (CHAOS-162; vorher 384 KiB, seit CHAOS-58: Skinning-Daten und
+  Vertexfarben), ≤ 12 Meshes, ≤ 24 Primitives (Draw-Calls), ≤ 6 Materialien, ≤ 15 000 Dreiecke,
+  keine Texturen. Je Figur steht das eigene Budget im Manifest: Kaktus, Socke und Wusel 512 KiB
+  (Nahansicht, EXP-027/EXP-028), Schraubi 384 KiB. Ist (CHAOS-171): 371–486 KiB, 11 400–14 400
+  Dreiecke.
 
 ### Neue Assets eintragen
 

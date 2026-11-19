@@ -120,7 +120,7 @@ export class Wackelturm implements Minigame {
     return this.state;
   }
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const { scene } = ctx;
     const params = WACKELTURM_PARAMS;
@@ -154,12 +154,18 @@ export class Wackelturm implements Minigame {
       this.own(hemi, sun);
     }
 
+    // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
+    await ctx.pace();
     this.buildBlanket(scene);
+    await ctx.pace();
     this.buildMasters(scene);
+    await ctx.pace();
     this.buildPile(scene);
-    for (const player of ctx.players) this.buildPlayer(scene, player);
+    for (const player of ctx.players) {
+      await ctx.pace();
+      this.buildPlayer(scene, player);
+    }
     this.syncViews(0);
-    return Promise.resolve();
   }
 
   start(): void {

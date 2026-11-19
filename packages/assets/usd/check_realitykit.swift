@@ -2,7 +2,8 @@
 // Aufruf: swift packages/assets/usd/check_realitykit.swift build/apple-assets
 // (`node scripts/build-apple-assets.mjs` ruft das auf einem Mac selbst auf.)
 // Bricht mit Exit-Code 1 ab, wenn ein Grundmesh oder Feld-Anker fehlt, eine Figur keine
-// Animation hat, die Zeitleiste nicht zur Clip-Tabelle passt oder die Achsen nicht stimmen.
+// Animation hat, die Zeitleiste nicht zur Clip-Tabelle passt, die Achsen nicht stimmen oder ein
+// aufgesetztes Teil (Socken-Bündchen, Kaktus-Blüte) über seinem Träger schwebt (CHAOS-161).
 // Ohne Mac prüft `packages/assets/usd/check_usdz.py` dasselbe mit usd-core, aber nicht RealityKit.
 import Foundation
 import RealityKit
@@ -59,6 +60,65 @@ for inst in szene.instanced {
     print("  \(inst.mesh) → \(name)/\(model.name): Basis-Weltmatrix Spalten \(fmt(SIMD3(w.columns.0.x, w.columns.0.y, w.columns.0.z))) \(fmt(SIMD3(w.columns.1.x, w.columns.1.y, w.columns.1.z))) \(fmt(SIMD3(w.columns.2.x, w.columns.2.y, w.columns.2.z))), Bounds \(fmt(mb.min))–\(fmt(mb.max))")
 }
 
+// Auflage (CHAOS-161): wie `AUFLAGE` in check_usdz.py, hier mit den Meshes, wie RealityKit sie
+// geladen hat (Ruhepose; das verformte Skinning gibt RealityKit nicht an die CPU heraus, die Clips
+// prüft check_usdz.py mit usd-core). Median des Abstands der Unterseite zur Trägeroberfläche.
+let auflage: [String: [(part: String, host: String)]] = [
+    "sock": [("buendchen", "socke")],
+    "cactus": [("bluete", "kaktus"), ("kaktus", "topf")],
+]
+let auflageBand: Float = 0.02
+let auflageLuecke: Float = 0.03
+
+struct Geometry { var points: [SIMD3<Float>] = []; var triangles: [SIMD3<Int>] = [] }
+func worldGeometry(_ e: Entity, into g: inout Geometry) {
+    if let model = e.components[ModelComponent.self] {
+        let world = e.transformMatrix(relativeTo: nil)
+        let contents = model.mesh.contents
+        for instance in contents.instances {
+            guard let m = contents.models[instance.model] else { continue }
+            let t = world * instance.transform
+            for part in m.parts {
+                let base = g.points.count
+                for p in part.positions.elements {
+                    let w = t * SIMD4<Float>(p, 1)
+                    g.points.append(SIMD3(w.x, w.y, w.z))
+                }
+                let idx = part.triangleIndices?.elements ?? []
+                for i in stride(from: 0, to: idx.count - 2, by: 3) {
+                    g.triangles.append(SIMD3(base + Int(idx[i]), base + Int(idx[i + 1]), base + Int(idx[i + 2])))
+                }
+            }
+        }
+    }
+    for child in e.children { worldGeometry(child, into: &g) }
+}
+func contactGap(part: Geometry, host: Geometry) -> Float? {
+    guard let minY = part.points.map(\.y).min(), !host.triangles.isEmpty else { return nil }
+    let bottom = part.points.filter { $0.y <= minY + auflageBand }
+    // Dichte Stichprobe der Trägeroberfläche mit Flächennormalen (Punkte im Träger zählen 0).
+    var samples: [(p: SIMD3<Float>, n: SIMD3<Float>)] = []
+    let steps = 6
+    for tri in host.triangles {
+        let a = host.points[tri.x], b = host.points[tri.y], c = host.points[tri.z]
+        let n = simd_normalize(simd_cross(b - a, c - a))
+        if !n.x.isFinite { continue }
+        for i in 0...steps { for j in 0...(steps - i) {
+            samples.append((a + (b - a) * Float(i) / Float(steps) + (c - a) * Float(j) / Float(steps), n))
+        } }
+    }
+    var gaps: [Float] = bottom.map { p in
+        var best = Float.infinity, inside = false
+        for s in samples {
+            let d = simd_distance(p, s.p)
+            if d < best { best = d; inside = simd_dot(p - s.p, s.n) < 0 }
+        }
+        return inside ? 0 : best
+    }
+    gaps.sort()
+    return gaps.isEmpty ? nil : gaps[gaps.count / 2]
+}
+
 // Figuren
 struct Clips: Decodable { struct Clip: Decodable { let name: String; let start: Double; let end: Double }; let clips: [Clip] }
 for c in ["robot", "cactus", "raccoon", "sock"] {
@@ -77,6 +137,17 @@ for c in ["robot", "cactus", "raccoon", "sock"] {
         let duration = first.definition.duration
         print("  \(c): Zeitleiste \(String(format: "%.2f", duration)) s, Tabelle bis \(String(format: "%.2f", last.end)) s")
         if abs(duration - last.end) > 0.05 { fail("\(c): Zeitleiste \(duration) s passt nicht zur Clip-Tabelle (\(last.end) s)") }
+    }
+    for pair in auflage[c] ?? [] {
+        guard let partEntity = fig.findEntity(named: pair.part), let hostEntity = fig.findEntity(named: pair.host) else {
+            fail("\(c): Teil \(pair.part) oder Träger \(pair.host) fehlt"); continue
+        }
+        var part = Geometry(), host = Geometry()
+        worldGeometry(partEntity, into: &part)
+        worldGeometry(hostEntity, into: &host)
+        guard let gap = contactGap(part: part, host: host) else { fail("\(c): \(pair.part)/\(pair.host) ohne Geometrie"); continue }
+        print("  \(c): \(pair.part) auf \(pair.host): Lücke \(String(format: "%.1f", gap * 100)) cm")
+        if gap > auflageLuecke { fail("\(c): \(pair.part) schwebt über \(pair.host) (\(String(format: "%.1f", gap * 100)) cm, erlaubt \(Int(auflageLuecke * 100)) cm)") }
     }
 }
 

@@ -93,6 +93,18 @@ export interface BotMatchOptions {
   readonly validateEvery?: number;
   /** Abbruch nach so viel virtueller Spielzeit. */
   readonly limitMs?: number;
+  /**
+   * So viele ganze Partien nacheinander, verbunden über „Revanche“ (nur mit `full`; Standard 1).
+   * Speichermessung über mehrere Partien (CHAOS-141).
+   */
+  readonly matches?: number;
+  /**
+   * Nach jeder ganzen Partie (Endstand erreicht), vor der Revanche; Zählung ab 1, dazu die
+   * wartenden Zeitgeber des Kerns.
+   */
+  readonly onMatchEnd?: (match: number, pendingTimers: number) => void | Promise<void>;
+  /** JS-Zeit je Bild (`tick` mit den Mikrotasks danach + `renderState`, echte ms) und Phase des Vorbilds (CHAOS-141). */
+  readonly onFrame?: (frame: FrameTiming) => void;
   /** Erstes `renderState` je Phase/Stufe (für Beispielnachrichten). */
   readonly onPhase?: (key: string, state: RenderState) => void;
   readonly log?: ((line: string) => void) | undefined;
@@ -100,10 +112,19 @@ export interface BotMatchOptions {
   readonly deferSceneReady?: boolean;
 }
 
+export interface FrameTiming {
+  readonly key: string;
+  readonly ms: number;
+  readonly tickMs: number;
+  readonly virtualMs: number;
+}
+
 export interface BotMatchResult {
   readonly ok: boolean;
   readonly virtualMs: number;
   readonly finalReached: boolean;
+  /** Ganze Partien bis zum Endstand (mit `matches` > 1 auch nach Revanche). */
+  readonly matchesPlayed: number;
   readonly roundsPlayed: number;
   /** Runden, in denen `board.notice` zu sehen war (CHAOS-157). */
   readonly noticeRounds: readonly number[];
@@ -291,13 +312,15 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   await settle();
   drain();
 
-  const limitMs = options.limitMs ?? (options.full ? 40 * 60_000 : 5 * 60_000);
+  const matches = options.full ? Math.max(1, options.matches ?? 1) : 1;
+  const limitMs = options.limitMs ?? (options.full ? 40 * 60_000 * matches : 5 * 60_000);
   const validateEvery = options.validateEvery ?? 1;
   let lastKey = '';
   let started = false;
   let frame = 0;
   let maxRenderStateBytes = 0;
   let finalReached = false;
+  let matchesPlayed = 0;
   let roundsPlayed = 0;
   const noticeRounds: number[] = [];
   let firstResults = false;
@@ -305,15 +328,21 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   while (now < limitMs) {
     now += STEP_MS;
     frame++;
+    const tickStart = performance.now();
     guard('tick', () => {
       instance.tick(now + CLOCK_OFFSET_MS);
     });
+    // Mit den Mikrotasks danach (JavaScriptCore leert sie im selben Aufruf aus Swift).
     await settle();
+    const tickMs = performance.now() - tickStart;
     drain();
     for (const c of controllers) play(c);
     await settle();
     drain();
+    const renderStart = performance.now();
     const text = guard('renderState', () => instance.renderState());
+    const frameMs = tickMs + performance.now() - renderStart;
+    options.onFrame?.({ key: lastKey, ms: frameMs, tickMs, virtualMs: now });
     if (text === undefined) break;
     maxRenderStateBytes = Math.max(maxRenderStateBytes, text.length);
     const raw = JSON.parse(text) as RenderState;
@@ -347,9 +376,22 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       firstResults = true;
     }
     if (!options.full && firstResults) break;
-    if (options.full && raw.phase === 'final') {
-      finalReached = true;
-      break;
+    if (options.full && changed && raw.phase === 'final') {
+      matchesPlayed++;
+      await options.onMatchEnd?.(matchesPlayed, internals.pendingTimers());
+      if (matchesPlayed >= matches) {
+        finalReached = true;
+        break;
+      }
+      // Revanche: zurück in die Lobby, die Bots melden sich wieder bereit, `start` wie oben.
+      // Prompt-IDs zählen in der neuen Partie von vorn.
+      started = false;
+      for (const c of controllers) c.answered.clear();
+      guard('hostCommand', () => {
+        instance.hostCommand('rematch');
+      });
+      await settle();
+      drain();
     }
   }
 
@@ -377,6 +419,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       ok,
       virtualMs: Math.round(now),
       finalReached,
+      matchesPlayed,
       roundsPlayed,
       noticeRounds,
       minigamesBuilt,
