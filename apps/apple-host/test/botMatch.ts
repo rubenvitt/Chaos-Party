@@ -123,7 +123,8 @@ export interface BotMatchOptions {
    * CHAOS-145 (nur mit `full`): In der ersten Partie Pause im Brett und im Minispiel, Ben
    * trennt sich sauber und kommt zurück, dann verliert er das Netz (Funkstille, der Server wirft
    * ihn nach 15 s raus) und kommt wieder; das Finale läuft bis zum Siegerbildschirm. In jeder
-   * weiteren Partie „Überspringen“. Erfüllte Prüfungen stehen in `exercised`.
+   * weiteren Partie „Überspringen“; in der zweiten „Partie beenden“ aus der Pause im Brett, in der
+   * dritten aus der Pause im Minispiel. Erfüllte Prüfungen stehen in `exercised`.
    */
   readonly exercise?: boolean;
 }
@@ -394,6 +395,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     finaleSounds: new Set<string>(),
     finaleHandled: false,
     skipSentAt: null as number | null,
+    ending: null as null | { kind: 'board' | 'minigame'; at: number; ended: boolean },
   };
   const settled = (check: string) => exercised.includes(check) || ex.failed.has(check);
   const failCheck = (check: string, why: string) => {
@@ -468,7 +470,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       firstResults = true;
     }
     if (!options.full && firstResults) break;
-    if (exercise && matchesPlayed === 0) await exerciseMatch(raw, key, changed);
+    if (exercise && changed && key === 'board') ex.boardSince = now;
+    if (exercise && matchesPlayed === 0) await exerciseMatch(raw, key);
+    else if (exercise) await exerciseEndGame(raw, key);
     if (options.full && changed && raw.phase === 'final') {
       matchesPlayed++;
       await options.onMatchEnd?.(matchesPlayed, internals.pendingTimers());
@@ -517,10 +521,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   return summary();
 
   /** Pause, Wiederverbindung (CHAOS-145) in der ersten Partie, je Bild. */
-  async function exerciseMatch(raw: RenderState, key: string, changed: boolean) {
+  async function exerciseMatch(raw: RenderState, key: string) {
     const ben = controllers[1];
     if (!ben) return;
-    if (changed && key === 'board') ex.boardSince = now;
     for (const cue of raw.pause.sounds) ex.pauseSounds.add(cue.name);
     const round = raw.board?.round ?? 0;
     const idle = ex.pause === null && ex.reconnect === null;
@@ -642,6 +645,48 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     }
   }
 
+  /**
+   * „Partie beenden“ aus der Pause (CHAOS-145): in der zweiten Partie im Brett, in der dritten im
+   * laufenden Minispiel. Danach muss das Finale „vorzeitig beendet“ zeigen.
+   */
+  async function exerciseEndGame(raw: RenderState, key: string) {
+    const kind = matchesPlayed === 1 ? 'board' : matchesPlayed === 2 ? 'minigame' : null;
+    if (!kind) return;
+    const check = `end-game-${kind}`;
+    if (settled(check)) return;
+    const ending = ex.ending;
+    if (!ending) {
+      const due =
+        kind === 'board'
+          ? key === 'board' && now - ex.boardSince >= 3000
+          : key === 'minigame-play' && (raw.minigame?.elapsedMs ?? 0) > 2000;
+      if (due && raw.pause.canPause) {
+        ex.ending = { kind, at: now, ended: false };
+        await command('pause');
+      }
+      return;
+    }
+    if (!ending.ended && raw.phase === 'paused') {
+      ending.ended = true;
+      await command('end-game');
+    } else if (raw.phase === 'final') {
+      const final = raw.final;
+      if (
+        final?.endedEarly === true &&
+        final.kicker === 'Partie vorzeitig beendet' &&
+        final.winner.earlyNote !== null
+      ) {
+        exercised.push(check);
+      } else {
+        failCheck(check, 'Finale zeigt kein vorzeitiges Ende');
+      }
+      ex.ending = null;
+    } else if (now - ending.at > 3000) {
+      failCheck(check, `kein Finale nach „Partie beenden“ (Phase ${raw.phase})`);
+      ex.ending = null;
+    }
+  }
+
   /** Erstes Finale bis zum Siegerbildschirm: Abschnitte, Klänge, Podest, Befehle (CHAOS-145). */
   async function checkFinale(raw: RenderState) {
     const final = raw.final;
@@ -687,13 +732,17 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       serverErrors.length === 0 &&
       contractErrors.length === 0 &&
       resultsAccepted >= 1 &&
-      resultsAccepted === minigamesBuilt.length &&
+      // Ein Minispiel, das „Partie beenden“ abbricht, liefert kein Ergebnis (CHAOS-145).
+      resultsAccepted ===
+        minigamesBuilt.length - (exercised.includes('end-game-minigame') ? 1 : 0) &&
       (!options.full ||
         (finalReached && allRotation && noticeRounds.join() === FULL_MATCH_NOTICE_ROUNDS)) &&
       (options.full || firstResults) &&
       exerciseErrors.length === 0 &&
       (!exercise ||
         (EXERCISE_CHECKS.every((check) => exercised.includes(check)) &&
+          (matches < 2 || exercised.includes('end-game-board')) &&
+          (matches < 3 || exercised.includes('end-game-minigame')) &&
           exercised.filter((check) => check === 'finale-skip').length === matchesPlayed - 1));
     return {
       ok,
