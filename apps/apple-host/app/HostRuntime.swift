@@ -29,6 +29,8 @@ struct Overlay: Equatable {
     var sceneLoaded = false
     var lines: [String] = []
     var notice: RenderState.Notice?
+    /// Rundenzahl und „Mehr Zeit zum Reagieren“ (CHAOS-166).
+    var settings: RenderState.LobbySettings?
     var stats = ""
 }
 
@@ -128,6 +130,10 @@ final class HostRuntime: ObservableObject {
         guard let created, created.isObject else { return fail("ChaosHost.create fehlgeschlagen (siehe JS-FEHLER)") }
         instance = created
         hostLog(String(format: "ChaosHost.create in %.0f ms", (CACurrentMediaTime() - t0) * 1000))
+        if let configure = launchConfigureCommand(CommandLine.arguments) {
+            hostLog("Startparameter: \(configure)")
+            _ = created.invokeMethod("hostCommand", withArguments: [configure])
+        }
         DispatchQueue.main.async {
             self.ready = true
             self.overlay.joinUrl = joinUrl
@@ -179,6 +185,7 @@ final class HostRuntime: ObservableObject {
         if let url = s.lobby?.joinUrl, !url.isEmpty { o.joinUrl = url }
         if let code = s.lobby?.joinCode, !code.isEmpty { o.joinCode = code }
         o.players = s.lobby?.players ?? []
+        o.settings = s.lobby?.settings
         if s.phase == "minigame", let m = s.minigame {
             o.lines = ["\(m.id) · \(m.stage ?? "")", m.hud ?? ""].filter { !$0.isEmpty }
         } else if let b = s.board {

@@ -1,0 +1,138 @@
+import SwiftUI
+
+/// Rundenwahl und „Mehr Zeit zum Reagieren“ in der Lobby (CHAOS-166), wie im Babylon-Host
+/// (`apps/host/src/lobby/LobbyPanel.tsx`). Zeigt nur den Server-Stand aus `renderState.lobby.settings`;
+/// jede Wahl geht als `configure:…` über `hostCommand` an den Kern und kommt im nächsten Bild zurück.
+///
+/// - macOS: Maus, dazu Tasten ←/→ (Runden) und M (Schalter).
+/// - tvOS: Fokus mit der Fernbedienung (hoch vom Startknopf), Auswahl drückt. Knöpfe nie `.disabled`,
+///   sonst bekommen sie keinen Fokus.
+struct LobbySettingsView: View {
+    let settings: RenderState.LobbySettings?
+    let playerCount: Int
+    let command: (String) -> Void
+
+    var body: some View {
+        if let settings, let rounds = settings.rounds {
+            let options = Self.roundOptions(settings)
+            let more = settings.moreReactionTime == true
+            HStack(alignment: .bottom, spacing: 26) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(Self.keys ? "Runden  ← →" : "Runden")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(.white.opacity(0.8))
+                    HStack(spacing: 14) {
+                        ForEach(options, id: \.self) { value in
+                            Button { setRounds(value) } label: {
+                                VStack(spacing: 2) {
+                                    Text("\(value)").font(.system(size: 40, weight: .heavy, design: .rounded))
+                                    Text(Self.duration(rounds: value, players: playerCount))
+                                        .font(.system(size: 17, weight: .semibold, design: .rounded)).opacity(0.85)
+                                }
+                                .frame(width: 112, height: 84)
+                            }
+                            .buttonStyle(LobbyChoiceStyle(selected: value == rounds))
+                            .accessibilityLabel("\(value) Runden")
+                            .accessibilityAddTraits(value == rounds ? .isSelected : [])
+                        }
+                    }
+                }
+                Button { command("configure:moreReactionTime=\(more ? 0 : 1)") } label: {
+                    HStack(spacing: 18) {
+                        Capsule().fill(more ? Color.green : Color.white.opacity(0.3))
+                            .frame(width: 68, height: 38)
+                            .overlay(alignment: more ? .trailing : .leading) { Circle().fill(.white).padding(4) }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(Self.keys ? "Mehr Zeit zum Reagieren  (M)" : "Mehr Zeit zum Reagieren")
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                            Text(more ? "An: 5 s zum Festhalten" : "Aus: 3 s zum Festhalten")
+                                .font(.system(size: 20, weight: .medium, design: .rounded)).opacity(0.85)
+                        }
+                    }
+                    .padding(.horizontal, 20).frame(height: 84)
+                }
+                .buttonStyle(LobbyChoiceStyle(selected: false))
+                .accessibilityValue(more ? "An" : "Aus")
+            }
+            .padding(22)
+            .frame(width: 1068, alignment: .leading)
+            .background(.black.opacity(0.62), in: .rect(cornerRadius: 28))
+            #if os(macOS)
+            .background { shortcuts(options: options, rounds: rounds, more: more) }
+            #endif
+        }
+    }
+
+    private func setRounds(_ value: Int) { command("configure:rounds=\(value)") }
+
+    #if os(macOS)
+    private static let keys = true
+
+    /// Unsichtbare Knöpfe nur für die Tasten (die sichtbaren sind am Mac ohne Tastaturzugriff nicht fokussierbar).
+    @ViewBuilder private func shortcuts(options: [Int], rounds: Int, more: Bool) -> some View {
+        let index = options.firstIndex(of: rounds) ?? 0
+        ZStack {
+            Button("") { if index > 0 { setRounds(options[index - 1]) } }.keyboardShortcut(.leftArrow, modifiers: [])
+            Button("") { if index + 1 < options.count { setRounds(options[index + 1]) } }.keyboardShortcut(.rightArrow, modifiers: [])
+            Button("") { command("configure:moreReactionTime=\(more ? 0 : 1)") }.keyboardShortcut("m", modifiers: [])
+        }
+        .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+    }
+    #else
+    private static let keys = false
+    #endif
+
+    /// Vorschläge des Servers plus die aktuelle Zahl, falls sie keiner ist (`roundOptions` in `apps/host/src/lobby/lobbyState.ts`).
+    static func roundOptions(_ settings: RenderState.LobbySettings) -> [Int] {
+        Array(Set((settings.roundPresets ?? []) + (settings.rounds.map { [$0] } ?? []))).sorted()
+    }
+
+    /// Grobe Spieldauer „≈ 15 Min.“ wie `roundsDuration` in `apps/host/src/lobby/lobbyState.ts` (EXP-011, CHAOS-40):
+    /// Minuten je Runde nach Spielerzahl plus Finale, auf 5 Minuten gerundet; unter zwei Spielern wie mit vier.
+    static func duration(rounds: Int, players: Int) -> String {
+        let perRound = [2: 1.1, 3: 1.3, 4: 1.45][players] ?? 1.45
+        let minutes = Double(rounds) * perRound + 0.35
+        return "≈ \(max(5, Int((minutes / 5).rounded()) * 5)) Min."
+    }
+}
+
+/// Wahlknopf der Lobby: gewählt orange, sonst dunkel; Fokus (tvOS) als weißer Rand und leichte Vergrößerung.
+struct LobbyChoiceStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Choice(configuration: configuration, selected: selected)
+    }
+
+    private struct Choice: View {
+        let configuration: ButtonStyleConfiguration
+        let selected: Bool
+        @Environment(\.isFocused) private var focused
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(.white)
+                .background(selected ? Color.orange : Color.white.opacity(0.12), in: .rect(cornerRadius: 20))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20)
+                        .strokeBorder(focused ? Color.white : selected ? Color.orange : Color.white.opacity(0.35),
+                                      lineWidth: focused ? 5 : 2)
+                }
+                .scaleEffect(configuration.isPressed ? 0.96 : focused ? 1.08 : 1)
+                .shadow(color: .black.opacity(focused ? 0.5 : 0), radius: 12, y: 6)
+                .animation(.easeOut(duration: 0.12), value: focused)
+                .contentShape(.rect(cornerRadius: 20))
+        }
+    }
+}
+
+/// `--runden=<n>` und `--mehrzeit` (bzw. `--mehrzeit=0|1`): Lobby-Einstellungen gleich nach dem Start
+/// (CHAOS-166), etwa für Bot-Partien mit `--autostart`. Ungültige Werte meldet der Kern im Log.
+func launchConfigureCommand(_ arguments: [String]) -> String? {
+    var parts: [String] = []
+    for arg in arguments {
+        if arg.hasPrefix("--runden=") { parts.append("rounds=\(arg.dropFirst(9))") }
+        else if arg == "--mehrzeit" { parts.append("moreReactionTime=1") }
+        else if arg.hasPrefix("--mehrzeit=") { parts.append("moreReactionTime=\(arg.dropFirst(11))") }
+    }
+    return parts.isEmpty ? nil : "configure:" + parts.joined(separator: ",")
+}
