@@ -3,6 +3,15 @@
   "lobby": {
     "joinUrl": "http://192.168.0.2:8787/?code=AB12",
     "joinCode": "AB12",
+    "settings": {
+      "rounds": 10,
+      "roundPresets": [
+        10,
+        16,
+        20
+      ],
+      "moreReactionTime": false
+    },
     "players": [
       {
         "slot": 1,

@@ -31,7 +31,6 @@ import { spreadPawns } from '../../host/src/board/layout.ts';
 import { eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
-  type HostCommand,
   type HostConnection,
   type SocketLike,
 } from '../../host/src/net/hostConnection.ts';
@@ -50,12 +49,13 @@ import type {
   ChaosHostInstance,
   ChaosHostInternals,
   ContractPhase,
-  HostCommandName,
   HostEnv,
   MinigameState,
   RenderState,
 } from './contract.ts';
+import { CONFIGURE_PREFIX } from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
+import { parseHostCommand } from './hostCommand.ts';
 import { createNoticeTracker } from './notice.ts';
 import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
 
@@ -428,13 +428,6 @@ function create(env: HostEnv): ChaosHostInstance {
     };
   };
 
-  const COMMANDS: Record<Exclude<HostCommandName, 'start'>, HostCommand> = {
-    pause: { type: 'pause' },
-    resume: { type: 'resume' },
-    'end-game': { type: 'end-game' },
-    rematch: { type: 'rematch' },
-  };
-
   return {
     open(connId) {
       apply(session.connect(connId));
@@ -480,7 +473,18 @@ function create(env: HostEnv): ChaosHostInstance {
       }));
       const state: RenderState = {
         phase: contractPhase(),
-        lobby: { joinUrl: env.joinUrl, joinCode: env.joinCode, players },
+        lobby: {
+          joinUrl: env.joinUrl,
+          joinCode: env.joinCode,
+          players,
+          settings: lobby
+            ? {
+                rounds: lobby.settings.rounds,
+                roundPresets: [...lobby.settings.roundPresets],
+                moreReactionTime: lobby.settings.moreReactionTime ?? false,
+              }
+            : null,
+        },
         board: view ? boardState(view) : null,
         minigame: view ? minigameState(view) : null,
       };
@@ -492,13 +496,19 @@ function create(env: HostEnv): ChaosHostInstance {
       flush();
     },
     hostCommand(cmd) {
-      const command = Object.hasOwn(COMMANDS, cmd)
-        ? COMMANDS[cmd as keyof typeof COMMANDS]
-        : undefined;
-      const sent =
-        cmd === 'start' ? connection.sendStart() : command ? connection.sendCommand(command) : null;
-      if (sent === null) log(`Unbekannter Host-Befehl: ${cmd}`);
-      else if (!sent) log(`Host-Befehl ${cmd} nicht gesendet (nicht verbunden)`);
+      const command = parseHostCommand(cmd);
+      if (command === null) {
+        log(
+          `${cmd.startsWith(CONFIGURE_PREFIX) ? 'Ungültiger' : 'Unbekannter'} Host-Befehl: ${cmd}`,
+        );
+      } else if (command.type === 'configure' && session.phase !== 'lobby') {
+        // Der Server lehnte es außerhalb der Lobby ab (`out-of-phase`); gar nicht erst senden.
+        log(`Host-Befehl ${cmd} ignoriert: nur in der Lobby`);
+      } else {
+        const sent =
+          command.type === 'start' ? connection.sendStart() : connection.sendCommand(command);
+        if (!sent) log(`Host-Befehl ${cmd} nicht gesendet (nicht verbunden)`);
+      }
       flush();
     },
   };

@@ -55,10 +55,11 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 - **Join-Link** `http://<LAN-IPv4>:<port>/?code=<4 Zeichen>`: erste IPv4 eines `en*`-Interfaces (en0 bevorzugt), Code aus dem Alphabet von `apps/server/src/ids.ts`.
 - **Darstellung** (CHAOS-142): `RealityRenderer` in einer eigenen Metal-Ebene, getaktet von der Anzeige (`app/RenderLoop.swift`, aus dem Spike, CHAOS-114). Interne Auflösung höchstens 1920 Bildpunkte breit auf tvOS (EXP-020: 4K-Ausgabe, bilinear, drei Bilder im Flug, ohne MSAA) bzw. 2560 am Mac (MetalFX, MSAA 4×), hochskaliert auf die Anzeige. Fordert die Anzeige keine Bilder an (Fenster verdeckt), läuft das Spiel über einen Ersatztakt weiter.
   - **Lobby** (`App.swift`): Brett als Übersicht im Hintergrund, darüber QR-Code, Join-Code, Link und je Slot eine Karte mit Porträt der Figur (Akzent in Slot-Farbe), Name, Figur, getrennt/bereit. „Partie starten“ erst, wenn das Brett geladen ist und alle bereit sind (macOS: Return, tvOS: Auswahl auf der Fernbedienung).
+  - **Lobby-Einstellungen** (`app/LobbySettings.swift`, CHAOS-166): Rundenwahl (Vorschläge des Servers, dazu eine abweichende aktuelle Zahl, je mit grober Spieldauer) und der Schalter „Mehr Zeit zum Reagieren“ wie im Babylon-Host. Jede Wahl geht als `hostCommand("configure:…")` an den Kern; angezeigt wird nur der Server-Stand aus `renderState.lobby.settings`. macOS: Maus oder ←/→ und M; tvOS: Fokus mit der Fernbedienung (vom Startknopf nach oben), Auswahl drückt.
   - **Brett** (`app/BoardScene.swift`): `brett.usdz` mit Gras- und Blumen-Instanzen, Sonne mit Schatten und Himmelslicht aus `brett.szene.json`, Figuren als USDZ (je Figur einmal geladen, je Slot geklont, Akzent in Slot-Farbe, Clips `idle`/`run` aus `clips.json`, Maßstab 1,3 wie im Babylon-Host). Figuren stehen auf den Feld-Ankern `feld_<id>`; sie laufen geradlinig zum neuen Feld, bis die Brett-Regie (CHAOS-143) die Hüpfer übernimmt. Kamera wie im Babylon-Host: Brettmitte, zum aktiven Spieler um (0,12; 0,04) verschoben, Halbwertszeit 0,7 s.
   - **Minispiele** und Brett ohne Assets: Grundkörper (`Primitives` in `app/Stage.swift`); echte Minispiel-Grafik folgt mit CHAOS-144/149.
   - **`host-ready`** erst, wenn Brett, Instanzen und Figuren geladen sind (`deferSceneReady`, CHAOS-68).
-- **Startparameter** (`--name=wert`): `--assets=<ordner>` (USDZ statt aus dem Bundle), `--skala=0.5` (fester Anteil statt Höchstbreite), `--skalierer=metalfx|bilinear`, `--imflug=1…3`, `--msaa=0|1`, `--bild=<pfad>` (PNG der 3D-Szene bei jedem Phasenwechsel, `<pfad>-<phase>.png`), `--bildtakt=<s>` (zusätzlich alle s Sekunden), `--lobbybild=<pfad>` (nur macOS: Lobby als PNG über `<bild>-lobby.png`, 20 s nach dem Start).
+- **Startparameter** (`--name=wert`): `--assets=<ordner>` (USDZ statt aus dem Bundle), `--skala=0.5` (fester Anteil statt Höchstbreite), `--skalierer=metalfx|bilinear`, `--imflug=1…3`, `--msaa=0|1`, `--bild=<pfad>` (PNG der 3D-Szene bei jedem Phasenwechsel, `<pfad>-<phase>.png`), `--bildtakt=<s>` (zusätzlich alle s Sekunden), `--lobbybild=<pfad>` (nur macOS: Lobby als PNG über `<bild>-lobby.png`, 20 s nach dem Start), `--runden=<n>` und `--mehrzeit` (bzw. `--mehrzeit=0|1`): Lobby-Einstellungen gleich nach dem Start (CHAOS-166, etwa mit `--autostart`).
 - **Messung**: alle 10 s eine Zeile `HOST-MESSUNG {json}` (Bildabstand und JS-Zeit je Tick, Median/p95/max, ausgelassene Ticks, Verbindungen, Körper).
 - `app/RenderState.swift` dekodiert `renderState` nachsichtig (alles Entbehrliche optional) und ist mit dem Harness geteilt.
 
@@ -94,6 +95,8 @@ Der Join-Link steht im Log (`JOIN-URL …`).
 curl -s -o /dev/null -w '%{http_code} %{content_type}\n' 'http://<ip>:<port>/?code=<CODE>'   # 200 text/html
 curl -s -o /dev/null -w '%{http_code}\n' --path-as-is 'http://<ip>:<port>/../../etc/passwd'  # 404
 ```
+
+Ohne Handys: `node apps/apple-host/scripts/live-bots.mjs 'http://<ip>:<port>/?code=<CODE>'` spielt zwei Bot-Controller über echtes WebSocket (mit `--autostart` läuft die Partie von selbst; `--sekunden <n>`, Standard 600).
 
 Danach im Browser `http://<ip>:<port>/?code=<CODE>` öffnen (zweiter Spieler in einem privaten Fenster), Figur wählen, „Bereit!“, in der App „Partie starten“. Gerätetest: [`docs/device-test-checklist.md`](../../docs/device-test-checklist.md) §22.
 
@@ -166,7 +169,7 @@ apps/apple-host/harness/run.sh        # bis zum ersten angenommenen Minispiel
 apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotation
 ```
 
-`run.sh` baut `main.swift` zusammen mit `app/RenderState.swift` (`swiftc`). Der Harness dekodiert zuerst alle Beispielnachrichten, lädt dann das Bündel in ein `JSContext`, spielt mit zwei Controllern über echte Protokoll-Nachrichten, startet per `hostCommand('start')` und dekodiert unterwegs `renderState` mit dem Typ der App. Er scheitert bei jeder JS-Ausnahme, jeder Problemzeile im Log, jedem Server-Fehler an einen Controller, fehlenden Minispielen der Rotation oder abgelehnten Ergebnissen. Die Uhr ist virtuell (60 Ticks je Spielsekunde ohne Warten), gemessen wird CPU-Zeit des Threads.
+`run.sh` baut `main.swift` zusammen mit `app/RenderState.swift` (`swiftc`). Der Harness dekodiert zuerst alle Beispielnachrichten, lädt dann das Bündel in ein `JSContext`, spielt mit zwei Controllern über echte Protokoll-Nachrichten, stellt die Lobby per `hostCommand('configure:…')` ein (CHAOS-166: erst 16 Runden mit mehr Zeit zum Reagieren, dann 12 bzw. mit `full` 10 Runden; die Partie muss genau so viele haben, `configure` im Brett muss ins Leere gehen), startet per `hostCommand('start')` und dekodiert unterwegs `renderState` mit dem Typ der App. Er scheitert bei jeder JS-Ausnahme, jeder Problemzeile im Log, jedem Server-Fehler an einen Controller, fehlenden Minispielen der Rotation oder abgelehnten Ergebnissen. Die Uhr ist virtuell (60 Ticks je Spielsekunde ohne Warten), gemessen wird CPU-Zeit des Threads.
 
 **JIT:** JSC läuft im Harness auf macOS faktisch ohne JIT (EXP-024: Zählschleife 2,6 s, `node --jitless` 3,0 s, node mit JIT 0,5 s). Die CI setzt zusätzlich `JSC_useJIT=false`. Ein Apple-TV-Kern ist langsamer; die Zeiten sind eine Untergrenze für tvOS.
 

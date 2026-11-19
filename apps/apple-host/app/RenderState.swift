@@ -14,6 +14,17 @@ struct RenderState: Decodable, Equatable {
         var joinUrl: String?
         var joinCode: String?
         var players: [Player]?
+        /// Einstellungen der nächsten Partie (CHAOS-166); null, bis die Host-Rolle ihre erste `lobby` hat.
+        var settings: LobbySettings?
+    }
+
+    /// Server-Stand der Lobby-Einstellungen; ändern über `hostCommand("configure:…")`.
+    struct LobbySettings: Decodable, Equatable {
+        var rounds: Int?
+        /// Vorschläge für die Rundenwahl, aufsteigend (Server: 10, 16, 20).
+        var roundPresets: [Int]?
+        /// „Mehr Zeit zum Reagieren“ (CHAOS-124): Reaktionsfenster 5 s statt 3 s.
+        var moreReactionTime: Bool?
     }
 
     struct Player: Decodable, Equatable {

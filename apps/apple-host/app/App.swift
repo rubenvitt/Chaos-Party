@@ -27,7 +27,7 @@ struct ChaosHostApp: App {
         WindowGroup("Chaos Party") {
             ZStack(alignment: .topLeading) {
                 StageView(runtime: runtime).ignoresSafeArea()
-                OverlayView(overlay: runtime.overlay) { runtime.command("start") }
+                OverlayView(overlay: runtime.overlay, start: { runtime.command("start") }, command: runtime.command)
             }
             #if os(macOS)
             .frame(minWidth: 960, minHeight: 540)
@@ -57,6 +57,8 @@ struct ChaosHostApp: App {
 struct OverlayView: View {
     let overlay: Overlay
     let start: () -> Void
+    /// `hostCommand` für die Lobby-Einstellungen (`configure:…`, CHAOS-166).
+    var command: (String) -> Void = { _ in }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -64,7 +66,7 @@ struct OverlayView: View {
                 // Gestaltet für 1920×1080, skaliert auf jede Fenstergröße (Mac) bzw. 4K (Apple TV).
                 GeometryReader { geo in
                     let scale = min(geo.size.width / 1920, geo.size.height / 1080)
-                    LobbyView(overlay: overlay, start: start)
+                    LobbyView(overlay: overlay, start: start, command: command)
                         .frame(width: 1920, height: 1080)
                         .scaleEffect(scale)
                         .frame(width: geo.size.width, height: geo.size.height)
@@ -92,6 +94,8 @@ struct OverlayView: View {
 struct LobbyView: View {
     let overlay: Overlay
     let start: () -> Void
+    /// `hostCommand` für Rundenwahl und Schalter (`LobbySettingsView`, CHAOS-166).
+    var command: (String) -> Void = { _ in }
     #if os(tvOS)
     @Namespace private var focus
     #endif
@@ -138,6 +142,7 @@ struct LobbyView: View {
                         PlayerCard(slot: slot, player: players.first { $0.slot == slot })
                     }
                 }
+                LobbySettingsView(settings: overlay.settings, playerCount: players.count, command: command)
                 HStack(spacing: 28) {
                     startButton
                     Text(hint).font(.system(size: 28, weight: .semibold, design: .rounded))

@@ -1,0 +1,36 @@
+{
+  "phase": "lobby",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "settings": {
+      "rounds": 12,
+      "roundPresets": [
+        10,
+        16,
+        20
+      ],
+      "moreReactionTime": true
+    },
+    "players": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "color": "#0072B2",
+        "connected": true,
+        "ready": true,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "color": "#E69F00",
+        "connected": true,
+        "ready": true,
+        "character": "sock"
+      }
+    ]
+  },
+  "board": null,
+  "minigame": null
+}

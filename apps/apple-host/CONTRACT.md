@@ -31,10 +31,12 @@ interface ChaosHostInstance {
   tick(nowMs: number): void; // ~60× pro s (Anzeige-Takt), monotone ms-Uhr; treibt
   // Zeitgeber, Session-Fristen und 1/60-Schritte der Minispiele
   renderState(): string; // JSON, siehe unten; je Bild nach tick
-  hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch'
+  hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch' | 'configure:…'
   sceneReady(): void; // Brett und Figuren geladen → host-ready (CHAOS-68/142)
 }
 ```
+
+`configure` (CHAOS-166): `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`) oder beides mit Komma, `configure:rounds=12,moreReactionTime=1`. Runden 1–20. Wirkt nur in der Lobby; außerhalb loggt der Kern „ignoriert: nur in der Lobby“, Ungültiges „Ungültiger Host-Befehl“, gesendet wird dann nichts. Der neue Stand steht im nächsten `renderState().lobby.settings`.
 
 `host-ready` (CHAOS-68): Ohne `deferSceneReady` ist der Host sofort bereit (Harness, Tests, `--selftest`). Die App setzt es und ruft `sceneReady()`, sobald `brett.usdz`, die Instanzen und die Figuren geladen sind; bis dahin ist „Partie starten“ gesperrt.
 
@@ -46,7 +48,8 @@ interface ChaosHostInstance {
 {
   "phase": "lobby" | "board" | "minigame" | "final" | "paused",
   "lobby": { "joinUrl": "…", "joinCode": "AB12",
-             "players": [{ "slot": 1, "name": "Anna", "color": "#0072B2", "connected": true, "ready": false, "character": "raccoon" | null }] },
+             "players": [{ "slot": 1, "name": "Anna", "color": "#0072B2", "connected": true, "ready": false, "character": "raccoon" | null }],
+             "settings": null | { "rounds": 10, "roundPresets": [10, 16, 20], "moreReactionTime": false } },  // CHAOS-166
   "board": null | {
     "round": 1, "rounds": 10, "activeSlot": 1 | null,
     "spaces": [{ "id": "s01", "x": 0, "z": 0, "kind": "start" | "coins-plus" | "coins-minus" | "event" | "item" | "trophy" }],
@@ -64,6 +67,7 @@ interface ChaosHostInstance {
 }
 ```
 
+- `lobby.settings` (CHAOS-166) ist der Server-Stand der Lobby-Einstellungen für die nächste Partie: Rundenzahl, Vorschläge für die Rundenwahl (aufsteigend) und „Mehr Zeit zum Reagieren“ (CHAOS-124, Reaktionsfenster 5 s statt 3 s). `null` nur, bis die Host-Rolle ihre erste `lobby`-Nachricht hat (in der Praxis schon nach `create`). Ändern über `hostCommand('configure:…')`.
 - `board.notice` kommt aus `eventNotice` (`apps/host/src/board/texts.ts`): bisher nur in Wachstumsrunden der Sabotage (`round-started` mit `sabotage`), bei `sabotageGrowthRounds: 0` nie. Der Kern hält sie 4 s (`src/notice.ts`); Swift zeigt sie nur in der Phase `board`.
 - `phase` ist `lobby`, solange die Session nicht im Brettspiel ist (auch die M1-Arena erscheint als `lobby`). `paused` hat Vorrang vor `minigame` und `final`.
 - Koordinaten roh aus Babylon/game-core (linkshändig). Pawns: Feldmitte plus Versatz bei mehreren Figuren auf einem Feld.

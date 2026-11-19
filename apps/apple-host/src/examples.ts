@@ -7,9 +7,26 @@
  * Von Hand statt aus einer echten Partie: Spielregeln und Minispiele ändern sich oft, der Vertrag
  * selten. Dass echte Ausgaben den Vertrag einhalten, prüft der Bündel-Test.
  */
-import type { BoardState, LobbyPlayer, MinigameState, RenderState } from './contract.ts';
+import type {
+  BoardState,
+  LobbyPlayer,
+  LobbySettingsState,
+  MinigameState,
+  RenderState,
+} from './contract.ts';
 
-const JOIN = { joinUrl: 'http://192.168.0.2:8787/?code=AB12', joinCode: 'AB12' };
+/** Server-Standard: 10 Runden, Vorschläge 10/16/20, „Mehr Zeit zum Reagieren“ aus (CHAOS-166). */
+const SETTINGS: LobbySettingsState = {
+  rounds: 10,
+  roundPresets: [10, 16, 20],
+  moreReactionTime: false,
+};
+
+const JOIN = {
+  joinUrl: 'http://192.168.0.2:8787/?code=AB12',
+  joinCode: 'AB12',
+  settings: SETTINGS,
+};
 
 const ANNA: LobbyPlayer = {
   slot: 1,
@@ -110,6 +127,17 @@ export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = {
   'lobby-two-players': {
     phase: 'lobby',
     lobby: { ...JOIN, players: [ANNA, BEN] },
+    board: null,
+    minigame: null,
+  },
+  // CHAOS-166: 12 ist kein Vorschlag (die Lobby zeigt sie zusätzlich), der Schalter ist an.
+  'lobby-settings': {
+    phase: 'lobby',
+    lobby: {
+      ...JOIN,
+      players: [ANNA, { ...BEN, ready: true, character: 'sock' }],
+      settings: { ...SETTINGS, rounds: 12, moreReactionTime: true },
+    },
     board: null,
     minigame: null,
   },

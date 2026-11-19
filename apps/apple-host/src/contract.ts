@@ -10,7 +10,12 @@
  * Koordinaten sind roh aus Babylon/game-core: linkshändig, y oben, x rechts, z nach hinten.
  * RealityKit (rechtshändig) spiegelt z und die x/y-Anteile der Quaternion.
  */
-import { CHARACTER_IDS, MINIGAME_STAGES } from '@chaos-party/protocol';
+import {
+  CHARACTER_IDS,
+  MAX_ROUND_PRESETS,
+  MINIGAME_STAGES,
+  RoundsSchema,
+} from '@chaos-party/protocol';
 import { z } from 'zod';
 
 // --- Swift → JS ------------------------------------------------------------------------------
@@ -39,6 +44,15 @@ export interface HostEnv {
 export const HOST_COMMANDS = ['start', 'pause', 'resume', 'end-game', 'rematch'] as const;
 export type HostCommandName = (typeof HOST_COMMANDS)[number];
 
+/**
+ * Lobby-Einstellungen über `hostCommand` (CHAOS-166), wie Rundenwahl und Schalter am PC-Host:
+ * `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`) oder beides
+ * mit Komma: `configure:rounds=12,moreReactionTime=1`. Runden 1–`MAX_ROUNDS`. Nur in der Lobby;
+ * sonst und bei ungültigem Text loggt der Kern und sendet nichts. Ergebnis in
+ * `renderState().lobby.settings`. Parser: `./hostCommand.ts`.
+ */
+export const CONFIGURE_PREFIX = 'configure:';
+
 export interface ChaosHostInstance {
   /** Neue WebSocket-Verbindung an `/ws`. IDs > 0 (negative nutzt der Kern selbst). */
   open(connId: number): void;
@@ -53,7 +67,7 @@ export interface ChaosHostInstance {
   tick(nowMs: number): void;
   /** JSON nach `RenderStateSchema`; Swift ruft es je Bild nach `tick` auf. */
   renderState(): string;
-  /** Einer von `HOST_COMMANDS`; Unbekanntes wird geloggt und ignoriert. */
+  /** Einer von `HOST_COMMANDS` oder `configure:…` (`CONFIGURE_PREFIX`); Unbekanntes wird geloggt und ignoriert. */
   hostCommand(cmd: string): void;
   /** Szene geladen (nur mit `env.deferSceneReady`): schickt `host-ready` (CHAOS-142). */
   sceneReady(): void;
@@ -96,6 +110,19 @@ export const LobbyPlayerSchema = z.strictObject({
   connected: z.boolean(),
   ready: z.boolean(),
   character: character.nullable(),
+});
+
+/**
+ * Lobby-Einstellungen der nächsten Partie (CHAOS-166), der Server-Stand aus `lobby.settings`;
+ * ändern über `hostCommand('configure:…')`.
+ */
+export const LobbySettingsStateSchema = z.strictObject({
+  /** Rundenzahl der nächsten Partie (1–`MAX_ROUNDS`). */
+  rounds: RoundsSchema,
+  /** Vorschläge für die Rundenwahl, aufsteigend (Server: 10, 16, 20). */
+  roundPresets: z.array(RoundsSchema).min(1).max(MAX_ROUND_PRESETS),
+  /** „Mehr Zeit zum Reagieren“ (CHAOS-124): Reaktionsfenster 5 s statt 3 s. */
+  moreReactionTime: z.boolean(),
 });
 
 export const BoardSpaceSchema = z.strictObject({
@@ -162,12 +189,15 @@ export const RenderStateSchema = z.strictObject({
     joinUrl: z.string(),
     joinCode: z.string(),
     players: z.array(LobbyPlayerSchema),
+    /** `null`, bis die Host-Rolle die erste `lobby`-Nachricht hat (CHAOS-166). */
+    settings: LobbySettingsStateSchema.nullable(),
   }),
   board: BoardStateSchema.nullable(),
   minigame: MinigameStateSchema.nullable(),
 });
 
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
+export type LobbySettingsState = z.infer<typeof LobbySettingsStateSchema>;
 export type Notice = z.infer<typeof NoticeSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
 export type Body = z.infer<typeof BodySchema>;

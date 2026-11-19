@@ -45,6 +45,13 @@ if let file = fixtureFiles.first(where: { $0.lastPathComponent == "board-sabotag
   let state = try RenderState.decode(String(contentsOf: file, encoding: .utf8))
   if state.board?.notice?.title != "Sabotage wird stärker!" { fail("board-sabotage-notice.json: Einblendung fehlt") }
 } else { fail("board-sabotage-notice.json fehlt") }
+// CHAOS-166: Lobby-Einstellungen, 12 ist kein Vorschlag.
+if let file = fixtureFiles.first(where: { $0.lastPathComponent == "lobby-settings.json" }) {
+  let settings = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).lobby?.settings
+  if settings != RenderState.LobbySettings(rounds: 12, roundPresets: [10, 16, 20], moreReactionTime: true) {
+    fail("lobby-settings.json: Einstellungen \(String(describing: settings))")
+  }
+} else { fail("lobby-settings.json fehlt") }
 out("Fixtures dekodiert: \(fixtureFiles.count) Dateien mit RenderState.swift")
 
 let ctx = JSContext()!
@@ -221,6 +228,17 @@ var resultsSeenAfterAccept = false
 var frame = 0
 var maxRound = 0
 var plannedRounds = 0
+/// Rundenzahl über `configure` (CHAOS-166); `full` bleibt bei 10, damit alle Minispiele der Rotation drankommen.
+let configuredRounds = full ? 10 : 12
+var configured = false
+/// `renderState` mit dem Typ der App dekodieren und die Lobby-Einstellungen prüfen.
+func expectSettings(_ rounds: Int, _ more: Bool, _ label: String) {
+  let text = callHost("renderState", [])!.toString()!
+  guard let settings = (try? RenderState.decode(text))?.lobby?.settings else { fail("\(label): lobby.settings fehlt") }
+  if settings.rounds != rounds || settings.moreReactionTime != more || settings.roundPresets?.isEmpty != false {
+    fail("\(label): \(settings), erwartet \(rounds) Runden, mehr Zeit \(more)")
+  }
+}
 let step = 1000.0 / 60.0
 let limitMs = full ? 30 * 60_000.0 : 5 * 60_000.0
 
@@ -278,8 +296,24 @@ while now < limitMs {
      players.count == 2, players.allSatisfy({ $0["ready"] as? Bool == true }) {
     started = true
     out("[\(Int(now)) ms] Lobby: \(json(["players": players]))")
+    // CHAOS-166: Einstellungen wie die Lobby der App (beides, dann nur die Runden), Ungültiges ändert nichts.
+    expectSettings(10, false, "Lobby vor configure")
+    _ = callHost("hostCommand", ["configure:rounds=16,moreReactionTime=1"])
+    drain()
+    expectSettings(16, true, "configure:rounds=16,moreReactionTime=1")
+    _ = callHost("hostCommand", ["configure:rounds=\(configuredRounds)"])
+    _ = callHost("hostCommand", ["configure:rounds=99"])
+    drain()
+    expectSettings(configuredRounds, true, "configure:rounds=\(configuredRounds)")
+    if !logLines.contains("Ungültiger Host-Befehl: configure:rounds=99") { fail("configure:rounds=99 nicht abgewiesen") }
+    configured = true
+    out("[\(Int(now)) ms] configure: \(configuredRounds) Runden, mehr Zeit zum Reagieren an")
     _ = callHost("hostCommand", ["start"])
     drain()
+    // In der Brettphase geht configure ins Leere (kein Server-Fehler).
+    _ = callHost("hostCommand", ["configure:rounds=3"])
+    drain()
+    if !logLines.contains("Host-Befehl configure:rounds=3 ignoriert: nur in der Lobby") { fail("configure im Brett gesendet") }
   }
   if stageName == "play", !printedMidPlay, (minigame?["elapsedMs"] as? Double ?? 0) > 1500 {
     printedMidPlay = true
@@ -313,8 +347,9 @@ let accepted = logLines.filter { $0.contains("angenommen") }.count
 out("Runden: \(maxRound)/\(plannedRounds), Minispiele aufgebaut: \(built) (\(builtIds.joined(separator: ", "))), Ergebnisse angenommen: \(accepted), Problemzeilen: \(problems.count)")
 if full && !missing.isEmpty { out("FEHLT aus der Rotation: \(missing.joined(separator: ", "))") }
 for line in problems.prefix(10) { out("  PROBLEM \(line.prefix(200))") }
+if plannedRounds != configuredRounds { fail("Partie hat \(plannedRounds) Runden, configure sagte \(configuredRounds)") }
 let fullOk = lastPhase == "final" && built == accepted && missing.isEmpty && plannedRounds > 0 && maxRound == plannedRounds
-let ok = problems.isEmpty && accepted >= 1 && minigameAccepted && resultsSeenAfterAccept && jsErrors == 0
+let ok = configured && problems.isEmpty && accepted >= 1 && minigameAccepted && resultsSeenAfterAccept && jsErrors == 0
   && errorsFromServer == 0 && (!full || fullOk)
 out(ok ? "ERGEBNIS: OK" : "ERGEBNIS: NICHT OK (Ergebnis angenommen: \(minigameAccepted), Ergebnisanzeige: \(resultsSeenAfterAccept))")
 exit(ok ? 0 : 1)

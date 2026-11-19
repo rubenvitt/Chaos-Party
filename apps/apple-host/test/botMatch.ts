@@ -110,6 +110,10 @@ export interface BotMatchOptions {
   readonly log?: ((line: string) => void) | undefined;
   /** Wie die App: `host-ready` erst nach `sceneReady()`, das nach dem ersten `tick` kommt (CHAOS-142). */
   readonly deferSceneReady?: boolean;
+  /** `hostCommand`s, sobald alle bereit sind, direkt vor `start` (z. B. `configure:…`, CHAOS-166). */
+  readonly beforeStart?: readonly string[];
+  /** `hostCommand`s direkt nach `start` (Brettphase; `configure` muss dort ins Leere gehen). */
+  readonly afterStart?: readonly string[];
 }
 
 export interface FrameTiming {
@@ -367,7 +371,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     if (!started && raw.lobby.players.length === 2 && raw.lobby.players.every((p) => p.ready)) {
       started = true;
       guard('hostCommand', () => {
+        for (const cmd of options.beforeStart ?? []) instance.hostCommand(cmd);
         instance.hostCommand('start');
+        for (const cmd of options.afterStart ?? []) instance.hostCommand(cmd);
       });
       await settle();
       drain();
