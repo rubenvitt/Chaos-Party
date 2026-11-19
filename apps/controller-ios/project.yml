@@ -36,6 +36,9 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: Chaos Party
+        # XcodeGen schreibt sonst fest „1“; so greift CURRENT_PROJECT_VERSION aus scripts/testflight.sh und jeder
+        # Upload bekommt eine neue Build-Nummer (App Store Connect lehnt eine zweite „1“ ab).
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
