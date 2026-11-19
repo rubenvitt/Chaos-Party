@@ -50,6 +50,13 @@ final class BoardScene {
     private var traps: [String: Entity] = [:]
     private let activeRing: Entity?
     private let activeArrow: ModelEntity?
+    /// Lichtstimmung je Runde und Laternen (CHAOS-193, `app/SceneLight.swift`).
+    let sceneLight: SceneLight
+    private let lanterns: LanternRig
+    /// Windringe und Tausch-Ring (CHAOS-193, `app/BoardFlightFx.swift`).
+    private let flightFx = BoardFlightFx()
+    /// Grashalme des Bretts als Vorlage für die Minispiel-Kulisse (CHAOS-193).
+    let grass: [GrassTemplate]
 
     // Babylon-Host (`apps/host/src/board/createBoardScene.ts`, `layout.ts`).
     private static let cameraOffset = SIMD3<Float>(0, 28, -17.5)
@@ -90,15 +97,18 @@ final class BoardScene {
     }
 
     private init(root board: Entity, meta: SceneMeta, anchors: [String: SIMD3<Float>], figures: [String: FigureTemplate],
-                 sky: EnvironmentResource?, instances: Int) {
+                 sky: EnvironmentResource?, instances: Int, grass: [GrassTemplate]) {
         self.anchors = anchors
+        self.grass = grass
         self.figures = figures
         self.sky = sky
         self.instances = instances
         surfaceY = anchors.values.first?.y ?? 0.3
-        skyExponent = log2(max(meta.sky?.intensity ?? 0.35, 0.01) * 2.5)
+        let exponent = log2(max(meta.sky?.intensity ?? 0.35, 0.01) * 2.5)
+        skyExponent = exponent
         let c = meta.clearColor
-        clearColor = CGColor(red: CGFloat(c[0]), green: CGFloat(c[1]), blue: CGFloat(c[2]), alpha: 1)
+        let background = CGColor(red: CGFloat(c[0]), green: CGFloat(c[1]), blue: CGFloat(c[2]), alpha: 1)
+        clearColor = background
         // Brettmitte aus den Feldern (Babylon: x gespiegelt).
         let xs = meta.fields.map { -$0.position[0] }, zs = meta.fields.map { $0.position[2] }
         center = xs.isEmpty ? .zero : [(xs.min()! + xs.max()!) / 2, (zs.min()! + zs.max()!) / 2]
@@ -109,8 +119,32 @@ final class BoardScene {
         activeRing = board.findEntity(named: "am_zug_ring")
         activeRing?.isEnabled = false
         activeArrow = CardTexture.arrow().map { billboard($0, size: [BoardLook.arrowSize, BoardLook.arrowSize], name: "am-zug-pfeil") }
+        // Ohne Stimmung (Lobby): Sonne aus dem Export, Babylon-Intensität auf Lux (CHAOS-112/119). Die Stimmung der
+        // Runde setzt `sceneLight` je Bild (CHAOS-193).
+        let sun = meta.sun ?? SceneMeta.Sun(direction: [-0.5456, -0.6825, 0.4863], intensity: 3.4, color: [1, 0.98, 0.94])
+        sceneLight = SceneLight(direction: vec(sun.direction), intensity: sun.intensity * SceneLight.luxPerUnit,
+                                color: .init(red: CGFloat(sun.color[0]), green: CGFloat(sun.color[1]), blue: CGFloat(sun.color[2]), alpha: 1),
+                                shadowDistance: 80, ambientScale: SceneLight.boardAmbient, keyScale: SceneLight.keyScale,
+                                environment: sky, exponent: exponent,
+                                background: background)
+        // Laternen-Glas aus dem Export (`lantern` in `apps/host/src/nature/geometry.ts`).
+        var glass: [Entity] = []
+        var stack = [board]
+        while let entity = stack.popLast() {
+            let name = entity.name.lowercased()
+            if name.hasPrefix("laterne_glas") || name.hasPrefix("laterne-glas"),
+               let model = Self.find(in: entity, where: { $0.components.has(ModelComponent.self) }) {
+                glass.append(model)
+            } else {
+                stack += entity.children
+            }
+        }
+        lanterns = LanternRig(glass: glass)
         root.addChild(board)
         root.addChild(popups.root)
+        root.addChild(flightFx.root)
+        root.addChild(sceneLight.sun)
+        root.addChild(lanterns.root)
         if let activeArrow {
             activeArrow.isEnabled = false
             root.addChild(activeArrow)
@@ -120,17 +154,6 @@ final class BoardScene {
         camera.camera.near = meta.camera.near
         camera.camera.far = meta.camera.far
         root.addChild(camera)
-        if let sun = meta.sun {
-            let light = DirectionalLight()
-            light.light.color = .init(red: CGFloat(sun.color[0]), green: CGFloat(sun.color[1]), blue: CGFloat(sun.color[2]), alpha: 1)
-            // Babylon-Intensität auf Lux, im Spike am Bevy-Bild abgeglichen (CHAOS-112/119).
-            light.light.intensity = sun.intensity * 1600
-            var shadow = DirectionalLightComponent.Shadow()
-            shadow.shadowProjection = .automatic(maximumDistance: 80)
-            light.shadow = shadow
-            light.look(at: simd_normalize(vec(sun.direction)), from: .zero, relativeTo: nil)
-            root.addChild(light)
-        }
         placeCamera(dt: 0, target: center)
     }
 
@@ -181,7 +204,7 @@ final class BoardScene {
                 anchors[field.id] = vec(field.position)
             }
         }
-        let instances = try await addInstances(to: board, from: folder.appending(path: "brett.instanzen.json"))
+        let (instances, grass) = try await addInstances(to: board, from: folder.appending(path: "brett.instanzen.json"))
 
         var figures: [String: FigureTemplate] = [:]
         for id in ["robot", "cactus", "raccoon", "sock"] {
@@ -196,7 +219,7 @@ final class BoardScene {
         }
         let sky = try? await EnvironmentResource(equirectangular: hemisphereImage(
             sky: meta.sky?.color ?? [0.83, 0.9, 0.96], ground: meta.sky?.ground ?? meta.sky?.color ?? [0.49, 0.54, 0.32]))
-        let scene = BoardScene(root: board, meta: meta, anchors: anchors, figures: figures, sky: sky, instances: instances)
+        let scene = BoardScene(root: board, meta: meta, anchors: anchors, figures: figures, sky: sky, instances: instances, grass: grass)
         hostLog(String(format: "Brett geladen: %d Felder, %d Figuren, %d Instanzen in %.0f ms",
                        anchors.count, figures.count, instances, (CACurrentMediaTime() - t0) * 1000))
         return scene
@@ -204,6 +227,9 @@ final class BoardScene {
 
     /// Lobby: Übersicht ohne Figuren.
     func showOverview(dt: Double) {
+        sceneLight.reset()
+        lanterns.apply(nil)
+        flightFx.clear()
         for (_, pawn) in pawns { pawn.root.removeFromParent() }
         pawns.removeAll()
         sync(trophies: [])
@@ -259,6 +285,9 @@ final class BoardScene {
             return popup.spaceId.flatMap { anchors[$0] }
         }
         sounds.play(board.sounds ?? [])
+        sceneLight.apply(board.light)
+        lanterns.apply(board.light)
+        flightFx.update(board.pawns ?? [], colors: colors, anchors: anchors, surfaceY: surfaceY) { [pawns] slot in pawns[slot]?.root }
         announce(board, popups: popupList)
     }
 
@@ -521,10 +550,12 @@ final class BoardScene {
     }
 
     /// Babylon-Thin-Instances (Gras, Blumen) als `MeshInstancesComponent`: ein Draw je Mesh-Teil.
-    private static func addInstances(to board: Entity, from url: URL) async throws -> Int {
-        guard FileManager.default.fileExists(atPath: url.path) else { hostLog("FEHLER brett.instanzen.json fehlt"); return 0 }
+    /// Liefert die Zahl der Instanzen und die Grashalme (`gras-*`) als Vorlage für die Minispiel-Kulisse (CHAOS-193).
+    private static func addInstances(to board: Entity, from url: URL) async throws -> (Int, [GrassTemplate]) {
+        guard FileManager.default.fileExists(atPath: url.path) else { hostLog("FEHLER brett.instanzen.json fehlt"); return (0, []) }
         let list = try await Task.detached { try JSONDecoder().decode([InstancedMesh].self, from: Data(contentsOf: url)) }.value
         var total = 0
+        var grass: [GrassTemplate] = []
         for entry in list where !entry.matrices.isEmpty {
             let key = normalized(entry.mesh)
             guard let node = find(in: board, where: { normalized($0.name) == key }),
@@ -557,8 +588,9 @@ final class BoardScene {
             instanced.components.set(try MeshInstancesComponent(mesh: component.mesh, instances: data))
             board.addChild(instanced)
             total += entry.matrices.count
+            if key.hasPrefix("gras") { grass.append(GrassTemplate(model: component, local: local)) }
         }
-        return total
+        return (total, grass)
     }
 
     static func find(in entity: Entity, where match: (Entity) -> Bool) -> Entity? {

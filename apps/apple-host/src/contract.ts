@@ -17,6 +17,7 @@ import {
   RoundsSchema,
 } from '@chaos-party/protocol';
 import { z } from 'zod';
+import { LIGHT_MOOD_IDS } from '../../host/src/lighting/moods.ts';
 
 // --- Swift → JS ------------------------------------------------------------------------------
 
@@ -306,6 +307,50 @@ export const NoticeSchema = z.strictObject({
   detail: z.string(),
 });
 
+/**
+ * Lichtstimmung (CHAOS-193): `LightState` aus `apps/host/src/lighting/transition.ts`, im Kern
+ * aus `LIGHT_MOODS` gerechnet (`./lightMood.ts`) und beim Rundenwechsel über 4 s gemischt wie im
+ * Browser-Host. Farben sRGB. Swift setzt Sonne, Himmelslicht, Klarfarbe und Laternen danach.
+ */
+export const LightSchema = z.strictObject({
+  /** Ziel- bzw. aktuelle Stimmung (`LightMoodId`). */
+  mood: z.enum(LIGHT_MOOD_IDS),
+  /** Sonne (nachts Mond): Babylon-Intensität, Farbe, Höhe (Sinus der Elevation). */
+  keyIntensity: z.number().min(0),
+  keyTint: hexColor,
+  keyElevation: z.number().min(0).max(1),
+  /** Umgebungslicht des Himmels (HDRI im Browser-Host). */
+  skyIntensity: z.number().min(0),
+  /** Bodenlicht (Hemisphäre): Stärke, Himmels- und Bodenfarbe. */
+  fillIntensity: z.number().min(0),
+  fillSky: hexColor,
+  fillGround: hexColor,
+  /**
+   * Himmelslicht-Umgebung: Stimmung, deren Umgebung gerade gilt (Browser-Host wechselt sie zur
+   * Hälfte der Überblendung), mit deren reinen Bodenlicht-Farben und Stärken (Swift baut sie je
+   * Stimmung einmal).
+   */
+  environment: z.strictObject({
+    mood: z.enum(LIGHT_MOOD_IDS),
+    sky: hexColor,
+    ground: hexColor,
+    /** Stärken dieser Stimmung (HDRI und Bodenlicht), für die Form der Umgebung. */
+    skyIntensity: z.number().min(0),
+    fillIntensity: z.number().min(0),
+  }),
+  /** Dunst: Klarfarbe und Horizont. */
+  haze: hexColor,
+  /** Belichtung der Farbabstimmung (Babylon `exposure`). */
+  exposure: z.number().min(0),
+  /** Laternen an (0…1, Glas leuchtet ab 0,25), Farbe, Lichtstärke (Babylon) und Reichweite. */
+  lampsOn: z.number().min(0).max(1),
+  lanternColor: hexColor,
+  lanternIntensity: z.number().min(0),
+  lanternRange: z.number().min(0),
+  /** Farbe der Grasspitzen der Zielstimmung. */
+  grassTip: hexColor,
+});
+
 export const BoardStateSchema = z.strictObject({
   round: z.number().int().min(1),
   rounds: z.number().int().min(1),
@@ -333,6 +378,8 @@ export const BoardStateSchema = z.strictObject({
   traps: z.array(z.strictObject({ spaceId: z.string(), owner: slot })),
   /** Klänge der letzten `SOUND_WINDOW_MS`, in dem Moment ausgelöst, in dem die Regie spielt. */
   sounds: z.array(SoundCueSchema),
+  /** Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193). */
+  light: LightSchema,
 });
 
 /** Oberflächen aus `look.material` (`LookFinish` im minigame-sdk, CHAOS-62). */
@@ -529,6 +576,8 @@ export const MinigameStateSchema = z.strictObject({
    * steigen über die Lebenszeit des Kerns; Swift spielt jede ID einmal.
    */
   sounds: z.array(SoundCueSchema),
+  /** Lichtstimmung der Runde des Minispiels, ohne Überblendung (CHAOS-193). */
+  light: LightSchema,
 });
 
 // --- Finale und Pause (CHAOS-145) -------------------------------------------------------------
@@ -690,6 +739,7 @@ export type TickerEntry = z.infer<typeof TickerEntrySchema>;
 export type Hud = z.infer<typeof HudSchema>;
 export type SoundCue = z.infer<typeof SoundCueSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
+export type Light = z.infer<typeof LightSchema>;
 export type Body = z.infer<typeof BodySchema>;
 export type MinigameState = z.infer<typeof MinigameStateSchema>;
 export type MaterialFinish = (typeof MATERIAL_FINISHES)[number];

@@ -23,7 +23,7 @@ final class MinigameScene {
     var onStage: ((String) -> Void)?
 
     private let world = Entity()
-    private var backdrop: Entity?
+    private var backdrop: MinigameBackdrop?
     private var backdropKey = ""
     private var gameKey = ""
     private var stageKey = ""
@@ -44,6 +44,11 @@ final class MinigameScene {
     private var particleMaterials: [String: RealityKit.Material] = [:]
     private let particleMesh = MeshResource.generateSphere(radius: 1)
     private let models: [String: FigureModel]
+    /// Grashalme des Bretts für die Kulisse (CHAOS-193).
+    private let grass: [GrassTemplate]
+    /// Lichtstimmung der Runde (CHAOS-193, `app/SceneLight.swift`).
+    let sceneLight: SceneLight
+    private var countdown: Int?
     private let primitives: [String: MeshResource] = [
         "sphere": .generateSphere(radius: 0.5), "box": .generateBox(size: 1), "cylinder": .generateCylinder(height: 1, radius: 0.5),
     ]
@@ -71,26 +76,27 @@ final class MinigameScene {
         var oneShotEnd: CFTimeInterval?
     }
 
-    /// Sonne wie das Brett (`brett.szene.json`, rechtshändig), CHAOS-142.
-    private static let sunDirection = SIMD3<Float>(-0.5456, -0.6825, 0.4863)
+    /// Laufrichtung des Sonnenlichts wie `DEFAULT_SUN` im Browser-Host: schräg von vorn links zur Kamera, die in Babylon
+    /// nach +z blickt. Minispiele spiegeln nur z (das Brett x), darum ist z hier negativ (CHAOS-193; vorher fiel das Licht
+    /// von hinten, Vorderseiten wie die Kuckucksuhr lagen im Schatten).
+    static let sunDirection = SIMD3<Float>(0.5456, -0.6825, -0.4863)
 
-    init(models: [String: FigureModel], sky: EnvironmentResource?, skyExponent: Float, clearColor: CGColor) {
+    init(models: [String: FigureModel], grass: [GrassTemplate], sky: EnvironmentResource?, skyExponent: Float, clearColor: CGColor) {
         self.models = models
+        self.grass = grass
         self.sky = sky
         self.skyExponent = skyExponent
         self.clearColor = clearColor
+        sceneLight = SceneLight(direction: Self.sunDirection, intensity: 3.4 * SceneLight.luxPerUnit,
+                                color: .init(red: 1, green: 0.98, blue: 0.94, alpha: 1), shadowDistance: 45,
+                                ambientScale: SceneLight.minigameAmbient, keyScale: SceneLight.minigameKeyScale,
+                                environment: sky, exponent: skyExponent + 0.5,
+                                background: clearColor)
         root.addChild(world)
         camera.camera.near = 0.1
         camera.camera.far = 1000
         root.addChild(camera)
-        let sun = DirectionalLight()
-        sun.light.color = .init(red: 1, green: 0.98, blue: 0.94, alpha: 1)
-        sun.light.intensity = 3.4 * 1600
-        var shadow = DirectionalLightComponent.Shadow()
-        shadow.shadowProjection = .automatic(maximumDistance: 45)
-        sun.shadow = shadow
-        sun.look(at: simd_normalize(Self.sunDirection), from: .zero, relativeTo: nil)
-        root.addChild(sun)
+        root.addChild(sceneLight.sun)
     }
 
     /// Figuren als USDZ (`figuren/<id>.usdz`, Clips aus `<id>.clips.json`); fehlt der Ordner, Kapseln.
@@ -120,12 +126,18 @@ final class MinigameScene {
         }
         for g in m.geometry ?? [] where meshes[g.id] == nil && !building.contains(g.id) { build(g, game: game) }
         if let b = m.backdrop { placeBackdrop(b) }
+        sceneLight.apply(m.light)
+        backdrop?.apply(m.light)
+        if m.stage == "intro" { countdown = m.countdown }
         if m.ready == true, readySince == nil { readySince = now }
         // Erst zeigen, wenn die Geometrie da ist (kein Aufploppen von Grundformen); spätestens nach 3 s.
         if !shown, let since = readySince, meshes.count >= (m.geometryTotal ?? 0) || now - since > 3 {
             shown = true
-            hostLog(String(format: "Minispiel %@: %d Geometrien gebaut, sichtbar %.0f ms nach dem Aufbau", m.id, meshes.count,
-                           (now - since) * 1000))
+            // CHAOS-192: Abstand zum Ende des Countdowns (ganze Sekunden der Anleitung; im Spiel schon vorbei).
+            let margin = m.stage == "intro" ? (countdown.map { "\($0) s vor Ende des Countdowns" } ?? "Countdown unbekannt")
+                : "nach Ende des Countdowns (\(m.stage ?? "?"))"
+            hostLog(String(format: "Minispiel %@: %d Geometrien gebaut, sichtbar %.0f ms nach dem Aufbau, %@", m.id, meshes.count,
+                           (now - since) * 1000, margin))
         }
         world.isEnabled = shown
         placeCamera(m.camera, now: now)
@@ -150,6 +162,7 @@ final class MinigameScene {
         stageKey = ""
         shown = false
         readySince = nil
+        countdown = nil
         // Entfernte Entitäten und Meshes noch ein paar Sekunden halten: RealityRenderer hat bis zu drei Bilder im Flug,
         // ein sofort freigegebener Puffer brachte den Render-Thread im Simulator zum Absturz (re::BufferSlice::isValid).
         let now = CACurrentMediaTime()
@@ -175,6 +188,7 @@ final class MinigameScene {
         let t0 = CACurrentMediaTime()
         Task { @MainActor [weak self] in
             let decoded = await Task.detached(priority: .userInitiated) { g.decoded() }.value
+            let t1 = CACurrentMediaTime()
             guard let self, self.gameKey == game else { return }
             guard let decoded else {
                 hostLog("FEHLER Geometrie \(g.id) nicht dekodierbar")
@@ -189,7 +203,11 @@ final class MinigameScene {
                 guard self.gameKey == game else { return }
                 self.meshes[g.id] = (resource, decoded.extent)
                 let ms = (CACurrentMediaTime() - t0) * 1000
-                if ms > 30 { hostLog(String(format: "Geometrie %@ (%d Ecken) in %.0f ms", g.id, g.vertices, ms)) }
+                if ms > 30 {
+                    // CHAOS-192: Dekodieren (eigener Thread, samt Warten auf den Hauptthread) und `MeshResource` getrennt.
+                    hostLog(String(format: "Geometrie %@ (%d Ecken) in %.0f ms (dekodiert %.0f ms, MeshResource %.0f ms)", g.id,
+                                   g.vertices, ms, (t1 - t0) * 1000, (CACurrentMediaTime() - t1) * 1000))
+                }
             } catch {
                 hostLog("FEHLER Geometrie \(g.id): \(error)")
             }
@@ -243,10 +261,15 @@ final class MinigameScene {
 
     /// Wie der Look des Browser-Hosts (`plainOptions` in `apps/host/src/nature/stageLook.ts`).
     private func material(_ b: RenderState.Body, key: String) -> RealityKit.Material {
+        material(color: b.color, alpha: b.alpha, glow: b.glow, finish: b.finish, twoSided: b.twoSided == true, key: key)
+    }
+
+    private func material(color: String?, alpha: Float?, glow: String?, finish: String?, twoSided: Bool, key: String)
+        -> RealityKit.Material {
         if let cached = materials[key] { return cached }
         var pbr = PhysicallyBasedMaterial()
-        pbr.baseColor = .init(tint: platformColor(b.color ?? "#cccccc"))
-        switch b.finish ?? "lack" {
+        pbr.baseColor = .init(tint: platformColor(color ?? "#cccccc"))
+        switch finish ?? "lack" {
         case "matt": pbr.roughness = 0.85
         case "glanz":
             pbr.roughness = 0.15
@@ -259,14 +282,14 @@ final class MinigameScene {
             pbr.roughness = 0.4
             pbr.clearcoat = 0.35
         }
-        if let glow = b.glow {
+        if let glow {
             pbr.emissiveColor = .init(color: platformColor(glow))
             pbr.emissiveIntensity = 1
         }
-        if let alpha = b.alpha, alpha < 0.999 {
+        if let alpha, alpha < 0.999 {
             pbr.blending = .transparent(opacity: .init(floatLiteral: max(0, alpha)))
         }
-        if b.twoSided == true { pbr.faceCulling = .none }
+        if twoSided { pbr.faceCulling = .none }
         materials[key] = pbr
         return pbr
     }
@@ -404,15 +427,90 @@ final class MinigameScene {
         particles = alive
     }
 
+    // MARK: Aufwärmen (CHAOS-192)
+
+    /// Baut einmal alles, was ein Minispiel zeigt, damit das erste Minispiel nach dem Start nicht auf Shader und den
+    /// ersten Mesh-Bau wartet: eine Geometrie auf demselben Weg wie im Spiel (`MeshResource(from:)`), jede
+    /// Material-Variante der Körper (Oberflächen, durchsichtig, doppelseitig, leuchtend), Partikel, Figuren mit Clip und
+    /// eine Kulisse samt Laternen. `Stage` rendert das danach ein paar Bilder unsichtbar. Liefert die Dauer des
+    /// Mesh-Baus in ms. Abgebaut wird es wie jedes Minispiel beim nächsten Aufbau (`reset`).
+    func prepareWarmUp() async -> Double {
+        reset("aufwaermen")
+        var descriptor = MeshDescriptor(name: "aufwaermen")
+        descriptor.positions = MeshBuffers.Positions([[-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5], [0, 0.8, 0]])
+        descriptor.normals = MeshBuffers.Normals([[-0.6, 0.5, -0.6], [0.6, 0.5, -0.6], [0.6, 0.5, 0.6], [-0.6, 0.5, 0.6], [0, 1, 0]])
+        descriptor.primitives = .triangles([0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3])
+        let t0 = CACurrentMediaTime()
+        let mesh: MeshResource
+        do {
+            mesh = try await MeshResource(from: [descriptor])
+        } catch {
+            hostLog("FEHLER Aufwärmen: \(error)")
+            mesh = primitives["box"]!
+        }
+        let meshMs = (CACurrentMediaTime() - t0) * 1000
+        placeBackdrop(RenderState.Backdrop(halfX: 6, halfZ: 4, groundY: 0, surface: "wiese"))
+        backdrop?.apply(nil)
+        var index = 0
+        for finish in ["lack", "matt", "glanz", "metall", "stoff"] {
+            for alpha in [Float?.none, 0.5] {
+                for twoSided in [false, true] {
+                    for glow in [String?.none, "#ffcc00"] {
+                        let key = "aufwaermen|\(finish)|\(alpha ?? 1)|\(glow ?? "")|\(twoSided)"
+                        let entity = ModelEntity(mesh: mesh, materials: [material(color: "#c08040", alpha: alpha, glow: glow,
+                                                                                  finish: finish, twoSided: twoSided, key: key)])
+                        entity.position = [Float(index % 8) - 3.5, 0.2, Float(index / 8) - 2]
+                        entity.scale = SIMD3(repeating: 0.6)
+                        world.addChild(entity)
+                        index += 1
+                    }
+                }
+            }
+        }
+        for (offset, entry) in models.sorted(by: { $0.key < $1.key }).enumerated() {
+            let figure = entry.value.instance(color: "#E69F00", character: entry.key)
+            figure.position = [Float(offset) * 1.5 - 2.25, 0, 3]
+            world.addChild(figure)
+            entry.value.play("run", on: figure)
+        }
+        let spark = ModelEntity(mesh: particleMesh, materials: [UnlitMaterial(color: .white)])
+        spark.position = [0, 1.5, 0]
+        spark.scale = SIMD3(repeating: 0.1)
+        world.addChild(spark)
+        camera.camera.fieldOfViewInDegrees = 60
+        camera.camera.fieldOfViewOrientation = .vertical
+        camera.look(at: [0, 0.5, 0], from: [0, 7, 11], relativeTo: nil)
+        cameraKey = ""
+        world.isEnabled = true
+        return meshMs
+    }
+
+    /// Aufwärmen bei Nacht: Laternen an, Glas leuchtend (andere Shader-Variante mit Punktlichtern).
+    func warmUpNight(_ on: Bool) {
+        backdrop?.apply(on ? .fixedNight : nil)
+    }
+
+    /// Aufwärmen fertig: Das nächste Minispiel baut neu auf und legt das Aufgewärmte ab (`reset`).
+    func finishWarmUp() {
+        backdrop?.apply(nil)
+        sceneLight.reset()
+        leave()
+    }
+
     // MARK: Kulisse
 
     private func placeBackdrop(_ b: RenderState.Backdrop) {
         let key = "\(b.halfX)|\(b.halfZ)|\(b.groundY ?? 0)|\(b.surface ?? "wiese")"
         guard key != backdropKey else { return }
         backdropKey = key
-        backdrop?.removeFromParent()
-        let made = MinigameBackdrop.make(b)
-        root.addChild(made)
+        // Alte Kulisse wie alles Abgebaute ein paar Sekunden halten (`reset`): Sofort freigegeben brachte sie den
+        // Render-Thread im Simulator zum Absturz (re::BufferSlice::isValid beim zweiten Minispiel, CHAOS-193).
+        if let old = backdrop {
+            old.root.removeFromParent()
+            retired.append((CACurrentMediaTime(), [old.root, old]))
+        }
+        let made = MinigameBackdrop(area: b, grass: grass)
+        root.addChild(made.root)
         backdrop = made
     }
 }

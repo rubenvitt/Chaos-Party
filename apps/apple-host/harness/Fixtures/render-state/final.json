@@ -186,7 +186,31 @@
         "owner": 1
       }
     ],
-    "sounds": []
+    "sounds": [],
+    "light": {
+      "mood": "nacht",
+      "keyIntensity": 0.8,
+      "keyTint": "#7f9cff",
+      "keyElevation": 0.6,
+      "skyIntensity": 0.5,
+      "fillIntensity": 0.22,
+      "fillSky": "#2c3a70",
+      "fillGround": "#12170f",
+      "environment": {
+        "mood": "nacht",
+        "sky": "#2c3a70",
+        "ground": "#12170f",
+        "skyIntensity": 0.5,
+        "fillIntensity": 0.22
+      },
+      "haze": "#1e2742",
+      "exposure": 1.9,
+      "lampsOn": 1,
+      "lanternColor": "#ff9c4a",
+      "lanternIntensity": 14,
+      "lanternRange": 7,
+      "grassTip": "#7f9c5e"
+    }
   },
   "minigame": null,
   "final": {

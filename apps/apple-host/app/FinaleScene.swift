@@ -26,6 +26,8 @@ final class PodiumScene {
     let clearColor = CGColor(red: 0x1e / 255, green: 0x27 / 255, blue: 0x42 / 255, alpha: 1)
 
     private let world = Entity()
+    /// Kulisse der Lichtung (hält Laternen und Texturen am Leben).
+    private var backdropView: MinigameBackdrop?
     private let models: [String: FigureModel]
     private let sounds = BoardSounds()
     private var key = ""
@@ -128,7 +130,11 @@ final class PodiumScene {
         let xs = entries.map(\.x)
         let halfX = ((xs.max() ?? 0) - (xs.min() ?? 0)) / 2 + 1.6
         // Lichtung auf der Insel: frei und eben unter dem Podest (`look.backdrop`).
-        world.addChild(MinigameBackdrop.make(RenderState.Backdrop(halfX: halfX, halfZ: 1.6, groundY: 0, surface: "wiese")))
+        // Nacht wie `SCENE_MOODS.finale`: Laternen leuchten, Wiese und Kuppel gehen in Nachtdunst über (CHAOS-193).
+        let backdrop = MinigameBackdrop(area: RenderState.Backdrop(halfX: halfX, halfZ: 1.6, groundY: 0, surface: "wiese"), grass: [])
+        backdrop.apply(.fixedNight)
+        world.addChild(backdrop.root)
+        backdropView = backdrop
         for entry in entries {
             let top = buildBlock(entry)
             let figure = models[entry.character ?? "robot"]?.instance(color: entry.color ?? "", character: entry.character ?? "robot")
