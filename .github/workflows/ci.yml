@@ -85,6 +85,11 @@ jobs:
       - name: Apple-Host – Bot-Partien (Node)
         run: pnpm --filter @chaos-party/apple-host bots --full --matches 3
 
+      # Regel Rückenwind über `HostEnv.tailwind` (CHAOS-188): Die Karte muss in einer ganzen
+      # Partie erscheinen (ohne die Regel prüft der Schritt davor, dass sie nie erscheint).
+      - name: Apple-Host – Bot-Partie mit Rückenwind (Node)
+        run: pnpm --filter @chaos-party/apple-host bots --full --rueckenwind
+
       - name: Apple-Host – Beispielnachrichten aktuell
         run: node scripts/export-apple-host-fixtures.mjs --check
 

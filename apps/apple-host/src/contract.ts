@@ -38,6 +38,12 @@ export interface HostEnv {
    * CHAOS-68). Fehlt der Wert, ist der Host sofort bereit (Harness, Tests, `--selftest`).
    */
   deferSceneReady?: boolean;
+  /**
+   * `true`: Regel Rückenwind an (CHAOS-188), wie `RUECKENWIND=1` am PC-Server (CHAOS-125,
+   * EXP-022). Fehlt der Wert, bleibt sie aus (Standard bis zum Playtest). Swift setzt ihn mit
+   * dem Startparameter `--rueckenwind` oder der Umgebungsvariable `RUECKENWIND=1`.
+   */
+  tailwind?: boolean;
 }
 
 /** Host-Befehle, die `hostCommand` versteht (wie die Knöpfe am PC-Host). */

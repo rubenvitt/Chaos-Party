@@ -136,3 +136,13 @@ func launchConfigureCommand(_ arguments: [String]) -> String? {
     }
     return parts.isEmpty ? nil : "configure:" + parts.joined(separator: ",")
 }
+
+/// `--rueckenwind` (bzw. `--rueckenwind=0|1`) oder die Umgebungsvariable `RUECKENWIND=1`: Regel Rückenwind
+/// einschalten (CHAOS-188), wie `RUECKENWIND=1` am PC-Server (CHAOS-125, EXP-022). Standard aus bis zum Playtest;
+/// der Startparameter geht vor der Umgebungsvariable. Geht als `tailwind` an `HostEnv`.
+func launchTailwind(_ arguments: [String], environment: [String: String]) -> Bool {
+    if let arg = arguments.last(where: { $0 == "--rueckenwind" || $0.hasPrefix("--rueckenwind=") }) {
+        return arg == "--rueckenwind" || arg == "--rueckenwind=1"
+    }
+    return environment["RUECKENWIND"]?.trimmingCharacters(in: .whitespaces) == "1"
+}
