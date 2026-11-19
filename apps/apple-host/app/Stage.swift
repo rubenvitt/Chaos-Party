@@ -10,12 +10,18 @@ typealias PlatformColor = UIColor
 
 /// Darstellung von `renderState` im `RealityRenderer` (CHAOS-142):
 /// - Lobby und Brett mit echter Grafik (`BoardScene`), sobald die USDZ-Assets geladen sind;
-/// - Minispiele und Brett ohne Assets als Grundkörper (`Primitives`); echte Minispiel-Grafik folgt mit CHAOS-144/149.
+/// - Minispiele mit echter Grafik (`MinigameScene`, CHAOS-144), auch in der Pause eines Minispiels;
+/// - Brett ohne Assets als Grundkörper (`Primitives`).
 @MainActor
 final class Stage {
     private let renderer: RealityRenderer
     private let primitives = Primitives()
     private var board: BoardScene?
+    private var minigame: MinigameScene?
+    /// Minispiel-Abschnitt gewechselt (`<runde>-<id>-<stage>`), für `--bild` (CHAOS-144).
+    var onMinigameStage: ((String) -> Void)? {
+        didSet { minigame?.onStage = onMinigameStage }
+    }
     private(set) var phase = ""
     private var lastApply: CFTimeInterval = 0
     /// `true`, sobald das Brett geladen ist oder feststeht, dass es ohne Assets (Grundkörper) läuft.
@@ -34,6 +40,7 @@ final class Stage {
         defer { loaded = true }
         guard let folder = BoardScene.assetFolder(override: override) else {
             hostLog("FEHLER Brett-Assets fehlen (payload/szene) – Grundkörper statt echter Grafik")
+            await loadMinigame(folder: nil)
             return
         }
         do {
@@ -45,6 +52,18 @@ final class Stage {
         } catch {
             hostLog("FEHLER Brett laden: \(error)")
         }
+        await loadMinigame(folder: folder)
+    }
+
+    /// Minispiel-Bühne (CHAOS-144): Figuren vorab laden, damit der Wechsel Brett → Minispiel nicht ruckelt.
+    private func loadMinigame(folder: URL?) async {
+        let models = await MinigameScene.loadModels(folder: folder)
+        let scene = MinigameScene(models: models, sky: board?.sky, skyExponent: board?.skyExponent ?? 0,
+                                  clearColor: board?.clearColor ?? CGColor(red: 0.83, green: 0.9, blue: 0.96, alpha: 1))
+        scene.root.isEnabled = false
+        scene.onStage = onMinigameStage
+        renderer.entities.append(scene.root)
+        minigame = scene
     }
 
     func apply(_ s: RenderState) {
@@ -54,6 +73,15 @@ final class Stage {
         if s.phase != phase {
             phase = s.phase
             onPhase?(phase)
+        }
+        if let m = s.minigame, s.phase == "minigame" || s.phase == "paused", let scene = minigame {
+            show(minigame: scene)
+            scene.apply(m, players: s.lobby?.players ?? [], dt: dt)
+            return
+        }
+        if let scene = minigame, scene.root.isEnabled {
+            scene.root.isEnabled = false
+            scene.leave()
         }
         if s.phase == "minigame", s.minigame != nil {
             show(board: false)
@@ -71,6 +99,17 @@ final class Stage {
         } else {
             primitives.apply(s)
         }
+    }
+
+    private func show(minigame scene: MinigameScene) {
+        board?.root.isEnabled = false
+        primitives.root.isEnabled = false
+        scene.root.isEnabled = true
+        renderer.activeCamera = scene.camera
+        renderer.lighting.resource = scene.sky
+        // Etwas heller als das Brett: Der Look des Browser-Hosts hellt Minispiele mit Bodenlicht auf.
+        renderer.lighting.intensityExponent = scene.sky == nil ? 0 : scene.skyExponent + 0.5
+        renderer.cameraSettings.colorBackground = .color(scene.clearColor)
     }
 
     private func show(board visible: Bool) {

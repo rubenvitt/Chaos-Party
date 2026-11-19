@@ -100,6 +100,37 @@
     "id": "pudding-gerangel",
     "stage": "intro",
     "elapsedMs": 0,
+    "ready": false,
+    "info": {
+      "title": "Pudding-Gerangel",
+      "tagline": "Wer bleibt auf dem wackelnden Pudding?",
+      "instructions": [
+        "Schubst die anderen vom Pudding.",
+        "Kirschen geben Extra-Punkte."
+      ],
+      "controls": {
+        "joystick": "Laufen",
+        "a": "Schubsen",
+        "b": null
+      },
+      "scoreUnit": "Punkte"
+    },
+    "round": 3,
+    "repeat": true,
+    "countdown": 7,
+    "camera": null,
+    "backdrop": {
+      "halfX": 7.2,
+      "halfZ": 7.2,
+      "groundY": -3.3,
+      "surface": "decke"
+    },
+    "figures": [],
+    "scoreboard": null,
+    "results": null,
+    "effects": [],
+    "geometry": [],
+    "geometryTotal": 0,
     "bodies": [],
     "hud": ""
   }

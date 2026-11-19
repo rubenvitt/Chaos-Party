@@ -162,6 +162,9 @@ export const BoardStateSchema = z.strictObject({
   notice: NoticeSchema.nullable(),
 });
 
+/** Oberflächen aus `look.material` (`LookFinish` im minigame-sdk, CHAOS-62). */
+export const MATERIAL_FINISHES = ['matt', 'lack', 'glanz', 'metall', 'stoff'] as const;
+
 export const BodySchema = z.strictObject({
   /** `<Mesh-Name>#<uniqueId>`, stabil solange das Mesh lebt. */
   id: z.string(),
@@ -173,6 +176,146 @@ export const BodySchema = z.strictObject({
   /** Lokale Ausdehnung × Skalierung (vor der Rotation). */
   size: vec3,
   color: hexColor,
+  /**
+   * Geometrie aus `minigame.geometry` (CHAOS-144). Skalierung = `size` / `extent` der Geometrie
+   * je Achse (Achse ohne Ausdehnung: 1). Fehlt sie oder ist sie noch nicht angekommen, zeichnet
+   * Swift die Grundform `shape`.
+   */
+  mesh: z.string().optional(),
+  /** Darstellungs-Rolle (`markVisual`, CHAOS-149); fehlt = Kulisse des Minispiels. */
+  role: z.string().optional(),
+  /** Schlüssel der Rolle (Slot, laufende Nummer). */
+  key: z.string().optional(),
+  /** Deckkraft (Material × Sichtbarkeit), nur wenn kleiner 1. */
+  alpha: z.number().min(0).max(1).optional(),
+  /** Eigenleuchten, nur wenn nicht schwarz. */
+  glow: hexColor.optional(),
+  /** Oberfläche aus `look.material`; fehlt = `lack`. */
+  finish: z.enum(MATERIAL_FINISHES).optional(),
+  /** Beide Seiten zeichnen (`backFaceCulling = false`). */
+  twoSided: z.boolean().optional(),
+});
+
+/**
+ * Geometrie eines Minispiel-Meshes (CHAOS-144), einmal je Minispiel. Base64 (Standard, mit
+ * Auffüllung) der rohen Bytes, little-endian: `positions` Float32 × 3, um die Mitte der lokalen
+ * Bounding-Box verschoben; `normals` Int8 × 3 (÷ 127); `indices` Uint16 (`wideIndices`:
+ * Uint32), je drei ein Dreieck. Koordinaten roh aus Babylon (linkshändig).
+ */
+export const MinigameGeometrySchema = z.strictObject({
+  id: z.string(),
+  vertices: z.number().int().min(3),
+  positions: z.string(),
+  normals: z.string(),
+  indices: z.string(),
+  wideIndices: z.boolean(),
+  /** Kantenlängen der lokalen Bounding-Box (Bezug für `size` der Körper). */
+  extent: vec3,
+});
+
+/** Figur eines Spielers im Minispiel; Swift zeichnet das USDZ der Figur (CHAOS-140). */
+export const MinigameFigureSchema = z.strictObject({
+  slot,
+  character,
+  /** Welt-Lage des Figuren-Wurzelknotens (Füße), Rotation (x, y, z, w), Skalierung. */
+  pos: vec3,
+  rot: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  scale: vec3,
+  visible: z.boolean(),
+  /** Zuletzt gespielte Animation (`CHARACTER_ANIMATIONS`). */
+  anim: z.string(),
+  /** Zählt bei jedem `play` hoch: gleiche Animation zweimal heißt zweimal abspielen. */
+  animSeq: z.number().int().min(0),
+});
+
+export const MinigameCameraSchema = z.strictObject({
+  pos: vec3,
+  target: vec3,
+  /** Öffnungswinkel in Radiant. */
+  fov: z.number(),
+  /** Achse, auf die sich `fov` bezieht (Babylon: `fovMode`). */
+  fovAxis: z.enum(['vertical', 'horizontal']),
+});
+
+/** `LookArea` aus `look.backdrop` (CHAOS-62): freie Spielfläche um den Ursprung. */
+export const MinigameBackdropSchema = z.strictObject({
+  halfX: z.number(),
+  halfZ: z.number(),
+  groundY: z.number(),
+  surface: z.enum(['wiese', 'decke']),
+});
+
+/** Effekt aus `ctx.fx`: Partikel-Ausbruch (`VfxId`) oder Kamerawackeln (`shake`). */
+export const MinigameEffectSchema = z.strictObject({
+  /** Fortlaufend je Minispiel; Swift spielt jede Nummer einmal. */
+  seq: z.number().int().min(1),
+  kind: z.string(),
+  pos: vec3,
+  color: hexColor.nullable(),
+  /** Stärke 0–1 (nur `shake`). */
+  strength: z.number(),
+});
+
+export const MinigameControlsSchema = z.strictObject({
+  joystick: z.string().nullable(),
+  a: z.string().nullable(),
+  b: z.string().nullable(),
+});
+
+/** Steckbrief für Anleitung und HUD (`MinigameInfo`). */
+export const MinigameInfoSchema = z.strictObject({
+  title: z.string(),
+  tagline: z.string(),
+  instructions: z.array(z.string()),
+  controls: MinigameControlsSchema,
+  scoreUnit: z.string(),
+});
+
+const playerLabel = {
+  slot,
+  name: z.string(),
+  /** Anzeigename der Figur („Wusel“). */
+  character: z.string(),
+  color: hexColor,
+  /** Slot-Symbol (●, ▲, ■, ★), immer zusätzlich zur Farbe. */
+  symbol: z.string(),
+};
+
+export const MinigameScoreSchema = z.strictObject({
+  ...playerLabel,
+  score: z.number(),
+  /** Kurzer Zustand aus dem HUD („raus“), bei Trennung „⚠ getrennt“. */
+  status: z.string().nullable(),
+  connected: z.boolean(),
+});
+
+export const MinigameScoreboardSchema = z.strictObject({
+  /** Ganze Restsekunden. */
+  seconds: z.number().int().min(0),
+  banner: z.string().nullable(),
+  /** Restzeit zu kurz für einen Neustart nach Host-Neuladen: Server wertet aus. */
+  waiting: z.boolean(),
+  scores: z.array(MinigameScoreSchema),
+});
+
+export const MinigameResultRowSchema = z.strictObject({
+  ...playerLabel,
+  place: z.number().int().min(1),
+  tied: z.boolean(),
+  /** „7 Socken“ */
+  scoreText: z.string(),
+  /** Gewonnene Münzen; `null` = unbekannt. */
+  coins: z.number().int().nullable(),
+  /** Trostpreis-Items (Anzeigenamen, CHAOS-51). */
+  prizes: z.array(z.string()),
+});
+
+/** `resultsDisplay` aus `apps/host/src/minigame/results.ts`. */
+export const MinigameResultsSchema = z.strictObject({
+  aborted: z.boolean(),
+  headline: z.string(),
+  rows: z.array(MinigameResultRowSchema),
+  highlights: z.array(z.string()),
 });
 
 export const MinigameStateSchema = z.strictObject({
@@ -180,7 +323,33 @@ export const MinigameStateSchema = z.strictObject({
   stage: z.enum(MINIGAME_STAGES),
   elapsedMs: z.number().min(0),
   bodies: z.array(BodySchema),
+  /** Kurzfassung als eine Zeile (Debug-Anzeige). */
   hud: z.string(),
+  /** Bühne aufgebaut (Szene steht, Körper und Geometrie kommen). */
+  ready: z.boolean(),
+  info: MinigameInfoSchema,
+  /** Runde der Partie, in der das Minispiel läuft. */
+  round: z.number().int().min(1),
+  /** Lief in der Partie schon: kurze Anleitung (CHAOS-66). */
+  repeat: z.boolean(),
+  /** Intro: ganze Sekunden bis zum Start, sonst `null`. */
+  countdown: z.number().int().min(0).nullable(),
+  camera: MinigameCameraSchema.nullable(),
+  backdrop: MinigameBackdropSchema.nullable(),
+  figures: z.array(MinigameFigureSchema),
+  /** Nur im Spiel. */
+  scoreboard: MinigameScoreboardSchema.nullable(),
+  /** Nur im Ergebnis. */
+  results: MinigameResultsSchema.nullable(),
+  /** Effekte der letzten Sekunden (Swift spielt neue `seq`). */
+  effects: z.array(MinigameEffectSchema),
+  /**
+   * Neue Geometrie seit dem letzten `renderState` (in Stücken, höchstens etwa 256 KB je Aufruf).
+   * Jeder Eintrag kommt genau einmal; Swift sammelt sie je Minispiel.
+   */
+  geometry: z.array(MinigameGeometrySchema),
+  /** So viele Geometrien kennt die Bühne bisher (ausgeliefert oder wartend). */
+  geometryTotal: z.number().int().min(0),
 });
 
 export const RenderStateSchema = z.strictObject({
@@ -202,4 +371,13 @@ export type Notice = z.infer<typeof NoticeSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
 export type Body = z.infer<typeof BodySchema>;
 export type MinigameState = z.infer<typeof MinigameStateSchema>;
+export type MaterialFinish = (typeof MATERIAL_FINISHES)[number];
+export type MinigameGeometry = z.infer<typeof MinigameGeometrySchema>;
+export type MinigameFigure = z.infer<typeof MinigameFigureSchema>;
+export type MinigameCamera = z.infer<typeof MinigameCameraSchema>;
+export type MinigameBackdrop = z.infer<typeof MinigameBackdropSchema>;
+export type MinigameEffect = z.infer<typeof MinigameEffectSchema>;
+export type MinigameInfoView = z.infer<typeof MinigameInfoSchema>;
+export type MinigameScoreboard = z.infer<typeof MinigameScoreboardSchema>;
+export type MinigameResults = z.infer<typeof MinigameResultsSchema>;
 export type RenderState = z.infer<typeof RenderStateSchema>;

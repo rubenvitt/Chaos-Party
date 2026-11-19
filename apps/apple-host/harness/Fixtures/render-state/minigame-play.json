@@ -100,6 +100,171 @@
     "id": "pudding-gerangel",
     "stage": "play",
     "elapsedMs": 12345,
+    "ready": true,
+    "info": {
+      "title": "Pudding-Gerangel",
+      "tagline": "Wer bleibt auf dem wackelnden Pudding?",
+      "instructions": [
+        "Schubst die anderen vom Pudding.",
+        "Kirschen geben Extra-Punkte."
+      ],
+      "controls": {
+        "joystick": "Laufen",
+        "a": "Schubsen",
+        "b": null
+      },
+      "scoreUnit": "Punkte"
+    },
+    "round": 3,
+    "repeat": false,
+    "countdown": null,
+    "camera": {
+      "pos": [
+        0,
+        11.5,
+        -13.5
+      ],
+      "target": [
+        0,
+        -1.3,
+        0.8
+      ],
+      "fov": 0.8,
+      "fovAxis": "vertical"
+    },
+    "backdrop": {
+      "halfX": 7.2,
+      "halfZ": 7.2,
+      "groundY": -3.3,
+      "surface": "decke"
+    },
+    "figures": [
+      {
+        "slot": 1,
+        "character": "raccoon",
+        "pos": [
+          -2.1,
+          0,
+          1.3
+        ],
+        "rot": [
+          0,
+          0.383,
+          0,
+          0.924
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "visible": true,
+        "anim": "run",
+        "animSeq": 4
+      },
+      {
+        "slot": 2,
+        "character": "sock",
+        "pos": [
+          1.7,
+          0,
+          -0.4
+        ],
+        "rot": [
+          0,
+          -0.259,
+          0,
+          0.966
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "visible": true,
+        "anim": "hit",
+        "animSeq": 2
+      }
+    ],
+    "scoreboard": {
+      "seconds": 48,
+      "banner": "Kirschenregen!",
+      "waiting": false,
+      "scores": [
+        {
+          "slot": 1,
+          "name": "Anna",
+          "character": "Wusel",
+          "color": "#0072B2",
+          "symbol": "●",
+          "score": 3,
+          "status": null,
+          "connected": true
+        },
+        {
+          "slot": 2,
+          "name": "Ben",
+          "character": "Socke Sigi",
+          "color": "#E69F00",
+          "symbol": "▲",
+          "score": 1,
+          "status": "raus",
+          "connected": true
+        }
+      ]
+    },
+    "results": null,
+    "effects": [
+      {
+        "seq": 7,
+        "kind": "impact",
+        "pos": [
+          0.4,
+          0.8,
+          1.1
+        ],
+        "color": null,
+        "strength": 1
+      },
+      {
+        "seq": 8,
+        "kind": "shake",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "color": null,
+        "strength": 0.3
+      },
+      {
+        "seq": 9,
+        "kind": "sparkle",
+        "pos": [
+          0.2,
+          0.6,
+          2.9
+        ],
+        "color": "#E0233D",
+        "strength": 1
+      }
+    ],
+    "geometry": [
+      {
+        "id": "g1",
+        "vertices": 4,
+        "positions": "AAAAvwAAAAAAAAC/AAAAPwAAAAAAAAC/AAAAPwAAAAAAAAA/AAAAvwAAAAAAAAA/",
+        "normals": "AH8AAH8AAH8AAH8A",
+        "indices": "AAABAAIAAAACAAMA",
+        "wideIndices": false,
+        "extent": [
+          1,
+          0,
+          1
+        ]
+      }
+    ],
+    "geometryTotal": 1,
     "bodies": [
       {
         "id": "buehne#12",
@@ -120,49 +285,9 @@
           0.5,
           12
         ],
-        "color": "#F4D35E"
-      },
-      {
-        "id": "figur-1-koerper#40",
-        "shape": "cylinder",
-        "pos": [
-          -2.1,
-          0.8,
-          1.3
-        ],
-        "rot": [
-          0,
-          0.383,
-          0,
-          0.924
-        ],
-        "size": [
-          0.8,
-          1.6,
-          0.8
-        ],
-        "color": "#0072B2"
-      },
-      {
-        "id": "figur-2-koerper#44",
-        "shape": "cylinder",
-        "pos": [
-          1.7,
-          0.8,
-          -0.4
-        ],
-        "rot": [
-          0,
-          -0.259,
-          0,
-          0.966
-        ],
-        "size": [
-          0.8,
-          1.6,
-          0.8
-        ],
-        "color": "#E69F00"
+        "color": "#F4D35E",
+        "mesh": "g1",
+        "finish": "matt"
       },
       {
         "id": "kirsche#57",
@@ -183,7 +308,10 @@
           0.6,
           0.6
         ],
-        "color": "#D7263D"
+        "color": "#D7263D",
+        "role": "kirsche",
+        "key": "2",
+        "glow": "#3A0B11"
       },
       {
         "id": "kiste#61",
@@ -204,7 +332,10 @@
           1,
           1
         ],
-        "color": "#8D6E63"
+        "color": "#8D6E63",
+        "role": "kirschfleck-vorwarnung",
+        "alpha": 0.4,
+        "twoSided": true
       }
     ],
     "hud": "48 s · Anna 3 · Ben 1"

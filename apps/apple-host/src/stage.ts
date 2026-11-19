@@ -1,7 +1,16 @@
 /**
  * Headless-Minispiel-Bühne für den Apple-Host (ADR-019 §3): wie `apps/host/src/minigame/stage.ts`,
- * aber mit NullEngine statt Canvas, ohne Rendern, Klang und Look. Swift zeichnet die Körper aus
- * `bodies()` selbst (RealityKit).
+ * aber mit NullEngine statt Canvas, ohne Rendern und Klang. Swift zeichnet selbst (RealityKit).
+ *
+ * Darstellung (CHAOS-144):
+ * - `bodies()`: jedes sichtbare Mesh mit Lage, Farbe, Rolle (`markVisual`, CHAOS-149) und Verweis
+ *   auf seine Geometrie; Figuren fehlen dort, sie kommen als `figures()` (Swift zeigt USDZ).
+ * - `takeGeometry()`: die echte Geometrie der Meshes, dedupliziert, einmal je Minispiel
+ *   (`./geometry.ts`), im Aufbau vorbereitet.
+ * - Look: Die Bühne gibt dem Minispiel einen `look` wie der Browser-Host (gleicher Code-Pfad):
+ *   `material` merkt sich die Oberfläche, `backdrop` nur die Spielfläche; die Kulisse drumherum
+ *   baut Swift.
+ * - Effekte (`ctx.fx`): Ausbrüche und Kamerawackeln als nummerierte Ereignisse (`effects()`).
  */
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer.js';
@@ -13,19 +22,42 @@ import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder.js
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Logger } from '@babylonjs/core/Misc/logger.js';
 import { Scene } from '@babylonjs/core/scene.js';
+import type { MinigamePlacement, Slot } from '@chaos-party/minigame-sdk';
 import {
   createMinigameRunner,
   PrepareAborted,
+  visualOf,
   type CharacterFactory,
   type HavokInstance,
+  type LookArea,
+  type LookMaterialOptions,
   type MinigameFx,
+  type MinigameLook,
   type MinigameModule,
   type MinigamePlayer,
   type MinigameRunner,
   type PrepareThrottle,
   type RunnerResult,
+  type VisualTag,
 } from '@chaos-party/minigame-sdk/babylon';
-import type { Body, BodyShape } from './contract.ts';
+import type {
+  Body,
+  BodyShape,
+  MaterialFinish,
+  MinigameBackdrop,
+  MinigameCamera,
+  MinigameEffect,
+  MinigameFigure,
+  MinigameGeometry,
+} from './contract.ts';
+import {
+  encodeStep,
+  finishGeometry,
+  geometryKey,
+  pendingGeometry as preparePending,
+  readMeshData,
+  type PendingGeometry,
+} from './geometry.ts';
 
 export interface HeadlessStageOptions {
   readonly module: MinigameModule;
@@ -41,6 +73,8 @@ export interface HeadlessStageOptions {
    * (Tests).
    */
   readonly pacing?: PrepareThrottle;
+  /** Uhr für Effekte (ms, Kern-Uhr); fehlt = 0 (Tests). */
+  readonly now?: () => number;
 }
 
 /**
@@ -61,47 +95,140 @@ export interface HeadlessStage {
   /** Echte Zeit vergeht: feste 1/60-Schritte über `runner.advance`. */
   advance(seconds: number): void;
   bodies(): Body[];
+  /** Figuren je Slot (Wurzelknoten = Füße), ohne Kapsel-Körper. */
+  figures(): MinigameFigure[];
+  camera(): MinigameCamera | null;
+  /** Spielfläche aus `look.backdrop`, sonst `null`. */
+  readonly backdrop: MinigameBackdrop | null;
+  /** Effekte ab `sinceMs` (Uhr aus `options.now`). */
+  effects(sinceMs: number): MinigameEffect[];
+  /**
+   * Fertig kodierte, noch nicht ausgelieferte Geometrie: höchstens etwa `maxChars` Zeichen. Kodiert
+   * wird hier in Schritten, höchstens `budgetMs` (echte Uhr aus `pacing`) je Aufruf; ohne
+   * Budget alles am Stück.
+   */
+  takeGeometry(maxChars: number, budgetMs?: number): MinigameGeometry[];
+  /** So viele Geometrien kennt die Bühne (ausgeliefert oder wartend). */
+  readonly geometryTotal: number;
+  /** Figuren jubeln (Platz 1, mit Konfetti) bzw. schmollen; einmal je Bühne (wie im Browser-Host). */
+  celebrate(placements: readonly MinigamePlacement[]): void;
   dispose(): void;
 }
 
-/** Keine Effekte: Klang und Partikel macht (später) Swift. */
-const NO_FX: MinigameFx = {
-  sound: () => undefined,
-  burst: () => undefined,
-  shake: () => undefined,
-};
+/** Höchstens so viele Effekte hält die Bühne vor. */
+const MAX_EFFECTS = 48;
+
+interface FigureEntry {
+  readonly player: MinigamePlayer;
+  readonly root: TransformNode;
+  readonly body: AbstractMesh;
+  anim: string;
+  seq: number;
+  disposed: boolean;
+}
 
 /**
  * Figuren als Kapsel in Spielerfarbe (1,6 hoch, Füße bei y = 0) wie im Headless-Testharness des
- * SDK; dessen Modul ist hier nicht nutzbar (importiert `node:fs`).
+ * SDK; dessen Modul ist hier nicht nutzbar (importiert `node:fs`). Merkt sich je Slot Wurzel und
+ * zuletzt gespielte Animation (Swift spielt sie am USDZ).
  */
-const CAPSULE_CHARACTERS: CharacterFactory = {
-  create(scene, player) {
-    const root = new TransformNode(`figur-${player.slot}`, scene);
-    const body = CreateCapsule(`figur-${player.slot}-koerper`, { height: 1.6, radius: 0.4 }, scene);
-    body.position.y = 0.8;
-    body.parent = root;
-    const material = new StandardMaterial(`figur-${player.slot}-material`, scene);
-    material.diffuseColor = Color3.FromHexString(player.color);
-    body.material = material;
-    return {
-      root,
-      id: player.character,
-      play: () => undefined,
-      dispose: () => {
-        material.dispose();
-        body.dispose();
-        root.dispose();
-      },
-    };
-  },
-};
+function capsuleCharacters(figures: Map<Slot, FigureEntry>): CharacterFactory {
+  return {
+    create(scene, player) {
+      const root = new TransformNode(`figur-${player.slot}`, scene);
+      const body = CreateCapsule(
+        `figur-${player.slot}-koerper`,
+        { height: 1.6, radius: 0.4 },
+        scene,
+      );
+      body.position.y = 0.8;
+      body.parent = root;
+      const material = new StandardMaterial(`figur-${player.slot}-material`, scene);
+      material.diffuseColor = Color3.FromHexString(player.color);
+      body.material = material;
+      const entry: FigureEntry = { player, root, body, anim: 'idle', seq: 0, disposed: false };
+      figures.set(player.slot, entry);
+      return {
+        root,
+        id: player.character,
+        play: (animation) => {
+          entry.anim = animation;
+          entry.seq++;
+        },
+        dispose: () => {
+          entry.disposed = true;
+          material.dispose();
+          body.dispose();
+          root.dispose();
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Look für native Hosts (CHAOS-144): derselbe Code-Pfad wie im Browser-Host (das Minispiel baut
+ * kein eigenes Licht und keinen Boden bis zum Horizont), aber ohne Kulisse. `material` liefert ein
+ * StandardMaterial mit Farbe, Leuchten und Deckkraft und merkt sich die Oberfläche;
+ * `backdrop` merkt sich nur die Spielfläche.
+ */
+function nativeLook(scene: Scene, onBackdrop: (area: LookArea) => void): MinigameLook {
+  return {
+    material(hex: string, options: LookMaterialOptions = {}) {
+      const material = new StandardMaterial(`look-${hex}`, scene);
+      material.diffuseColor = Color3.FromHexString(hex);
+      // Wie `plainOptions` im Browser-Look: Leuchten zur Hälfte.
+      if (options.emissive)
+        material.emissiveColor = material.diffuseColor.scale(options.emissive * 0.5);
+      if (options.alpha !== undefined) material.alpha = options.alpha;
+      material.metadata = { finish: options.finish ?? 'lack' };
+      return material;
+    },
+    backdrop: onBackdrop,
+  };
+}
 
 export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStage {
   Logger.LogLevels = Logger.WarningLogLevel | Logger.ErrorLogLevel;
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const flags = { startRequested: false, paused: false, disposed: false, ready: false };
+  const now = options.now ?? (() => 0);
+  const flags = {
+    startRequested: false,
+    paused: false,
+    disposed: false,
+    ready: false,
+    celebrated: false,
+  };
+  const figures = new Map<Slot, FigureEntry>();
+  let backdrop: MinigameBackdrop | null = null;
+  const effects: MinigameEffect[] = [];
+  let effectSeq = 0;
+  /** Effekt-Zeitpunkte (Kern-Uhr), parallel zu `effects`. */
+  const effectTimes: number[] = [];
+  const pushEffect = (effect: Omit<MinigameEffect, 'seq'>) => {
+    effects.push({ ...effect, seq: ++effectSeq });
+    effectTimes.push(now());
+    if (effects.length > MAX_EFFECTS) {
+      effects.shift();
+      effectTimes.shift();
+    }
+  };
+  /** Effekte als Ereignisse für Swift; Klang fehlt im nativen Host noch. */
+  const fx: MinigameFx = {
+    sound: () => undefined,
+    burst(id, at, color) {
+      pushEffect({
+        kind: id,
+        pos: [r(at.x), r(at.y), r(at.z)],
+        color: color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : null,
+        strength: 1,
+      });
+    },
+    shake(strength) {
+      pushEffect({ kind: 'shake', pos: [0, 0, 0], color: null, strength: r(strength) });
+    },
+  };
   const startNow = () => {
     if (flags.ready && runner.state === 'ready') runner.start();
   };
@@ -110,9 +237,17 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     players: options.players,
     seed: options.seed,
     timeLimitMs: options.timeLimitMs,
-    fx: NO_FX,
-    characters: CAPSULE_CHARACTERS,
+    fx,
+    characters: capsuleCharacters(figures),
     havok: options.havok,
+    look: nativeLook(scene, (area) => {
+      backdrop = {
+        halfX: area.halfX,
+        halfZ: area.halfZ,
+        groundY: area.groundY ?? 0,
+        surface: area.surface ?? 'wiese',
+      };
+    }),
     onResult: options.onResult,
     ...(options.pacing ? { pacing: options.pacing } : {}),
   });
@@ -128,8 +263,53 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     }
     return shape;
   };
+  /** Rolle je Mesh (`markVisual` am Wurzelknoten, CHAOS-149); `null` = Kulisse. */
+  const tags = new Map<number, VisualTag | null>();
+  const tagOf = (mesh: AbstractMesh): VisualTag | null => {
+    let tag = tags.get(mesh.uniqueId);
+    if (tag === undefined) {
+      tag = visualOf(mesh) ?? null;
+      tags.set(mesh.uniqueId, tag);
+    }
+    return tag;
+  };
 
-  /** Nach `prepare` die Formen aller Meshes vorab bestimmen, ebenfalls verteilt. */
+  // --- Geometrie-Katalog (CHAOS-144) ----------------------------------------------------------
+  /** Mesh → Geometrie-ID (`null`: ohne Dreiecke). */
+  const meshGeometry = new Map<number, string | null>();
+  /** Babylon-Geometrie → ID: Instanzen und geteilte Geometrie ohne erneutes Lesen. */
+  const sharedGeometry = new Map<number, string>();
+  /** Inhalt → ID: gleich gebaute Meshes teilen sich eine Geometrie. */
+  const contentGeometry = new Map<string, string>();
+  const pendingGeometry: PendingGeometry[] = [];
+  /** Meshes, die erst im Spiel auftauchen; `takeGeometry` liest sie im Zeitbudget. */
+  const lateMeshes = new Set<AbstractMesh>();
+  let geometryTotal = 0;
+  const geometryOf = (mesh: AbstractMesh): string | null => {
+    const known = meshGeometry.get(mesh.uniqueId);
+    if (known !== undefined) return known;
+    const source = (mesh as { sourceMesh?: AbstractMesh }).sourceMesh ?? mesh;
+    const shared = (source as { geometry?: { uniqueId: number } | null }).geometry?.uniqueId;
+    let id = shared === undefined ? undefined : sharedGeometry.get(shared);
+    if (id === undefined) {
+      const data = readMeshData(mesh);
+      if (data) {
+        const key = geometryKey(data);
+        id = contentGeometry.get(key);
+        if (id === undefined) {
+          ++geometryTotal;
+          id = `g${String(++geometrySerial)}`;
+          contentGeometry.set(key, id);
+          pendingGeometry.push(preparePending(id, data));
+        }
+        if (shared !== undefined) sharedGeometry.set(shared, id);
+      }
+    }
+    meshGeometry.set(mesh.uniqueId, id ?? null);
+    return id ?? null;
+  };
+
+  /** Nach `prepare` Formen und Geometrie aller Meshes vorab bestimmen, ebenfalls verteilt. */
   const classifyAll = async () => {
     const pacing = options.pacing;
     let sliceStartedAt = pacing?.now() ?? 0;
@@ -140,7 +320,9 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
         sliceStartedAt = pacing.now();
       }
       if (disposed()) return;
-      if (!mesh.isDisposed() && mesh.getTotalVertices() > 0) shapeOf(mesh);
+      if (mesh.isDisposed() || mesh.getTotalVertices() === 0) continue;
+      shapeOf(mesh);
+      if (tagOf(mesh)?.role !== 'figur') geometryOf(mesh);
     }
   };
 
@@ -168,6 +350,12 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     get ready() {
       return flags.ready;
     },
+    get backdrop() {
+      return backdrop;
+    },
+    get geometryTotal() {
+      return geometryTotal;
+    },
     start() {
       flags.startRequested = true;
       startNow();
@@ -191,17 +379,130 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
       for (const mesh of scene.meshes) {
         if (!mesh.isEnabled() || !mesh.isVisible || mesh.visibility === 0) continue;
         if (mesh.getTotalVertices() === 0) continue;
+        const tag = tagOf(mesh);
+        // Figuren zeichnet Swift als USDZ (`figures()`).
+        if (tag?.role === 'figur') continue;
         // Ohne `force`: neu gerechnet wird nur, was sich bewegt hat (force kostet ~60 µs je Mesh).
         const flag = mesh.computeWorldMatrix().updateFlag;
         let entry = placed.get(mesh.uniqueId);
         if (entry?.flag !== flag) {
           entry = { flag, body: place(mesh, entry?.body.shape ?? shapeOf(mesh)) };
+          if (tag) {
+            entry.body.role = tag.role;
+            if (tag.key !== undefined) entry.body.key = tag.key;
+          }
           placed.set(mesh.uniqueId, entry);
         }
-        // Farbe immer frisch: Minispiele färben Meshes um, ohne sie zu bewegen.
-        out.push({ ...entry.body, color: colorOf(mesh) });
+        // Geometrie: im Aufbau bestimmt; Meshes aus dem Spiel (neue Socken) liest `takeGeometry`
+        // mit Zeitbudget nach, bis dahin zeichnet Swift die Grundform.
+        const geometry = meshGeometry.get(mesh.uniqueId);
+        if (geometry === undefined) lateMeshes.add(mesh);
+        // Farbe und Material immer frisch: Minispiele färben Meshes um, ohne sie zu bewegen.
+        out.push({
+          ...entry.body,
+          ...(geometry ? { mesh: geometry } : {}),
+          color: colorOf(mesh),
+          ...surfaceOf(mesh),
+        });
       }
       return out;
+    },
+    figures() {
+      if (!flags.ready || flags.disposed) return [];
+      const out: MinigameFigure[] = [];
+      for (const [slot, entry] of [...figures].sort((a, b) => a[0] - b[0])) {
+        if (entry.disposed) continue;
+        entry.root.computeWorldMatrix().decompose(scratchScale, scratchRotation, scratchPosition);
+        const body = entry.body;
+        out.push({
+          slot,
+          character: entry.player.character,
+          pos: [r(scratchPosition.x), r(scratchPosition.y), r(scratchPosition.z)],
+          rot: [
+            r(scratchRotation.x),
+            r(scratchRotation.y),
+            r(scratchRotation.z),
+            r(scratchRotation.w),
+          ],
+          scale: [r(scratchScale.x), r(scratchScale.y), r(scratchScale.z)],
+          visible:
+            entry.root.isEnabled() && body.isEnabled() && body.isVisible && body.visibility > 0,
+          anim: entry.anim,
+          animSeq: entry.seq,
+        });
+      }
+      return out;
+    },
+    camera() {
+      const camera = scene.activeCamera;
+      if (!camera || flags.disposed) return null;
+      // Arc-Rotate-Kameras rechnen ihre Lage erst beim Bild; ohne Rendern hier von Hand.
+      camera.getViewMatrix(true);
+      const position = camera.globalPosition;
+      const aim = (camera as unknown as Partial<{ getTarget(): Vector3 }>).getTarget;
+      const target =
+        typeof aim === 'function'
+          ? aim.call(camera)
+          : position.add(camera.getDirection(Vector3.Forward()));
+      return {
+        pos: [r(position.x), r(position.y), r(position.z)],
+        target: [r(target.x), r(target.y), r(target.z)],
+        fov: r(camera.fov),
+        // Babylon: FOVMODE_VERTICAL_FIXED = 0, FOVMODE_HORIZONTAL_FIXED = 1.
+        fovAxis: camera.fovMode === 1 ? 'horizontal' : 'vertical',
+      };
+    },
+    effects(sinceMs) {
+      const out: MinigameEffect[] = [];
+      effects.forEach((effect, index) => {
+        if ((effectTimes[index] ?? 0) >= sinceMs) out.push(effect);
+      });
+      return out;
+    },
+    takeGeometry(maxChars, budgetMs) {
+      const out: MinigameGeometry[] = [];
+      const clock = options.pacing?.now;
+      const started = clock?.() ?? 0;
+      const spent = () => (clock ? clock() - started : 0);
+      let chars = 0;
+      let steps = 0;
+      for (const mesh of lateMeshes) {
+        if (steps > 0 && budgetMs !== undefined && spent() >= budgetMs) break;
+        lateMeshes.delete(mesh);
+        if (!mesh.isDisposed()) geometryOf(mesh);
+        steps++;
+      }
+      steps = 0;
+      while (pendingGeometry.length > 0) {
+        const next = pendingGeometry[0];
+        if (!next) break;
+        if (out.length > 0 && chars + next.chars > maxChars) break;
+        // Base64 in Schritten: mindestens einer je Aufruf, sonst bis das Zeitbudget verbraucht ist.
+        let done = false;
+        while (!done && (steps === 0 || budgetMs === undefined || spent() < budgetMs)) {
+          done = encodeStep(next);
+          steps++;
+        }
+        if (!done) break;
+        out.push(finishGeometry(next));
+        pendingGeometry.shift();
+        chars += next.chars;
+      }
+      return out;
+    },
+    celebrate(placements) {
+      if (flags.celebrated || flags.disposed || !flags.ready) return;
+      flags.celebrated = true;
+      for (const entry of placements) {
+        const figure = figures.get(entry.slot);
+        if (!figure || figure.disposed) continue;
+        figure.anim = entry.place === 1 ? 'cheer' : 'sad';
+        figure.seq++;
+        if (entry.place === 1) {
+          const at = figure.root.getAbsolutePosition();
+          fx.burst('confetti', { x: at.x, y: at.y + 1.6, z: at.z });
+        }
+      }
     },
     dispose() {
       if (flags.disposed) return;
@@ -218,6 +519,28 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
 
 const scratchScale = new Vector3();
 const scratchRotation = new Quaternion();
+const scratchPosition = new Vector3();
+/** Geometrie-IDs über alle Bühnen fortlaufend: Eine neue Bühne (Revanche) verwechselt nie alte Meshes. */
+let geometrySerial = 0;
+
+/** Material-Angaben für Swift; nur was vom Standard abweicht. */
+function surfaceOf(mesh: AbstractMesh): Pick<Body, 'alpha' | 'glow' | 'finish' | 'twoSided'> {
+  const material = mesh.material as {
+    alpha?: number;
+    emissiveColor?: Color3;
+    backFaceCulling?: boolean;
+    metadata?: { finish?: MaterialFinish } | null;
+  } | null;
+  const out: Pick<Body, 'alpha' | 'glow' | 'finish' | 'twoSided'> = {};
+  const alpha = (material?.alpha ?? 1) * mesh.visibility;
+  if (alpha < 0.999) out.alpha = Math.max(0, r(alpha));
+  const glow = material?.emissiveColor;
+  if (glow && glow.r + glow.g + glow.b > 0.004) out.glow = glow.toHexString();
+  const finish = material?.metadata?.finish;
+  if (finish && finish !== 'lack') out.finish = finish;
+  if (material?.backFaceCulling === false) out.twoSided = true;
+  return out;
+}
 
 function place(mesh: AbstractMesh, shape: BodyShape): Body {
   const box = mesh.getBoundingInfo().boundingBox;

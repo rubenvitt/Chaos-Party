@@ -14,7 +14,7 @@ import HavokPhysics from '@babylonjs/havok';
 import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { getMinigameModule } from '@chaos-party/minigames';
 import { ROTATION } from '@chaos-party/minigames/catalog';
-import type { HavokInstance } from '@chaos-party/minigame-sdk/babylon';
+import type { HavokInstance, MinigameHud } from '@chaos-party/minigame-sdk/babylon';
 import {
   encode,
   type BoardMessage,
@@ -40,6 +40,7 @@ import {
   minigameStageOf,
   planPlay,
   playersFromView,
+  remainingPlayMs,
   stageKeyOf,
 } from '../../host/src/minigame/plan.ts';
 import { resultPayload } from '../../host/src/minigame/results.ts';
@@ -56,6 +57,7 @@ import type {
 import { CONFIGURE_PREFIX } from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
+import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
 import { createNoticeTracker } from './notice.ts';
 import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
 
@@ -76,6 +78,16 @@ const PACING = {
   now: () => Date.now(),
   budgetMs: PREPARE_BUDGET_MS,
 };
+
+/**
+ * So viele Zeichen Geometrie (Base64) gibt `renderState` höchstens je Aufruf mit (CHAOS-144):
+ * Die Geometrie eines Minispiels kommt so über einige Bilder der Anleitung verteilt.
+ */
+const GEOMETRY_CHARS_PER_FRAME = 256 * 1024;
+/** So viele ms (echte Uhr) kodiert `renderState` höchstens Geometrie je Aufruf (CHAOS-141). */
+const GEOMETRY_BUDGET_MS = 2;
+/** So lange (ms) bleiben Effekte in `renderState`, damit Swift keinen verpasst. */
+const EFFECT_WINDOW_MS = 1_500;
 
 /** So viele Ticker-Meldungen hält `renderState().board.messages`. */
 const MAX_MESSAGES = 6;
@@ -271,6 +283,7 @@ function create(env: HostEnv): ChaosHostInstance {
           havok,
           log,
           pacing: PACING,
+          now,
           onResult: (result) => {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
@@ -403,28 +416,67 @@ function create(env: HostEnv): ChaosHostInstance {
     const minigame = current.minigame;
     const stageName = minigameStageOf(current);
     if (!minigame || !stageName) return null;
-    const runner = stage?.headless.runner;
+    const module = getMinigameModule(minigame.id);
+    const headless = stage?.headless;
+    const runner = headless?.runner;
     let hud = '';
+    let hudData: MinigameHud | null = null;
     if (runner && runner.state !== 'created' && runner.state !== 'preparing') {
       try {
-        const data = runner.hud();
-        const scores = data.scores
+        hudData = runner.hud();
+        const scores = hudData.scores
           .map(
             (entry) =>
               `${playerName(current, entry.slot)} ${entry.score}${entry.status ? ` (${entry.status})` : ''}`,
           )
           .join(' · ');
-        hud = `${Math.ceil(data.remainingMs / 1000)} s · ${scores}${data.banner ? ` · ${data.banner}` : ''}`;
+        hud = `${Math.ceil(hudData.remainingMs / 1000)} s · ${scores}${hudData.banner ? ` · ${hudData.banner}` : ''}`;
       } catch (error) {
         hud = `HUD-Fehler: ${describe(error)}`;
       }
+    }
+    const info = module?.info;
+    let scoreboard: MinigameState['scoreboard'] = null;
+    if (stageName === 'play') {
+      const plan = planPlay(current, receivedAt, now());
+      const waiting = plan.kind === 'wait' || !headless?.ready;
+      const remaining =
+        hudData && !waiting ? hudData.remainingMs : remainingPlayMs(current, receivedAt, now());
+      scoreboard = scoreboardView(current, hudData, remaining, plan.kind === 'wait');
+    }
+    let results: MinigameState['results'] = null;
+    if (stageName === 'results') {
+      results = resultsView(current, info ?? { scoreUnit: 'Punkte' });
+      // Figuren jubeln bzw. schmollen wie im Browser-Host (`stage.celebrate`).
+      if (!results.aborted && minigame.placements) headless?.celebrate(minigame.placements);
     }
     return {
       id: minigame.id,
       stage: stageName,
       elapsedMs: runner?.elapsedMs ?? 0,
-      bodies: stage?.headless.bodies() ?? [],
+      bodies: headless?.bodies() ?? [],
       hud,
+      ready: headless?.ready ?? false,
+      info: info
+        ? infoView(info)
+        : {
+            title: minigame.id,
+            tagline: '',
+            instructions: [],
+            controls: { joystick: null, a: null, b: null },
+            scoreUnit: 'Punkte',
+          },
+      round: minigame.round,
+      repeat: minigame.repeat === true,
+      countdown: introCountdown(current, receivedAt, now()),
+      camera: headless?.ready ? headless.camera() : null,
+      backdrop: headless?.backdrop ?? null,
+      figures: headless?.figures() ?? [],
+      scoreboard,
+      results,
+      effects: headless?.effects(now() - EFFECT_WINDOW_MS) ?? [],
+      geometry: headless?.takeGeometry(GEOMETRY_CHARS_PER_FRAME, GEOMETRY_BUDGET_MS) ?? [],
+      geometryTotal: headless?.geometryTotal ?? 0,
     };
   };
 

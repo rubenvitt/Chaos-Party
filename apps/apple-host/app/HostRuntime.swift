@@ -31,6 +31,8 @@ struct Overlay: Equatable {
     var notice: RenderState.Notice?
     /// Rundenzahl und „Mehr Zeit zum Reagieren“ (CHAOS-166).
     var settings: RenderState.LobbySettings?
+    /// Anleitung, HUD und Ergebnis eines Minispiels (CHAOS-144), auch in dessen Pause.
+    var minigame: MinigameScreen?
     var stats = ""
 }
 
@@ -196,6 +198,7 @@ final class HostRuntime: ObservableObject {
             o.lines = [s.phase]
         }
         o.notice = s.phase == "board" ? s.board?.notice : nil
+        o.minigame = s.phase == "minigame" || s.phase == "paused" ? s.minigame.map(MinigameScreen.init) : nil
         if o != overlay { overlay = o }
         let players = s.lobby?.players ?? []
         if autostart, overlay.sceneLoaded, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) {
