@@ -33,8 +33,12 @@ struct Overlay: Equatable {
     var settings: RenderState.LobbySettings?
     /// Anleitung, HUD und Ergebnis eines Minispiels (CHAOS-144), auch in dessen Pause.
     var minigame: MinigameScreen?
-    /// HUD der Brettphase aus der Regie (CHAOS-143); nur in der Phase `board`.
+    /// HUD der Brettphase aus der Regie (CHAOS-143); in der Phase `board` und in deren Pause.
     var board: BoardOverlay?
+    /// Pause und ob sie gerade geht (CHAOS-145).
+    var pause = PauseScreen()
+    /// Trophäenzählung bzw. Siegerbildschirm (CHAOS-145); nur in der Phase `final`.
+    var finale: FinaleScreen?
     var stats = ""
 }
 
@@ -62,6 +66,11 @@ final class HostRuntime: ObservableObject {
     /// `host-ready` erst nach `sceneReady()` (CHAOS-142); `--selftest` hat keine Szene.
     private let deferScene: Bool
     private var presentedMs: [Double] = []
+    /// tvOS im Hintergrund seit (CHAOS-145); dann ruht der Kern.
+    private var backgroundSince: CFTimeInterval?
+    /// Summe der Hintergrundzeit: Die Uhr des Kerns läuft ohne sie weiter, sonst liefen beim Zurückkommen alle Fristen
+    /// (Herzschlag 15 s, Wachhund der Host-Rolle, Würfelfristen) auf einmal ab.
+    private var suspendedMs: Double = 0
 
     init(deferScene: Bool = true) { self.deferScene = deferScene }
 
@@ -155,10 +164,10 @@ final class HostRuntime: ObservableObject {
     func frame(dtMs: Double, apply: @escaping (RenderState) -> Void) {
         if dtMs > 0 { frameMs.append(dtMs) }
         report()
-        guard ready else { return }
+        guard ready, backgroundSince == nil else { return }
         guard !busy else { skipped += 1; return }
         busy = true
-        let now = CACurrentMediaTime() * 1000 // monotonic, as jscore expects
+        let now = CACurrentMediaTime() * 1000 - suspendedMs // monotonic without background time, as jscore expects
         queue.async {
             let t0 = CACurrentMediaTime()
             _ = self.instance?.invokeMethod("tick", withArguments: [now])
@@ -201,12 +210,40 @@ final class HostRuntime: ObservableObject {
         }
         o.notice = s.phase == "board" ? s.board?.notice : nil
         o.minigame = s.phase == "minigame" || s.phase == "paused" ? s.minigame.map(MinigameScreen.init) : nil
-        o.board = s.phase == "board" ? s.board.flatMap { b in b.hud.map { BoardOverlay(hud: $0, ticker: b.ticker ?? [], notice: b.notice) } } : nil
+        let boardShown = s.phase == "board" || (s.phase == "paused" && s.minigame == nil)
+        o.board = boardShown ? s.board.flatMap { b in b.hud.map { BoardOverlay(hud: $0, ticker: b.ticker ?? [], notice: b.notice) } } : nil
+        o.pause = PauseScreen(s.pause)
+        o.finale = s.phase == "final" ? s.final.map(FinaleScreen.init) : nil
         if o != overlay { overlay = o }
         let players = s.lobby?.players ?? []
         if autostart, overlay.sceneLoaded, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) {
             command("start")
         }
+    }
+
+    /// tvOS geht in den Hintergrund (Home-Taste, Ruhezustand, CHAOS-145): Partie pausieren, falls das geht, und den Kern
+    /// ruhen lassen. Sie bleibt pausiert, bis jemand „Weiter“ drückt. `done` läuft, wenn der Befehl verarbeitet ist.
+    func enterBackground(done: @escaping () -> Void = {}) {
+        guard backgroundSince == nil else { return done() }
+        backgroundSince = CACurrentMediaTime()
+        let pause = overlay.pause.canPause
+        hostLog("Hintergrund\(pause ? ": Partie pausiert" : "")")
+        queue.async {
+            if pause { _ = self.instance?.invokeMethod("hostCommand", withArguments: ["pause"]) }
+            DispatchQueue.main.async { done() }
+        }
+    }
+
+    /// Zurück im Vordergrund: Uhr ohne die Hintergrundzeit weiter, Listener auf demselben Port prüfen (tvOS nimmt
+    /// angehaltenen Apps lauschende Sockets weg); tote Verbindungen meldet der Server über `closed`, die Controller
+    /// verbinden sich mit ihrem Token neu.
+    func enterForeground() {
+        guard let since = backgroundSince else { return }
+        let ms = (CACurrentMediaTime() - since) * 1000
+        suspendedMs += ms
+        backgroundSince = nil
+        hostLog(String(format: "Vordergrund nach %.1f s", ms / 1000))
+        queue.async { self.server?.resume() }
     }
 
     private func report() {

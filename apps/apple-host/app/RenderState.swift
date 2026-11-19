@@ -9,6 +9,10 @@ struct RenderState: Decodable, Equatable {
     var lobby: Lobby?
     var board: Board?
     var minigame: Minigame?
+    /// Finale (CHAOS-145): Trophäenzählung, Siegerbildschirm, Podest; nur in der Phase `final`.
+    var final: Final?
+    /// Pause (CHAOS-145): Server-Stand, ob Pausieren gerade geht, Rundentext, Klänge.
+    var pause: Pause?
 
     struct Lobby: Decodable, Equatable {
         var joinUrl: String?
@@ -345,6 +349,93 @@ struct RenderState: Decodable, Equatable {
         var indices: String
         var wideIndices: Bool?
         var extent: [Float]?
+    }
+
+    /// Finale like `Finale.tsx` in the browser host; the timeline runs in the JS core (`src/finaleView.ts`).
+    struct Final: Decodable, Equatable {
+        /// intro, reveal, tiebreak, winner
+        var beat: String
+        var beatIndex: Int?
+        var progress: Float?
+        /// Winner screen reached (stays until the rematch).
+        var done: Bool
+        var elapsedMs: Double?
+        var winnerAtMs: Double?
+        var endedEarly: Bool?
+        var kicker: String?
+        var title: String?
+        var lead: String?
+        var cards: [FinaleCard]?
+        var winner: FinaleWinner?
+        var podium: [PodiumEntry]?
+        var canRematch: Bool?
+        var sounds: [SoundCue]?
+    }
+
+    /// Tally card, values already counted up.
+    struct FinaleCard: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var characterName: String?
+        var color: String?
+        var symbol: String?
+        var place: Int?
+        var badge: String?
+        var revealed: Bool?
+        var active: Bool?
+        var trophies: Int?
+        var coins: Int?
+        var placeShown: Bool?
+    }
+
+    struct FinaleWinner: Decodable, Equatable {
+        var headline: String?
+        var reason: String?
+        var earlyNote: String?
+        var ranking: [FinaleRank]?
+        var awards: [FinaleAward]?
+    }
+
+    struct FinaleRank: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var characterName: String?
+        var color: String?
+        var symbol: String?
+        var place: Int?
+        var badge: String?
+        var trophies: Int?
+        var coins: Int?
+    }
+
+    struct FinaleAward: Decodable, Equatable {
+        var id: String
+        var title: String
+        var detail: String?
+        var names: String?
+    }
+
+    /// One block of the winners' podium (Babylon coordinates: flip z; the camera looks from -z).
+    struct PodiumEntry: Decodable, Equatable {
+        var slot: Int
+        var character: String?
+        var color: String?
+        var symbol: String?
+        var place: Int
+        var x: Float
+        var height: Float
+        var blockColor: String?
+        /// cheer, sad, jump
+        var anim: String?
+    }
+
+    struct Pause: Decodable, Equatable {
+        var paused: Bool
+        var canPause: Bool?
+        var roundText: String?
+        var sounds: [SoundCue]?
     }
 
     /// The phases the contract knows (`CONTRACT_PHASES`).

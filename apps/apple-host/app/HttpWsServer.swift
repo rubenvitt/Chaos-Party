@@ -33,27 +33,79 @@ final class HttpWsServer {
         self.webRoot = webRoot.standardizedFileURL
     }
 
-    /// Tries `port`, then the next ones; calls `ready` with the bound port.
+    /// Tries `port`, then the next ones; calls `ready` once with the bound port. Fails the listener later (tvOS takes
+    /// listening sockets away from suspended apps), it comes back on the same port (CHAOS-145): QR code, join link and
+    /// the tokens of the native controller app (`socketURL|code`) stay valid.
     func start(port: UInt16, attempts: Int = 10, ready: @escaping (UInt16) -> Void) {
-        guard let listener = try? NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!) else {
-            return retry(port, attempts, ready, "NWListener nicht erstellt")
-        }
+        guard let listener = makeListener(port, reuse: false) else { return retry(port, attempts, ready, "NWListener nicht erstellt") }
         listener.stateUpdateHandler = { [weak self] state in
             hostLog("Listener :\(port) \(state)")
             switch state {
-            case .ready: ready(listener.port?.rawValue ?? port)
+            case .ready:
+                self?.boundPort = listener.port?.rawValue ?? port
+                ready(listener.port?.rawValue ?? port)
             case .failed(let error):
                 listener.cancel()
-                self?.retry(port, attempts, ready, "\(error)")
+                if self?.boundPort != nil { self?.restart(reason: "\(error)") } else { self?.retry(port, attempts, ready, "\(error)") }
             default: break
             }
         }
+        listener.start(queue: queue)
+        self.listener = listener
+    }
+
+    /// Port, auf dem der Listener lief (nach dem ersten `ready`).
+    private var boundPort: UInt16?
+    private var restarting = false
+
+    /// Vordergrund (CHAOS-145): Läuft der Listener nicht mehr, auf demselben Port neu starten.
+    func resume() {
+        guard boundPort != nil else { return }
+        if let listener, case .ready = listener.state { return }
+        restart(reason: "Vordergrund, Listener \(listener.map { "\($0.state)" } ?? "weg")")
+    }
+
+    private func restart(reason: String, attempt: Int = 1) {
+        guard let port = boundPort, !restarting || attempt > 1 else { return }
+        restarting = true
+        listener?.stateUpdateHandler = nil
+        listener?.cancel()
+        hostLog("Listener :\(port) neu starten (\(reason), Versuch \(attempt))")
+        guard let listener = makeListener(port, reuse: true) else { return retryRestart(reason, attempt) }
+        listener.stateUpdateHandler = { [weak self] state in
+            hostLog("Listener :\(port) \(state)")
+            switch state {
+            case .ready: self?.restarting = false
+            case .failed(let error):
+                listener.cancel()
+                if self?.restarting == true { self?.retryRestart("\(error)", attempt) } else { self?.restart(reason: "\(error)") }
+            default: break
+            }
+        }
+        listener.start(queue: queue)
+        self.listener = listener
+    }
+
+    /// Port noch belegt (Socket im TIME_WAIT o. ä.): jede Sekunde erneut, eine Minute lang.
+    private func retryRestart(_ reason: String, _ attempt: Int) {
+        guard attempt < 60 else {
+            restarting = false
+            return hostLog("FEHLER Listener :\(boundPort ?? 0) kommt nicht wieder: \(reason)")
+        }
+        queue.asyncAfter(deadline: .now() + 1) { [weak self] in self?.restart(reason: reason, attempt: attempt + 1) }
+    }
+
+    /// `reuse` nur beim Neustart: Angenommene Verbindungen auf diesem Port stehen noch im TIME_WAIT. Beim ersten Start
+    /// nicht, sonst teilten sich zwei Apps auf einem Mac womöglich einen Port.
+    private func makeListener(_ port: UInt16, reuse: Bool) -> NWListener? {
+        let parameters = NWParameters.tcp
+        parameters.allowLocalEndpointReuse = reuse
+        guard let listener = try? NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!) else { return nil }
         listener.newConnectionHandler = { [weak self] conn in
             conn.start(queue: self?.queue ?? .main)
             self?.readRequest(conn, Data())
         }
-        listener.start(queue: queue)
-        self.listener = listener
+        return listener
     }
 
     private func retry(_ port: UInt16, _ attempts: Int, _ ready: @escaping (UInt16) -> Void, _ reason: String) {

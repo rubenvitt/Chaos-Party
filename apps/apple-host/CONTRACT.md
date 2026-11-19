@@ -31,12 +31,14 @@ interface ChaosHostInstance {
   tick(nowMs: number): void; // ~60× pro s (Anzeige-Takt), monotone ms-Uhr; treibt
   // Zeitgeber, Session-Fristen und 1/60-Schritte der Minispiele
   renderState(): string; // JSON, siehe unten; je Bild nach tick
-  hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch' | 'configure:…'
+  hostCommand(cmd: string): void; // 'start' | 'pause' | 'resume' | 'end-game' | 'rematch' | 'configure:…' | 'skip-finale'
   sceneReady(): void; // Brett und Figuren geladen → host-ready (CHAOS-68/142)
 }
 ```
 
 `configure` (CHAOS-166): `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`) oder beides mit Komma, `configure:rounds=12,moreReactionTime=1`. Runden 1–20. Wirkt nur in der Lobby; außerhalb loggt der Kern „ignoriert: nur in der Lobby“, Ungültiges „Ungültiger Host-Befehl“, gesendet wird dann nichts. Der neue Stand steht im nächsten `renderState().lobby.settings`.
+
+`pause`, `resume`, `end-game` und `rematch` (CHAOS-145) gehen nur an den Server, wenn sie passen: `pause` nur bei `renderState().pause.canPause` (Brett und Minispiel, nicht vor dem Start und nicht im Finale), `resume` nur in der Pause, `end-game` nur in der laufenden Partie, `rematch` nur im Finale. Sonst loggt der Kern „Host-Befehl … ignoriert: passt gerade nicht“ (kein Server-Fehler; die Fernbedienung drückt man auch in der Lobby). `skip-finale` wirkt nur im Kern: Die Trophäenzählung springt zum Siegerbildschirm.
 
 `host-ready` (CHAOS-68): Ohne `deferSceneReady` ist der Host sofort bereit (Harness, Tests, `--selftest`). Die App setzt es und ruft `sceneReady()`, sobald `brett.usdz`, die Instanzen und die Figuren geladen sind; bis dahin ist „Partie starten“ gesperrt.
 
@@ -98,7 +100,22 @@ interface ChaosHostInstance {
     "geometry": [{ "id": "g12", "vertices": 482, "positions": "<base64>", "normals": "<base64>", "indices": "<base64>",
                    "wideIndices": false, "extent": [1, 0.5, 1] }],
     "geometryTotal": 43
-  }
+  },
+  "final": null | {                                                      // nur in der Phase final (CHAOS-145)
+    "beat": "intro" | "reveal" | "tiebreak" | "winner", "beatIndex": 3, "progress": 0.62, "done": false,
+    "elapsedMs": 9536, "winnerAtMs": 16600, "endedEarly": false,
+    "kicker": "Spielende", "title": "Die Trophäenzählung!", "lead": "Platz 2: Cleo",
+    "cards": [{ "slot": 3, "name": "Cleo", "character": "robot", "characterName": "Schraubi", "color": "#009E73", "symbol": "■",
+                "place": 2, "badge": "per Münzen" | null, "revealed": true, "active": true, "trophies": 2, "coins": 1, "placeShown": false }],
+    "winner": { "headline": "Ben gewinnt!", "reason": null | "Gleich viele Trophäen – …", "earlyNote": null | "Vorzeitig beendet – …",
+                "ranking": [{ "slot": 2, "name": "Ben", "character": "sock", "characterName": "Socke Sigi", "color": "#E69F00", "symbol": "▲",
+                              "place": 1, "badge": null, "trophies": 2, "coins": 14 }],
+                "awards": [{ "id": "coin-magnet", "title": "Münzmagnet", "detail": "31 Münzen eingesammelt", "slots": [4], "names": "Dana" }] },
+    "podium": [{ "slot": 2, "character": "sock", "color": "#E69F00", "symbol": "▲", "place": 1, "x": 1.125, "height": 1.5,
+                 "blockColor": "#ffd75e", "anim": "cheer" | "sad" | "jump" }],
+    "canRematch": false, "sounds": [ /* wie board.sounds, eigene IDs je Finale */ ]
+  },
+  "pause": { "paused": false, "canPause": true, "roundText": null | "Runde 3/10", "sounds": [ /* pause/resume, IDs über die Laufzeit */ ] }
 }
 ```
 
@@ -120,3 +137,9 @@ interface ChaosHostInstance {
 - **Kamera:** `scene.activeCamera` je Bild (Position, Ziel, Öffnungswinkel in Radiant).
 - **Effekte:** `ctx.fx.burst`/`shake` als nummerierte Ereignisse der letzten 1,5 s; Swift spielt jede `seq` einmal. Klänge fehlen im nativen Host noch.
 - **Bildschirme:** `info`, `countdown` (Intro), `scoreboard` (Spiel), `results` (Ergebnis mit Münzen und Trostpreis) kommen aus denselben Funktionen wie im Browser-Host (`plan.ts`, `results.ts`, `texts.ts`); `repeat` = kurze Anleitung (CHAOS-66).
+
+### Finale und Pause (CHAOS-145)
+
+- **Finale:** `final` gibt es nur in der Phase `final`. Der Ablauf ist `finalePlan.ts` des Browser-Hosts als Zeitfunktion im Kern (`src/finaleView.ts`), ab dem ersten Endstand: Intro, Aufdecken vom letzten zum ersten Platz (Karten zählen Trophäen und Münzen hoch, dann der Platz als Stempel), bei Gleichstand vorher die Ansage (`tiebreak`), zuletzt der Siegerbildschirm (`done`, bleibt bis zur Revanche). Texte, Begründung, Bonus-Titel (höchstens drei) und Podest-Aufstellung (`podiumLayout.ts`) kommen fertig; Swift zeichnet nur. `podium` steht schon während der Zählung, damit Swift das Podest unsichtbar vorbauen kann. `canRematch` erst am Siegerbildschirm und mit verbundener Host-Rolle.
+- **Pause:** `pause` ist immer da. `paused` ist der Server-Stand (`view.paused`); dann ist `phase` `paused`, `board` und `minigame` bleiben gefüllt (Pause über dem Minispiel: `minigame` gesetzt, sonst Brett). `canPause` sagt, ob `hostCommand('pause')` gerade wirkt. Während einer Minispiel-Pause steht die Brett-Regie wie während des Minispiels.
+- **Klänge:** `final.sounds` (`finaleCues`: `turn`, `trophy`, `coin`, `pop`, `win`, `cheer`) und `pause.sounds` (`pause`, `resume`) wie `board.sounds`: Rezept fertig, 1,5 s im `renderState`, Swift spielt jede ID einmal (je eigenes `BoardSounds`).
