@@ -71,6 +71,10 @@ final class HostRuntime: ObservableObject {
     /// Summe der Hintergrundzeit: Die Uhr des Kerns läuft ohne sie weiter, sonst liefen beim Zurückkommen alle Fristen
     /// (Herzschlag 15 s, Wachhund der Host-Rolle, Würfelfristen) auf einmal ab.
     private var suspendedMs: Double = 0
+    #if os(macOS)
+    /// Kein App Nap, solange gespielt wird (CHAOS-203).
+    private let activity = SessionActivity()
+    #endif
 
     init(deferScene: Bool = true) { self.deferScene = deferScene }
 
@@ -188,6 +192,9 @@ final class HostRuntime: ObservableObject {
                 self.jsMs.append(ms)
                 self.connections = connections
                 guard let state else { return }
+                #if os(macOS)
+                self.activity.update(phase: state.phase, connections: connections)
+                #endif
                 self.lastState = state
                 apply(state)
                 self.publish(state)

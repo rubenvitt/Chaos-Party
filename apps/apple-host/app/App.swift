@@ -51,6 +51,7 @@ struct ChaosHostApp: App {
                 #if os(macOS)
                 pause.installKeys()
                 LobbySnapshot.schedule(runtime: runtime)
+                SessionActivity.minimizeIfRequested()
                 #endif
             }
             #if os(tvOS)
