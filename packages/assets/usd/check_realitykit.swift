@@ -5,6 +5,7 @@
 // Animation hat, die Zeitleiste nicht zur Clip-Tabelle passt, die Achsen nicht stimmen oder ein
 // aufgesetztes Teil (Socken-Bündchen, Kaktus-Blüte) über seinem Träger schwebt (CHAOS-161).
 // Ohne Mac prüft `packages/assets/usd/check_usdz.py` dasselbe mit usd-core, aber nicht RealityKit.
+// Diese Prüfung läuft in keiner CI (Linux-Job; die Mac-Workflows setzen RK_CHECK=0), nur lokal.
 import Foundation
 import RealityKit
 import simd
@@ -71,27 +72,46 @@ let auflageBand: Float = 0.02
 let auflageLuecke: Float = 0.03
 
 struct Geometry { var points: [SIMD3<Float>] = []; var triangles: [SIMD3<Int>] = [] }
-func worldGeometry(_ e: Entity, into g: inout Geometry) {
-    if let model = e.components[ModelComponent.self] {
-        let world = e.transformMatrix(relativeTo: nil)
-        let contents = model.mesh.contents
-        for instance in contents.instances {
-            guard let m = contents.models[instance.model] else { continue }
-            let t = world * instance.transform
-            for part in m.parts {
-                let base = g.points.count
-                for p in part.positions.elements {
-                    let w = t * SIMD4<Float>(p, 1)
-                    g.points.append(SIMD3(w.x, w.y, w.z))
-                }
-                let idx = part.triangleIndices?.elements ?? []
-                for i in stride(from: 0, to: idx.count - 2, by: 3) {
-                    g.triangles.append(SIMD3(base + Int(idx[i]), base + Int(idx[i + 1]), base + Int(idx[i + 2])))
-                }
+/// Hängt die Meshes aus der `ModelComponent` von `e` in Weltkoordinaten an, nur Instanzen, deren
+/// Modell `include` durchlässt.
+func appendModels(of e: Entity, into g: inout Geometry, include: (String) -> Bool = { _ in true }) {
+    guard let model = e.components[ModelComponent.self] else { return }
+    let world = e.transformMatrix(relativeTo: nil)
+    let contents = model.mesh.contents
+    for instance in contents.instances where include(instance.model) {
+        guard let m = contents.models[instance.model] else { continue }
+        let t = world * instance.transform
+        for part in m.parts {
+            let base = g.points.count
+            for p in part.positions.elements {
+                let w = t * SIMD4<Float>(p, 1)
+                g.points.append(SIMD3(w.x, w.y, w.z))
+            }
+            let idx = part.triangleIndices?.elements ?? []
+            for i in stride(from: 0, to: idx.count - 2, by: 3) {
+                g.triangles.append(SIMD3(base + Int(idx[i]), base + Int(idx[i + 1]), base + Int(idx[i + 2])))
             }
         }
     }
+}
+func worldGeometry(_ e: Entity, into g: inout Geometry) {
+    appendModels(of: e, into: &g)
     for child in e.children { worldGeometry(child, into: &g) }
+}
+/// Geometrie eines Figurenteils (CHAOS-201). Ungehäutete Teile (Blüte, Topf) tragen ihre
+/// `ModelComponent` selbst oder an einem Kind. Gehäutete Teile (Socke, Bündchen, Kaktus) legt
+/// RealityKit unter macOS 27 in die `ModelComponent` der Skelett-Entität (`sigi`, `kalle`), ein
+/// Modell je Teil mit dessen Namen; unter dem Teilnamen bleiben dann nur leere Entitäten. Dann
+/// zählen die gleichnamigen Modelle des nächsten Vorfahren, der welche hat.
+func partGeometry(_ e: Entity) -> Geometry {
+    var g = Geometry()
+    worldGeometry(e, into: &g)
+    var ancestor = e.parent
+    while g.points.isEmpty, let a = ancestor {
+        appendModels(of: a, into: &g) { $0 == e.name }
+        ancestor = a.parent
+    }
+    return g
 }
 func contactGap(part: Geometry, host: Geometry) -> Float? {
     guard let minY = part.points.map(\.y).min(), !host.triangles.isEmpty else { return nil }
@@ -142,9 +162,7 @@ for c in ["robot", "cactus", "raccoon", "sock"] {
         guard let partEntity = fig.findEntity(named: pair.part), let hostEntity = fig.findEntity(named: pair.host) else {
             fail("\(c): Teil \(pair.part) oder Träger \(pair.host) fehlt"); continue
         }
-        var part = Geometry(), host = Geometry()
-        worldGeometry(partEntity, into: &part)
-        worldGeometry(hostEntity, into: &host)
+        let part = partGeometry(partEntity), host = partGeometry(hostEntity)
         guard let gap = contactGap(part: part, host: host) else { fail("\(c): \(pair.part)/\(pair.host) ohne Geometrie"); continue }
         print("  \(c): \(pair.part) auf \(pair.host): Lücke \(String(format: "%.1f", gap * 100)) cm")
         if gap > auflageLuecke { fail("\(c): \(pair.part) schwebt über \(pair.host) (\(String(format: "%.1f", gap * 100)) cm, erlaubt \(Int(auflageLuecke * 100)) cm)") }
