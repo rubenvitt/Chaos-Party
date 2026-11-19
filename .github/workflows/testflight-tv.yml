@@ -60,7 +60,7 @@ jobs:
       # Brett-Kulisse und Figuren als USDZ (CHAOS-140/142): prepare.sh bricht ohne sie ab, damit kein Build mit
       # Grundkörpern ausgeliefert wird. Blender als Python-Modul (bpy 5.3 nur für Python 3.13), Brett aus dem
       # Web-Host über Chromium.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
           cache: pip
