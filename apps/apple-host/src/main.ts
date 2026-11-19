@@ -43,6 +43,7 @@ import {
   stageKeyOf,
 } from '../../host/src/minigame/plan.ts';
 import { resultPayload } from '../../host/src/minigame/results.ts';
+import { canPause } from '../../host/src/pause/pauseState.ts';
 import type {
   BoardState,
   ChaosHostApi,
@@ -55,6 +56,8 @@ import type {
 } from './contract.ts';
 import { CONFIGURE_PREFIX } from './contract.ts';
 import { createBoardDirection } from './boardDirection.ts';
+import { createFinaleView } from './finaleView.ts';
+import { createSoundTrack } from './soundTrack.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
 import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
@@ -254,6 +257,13 @@ function create(env: HostEnv): ChaosHostInstance {
   /** Erster `tick`-Wert: Die Uhr des Kerns zählt ab 0 (Session und Host starten bei 0). */
   let clockBase: number | null = null;
   const resultSender = createResultSender({ warn: log });
+  /** Finale (CHAOS-145): Trophäenzählung und Siegerbildschirm aus `finalePlan.ts`. */
+  const finale = createFinaleView();
+  /** `pause`/`resume`-Klang beim Wechsel des Server-Stands (wie `PauseControls`). */
+  const pauseSounds = createSoundTrack();
+  let wasPaused: boolean | null = null;
+  /** Host-Rolle mit der Session verbunden: „Nochmal spielen“ ist nur dann möglich. */
+  let hostConnected = false;
 
   const labelOf = (spaceId: string) =>
     (getBoard(view?.boardId ?? '') ?? DEFAULT_BOARD).spaces.find((s) => s.id === spaceId)?.label;
@@ -337,6 +347,7 @@ function create(env: HostEnv): ChaosHostInstance {
     {
       onStatus: (status) => {
         log(`Host-Verbindung: ${status}`);
+        hostConnected = status === 'connected';
         if (status !== 'connected') resultSender.onDisconnected();
       },
       onLobby: (message) => {
@@ -348,6 +359,8 @@ function create(env: HostEnv): ChaosHostInstance {
           notices.clear();
           direction = createBoardDirection();
           disposeStage();
+          finale.reset();
+          wasPaused = null;
         }
       },
       onBoard,
@@ -390,6 +403,13 @@ function create(env: HostEnv): ChaosHostInstance {
     if (view.gamePhase === 'game-results') return 'final';
     return minigameStageOf(view) ? 'minigame' : 'board';
   };
+
+  /** Partie läuft (Brettphase mit Stand); vorher und danach zeigt der Host die Lobby. */
+  const inGame = () => session.phase === 'board' && view !== null;
+  /** Ein Minispiel ist zu sehen, auch in seiner Pause (dann steht die Brett-Regie). */
+  const minigameShown = () => inGame() && view !== null && minigameStageOf(view) !== null;
+  const finaleShown = () =>
+    inGame() && view?.gamePhase === 'game-results' && (view.ranking?.length ?? 0) > 0;
 
   const boardState = (current: BoardView): BoardState => {
     const board = getBoard(current.boardId) ?? DEFAULT_BOARD;
@@ -501,12 +521,18 @@ function create(env: HostEnv): ChaosHostInstance {
         apply(session.tick());
       }
       flush();
-      // Brett-Regie (CHAOS-143): steht, solange ein Minispiel zu sehen ist (wie `BoardStage`).
-      direction.advance(
-        lastDirectionAt === null ? 0 : now() - lastDirectionAt,
-        contractPhase() !== 'minigame',
-      );
+      // Brett-Regie (CHAOS-143): steht, solange ein Minispiel zu sehen ist (wie `BoardStage`),
+      // auch in dessen Pause (CHAOS-145).
+      direction.advance(lastDirectionAt === null ? 0 : now() - lastDirectionAt, !minigameShown());
       lastDirectionAt = now();
+      // Pause-Klang beim Wechsel des Server-Stands, nicht beim ersten Stand (CHAOS-145).
+      if (inGame() && view) {
+        if (wasPaused !== null && wasPaused !== view.paused) {
+          pauseSounds.play(view.paused ? 'pause' : 'resume', now());
+        }
+        wasPaused = view.paused;
+      }
+      if (finaleShown() && view) finale.advance(view, now());
       if (stage) {
         const seconds = lastAdvanceAt === null ? 0 : (now() - lastAdvanceAt) / 1000;
         lastAdvanceAt = now();
@@ -543,6 +569,16 @@ function create(env: HostEnv): ChaosHostInstance {
         },
         board: view ? boardState(view) : null,
         minigame: view ? minigameState(view) : null,
+        final: finaleShown() ? finale.state(now(), hostConnected) : null,
+        pause: {
+          paused: inGame() && view?.paused === true,
+          canPause: inGame() && canPause(view),
+          roundText:
+            inGame() && view
+              ? `Runde ${String(Math.max(1, view.round))}/${String(view.rounds)}`
+              : null,
+          sounds: pauseSounds.list(now()),
+        },
       };
       return JSON.stringify(state);
     },
@@ -552,6 +588,21 @@ function create(env: HostEnv): ChaosHostInstance {
       flush();
     },
     hostCommand(cmd) {
+      /** `pause`, `resume`, `end-game`, `rematch` nur im passenden Stand (`pauseState.ts`). */
+      const commandFits = (type: string) => {
+        switch (type) {
+          case 'pause':
+            return inGame() && canPause(view);
+          case 'resume':
+            return inGame() && view?.paused === true;
+          case 'end-game':
+            return inGame() && view?.gamePhase !== 'setup' && view?.gamePhase !== 'game-results';
+          case 'rematch':
+            return finaleShown();
+          default:
+            return true;
+        }
+      };
       const command = parseHostCommand(cmd);
       if (command === null) {
         log(
@@ -560,6 +611,12 @@ function create(env: HostEnv): ChaosHostInstance {
       } else if (command.type === 'configure' && session.phase !== 'lobby') {
         // Der Server lehnte es außerhalb der Lobby ab (`out-of-phase`); gar nicht erst senden.
         log(`Host-Befehl ${cmd} ignoriert: nur in der Lobby`);
+      } else if (command.type === 'skip-finale') {
+        if (!finaleShown() || !finale.skip()) log(`Host-Befehl ${cmd} ignoriert: kein Finale`);
+      } else if (!commandFits(command.type)) {
+        // Wie die Knöpfe am PC-Host nur, wenn es passt: Der Server lehnte es sonst ab
+        // (`out-of-phase`), und die Fernbedienung drückt man auch in der Lobby (CHAOS-145).
+        log(`Host-Befehl ${cmd} ignoriert: passt gerade nicht`);
       } else {
         const sent =
           command.type === 'start' ? connection.sendStart() : connection.sendCommand(command);

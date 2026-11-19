@@ -588,3 +588,22 @@ Automatisch bzw. von Claude geprüft (M3 Max, macOS 27.2, 18.11.): App am Mac un
 | NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | Entfällt (18.11., Ruben: „ignorieren wir den tv teil & gehen davon aus, dass alles passt“) | Foto |
 | NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | Entfällt (18.11., Ruben, siehe NH5) | Log-Auszug |
 | NH7 | Ruben: Urteil zur Optik von Lobby und Brett | „passt“ oder eine Liste, was fehlt (bekannt: keine Lichtstimmungen je Runde, kein SSAO/Tiefenschärfe, Hintergrund hellblau statt warm) | | Kommentar an CHAOS-142 |
+
+## 30. Nativer Host: Finale, Pause, Wiederverbindung, Controller-App (für CHAOS-145)
+
+**Stand:** 2026-11-19 · **Aufgabe:** CHAOS-145 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitte „App“ und „Hintergrund, Ruhezustand, Wiederverbindung“
+
+Automatisch geprüft: `bots --full` (Pause im Brett und im Minispiel, saubere Trennung und Funkstille mit Wiederverbindung, Finale bis zum Siegerbildschirm, Revanche mit „Überspringen“), Swift-Harness, Builds für macOS und tvOS. Im tvOS-Simulator mit Bot-Controllern: Pause im Brett und im Minispiel, Trennen und Funkstille, Finale mit Podest, Revanche, Hintergrund und zurück (gleiche PID, Partie pausiert). **Nicht** geprüft: echte Apple TV, Fernbedienung, iPhone mit WLAN-Verlust, Controller-App gegen den nativen Host.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| FP1 | Apple TV: iPhone A mit der Controller-App (QR scannen), iPhone B im Browser (QR scannen) | Beide stehen in der Lobby, Figuren wählbar, „Bereit!“ | | Foto |
+| FP2 | Partie starten, im Brett **Play/Pause** auf der Fernbedienung | Pausenkarte mit „Runde x/y“, beide Handys zeigen die Pause; Play/Pause setzt fort | | Foto |
+| FP3 | Im laufenden Minispiel Play/Pause, dann **Menü** | Pausenkarte über dem Minispiel, Restzeit steht; Menü setzt fort | | Foto |
+| FP4 | In der Pause „Partie beenden“ → „Ja, beenden“ (Fernbedienung) | Trophäenzählung mit „Partie vorzeitig beendet“ | | |
+| FP5 | iPhone B: WLAN 30 s aus, dann wieder an | Figur nach etwa 15 s halbtransparent; nach WLAN an kommt B ohne neues Scannen zurück, gleicher Platz | | Foto |
+| FP6 | iPhone A (Controller-App): App 30 s in den Hintergrund, dann zurück | A verbindet sich selbst neu, gleicher Platz | | |
+| FP7 | Apple TV: Home-Taste, 1 Minute warten, App wieder öffnen | Partie pausiert, nicht verloren; beide Handys verbinden sich neu (Log „Listener … neu starten“ ist möglich); „Weiter“ setzt fort | | Log |
+| FP8 | Apple TV per Hand in den Ruhezustand, 2 Minuten, aufwecken, App öffnen | wie FP7 | | Log |
+| FP9 | Partie zu Ende spielen (z. B. 2 Runden) | Zählung, Podest mit Figuren (Platz 1 jubelt), Endstand, Bonus-Titel; Klänge passen | | Foto |
+| FP10 | „Nochmal spielen“ (Auswahl auf der Fernbedienung) | Zurück in die Lobby ohne Neustart, Figuren bleiben, neue Partie startet | | |

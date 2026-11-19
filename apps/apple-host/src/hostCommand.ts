@@ -3,6 +3,7 @@
  * nur Text; hier wird daraus ein Befehl der Host-Rolle (`HostCommand` aus `apps/host`).
  *
  * - `start`, `pause`, `resume`, `end-game`, `rematch` (`HOST_COMMANDS`)
+ * - `skip-finale` (`LOCAL_HOST_COMMANDS`, CHAOS-145): wirkt nur im Kern, geht nie an den Server
  * - `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`), beides
  *   mit Komma verbunden: `configure:rounds=12,moreReactionTime=1` (Lobby-Einstellungen, CHAOS-166)
  *
@@ -11,9 +12,16 @@
  */
 import { MAX_ROUNDS } from '@chaos-party/protocol';
 import type { HostCommand } from '../../host/src/net/hostConnection.ts';
-import { CONFIGURE_PREFIX, HOST_COMMANDS, type HostCommandName } from './contract.ts';
+import {
+  CONFIGURE_PREFIX,
+  HOST_COMMANDS,
+  LOCAL_HOST_COMMANDS,
+  type HostCommandName,
+  type LocalHostCommandName,
+} from './contract.ts';
 
-export type ParsedHostCommand = { readonly type: 'start' } | HostCommand;
+export type ParsedHostCommand =
+  { readonly type: 'start' } | { readonly type: LocalHostCommandName } | HostCommand;
 
 type ConfigureCommand = Extract<HostCommand, { type: 'configure' }>;
 
@@ -51,6 +59,9 @@ function parseConfigure(spec: string): ConfigureCommand | null {
 /** Zeichenkette → Befehl; `null` bei Unbekanntem oder Ungültigem. */
 export function parseHostCommand(cmd: string): ParsedHostCommand | null {
   if (cmd.startsWith(CONFIGURE_PREFIX)) return parseConfigure(cmd.slice(CONFIGURE_PREFIX.length));
+  if ((LOCAL_HOST_COMMANDS as readonly string[]).includes(cmd)) {
+    return { type: cmd as LocalHostCommandName };
+  }
   return (HOST_COMMANDS as readonly string[]).includes(cmd)
     ? { type: cmd as HostCommandName }
     : null;

@@ -3,6 +3,9 @@
 //   pnpm --filter @chaos-party/apple-host bots --full                # ganze Partie, alle Minispiele der Rotation
 //   pnpm --filter @chaos-party/apple-host bots --full --matches 3    # drei Partien mit Revanche, Speicher je Partie (CHAOS-141)
 //   pnpm --filter @chaos-party/apple-host bots --full --rueckenwind  # mit Regel Rückenwind (CHAOS-188)
+// Mit `--full` prüft die erste Partie außerdem Pause (Brett, Minispiel), Wiederverbindung (sauber
+// und nach Funkstille) und das Finale bis zum Siegerbildschirm, jede weitere „Überspringen“
+// (CHAOS-145, `exercise`); `--ohne-extras` lässt das weg.
 // Vorher `pnpm --filter @chaos-party/apple-host build`. Exit 1, wenn die Partie nicht sauber läuft
 // oder der Speicher nach der ersten Partie um mehr als `MAX_GROWTH_MB` wächst.
 import { readFileSync } from 'node:fs';
@@ -22,6 +25,7 @@ const verbose = args.includes('--verbose');
 const tailwind = args.includes('--rueckenwind');
 const matchesArg = args.indexOf('--matches');
 const matches = matchesArg >= 0 ? Number(args[matchesArg + 1]) : 1;
+const exercise = full && !args.includes('--ohne-extras');
 
 setFlagsFromString('--expose-gc');
 const gc = /** @type {() => void} */ (runInNewContext('gc'));
@@ -37,6 +41,7 @@ const result = await runBotMatch({
   full,
   matches,
   tailwind,
+  exercise,
   validateEvery: 30,
   log: verbose ? (line) => console.log(line) : undefined,
   onFrame: (frame) => {

@@ -45,6 +45,9 @@ import { createAdaptiveQuality } from '../nature/quality.ts';
 import { applyRenderScale, sceneLookSettings } from '../nature/settings.ts';
 import { createStageLook } from '../nature/stageLook.ts';
 import { afterNextPaint, prepareSceneGradually } from '../scene/prepareGradually.ts';
+import { blockColor, centeredPodiumSlots, podiumHeight } from './podiumLayout.ts';
+
+export { podiumHeight, podiumSlots } from './podiumLayout.ts';
 
 const INK = '#1b1530';
 const FONT = '"Nunito Variable", ui-rounded, system-ui, sans-serif';
@@ -87,24 +90,6 @@ export interface PodiumStage extends PerfSource {
   step(frames: number): void;
   dispose(): void;
 }
-
-/** Podesthöhe je Platz (geteilte Plätze gleich hoch). */
-export function podiumHeight(place: number): number {
-  return [1.5, 1.0, 0.68, 0.42][place - 1] ?? 0.42;
-}
-
-/**
- * x-Position je Eintrag in Rangfolge: Platz 1 in die Mitte, dann abwechselnd links/rechts
- * (klassisches Podest 2–1–3, ein vierter ganz außen links).
- */
-export function podiumSlots(count: number): number[] {
-  const spacing = 2.25;
-  const order = [0, -1, 1, -2, 2];
-  return order.slice(0, count).map((index) => index * spacing);
-}
-
-/** Farbstich des Holzes je Platz: Gold, Silber, Bronze, Lila. */
-const BLOCK_COLORS = ['#ffd75e', '#e2e8ee', '#eaa974', '#cfc6f2'];
 
 /** Halme bei Grafikstufe `hoch` (kleine Insel, die Kamera sieht vor allem das Podest). */
 const PODIUM_GRASS = 22000;
@@ -165,9 +150,7 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   window.addEventListener('resize', resize);
 
   // Podest mittig auf der Insel (die Kulisse liegt um den Ursprung).
-  const raw = podiumSlots(entries.length);
-  const rawCenter = (Math.min(0, ...raw) + Math.max(0, ...raw)) / 2;
-  const xs = raw.map((x) => x - rawCenter);
+  const xs = centeredPodiumSlots(entries.length);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const centerX = 0;
@@ -233,7 +216,7 @@ export function createPodiumStage(options: PodiumStageOptions): PodiumStage {
   function buildBlock(entry: PodiumEntry, x: number): Vector3 {
     const mats = look.materials;
     const height = podiumHeight(entry.place);
-    const color = BLOCK_COLORS[entry.place - 1] ?? '#cfc6f2';
+    const color = blockColor(entry.place);
     const root = new TransformNode(`podest-${String(entry.slot)}`, scene);
     root.position.x = x;
     // Sockel aus moosigem Stein: hebt den Block von der Wiese ab.
