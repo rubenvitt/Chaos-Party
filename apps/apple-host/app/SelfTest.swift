@@ -23,9 +23,16 @@ enum SelfTest {
 
     static func run() -> Never {
         hostLog("SELBSTTEST startet (\(Bundle.main.bundlePath))")
+        #if APP_STORE
+        // CHAOS-200: App-Store-Variante ohne Sparkle, dafür in der App Sandbox.
+        let sandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+        hostLog("SELBSTTEST App Store, Sandbox \(sandboxed ? "an" : "aus")")
+        if !sandboxed { finish(false, "App Sandbox nicht aktiv") }
+        #else
         // CHAOS-156: Sparkle.framework ist eingebettet, signiert und lädt unter der Hardened Runtime.
         hostLog("SELBSTTEST Sparkle \(Updates.sparkleVersion), Feed \(Updates.feed?.url ?? "aus")")
         if Updates.sparkleVersion == "?" { finish(false, "Sparkle.framework nicht geladen") }
+        #endif
         started = Date()
         runtime.start()
         let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in MainActor.assumeIsolated { step() } }

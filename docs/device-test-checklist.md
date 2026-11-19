@@ -433,11 +433,13 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 | WT2 | Ereignis „Tausch!“                                                                     | Beide Figuren fliegen gleichzeitig auf Bögen über Kreuz, farbige Ringe an Abflug- und Zielfeld; man sieht, wer mit wem getauscht hat |          |          |
 | WT3 | Gabel A (Klippenweg/Sumpfabkürzung) und Gabel B (Pilzpfad/Wackelbrücke) beim Wegwählen | Beide Schilder vollständig lesbar, keins liegt unter dem gelben Pfeil                                                                |          |          |
 
-## 20. Apple-TV-App über TestFlight (für CHAOS-119, CHAOS-151)
+## 20. Apple-TV- und Mac-App über TestFlight (für CHAOS-119, CHAOS-151, CHAOS-200)
 
 **Stand:** 2026-11-18 · **Aufgabe:** CHAOS-119, CHAOS-147 (TV6–TV9), CHAOS-151 (TH1–TH4), CHAOS-141 (TH5–TH6) · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „TestFlight“; für TV4–TV9 [`spikes/renderer-realitykit/README.md`](../spikes/renderer-realitykit/README.md)
 
 Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Nutzlast (`prepare.sh`) unter Linux gebaut, Abbruch des Skripts bei fehlender Nutzlast. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
+
+**2026-11-19 (CHAOS-200):** TV1 erledigt Claude, TV3 teilweise: App-Eintrag „Chaos Party Host“ (Store-Name „Chaos Party“ war vergeben) mit tvOS und macOS, interne Gruppe „Intern“ mit Zugriff auf alle Builds, Ruben als Tester. TV2/TH1 grün (Lauf 44562548725, Build 20261119.1610); der Build war am Abend noch in der Verarbeitung bei Apple, die Gruppe bekommt ihn danach automatisch. Die Mac-App kommt seitdem als App-Store-Variante in denselben Eintrag (TM1–TM2).
 
 Seit CHAOS-151 ist der neueste Build der native Host (`apps/apple-host`), nicht mehr der RealityKit-Spike. TV1–TV3 gelten unverändert. TV4–TV9 betreffen die älteren Spike-Builds; sie bleiben in der TestFlight-App unter den älteren Builds installierbar, bis sie ablaufen (90 Tage nach dem Upload).
 
@@ -457,6 +459,8 @@ Seit CHAOS-151 ist der neueste Build der native Host (`apps/apple-host`), nicht 
 | TH3 | Rechner aus dem WLAN nehmen oder ausschalten. iPhone (Safari, gleiches WLAN): QR-Code am Fernseher scannen                                                                                                                                                                              | Controller lädt von der Apple TV, Figurenwahl erscheint; auf dem Fernseher steht der Spieler in der Liste                                                                                |          | Foto          |
 | TH4 | Zweites iPhone tritt bei, beide „Bereit!“, auf der Siri Remote „Partie starten“ wählen                                                                                                                                                                                                  | Brett (noch Grundkörper) erscheint, Würfeln am iPhone bewegt die Figur                                                                                                                   |          |               |
 | TH5 | CHAOS-141, Build nach dem Merge: App per `xcrun devicectl device process launch … --console` starten (README, Abschnitt „Bauen“), zwei iPhones, ganze Partie bis zum Endstand; Log sichern                                                                                              | In jeder `HOST-MESSUNG`-Zeile rund um Minispiel-Start (Phase `minigame` nach `board`) und -Ende (zurück zu `board`): `js_ms_max` < 16,7 und `js_uebersprungen` 0                         |          | Log-Auszug    |
+| TM1 | Mac (CHAOS-200): TestFlight-App aus dem Mac App Store, „Chaos Party Host“ installieren und starten; Frage nach eingehenden Verbindungen bzw. dem lokalen Netzwerk erlauben | Lobby mit QR-Code wie bei der Developer-ID-App, kein Menüpunkt „Nach Updates suchen …“ | | Foto |
+| TM2 | iPhone (Safari, gleiches WLAN) scannt den QR-Code am Mac, Partie mit zwei iPhones bis zum ersten Minispiel | Controller lädt vom Mac, Würfeln bewegt die Figur, Minispiel startet (die Sandbox blockiert nichts) | | |
 | TH6 | CHAOS-141, erst wenn die App am Endstand eine Revanche anbietet (Stand 18.11.: noch nicht, bis dahin misst nur der Harness, EXP-024 Nachtrag): drei Partien am Stück, Speicher der App in Xcode (Debug Navigator → Memory) oder Instruments (Allocations) am Ende jeder Partie notieren | Speicher nach Partie 3 höchstens 20 MB über dem Stand nach Partie 1                                                                                                                      |          | drei Werte    |
 
 ## 21. Trostpreis in der nativen Controller-App (für CHAOS-127)

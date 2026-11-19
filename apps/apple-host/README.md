@@ -170,7 +170,9 @@ Die Mac-App sucht mit [Sparkle](https://sparkle-project.org) 2.10.1 selbst nach 
 Die App kommt als „Chaos Party“ mit der Bundle-ID `dev.rubeen.chaosparty.tv` über TestFlight auf die Apple TV (vorher stand dort der RealityKit-Spike, CHAOS-119). `project.yml` signiert weiterhin nur lokal; [`scripts/testflight.sh`](scripts/testflight.sh) setzt Bundle-ID, Team und Signatur auf der Kommandozeile, baut nur für tvOS (Gerät) und prüft vorher und im Archiv, dass die Nutzlast (JS-Kern, Havok, Controller) drinsteckt.
 
 - **CI:** [`.github/workflows/testflight-tv.yml`](../../.github/workflows/testflight-tv.yml) läuft bei jedem Push auf `main`, der diesen Ordner oder etwas aus der Nutzlast ändert (`apps/server/src`, `apps/host/src`, `apps/controller`, `packages/*`, Lockfile; ohne `*.md` und Tests), und lässt sich manuell starten (Actions → „TestFlight (Apple TV)“ → Run workflow). Secrets wie bei der Controller-App (`APPLE_API_KEY`, `APPLE_API_KEY_P8`, `APPLE_API_ISSUER`).
-- **Mac-App:** kommt signiert und notarisiert aus dem Workflow „Release (Mac-App)“ (Abschnitt „Release“, CHAOS-118), nicht aus diesem.
+- **App Store Connect:** App-Eintrag „Chaos Party Host“ (ID 6836850394, SKU `chaosparty`) mit den Plattformen tvOS und macOS, interne TestFlight-Gruppe „Intern“ mit Zugriff auf alle Builds (seit 2026-11-19, CHAOS-200). Der Store-Name „Chaos Party“ war vergeben; auf den Geräten heißt die App weiter „Chaos Party“.
+- **Mac-App über TestFlight (CHAOS-200):** eigenes Ziel `ChaosHostAppStore` mit derselben Bundle-ID (Universal Purchase), App Sandbox (`config/ChaosHost-appstore.entitlements`: `network.server`, `network.client`), ohne Sparkle (Compile-Bedingung `APP_STORE`), Kategorie und Mac-Icon (`app-mac/`, erzeugt mit `scripts/mac-icons.py`). [`scripts/testflight-macos.sh`](scripts/testflight-macos.sh) archiviert ad hoc, prüft Nutzlast, Sandbox und `--selftest` und lässt erst den Export mit „Apple Distribution“ signieren und hochladen; Workflow [`testflight-macos.yml`](../../.github/workflows/testflight-macos.yml) mit denselben Auslösern wie die Apple-TV-App. Beta-Xcode lädt nicht hoch („Apple is not currently accepting applications built with this version of Xcode“), lokal also nur mit freigegebenem Xcode.
+- **Mac-App außerhalb des App Store:** kommt signiert, notarisiert und mit Sparkle-Updates aus dem Workflow „Release (Mac-App)“ (Abschnitt „Release“, CHAOS-118), unverändert.
 - **Lokal** mit dem in Xcode angemeldeten Account (ruft `prepare.sh` selbst auf):
 
   ```bash
@@ -202,3 +204,4 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 - macOS-Job, letzter Schritt: `release-macos.sh` als Probelauf (ad hoc signiert, Hardened Runtime, Selbsttest der fertigen App).
 - Workflow „Release (Mac-App)“: signiert, notarisiert und veröffentlicht (Abschnitt „Release“).
 - Workflow „TestFlight (Apple TV)“: tvOS-Archiv zu TestFlight (Abschnitt „TestFlight“, CHAOS-151).
+- Workflow „TestFlight (Mac)“: App-Store-Variante zu TestFlight (CHAOS-200); im Job „Native Apps“ baut jeder PR sie ad hoc mit Sandbox und Selbsttest.

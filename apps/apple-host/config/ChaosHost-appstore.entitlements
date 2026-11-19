@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nur für die App-Store-/TestFlight-Variante der Mac-App (Ziel ChaosHostAppStore, CHAOS-200). Der Mac App Store
+  verlangt die App Sandbox. Die App ist Server im LAN: network.server für den Listener (HTTP und WebSocket der
+  Controller), network.client für ausgehende Verbindungen (Selbsttest, lokale Adresse ermitteln).
+  Keine JIT-Berechtigung (ADR-019 §7). Das Developer-ID-Release (release-macos.sh) trägt diese Datei nie.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

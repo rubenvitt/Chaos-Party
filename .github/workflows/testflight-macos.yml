@@ -1,0 +1,106 @@
+name: TestFlight (Mac)
+
+# Archiviert die App-Store-Variante der Mac-App (Ziel ChaosHostAppStore, CHAOS-200) und lädt sie zu TestFlight hoch:
+# derselbe App-Eintrag „Chaos Party Host“ wie die Apple-TV-App (dev.rubeen.chaosparty.tv, Universal Purchase), aber
+# in der App Sandbox und ohne Sparkle. Der Developer-ID-Kanal mit Sparkle-Updates bleibt release-macos.yml.
+#
+# Auslöser, Nutzlast und Secrets wie bei testflight-tv.yml. Das Archiv ist ad hoc signiert; erst der Export signiert
+# mit „Apple Distribution“ (Cloud-Signatur über den API-Key), vorher prüft --selftest die App in der Sandbox.
+# Xcode muss eine freigegebene Version sein: Builds aus Beta-Xcode lehnt App Store Connect ab.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/apple-host/**'
+      - 'apps/server/src/**'
+      - 'apps/host/src/**'
+      - 'apps/controller/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/testflight-macos.yml'
+      - '!**/*.md'
+      - '!**/*.test.ts'
+      - '!**/test/**'
+
+# Ein Upload nach dem anderen; ein neuer Push wartet, statt einen laufenden abzubrechen.
+concurrency:
+  group: testflight-macos
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Mac zu TestFlight
+    # macos-26 wie der Job „Native Apps“: freigegebenes Xcode und macOS 26, damit der Selbsttest die App
+    # (Mindestversion macOS 26) starten kann.
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Werkzeuge
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+
+      # Brett-Kulisse und Figuren als USDZ (CHAOS-140/142): prepare.sh bricht ohne sie ab, damit kein Build mit
+      # Grundkörpern ausgeliefert wird. Blender als Python-Modul (bpy 5.3 nur für Python 3.13), Brett aus dem
+      # Web-Host über Chromium.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: packages/assets/blender/requirements.txt
+
+      - name: USDZ-Assets bauen
+        env:
+          BOARD_EXPORT_TIMEOUT: '900000'
+          # Die RealityKit-Prüfung braucht Metal; auf den VM-Runnern nicht verlässlich. usd-core prüft trotzdem.
+          RK_CHECK: '0'
+        run: |
+          python -m venv .venv-blender
+          .venv-blender/bin/pip install -r packages/assets/blender/requirements.txt
+          pnpm exec playwright install chromium
+          BLENDER_PYTHON="$PWD/.venv-blender/bin/python" pnpm build:apple-assets
+
+      # JS-Kern, Havok, Lizenztexte, Browser-Controller, Porträts und USDZ nach apps/apple-host/payload/.
+      - name: Nutzlast bauen
+        run: apps/apple-host/prepare.sh
+
+      - name: API-Key ablegen
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          for name in APPLE_API_KEY APPLE_API_KEY_P8 APPLE_API_ISSUER; do
+            [ -n "${!name}" ] || { echo "::error::Secret $name fehlt"; exit 1; }
+          done
+          # Das Secret enthält die .p8 im Klartext (wie bei lichtung und zunder), nicht base64.
+          key="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
+          (umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$key")
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Archivieren und hochladen
+        env:
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          SKIP_PREPARE: '1'
+        run: apps/apple-host/scripts/testflight-macos.sh
+
+      - name: API-Key löschen
+        if: always()
+        run: rm -f "$ASC_KEY_PATH"
