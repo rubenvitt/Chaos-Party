@@ -124,7 +124,7 @@ Bildrate und Latenz lassen sich automatisch nicht sinnvoll belegen (Chromium-Emu
 
 ## Screenshot-Baselines
 
-Eingecheckt unter `tests/e2e/__screenshots__/<spec>/<name>-<projekt>-linux.png`, **nur für Linux** (wie CI). Auf macOS/Windows fehlen Baselines; dort schlagen die Screenshot-Vergleiche fehl bzw. legen lokale Dateien an, die nicht eingecheckt werden.
+Eingecheckt unter `tests/e2e/__screenshots__/<spec>/<name>-<projekt>-linux.png`, **nur für Linux** (wie CI). Auf macOS/Windows überspringt Playwright die Screenshot-Vergleiche (`ignoreSnapshots` in `playwright.config.ts`, CHAOS-175): `pnpm test:e2e` prüft dort alle DOM-Assertions, aber nicht die Optik. Bis 19.11.2026 lagen zusätzlich 64 `*-darwin.png` im Repo; ungeprüft von der CI waren sie nach wenigen Tagen veraltet (bis 73 % abweichende Pixel) und ließen `pnpm test:e2e` am Mac scheitern. Sie sind entfernt, `.gitignore` hält neue fern. Die Optik vergleicht die CI; lokal geht das unter Linux, z. B. im Playwright-Docker-Image derselben Version (`mcr.microsoft.com/playwright:v1.63.0-noble`).
 
 | Baseline | Moment |
 |---|---|
