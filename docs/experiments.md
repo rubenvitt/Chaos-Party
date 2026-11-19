@@ -2456,6 +2456,7 @@ Zwei Läufe, weil das Display des gesperrten Macs im zweiten Lauf abschaltete:
 
   JavaScriptCore läuft in der Mac-App ohne JIT (Hardened Runtime). Deshalb ist die JS-Zeit im Minispiel höher als im Simulator, und ab und zu fällt ein Tick aus (0,2 %). Die Spielzeit bleibt trotzdem richtig, weil der Kern feste 1/60-Schritte nachholt.
 - **Lauf 2, Display aus** (Endstand `main`, mit `--pausentest` und Revanche): Pause im Brett und im Minispiel, Funkstille mit Wiederverbindung, Finale und Revanche liefen durch. Die App lief aber die ganze Zeit im Ersatztakt (10 Bilder je Sekunde, `angezeigt` 0), und macOS drosselte sie. Bei **4 von 10 Minispielen kam das Ergebnis zu spät** („nicht mehr gebraucht (Server ist weiter)“). Das ist ein echter Fehler für einen verdeckten oder minimierten Mac-Host → **CHAOS-203**. Bildraten aus diesem Lauf sind nicht verwertbar.
+- **Nachtrag CHAOS-203 (PR #105):** Ursache war die Drosselung durch macOS (Ersatztakt 4 statt 8 Hz, JS-Ticks bis 1,25 s) zusammen mit dem verteilten Aufbau (2 ms je Tick). Mit 8 Hz war die Bühne auch ungedrosselt in 8 von 10 Runden erst nach dem Countdown fertig. Jetzt läuft die Partie ohne Drosselung (`beginActivity`), der Ersatztakt mit 60 Hz. Minimiert: vorher 10/10 angenommen, aber die Bühne nur in 2/10 Runden rechtzeitig; nachher 10/10 angenommen und 10/10 rechtzeitig, längster JS-Tick 31 ms.
 
 **Nebenbefunde:**
 

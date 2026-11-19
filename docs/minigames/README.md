@@ -88,7 +88,7 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 4. Läuft am geteilten iPad (Zone) bedienbar, sonst als „nur iPhone“ markiert und von der Rotation bei iPad-Zonen ausgeschlossen.
 5. Screenshot-Baseline, kurzer Eintrag im Katalog (Status, Zahlen).
 6. Grafikstufe `niedrig` hält auf dem Ziel-PC mindestens die Bildrate der bestehenden Spiele.
-7. Läuft auch im nativen Apple-Host (Mac, Apple TV) mit echter Grafik: Bewegliche Objekte sind per `markVisual` mit einer Rolle gekennzeichnet, und für jede Rolle gibt es eine RealityKit-Darstellung. Es gibt nur eine Variante des Spiels (Ruben, 2026-11-17, ADR-019 Nachtrag 2); kein Minispiel kommt nur auf einen Host. Gilt, sobald der Apple-Host Minispiele darstellen kann (CHAOS-144).
+7. Läuft auch im nativen Apple-Host (Mac, Apple TV) mit echter Grafik. Es gibt nur eine Variante des Spiels (Ruben, 2026-11-17, ADR-019 Nachtrag 2), kein Minispiel kommt nur auf einen Host. Seit CHAOS-144 überträgt der JS-Kern die Geometrie der Babylon-Meshes an RealityKit (ADR-019 Nachtrag 5). Eigener Swift-Code ist dafür im Regelfall nicht nötig. Bewegliche Objekte bleiben per `markVisual` mit einer Rolle gekennzeichnet; Swift nutzt die Rolle für Figuren (USDZ) und Effekte. Nachweis: eine Bot-Partie im tvOS-Simulator, in der das Minispiel sichtbar durchläuft, und `apps/apple-host/harness/run.sh full`. Klänge kommen über `ctx.fx.sound` von selbst mit (CHAOS-190).
 
 ### 5.4 Trichter (Status im Katalog)
 
