@@ -125,6 +125,8 @@ final class RenderLoop: NSObject {
     /// läuft weiter, nur ohne Darstellung. Sonst stünden Server-Fristen und Controller still.
     private var fallback: Timer?
     private var lastFrame: CFTimeInterval = 0
+    /// Letzter Takt der Anzeige (`tick`); bleibt er 0,1 s aus, übernimmt am Mac der Ersatztakt.
+    private var lastLinkFrame: CFTimeInterval = 0
     private var lastTarget: CFTimeInterval?
     private var lastPresented: CFTimeInterval = 0
     private(set) var busyTicks = 0
@@ -142,22 +144,37 @@ final class RenderLoop: NSObject {
         super.init()
         view.onResize = { [weak self] size in self?.configure(size) }
         if view.pixelSize.width > 0 { configure(view.pixelSize) }
-        fallback = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+        fallback = Timer.scheduledTimer(withTimeInterval: RenderLoop.fallbackInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.fallbackTick() }
         }
     }
 
+    #if os(macOS)
+    /// CHAOS-203: Am Mac tickt der Ersatztakt mit 60 Hz wie die Anzeige. Der Aufbau eines Minispiels rechnet je Tick nur
+    /// 2 ms (`PREPARE_BUDGET_MS`, CHAOS-141) und die Geometrie kommt je Tick in Stücken: Mit dem früheren Takt (real 8 Hz)
+    /// war die Bühne meist erst nach dem Countdown fertig und das Minispiel endete entsprechend später; gedrosselt (4 Hz)
+    /// reichte die Kulanz des Servers (15 s) nicht mehr, und das Ergebnis kam „nicht mehr gebraucht“ an.
+    private static let fallbackInterval = 1.0 / 60
+    #else
+    private static let fallbackInterval = 1.0 / 30
+    #endif
+
     private func fallbackTick() {
         let now = CACurrentMediaTime()
+        #if os(macOS)
+        guard now - lastLinkFrame > 0.1 else { return }
+        #else
         guard now - lastFrame > 0.1 else { return }
-        onFrame(lastFrame > 0 ? min(0.1, now - lastFrame) : 1.0 / 30)
+        #endif
+        let dt = lastFrame > 0 ? min(0.1, now - lastFrame) : RenderLoop.fallbackInterval
+        onFrame(dt)
         lastFrame = now
         // Bildschirm aus oder gesperrt (CHAOS-143): `--bild` rendert dann ein Bild ohne Anzeige und kopiert die interne Textur.
         guard let presenter, presenter.wantsCapture, !slots.isEmpty, renderer.activeCamera != nil, presenter.tryReserve() else { return }
         let slot = slots[nextSlot]
         nextSlot = (nextSlot + 1) % slots.count
         do {
-            try renderer.updateAndRender(deltaTime: 0.1, cameraOutput: slot.output, onComplete: presenter.offscreen(for: slot.texture))
+            try renderer.updateAndRender(deltaTime: dt, cameraOutput: slot.output, onComplete: presenter.offscreen(for: slot.texture))
         } catch {
             presenter.release()
             hostLog("FEHLER updateAndRender: \(error)")
@@ -231,6 +248,7 @@ final class RenderLoop: NSObject {
         let dt = lastTarget.map { max(0.001, link.targetTimestamp - $0) } ?? 1.0 / 60
         lastTarget = link.targetTimestamp
         lastFrame = CACurrentMediaTime()
+        lastLinkFrame = lastFrame
         onFrame(dt)
         guard let presenter, !slots.isEmpty, renderer.activeCamera != nil else { return }
         guard presenter.tryReserve() else { busyTicks += 1; return }
