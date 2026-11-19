@@ -295,6 +295,7 @@
     "effects": [],
     "geometry": [],
     "geometryTotal": 1,
+    "sounds": [],
     "bodies": [
       {
         "id": "buehne#12",

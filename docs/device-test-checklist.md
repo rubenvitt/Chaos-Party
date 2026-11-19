@@ -617,3 +617,19 @@ Automatisch bzw. von Claude geprüft: Regie-Tests (`apps/host/src/board/director
 |---|---|---|---|---|
 | PS1 | PC: Partie spielen, bis eine Figur auf einem Münzfeld ein Item bekommt oder würfelt und gleich danach Münzen bekommt | Die Popups stehen übereinander, beide lesbar; das jüngere schiebt sich nicht über das ältere | | Foto |
 | PS2 | Mac-App (nativer Host): dasselbe | wie PS1 | | Foto |
+||||||| parent of fdeddcb (feat(apple-host): Minispiele mit Klängen wie im Babylon-Host)
+
+## 32. Minispiel-Klänge im nativen Host (für CHAOS-190)
+
+**Stand:** 2026-11-19 · **Aufgabe:** CHAOS-190 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), „Minispiel-Klänge“; Vertrag: [`CONTRACT.md`](../apps/apple-host/CONTRACT.md) „Klänge“
+
+Automatisch bzw. von Claude geprüft (19.11.): Klänge je Minispiel wie im Browser-Host (Unit-Tests, Swift-Harness `full` zählt je Minispiel `minigame-start`, 3 × `tick`, `go`, `win`, `cheer`); Synthese offline in WAV gerendert (Länge, Pegel, Hauptfrequenz je Klang); tvOS-Simulator mit vier Bot-Spielern: alle fünf Minispiele mit 40–211 Klängen je Minispiel, 0 verworfen (Logzeile `Minispiel-Klänge …`). **Nicht** geprüft: das Hören selbst, Lautstärke im Verhältnis zum Brett, Gleichlauf von Ton und Bild am Fernseher.
+
+| ID  | Schritt                                                                     | Erwartung                                                                                                                         | Ergebnis | Nachweis   |
+| --- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| MK1 | Mac oder Apple TV: Partie bis zum ersten Minispiel spielen                  | Beim Erscheinen der Anleitung ein Aufwärts-Swoosh mit Tusch, dann „tick“ bei 3, 2, 1 (der letzte höher), zum Start ein „Los!“-Dreiklang |          |            |
+| MK2 | Minispiel spielen                                                           | Klänge zu Treffern, Punkten, Stürzen usw. kommen im selben Moment wie das Bild, nicht verzögert; nichts klirrt oder knackt         |          |            |
+| MK3 | Ende und Ergebnis                                                           | Siegesfanfare zum Ende, Jubel im Ergebnis, wenn Platz 1 jubelt                                                                    |          |            |
+| MK4 | Kuckucks-Klatsche mit vier Spielern (dichteste Klangfolge)                  | Ton bleibt im Takt; Log: `Minispiel-Klänge …: n gespielt, m verworfen` mit kleinem `m`                                           |          | Log-Zeile  |
+| MK5 | Gleiche Stelle am PC (Babylon-Host) anhören                                 | Gleiche Klänge, ähnliche Lautstärke wie am PC und wie die Brett-Klänge                                                            |          |            |
+| MK6 | App mit `--stumm` starten                                                   | Minispiele bleiben still                                                                                                          |          |            |

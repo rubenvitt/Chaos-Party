@@ -343,6 +343,34 @@
       }
     ],
     "geometryTotal": 1,
+    "sounds": [
+      {
+        "id": 41,
+        "name": "hit",
+        "voices": [
+          {
+            "wave": "noise",
+            "freq": 0,
+            "attack": 0.002,
+            "duration": 0.09,
+            "gain": 0.15,
+            "filter": {
+              "type": "lowpass",
+              "freq": 1400,
+              "freqEnd": 300
+            }
+          },
+          {
+            "wave": "sine",
+            "freq": 190,
+            "freqEnd": 70,
+            "attack": 0.004,
+            "duration": 0.16,
+            "gain": 0.2
+          }
+        ]
+      }
+    ],
     "bodies": [
       {
         "id": "buehne#12",

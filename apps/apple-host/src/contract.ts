@@ -517,6 +517,12 @@ export const MinigameStateSchema = z.strictObject({
   geometry: z.array(MinigameGeometrySchema),
   /** So viele Geometrien kennt die Bühne bisher (ausgeliefert oder wartend). */
   geometryTotal: z.number().int().min(0),
+  /**
+   * Klänge der letzten `SOUND_WINDOW_MS` (CHAOS-190), wie im Browser-Host: `ctx.fx.sound` des
+   * Minispiels, „minigame-start“ und Countdown-„tick“ in der Anleitung, „cheer“ im Ergebnis. IDs
+   * steigen über die Lebenszeit des Kerns; Swift spielt jede ID einmal.
+   */
+  sounds: z.array(SoundCueSchema),
 });
 
 // --- Finale und Pause (CHAOS-145) -------------------------------------------------------------

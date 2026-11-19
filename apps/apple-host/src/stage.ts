@@ -1,6 +1,6 @@
 /**
  * Headless-Minispiel-Bühne für den Apple-Host (ADR-019 §3): wie `apps/host/src/minigame/stage.ts`,
- * aber mit NullEngine statt Canvas, ohne Rendern und Klang. Swift zeichnet selbst (RealityKit).
+ * aber mit NullEngine statt Canvas, ohne Rendern und Tonausgabe. Swift zeichnet und spielt selbst (RealityKit, AVAudioEngine).
  *
  * Darstellung (CHAOS-144):
  * - `bodies()`: jedes sichtbare Mesh mit Lage, Farbe, Rolle (`markVisual`, CHAOS-149) und Verweis
@@ -10,7 +10,8 @@
  * - Look: Die Bühne gibt dem Minispiel einen `look` wie der Browser-Host (gleicher Code-Pfad):
  *   `material` merkt sich die Oberfläche, `backdrop` nur die Spielfläche; die Kulisse drumherum
  *   baut Swift.
- * - Effekte (`ctx.fx`): Ausbrüche und Kamerawackeln als nummerierte Ereignisse (`effects()`).
+ * - Effekte (`ctx.fx`): Ausbrüche und Kamerawackeln als nummerierte Ereignisse (`effects()`),
+ *   Klänge über `onSound` (CHAOS-190, `./minigameSounds.ts`).
  */
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer.js';
@@ -38,8 +39,10 @@ import {
   type MinigameRunner,
   type PrepareThrottle,
   type RunnerResult,
+  type SoundId,
   type VisualTag,
 } from '@chaos-party/minigame-sdk/babylon';
+import type { PlayOptions } from '../../host/src/fx/sounds.ts';
 import type {
   Body,
   BodyShape,
@@ -75,6 +78,8 @@ export interface HeadlessStageOptions {
   readonly pacing?: PrepareThrottle;
   /** Uhr für Effekte (ms, Kern-Uhr); fehlt = 0 (Tests). */
   readonly now?: () => number;
+  /** Klang aus `ctx.fx.sound` und dem Jubel im Ergebnis (CHAOS-190); fehlt = stumm. */
+  readonly onSound?: (id: SoundId, options?: PlayOptions) => void;
 }
 
 /**
@@ -214,9 +219,11 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
       effectTimes.shift();
     }
   };
-  /** Effekte als Ereignisse für Swift; Klang fehlt im nativen Host noch. */
+  /** Effekte als Ereignisse für Swift, Klänge über `onSound` (CHAOS-190). */
   const fx: MinigameFx = {
-    sound: () => undefined,
+    sound(id, playOptions) {
+      if (!flags.disposed) options.onSound?.(id, playOptions);
+    },
     burst(id, at, color) {
       pushEffect({
         kind: id,
@@ -493,6 +500,8 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     celebrate(placements) {
       if (flags.celebrated || flags.disposed || !flags.ready) return;
       flags.celebrated = true;
+      // Wie `stage.celebrate` im Browser-Host: Jubel-Klang, dann Figuren und Konfetti.
+      fx.sound('cheer');
       for (const entry of placements) {
         const figure = figures.get(entry.slot);
         if (!figure || figure.disposed) continue;

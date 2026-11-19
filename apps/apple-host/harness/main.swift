@@ -69,6 +69,13 @@ if let file = fixtureFiles.first(where: { $0.lastPathComponent == "minigame-resu
    let rows = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).minigame?.results?.rows {
   if rows.count != 2 || rows[0].coins != 10 || rows[1].prizes != ["Schild"] { fail("minigame-results.json: Ergebnis falsch") }
 } else { fail("minigame-results.json: Ergebnis fehlt") }
+// CHAOS-190: Minispiel-Klänge kommen als fertige Rezepte an (Countdown-Tick bei 1 s um × 1,25 höher).
+if let file = fixtureFiles.first(where: { $0.lastPathComponent == "minigame-countdown.json" }),
+   let sounds = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).minigame?.sounds {
+  if sounds.map(\.name) != ["tick", "tick"] || sounds.map({ $0.voices.first?.freq ?? 0 }) != [740, 925] {
+    fail("minigame-countdown.json: Klänge falsch: \(sounds)")
+  }
+} else { fail("minigame-countdown.json: Klänge fehlen") }
 out("Fixtures dekodiert: \(fixtureFiles.count) Dateien mit RenderState.swift")
 
 let ctx = JSContext()!
@@ -266,6 +273,9 @@ for c in controllers {
 drain()
 
 var geometryDecoded = 0
+/// CHAOS-190: Klänge je Minispiel, jede ID einmal (wie die App sie spielt).
+var soundsByGame: [String: [String: Int]] = [:]
+var lastSoundId = 0
 while now < limitMs {
   now += step
   RunLoop.current.run(until: Date())  // GC-Zeitgeber von JSC laufen über die Run-Loop (wie in der App)
@@ -296,6 +306,13 @@ while now < limitMs {
     for entry in list {
       if entry.decoded() == nil { fail("Geometrie \(entry.id) (\(decoded.minigame?.id ?? "?")) nicht dekodierbar") }
       geometryDecoded += 1
+    }
+  }
+  if let cues = minigame?["sounds"] as? [[String: Any]], let game = minigame?["id"] as? String {
+    for cue in cues {
+      guard let id = cue["id"] as? Int, id > lastSoundId, let name = cue["name"] as? String else { continue }
+      lastSoundId = id
+      soundsByGame[game, default: [:]][name, default: 0] += 1
     }
   }
   if phase != lastPhase || stageName != lastStage || frame % 60 == 0 {
@@ -356,6 +373,16 @@ while now < limitMs {
 }
 
 if geometryDecoded == 0 { fail("keine Minispiel-Geometrie dekodiert") }
+// CHAOS-190: je Minispiel Start und Countdown der Anleitung, „go“, „win“ und Jubel im Ergebnis.
+out("Minispiel-Klänge (jede ID einmal):")
+for (game, names) in soundsByGame.sorted(by: { $0.key < $1.key }) {
+  out("  \(game): " + names.sorted { $0.key < $1.key }.map { "\($0.key)×\($0.value)" }.joined(separator: " "))
+  let expected = ["minigame-start": 1, "tick": 3, "go": 1, "win": 1, "cheer": 1]
+  for (name, count) in expected where (names[name] ?? 0) < count {
+    fail("\(game): Klang \(name) \(names[name] ?? 0)×, erwartet mindestens \(count)×")
+  }
+}
+if soundsByGame.isEmpty { fail("keine Minispiel-Klänge im renderState") }
 out("Minispiel-Geometrien dekodiert: \(geometryDecoded)")
 out("\nCPU-Zeit je Tick (macOS-JSC, faktisch ohne JIT; Apple TV langsamer):")
 for key in tickStats.keys.sorted() {
