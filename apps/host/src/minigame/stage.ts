@@ -17,6 +17,10 @@
  * Testmodus: keine Render-Schleife; `step(n)` rechnet n feste Schritte und rendert einmal
  * (in der Pause nur das Bild, ohne Schritte).
  *
+ * Verteilter Aufbau (CHAOS-168): `runner.prepare` gibt nach wenigen ms je Bild ab
+ * (`./preparePacing.ts`), `prepareSceneGradually` danach ebenso für die Shader. Gezeichnet wird
+ * erst, wenn beides fertig ist.
+ *
  * Natur-Look (CHAOS-62): Die Bühne gibt dem Minispiel `ctx.look` mit (`./natureLook.ts`).
  * Bestellt es eine Kulisse, setzt die Bühne nach `prepare` Licht, Himmel und Nachbearbeitung
  * der Stimmung (`?stimmung=`, Grafikstufe `?qualitaet=` bzw. automatisch).
@@ -43,6 +47,7 @@ import { createAdaptiveQuality } from '../nature/quality.ts';
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { NatureLook } from '../nature/lighting.ts';
 import { createMinigameLook, SOFTWARE_MAX_STEPS, type HostMinigameLook } from './natureLook.ts';
+import { createPreparePacing } from './preparePacing.ts';
 import type { SoundEngine } from '../fx/audio.ts';
 import { createMinigameFx, type FxStats, type HostMinigameFx } from '../fx/minigameFx.ts';
 import { loadHavok } from '../scene/havok.ts';
@@ -191,6 +196,10 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
       look,
       // Software-Rendering: bis 4 s Spielzeit je Bild, damit das Ergebnis rechtzeitig kommt.
       ...(settings.software ? { maxStepsPerAdvance: SOFTWARE_MAX_STEPS } : {}),
+      // Aufbau über mehrere Bilder verteilen (`ctx.pace()`, CHAOS-168): Die Anleitung läuft
+      // weiter, statt während `prepare` am Stück zu stehen. Auch im Testmodus – das Ergebnis
+      // des Aufbaus ist dasselbe, nur die Zeit verteilt sich.
+      pacing: createPreparePacing(),
       onResult: (result) => {
         options.onResult(result);
       },
