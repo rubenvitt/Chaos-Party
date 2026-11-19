@@ -51,6 +51,14 @@ export const SABOTAGE_NOTICE_PAUSE_MS = 1200;
 
 /** So lange bleibt ein Popup sichtbar (auch wenn die Warteschlange schon weiterläuft). */
 export const POPUP_MS = 1400;
+/**
+ * Abstand (Welteinheiten) zwischen gestapelten Popups (CHAOS-189): Gleichzeitig sichtbare
+ * Popups über derselben Stelle bekommen in der Regie eine Ebene (`stack`), die Szene versetzt
+ * sie um `stack × POPUP_STACK_HEIGHT` entlang der Bildschirm-Senkrechten (Kamera-oben). Höher
+ * als das größte Popup (Würfel, 1,1), damit das Steigen des älteren Popups (Welt-Y, in der
+ * Schrägsicht verkürzt) den Abstand nicht aufzehrt.
+ */
+export const POPUP_STACK_HEIGHT = 1.4;
 
 const BOARD_EVENT_POPUP: Readonly<Record<string, string>> = {
   'coin-rain': 'Münzregen!',

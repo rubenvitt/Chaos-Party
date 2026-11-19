@@ -587,3 +587,14 @@ Automatisch bzw. von Claude geprüft (M3 Max, macOS 27.2, 18.11.): App am Mac un
 | NH5 | Apple TV (TestFlight-Build nach dem Merge): dasselbe wie NH1–NH4 mit der Fernbedienung für den Start | wie am Mac; Lobby lesbar aus Sofa-Abstand | Entfällt (18.11., Ruben: „ignorieren wir den tv teil & gehen davon aus, dass alles passt“) | Foto |
 | NH6 | Apple TV bei 4K-Ausgabe 2–3 Minuten Brett laufen lassen, Log mit `xcrun devicectl … --console` (README) | `HOST-MESSUNG` mit `"fps"` und `angezeigt_ms_p95` notieren; Ziel ≥ 30 fps prüft der Gesamtlauf | Entfällt (18.11., Ruben, siehe NH5) | Log-Auszug |
 | NH7 | Ruben: Urteil zur Optik von Lobby und Brett | „passt“ oder eine Liste, was fehlt (bekannt: keine Lichtstimmungen je Runde, kein SSAO/Tiefenschärfe, Hintergrund hellblau statt warm) | | Kommentar an CHAOS-142 |
+
+## 30. Gleichzeitige Popups über dem Brett (für CHAOS-189)
+
+**Stand:** 2026-11-19 · **Aufgabe:** CHAOS-189
+
+Automatisch bzw. von Claude geprüft: Regie-Tests (`apps/host/src/board/director.test.ts`, Stapelebenen und Freigabe abgelaufener Ebenen), Babylon-Host im lokalen Brett-Modus mit Würfel-, Münz- und Item-Popup über Blau (Bild [`chaos189-popups-gestapelt.jpg`](screenshots/chaos189-popups-gestapelt.jpg)). **Nicht** geprüft: der native Host (Swift-Teil, in der Cloud-Sitzung gab es kein Swift; die CI baut ihn auf macOS), Rubens Urteil.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| PS1 | PC: Partie spielen, bis eine Figur auf einem Münzfeld ein Item bekommt oder würfelt und gleich danach Münzen bekommt | Die Popups stehen übereinander, beide lesbar; das jüngere schiebt sich nicht über das ältere | | Foto |
+| PS2 | Mac-App (nativer Host): dasselbe | wie PS1 | | Foto |

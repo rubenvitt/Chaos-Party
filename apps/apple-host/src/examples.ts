@@ -164,6 +164,7 @@ const BOARD_EVENTS: BoardState = {
       text: '5',
       tone: 'neutral',
       progress: 0.3,
+      stack: 0,
       reaction: null,
     },
     {
@@ -174,6 +175,7 @@ const BOARD_EVENTS: BoardState = {
       text: '−3',
       tone: 'bad',
       progress: 0.1,
+      stack: 0,
       reaction: 'hit',
     },
     {
@@ -184,6 +186,7 @@ const BOARD_EVENTS: BoardState = {
       text: 'Hier!',
       tone: 'gold',
       progress: 0.6,
+      stack: 0,
       reaction: null,
     },
   ],

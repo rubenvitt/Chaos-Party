@@ -13,6 +13,7 @@
  * - Windstoß und Platztausch (CHAOS-52): Ein `moved` direkt nach `board-event` `gust` wird als
  *   Flug gezeigt; beim Platztausch fliegen beide Figuren (zwei `moved` mit je einem Feld)
  *   gleichzeitig über Kreuz.
+ * - Gleichzeitige Popups über derselben Stelle stapeln sich (`FramePopup.stack`, CHAOS-189).
  * - Zeit vergeht nur über `advance(ms)` – die Szene ruft das je Frame auf (Testmodus: 1/60 s).
  *
  * Framework-frei: Die Szene liest `getFrame()` je Frame, der React-HUD abonniert
@@ -50,6 +51,13 @@ export interface FramePawn {
 
 export interface FramePopup extends PopupSpec {
   readonly id: number;
+  /**
+   * Stapelebene (CHAOS-189): 0 = unten; gleichzeitig sichtbare Popups über derselben Stelle
+   * (Figur auf dem Feld oder das Feld selbst) bekommen die nächste freie Ebene und werden um
+   * `stack × POPUP_STACK_HEIGHT` entlang der Bildschirm-Senkrechten versetzt, statt sich zu
+   * überdecken.
+   */
+  readonly stack: number;
   /** 0 beim Erscheinen … 1 beim Verschwinden. */
   readonly progress: number;
 }
@@ -214,6 +222,7 @@ export function toQueueItems(events: readonly BoardEvent[]): EventItem[] {
 
 interface ActivePopup extends PopupSpec {
   readonly id: number;
+  readonly stack: number;
   readonly startedAt: number;
 }
 
@@ -290,6 +299,31 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     for (const listener of [...eventListeners]) listener(event);
   }
 
+  /** Stelle, über der ein Popup gerade steht: das Feld selbst oder das Feld seiner Figur. */
+  function anchorOf(popup: PopupSpec): string | null {
+    if (popup.slot !== null) {
+      const space = pawnSpaces.get(popup.slot);
+      return space === undefined ? `slot:${popup.slot}` : `space:${space}`;
+    }
+    return popup.spaceId === null ? null : `space:${popup.spaceId}`;
+  }
+
+  /**
+   * Niedrigste Ebene, die kein noch sichtbares Popup über derselben Stelle belegt (CHAOS-189).
+   * Abgelaufene Popups zählen nicht, auch wenn `expire` sie erst später entfernt.
+   */
+  function freeStack(popup: PopupSpec): number {
+    const anchor = anchorOf(popup);
+    if (anchor === null) return 0;
+    const used = new Set<number>();
+    for (const other of popups) {
+      if (now - other.startedAt < POPUP_MS && anchorOf(other) === anchor) used.add(other.stack);
+    }
+    let stack = 0;
+    while (used.has(stack)) stack++;
+    return stack;
+  }
+
   function startOf(event: MovedEvent): string {
     return pawnSpaces.get(event.slot) ?? event.path[0] ?? '';
   }
@@ -299,7 +333,9 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     announce(event);
     if (partner) announce(partner);
     const plan = planEvent(event, stepMsOf(), style);
-    if (plan.popup) popups.push({ ...plan.popup, id: nextId++, startedAt: now });
+    if (plan.popup) {
+      popups.push({ ...plan.popup, id: nextId++, stack: freeStack(plan.popup), startedAt: now });
+    }
 
     switch (event.type) {
       case 'coins-changed':
