@@ -101,7 +101,9 @@ interface ChaosHostInstance {
     "effects": [{ "seq": 7, "kind": "impact" | "sparkle" | "confetti" | … | "shake", "pos": [0, 0, 0], "color": null, "strength": 1 }],
     "geometry": [{ "id": "g12", "vertices": 482, "positions": "<base64>", "normals": "<base64>", "indices": "<base64>",
                    "wideIndices": false, "extent": [1, 0.5, 1] }],
-    "geometryTotal": 43
+    "geometryTotal": 43,
+    "sounds": [{ "id": 41, "name": "hit", "voices": [{ "wave": "sine", "freq": 190, "freqEnd": 70, "attack": 0.004, "duration": 0.16,
+                                                       "gain": 0.2 }] }]
   },
   "final": null | {                                                      // nur in der Phase final (CHAOS-145)
     "beat": "intro" | "reveal" | "tiebreak" | "winner", "beatIndex": 3, "progress": 0.62, "done": false,
@@ -137,7 +139,17 @@ interface ChaosHostInstance {
 - **Look:** Die Bühne gibt dem Minispiel wie der Browser-Host einen `look` (gleicher Code-Pfad, kein eigenes Licht, kein Boden bis zum Horizont). `backdrop` ist die Spielfläche aus `look.backdrop`; die Kulisse drumherum (Wiese, Picknickdecke, Bäume) baut Swift.
 - **Figuren:** Wurzelknoten (Füße) mit Lage, Rotation und Skalierung; `anim` ist die zuletzt gespielte Animation, `animSeq` zählt jedes `play` (Einmal-Clips wie `hit` erneut abspielen). Im Ergebnis jubelt Platz 1, die anderen schmollen (wie `celebrate` im Browser-Host).
 - **Kamera:** `scene.activeCamera` je Bild (Position, Ziel, Öffnungswinkel in Radiant).
-- **Effekte:** `ctx.fx.burst`/`shake` als nummerierte Ereignisse der letzten 1,5 s; Swift spielt jede `seq` einmal. Klänge fehlen im nativen Host noch.
+- **Effekte:** `ctx.fx.burst`/`shake` als nummerierte Ereignisse der letzten 1,5 s; Swift spielt jede `seq` einmal.
+- **Klänge (CHAOS-190):** `sounds` wie `board.sounds` (Rezept aus `apps/host/src/fx/sounds.ts` mit Lautstärke und Tonhöhe angewandt), Klänge der letzten 1,5 s, höchstens 48. Die `id` steigt über die ganze Lebenszeit des Kerns (nicht je Minispiel, sonst bliebe eine Revanche stumm); Swift spielt jede ID einmal und setzt den Zähler zurück, wenn ein anderes Minispiel erscheint. Jeder Klang gehört zu dem Minispiel, das ihn ausgelöst hat. Quellen wie im Browser-Host (`src/minigameSounds.ts`):
+
+  | Klang | Wann | Browser-Host |
+  | --- | --- | --- |
+  | `minigame-start` | Minispiel erscheint in der Anleitung (nicht, wenn es erst im Spiel auftaucht) | `MinigameScreen` beim Erscheinen |
+  | `tick` | Countdown der Anleitung bei 3, 2 und 1 s, bei 1 s Tonhöhe × 1,25; in der Pause steht er | `MinigameScreen`, Effekt auf `introSeconds` |
+  | `go`, `win` und alle Klänge des Spiels | `ctx.fx.sound` des Minispiels (gleicher Code: Start, Treffer, Punkte, Ende) | `fx/minigameFx.ts` |
+  | `cheer` | Ergebnis, einmal, wenn die Figuren jubeln | `stage.celebrate` |
+
+  Klänge der Minispiele über `ctx.fx.sound` (Stand CHAOS-190; Lautstärke/Tonhöhe in Klammern): Sockenregen `go`, `whoosh` (0,6; Bügeleisen 0,35/0,7), `bump`, `score`, `coin` (Tonhöhe steigt), `hit`, `pop`, `buzz`, `win` · Pudding-Gerangel `go`, `coin` (0,35, je Slot), `hit` (0,5), `whoosh` (0,6 bzw. 0,4/1,3), `bump` (zufällige Tonhöhe), `splash`, `pop`, `win` · Wackelturm `go`, `pop` (Tonhöhe nach Höhe), `coin`, `whoosh` (auch 1,2), `cheer`/`score` (Bonus), `hit`/`fall`, `bump`, `buzz` (0,5), `win` · Kuckucks-Klatsche `go`, `tick` (0,25/1,3), `pop`, `buzz` (0,45/1,5 und 1), `hit` (0,7), `coin`, `whoosh` (0,7 und 0,3/0,7), `score` (0,8), `lose` (0,6), `bump` (0,4/0,8), `win` · Krümel-Kehraus `go`, `pop` (1,4 und 0,35/1,1), `whoosh` (0,8/0,8 und 0,4/1,3), `bump` (0,5/0,7 und zufällig), `coin`/`score`, `win`. Der Kern ruft dieselben Module auf, also sind es dieselben Aufrufe; `test/minigameSounds.test.ts` prüft je Minispiel der Rotation `go`, `win` und `cheer`, `harness/run.sh full` zählt sie in JavaScriptCore.
 - **Bildschirme:** `info`, `countdown` (Intro), `scoreboard` (Spiel), `results` (Ergebnis mit Münzen und Trostpreis) kommen aus denselben Funktionen wie im Browser-Host (`plan.ts`, `results.ts`, `texts.ts`); `repeat` = kurze Anleitung (CHAOS-66).
 
 ### Finale und Pause (CHAOS-145)

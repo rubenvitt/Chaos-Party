@@ -315,6 +315,44 @@
     ],
     "geometry": [],
     "geometryTotal": 1,
+    "sounds": [
+      {
+        "id": 58,
+        "name": "cheer",
+        "voices": [
+          {
+            "wave": "noise",
+            "freq": 0,
+            "attack": 0.12,
+            "duration": 1,
+            "gain": 0.16,
+            "filter": {
+              "type": "bandpass",
+              "freq": 900,
+              "freqEnd": 1300,
+              "q": 0.7
+            }
+          },
+          {
+            "wave": "triangle",
+            "freq": 440,
+            "freqEnd": 660,
+            "attack": 0.04,
+            "duration": 0.45,
+            "gain": 0.14
+          },
+          {
+            "wave": "triangle",
+            "freq": 554,
+            "freqEnd": 830,
+            "delay": 0.18,
+            "attack": 0.04,
+            "duration": 0.5,
+            "gain": 0.12
+          }
+        ]
+      }
+    ],
     "bodies": [
       {
         "id": "buehne#12",

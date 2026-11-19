@@ -22,6 +22,8 @@ final class Stage {
     private var podium: PodiumScene?
     /// `pause`-/`resume`-Klang (CHAOS-145).
     private let pauseSounds = BoardSounds()
+    /// Klänge der Minispiele (CHAOS-190), auch ohne geladene Minispiel-Bühne.
+    private let minigameSounds = MinigameSounds()
     /// Minispiel-Abschnitt gewechselt (`<runde>-<id>-<stage>`), für `--bild` (CHAOS-144).
     var onMinigameStage: ((String) -> Void)? {
         didSet { minigame?.onStage = onMinigameStage }
@@ -86,6 +88,7 @@ final class Stage {
             onPhase?(phase)
         }
         pauseSounds.play(s.pause?.sounds ?? [])
+        minigameSounds.apply(s.phase == "minigame" || s.phase == "paused" ? s.minigame : nil)
         // Finale (CHAOS-145): Das Podest entsteht schon in der Zählung (unsichtbar), zu sehen am Siegerbildschirm.
         if s.phase == "final", let f = s.final, let podium {
             podium.apply(f, visible: f.done, dt: dt)

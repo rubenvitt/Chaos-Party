@@ -325,6 +325,24 @@ const MINIGAME_PLAY: MinigameState = {
   ],
   geometry: [QUAD_GEOMETRY],
   geometryTotal: 1,
+  // CHAOS-190: `ctx.fx.sound('hit', { volume: 0.5 })` aus dem Pudding-Gerangel.
+  sounds: [
+    {
+      id: 41,
+      name: 'hit',
+      voices: [
+        {
+          wave: 'noise',
+          freq: 0,
+          attack: 0.002,
+          duration: 0.09,
+          gain: 0.15,
+          filter: { type: 'lowpass', freq: 1400, freqEnd: 300 },
+        },
+        { wave: 'sine', freq: 190, freqEnd: 70, attack: 0.004, duration: 0.16, gain: 0.2 },
+      ],
+    },
+  ],
   bodies: [
     {
       id: 'buehne#12',
@@ -706,6 +724,50 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
       effects: [],
       geometry: [],
       geometryTotal: 0,
+      // CHAOS-190: Das Minispiel erscheint in der Anleitung.
+      sounds: [
+        {
+          id: 30,
+          name: 'minigame-start',
+          voices: [
+            { wave: 'sine', freq: 300, freqEnd: 900, attack: 0.02, duration: 0.35, gain: 0.22 },
+            { wave: 'triangle', freq: 784, delay: 0.3, attack: 0.008, duration: 0.14, gain: 0.18 },
+            { wave: 'triangle', freq: 1046, delay: 0.4, attack: 0.008, duration: 0.45, gain: 0.2 },
+          ],
+        },
+      ],
+    },
+  },
+  // CHAOS-190: Countdown der Anleitung, Ticks bei 2 und 1 s (bei 1 s Tonhöhe × 1,25).
+  'minigame-countdown': {
+    phase: 'minigame',
+    lobby: { ...JOIN, players: PLAYERS_IN_GAME },
+    board: { ...BOARD, activeSlot: null },
+    minigame: {
+      ...MINIGAME_PLAY,
+      stage: 'intro',
+      elapsedMs: 0,
+      hud: '',
+      countdown: 1,
+      scoreboard: null,
+      effects: [],
+      geometry: [],
+      sounds: [
+        {
+          id: 32,
+          name: 'tick',
+          voices: [
+            { wave: 'sine', freq: 740, freqEnd: 620, attack: 0.003, duration: 0.07, gain: 0.25 },
+          ],
+        },
+        {
+          id: 33,
+          name: 'tick',
+          voices: [
+            { wave: 'sine', freq: 925, freqEnd: 775, attack: 0.003, duration: 0.07, gain: 0.25 },
+          ],
+        },
+      ],
     },
   },
   'minigame-play': {
@@ -726,6 +788,33 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
       scoreboard: null,
       geometry: [],
       effects: [{ seq: 12, kind: 'confetti', pos: [-2.1, 1.6, 1.3], color: null, strength: 1 }],
+      // CHAOS-190: Jubel, wenn die Figuren im Ergebnis jubeln (`celebrate`).
+      sounds: [
+        {
+          id: 58,
+          name: 'cheer',
+          voices: [
+            {
+              wave: 'noise',
+              freq: 0,
+              attack: 0.12,
+              duration: 1,
+              gain: 0.16,
+              filter: { type: 'bandpass', freq: 900, freqEnd: 1300, q: 0.7 },
+            },
+            { wave: 'triangle', freq: 440, freqEnd: 660, attack: 0.04, duration: 0.45, gain: 0.14 },
+            {
+              wave: 'triangle',
+              freq: 554,
+              freqEnd: 830,
+              delay: 0.18,
+              attack: 0.04,
+              duration: 0.5,
+              gain: 0.12,
+            },
+          ],
+        },
+      ],
       figures: MINIGAME_PLAY.figures.map((figure) => ({
         ...figure,
         anim: figure.slot === 1 ? 'cheer' : 'sad',
@@ -789,7 +878,7 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
     phase: 'paused',
     lobby: { ...JOIN, players: PLAYERS_IN_GAME },
     board: { ...BOARD, activeSlot: null },
-    minigame: { ...MINIGAME_PLAY, geometry: [], effects: [] },
+    minigame: { ...MINIGAME_PLAY, geometry: [], effects: [], sounds: [] },
   },
   final: {
     phase: 'final',

@@ -61,6 +61,7 @@ import { createSoundTrack } from './soundTrack.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
 import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
+import { createMinigameSounds } from './minigameSounds.ts';
 import { createNoticeTracker } from './notice.ts';
 import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
 
@@ -252,6 +253,9 @@ function create(env: HostEnv): ChaosHostInstance {
   let direction = createBoardDirection();
   let lastDirectionAt: number | null = null;
   let stage: { key: string; headless: HeadlessStage } | null = null;
+  /** Minispiel-Klänge (CHAOS-190); IDs laufen über die ganze Lebenszeit des Kerns. */
+  const sounds = createMinigameSounds(now);
+  const isKnownMinigame = (id: string) => getMinigameModule(id) !== undefined;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
   /** Erster `tick`-Wert: Die Uhr des Kerns zählt ab 0 (Session und Host starten bei 0). */
@@ -281,7 +285,7 @@ function create(env: HostEnv): ChaosHostInstance {
 
   /** Bühne an den neuesten Brett-Stand anpassen (wie `MinigameScreen` im Browser-Host). */
   const syncStage = () => {
-    const key = stageKeyOf(view, (id) => getMinigameModule(id) !== undefined);
+    const key = stageKeyOf(view, isKnownMinigame);
     if (stage?.key !== key) {
       disposeStage();
       const module = key && view?.minigame ? getMinigameModule(view.minigame.id) : undefined;
@@ -301,6 +305,9 @@ function create(env: HostEnv): ChaosHostInstance {
           log,
           pacing: PACING,
           now,
+          onSound: (id, options) => {
+            sounds.play(id, options, key);
+          },
           onResult: (result) => {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
@@ -495,6 +502,7 @@ function create(env: HostEnv): ChaosHostInstance {
       effects: headless?.effects(now() - EFFECT_WINDOW_MS) ?? [],
       geometry: headless?.takeGeometry(GEOMETRY_CHARS_PER_FRAME, GEOMETRY_BUDGET_MS) ?? [],
       geometryTotal: headless?.geometryTotal ?? 0,
+      sounds: sounds.cues(stageKeyOf(current, isKnownMinigame)),
     };
   };
 
@@ -542,6 +550,12 @@ function create(env: HostEnv): ChaosHostInstance {
           log(`Minispiel-Schritt: ${describe(error)}`);
         }
       }
+      // Anleitung: „minigame-start“ und Countdown-Ticks wie `MinigameScreen` (CHAOS-190).
+      sounds.observe(
+        stageKeyOf(view, isKnownMinigame),
+        minigameStageOf(view),
+        view ? introCountdown(view, receivedAt, now()) : null,
+      );
       flush();
     },
     renderState() {

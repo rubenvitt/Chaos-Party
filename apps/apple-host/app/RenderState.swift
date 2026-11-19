@@ -229,6 +229,9 @@ struct RenderState: Decodable, Equatable {
         /// New geometry since the last frame; each entry arrives exactly once.
         var geometry: [Geometry]?
         var geometryTotal: Int?
+        /// Sound cues of the last 1.5 s (CHAOS-190): the minigame's `ctx.fx.sound`, start and countdown ticks in the
+        /// intro, cheer in the results. Ids rise over the core's lifetime; play every id once.
+        var sounds: [SoundCue]?
     }
 
     /// One mesh of the headless minigame scene: centre of its world bounding box, world rotation (x, y, z, w),
