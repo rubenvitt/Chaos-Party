@@ -67,6 +67,9 @@ function bot({ name, character }) {
   let picked = false;
   let pressed = false;
   const answered = new Set();
+  /** Zuletzt beantwortete Frage: kam die Antwort in eine Pause (`paused`), gilt sie als nicht gegeben. */
+  /** @type {number | null} */
+  let lastPromptId = null;
   /** @type {(type: string, fields?: Record<string, unknown>) => void} */
   const send = (type, fields = {}) => {
     if (ws.readyState === WebSocket.OPEN && !silent)
@@ -83,6 +86,8 @@ function bot({ name, character }) {
       console.log(`${name}: Slot ${String(slot)}${rejoined ? ' (wieder verbunden)' : ''}`);
     } else if (m.type === 'context' && slot !== null) {
       actions = m.actions ?? [];
+      // Lobby (auch nach der Revanche): Frage-IDs zählen in der neuen Partie von vorn (wie `test/botMatch.ts`).
+      if (actions.includes('ready') || actions.includes('pick-character')) answered.clear();
       if (actions.includes('pick-character') && !picked) {
         picked = true;
         send('pick-character', { slot, seq: ++seq, character });
@@ -92,6 +97,7 @@ function bot({ name, character }) {
       const prompt = m.prompt;
       if (actions.includes('choose') && prompt?.options?.length && !answered.has(prompt.id)) {
         answered.add(prompt.id);
+        lastPromptId = prompt.id;
         const option = colorful ? decide(prompt) : prompt.options[0].id;
         // Bunt: kurz „überlegen“, damit Status und Countdown im Bild stehen.
         if (option !== null) {
@@ -102,6 +108,9 @@ function bot({ name, character }) {
       }
     } else if (m.type === 'error') {
       console.log(`${name}: error ${String(m.code)} ${String(m.message)}`);
+      // Antwort fiel in eine Pause: nach dem Fortsetzen (neuer Kontext) noch einmal antworten, wie ein
+      // Mensch, der nach der Pause erneut tippt. Sonst bleibt die Partie am Zug dieses Bots stehen.
+      if (m.code === 'paused' && lastPromptId !== null) answered.delete(lastPromptId);
     }
   };
   /** Neue Verbindung; mit Token als `reconnect`, sonst `join`. */
