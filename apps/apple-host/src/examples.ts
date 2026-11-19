@@ -9,6 +9,7 @@
  */
 import type {
   BoardState,
+  Hud,
   LobbyPlayer,
   LobbySettingsState,
   MinigameGeometry,
@@ -46,6 +47,37 @@ const BEN: LobbyPlayer = {
   character: null,
 };
 
+const HUD: Hud = {
+  boardName: 'Wackelwald',
+  roundText: 'Runde 3/10',
+  banner: null,
+  bannerSlot: null,
+  status: { slot: 2, kind: 'roll', text: 'Ben darf würfeln …', detail: null, countdown: null },
+  players: [
+    {
+      slot: 1,
+      name: 'Anna',
+      color: '#0072B2',
+      coins: 12,
+      trophies: 1,
+      items: [{ id: 'shield', name: 'Schild' }],
+      connected: true,
+      active: false,
+    },
+    {
+      slot: 2,
+      name: 'Ben',
+      color: '#E69F00',
+      coins: 7,
+      trophies: 0,
+      items: [],
+      connected: true,
+      active: true,
+    },
+  ],
+  tailwind: null,
+};
+
 const BOARD: BoardState = {
   round: 3,
   rounds: 10,
@@ -59,11 +91,144 @@ const BOARD: BoardState = {
     { id: 's05', x: 5.9, z: 8.1, kind: 'trophy' },
   ],
   pawns: [
-    { slot: 1, spaceId: 's03', x: 5.95, z: 3.4, character: 'raccoon' },
-    { slot: 2, spaceId: 's03', x: 6.45, z: 3.4, character: 'sock' },
+    {
+      slot: 1,
+      spaceId: 's03',
+      x: 5.75,
+      z: 3.4,
+      character: 'raccoon',
+      y: 0,
+      hop: null,
+      heading: null,
+      connected: true,
+    },
+    {
+      slot: 2,
+      spaceId: 's03',
+      x: 6.65,
+      z: 3.4,
+      character: 'sock',
+      y: 0,
+      hop: null,
+      heading: null,
+      connected: true,
+    },
   ],
   messages: ['Anna würfelt eine 4.', 'Anna bekommt 3 Münzen.', 'Ben ist am Zug.'],
   notice: null,
+  popups: [],
+  ticker: [
+    { id: 4, text: 'Anna würfelt 4!', slot: 1, tone: 'neutral' },
+    { id: 7, text: 'Anna bekommt 3 Münzen', slot: 1, tone: 'good' },
+  ],
+  hud: HUD,
+  camera: { x: 3.9, z: 3.9 },
+  trophySpaces: ['s05'],
+  traps: [{ spaceId: 's02', owner: 1 }],
+  sounds: [],
+};
+
+/** Mitten in der Regie: Ben hüpft, Würfel- und Münz-Popup, Klang, Anna weht davon. */
+const BOARD_EVENTS: BoardState = {
+  ...BOARD,
+  pawns: [
+    {
+      slot: 1,
+      spaceId: 's01',
+      x: 3.1,
+      z: 1.9,
+      character: 'raccoon',
+      y: 1.2,
+      hop: { from: 's01', to: 's04', t: 0.4, style: 'gust' },
+      heading: 4.2,
+      connected: true,
+    },
+    {
+      slot: 2,
+      spaceId: 's03',
+      x: 6.4,
+      z: 4.2,
+      character: 'sock',
+      y: 0.81,
+      hop: { from: 's03', to: 's04', t: 0.35, style: 'walk' },
+      heading: 0.24,
+      connected: false,
+    },
+  ],
+  popups: [
+    {
+      id: 11,
+      kind: 'dice',
+      slot: 2,
+      spaceId: null,
+      text: '5',
+      tone: 'neutral',
+      progress: 0.3,
+      reaction: null,
+    },
+    {
+      id: 12,
+      kind: 'coins',
+      slot: 1,
+      spaceId: null,
+      text: '−3',
+      tone: 'bad',
+      progress: 0.1,
+      reaction: 'hit',
+    },
+    {
+      id: 13,
+      kind: 'trophy',
+      slot: null,
+      spaceId: 's05',
+      text: 'Hier!',
+      tone: 'gold',
+      progress: 0.6,
+      reaction: null,
+    },
+  ],
+  hud: {
+    ...HUD,
+    banner: 'Ben ist dran!',
+    bannerSlot: 2,
+    status: {
+      slot: 1,
+      kind: 'reaction',
+      text: 'Anna kann reagieren!',
+      detail: null,
+      countdown: '3 … 2 … 1',
+    },
+    tailwind: {
+      lead: 'Wer bei den Trophäen hinten liegt, bekommt Münzen.',
+      rows: [{ slot: 2, name: 'Ben', amount: '+4 Münzen' }],
+    },
+  },
+  sounds: [
+    {
+      id: 3,
+      name: 'dice',
+      voices: [
+        {
+          wave: 'noise',
+          freq: 0,
+          delay: 0,
+          attack: 0.002,
+          duration: 0.04,
+          gain: 0.26,
+          filter: { type: 'bandpass', freq: 1900, q: 2 },
+        },
+        {
+          wave: 'sine',
+          freq: 210,
+          freqEnd: 110,
+          delay: 0.32,
+          attack: 0.003,
+          duration: 0.14,
+          gain: 0.3,
+        },
+      ],
+    },
+  ],
 };
 
 const PLAYERS_IN_GAME: LobbyPlayer[] = [ANNA, { ...BEN, ready: true, character: 'sock' }];
@@ -223,13 +388,24 @@ export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = {
     board: BOARD,
     minigame: null,
   },
+  'board-events': {
+    phase: 'board',
+    lobby: { ...JOIN, players: PLAYERS_IN_GAME },
+    board: BOARD_EVENTS,
+    minigame: null,
+  },
   'board-disconnected-player': {
     phase: 'board',
     lobby: {
       ...JOIN,
       players: [ANNA, { ...BEN, connected: false, ready: true, character: 'sock' }],
     },
-    board: { ...BOARD, activeSlot: 1, messages: [] },
+    board: {
+      ...BOARD,
+      activeSlot: 1,
+      messages: [],
+      pawns: BOARD.pawns.map((p) => (p.slot === 2 ? { ...p, connected: false } : p)),
+    },
     minigame: null,
   },
   'board-sabotage-notice': {

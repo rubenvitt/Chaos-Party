@@ -53,10 +53,26 @@ interface ChaosHostInstance {
   "board": null | {
     "round": 1, "rounds": 10, "activeSlot": 1 | null,
     "spaces": [{ "id": "s01", "x": 0, "z": 0, "kind": "start" | "coins-plus" | "coins-minus" | "event" | "item" | "trophy" }],
-    "pawns": [{ "slot": 1, "spaceId": "s03", "x": 1.2, "z": -3.4, "character": "raccoon" }],
+    "pawns": [{ "slot": 1, "spaceId": "s03", "x": 1.2, "z": -3.4, "character": "raccoon",
+                "y": 0.4, "hop": null | { "from": "s03", "to": "s04", "t": 0.5, "style": "walk" | "gust" | "swap" },
+                "heading": null | 1.57, "connected": true }],                   // Lage aus der Brett-Regie (CHAOS-143)
     "messages": ["Anna würfelt eine 4."],                                // höchstens 6, älteste zuerst
     "notice": null | { "title": "Sabotage wird stärker!", "detail": "Klau: 6 Münzen · Falle: 5 Münzen" }
                                                                          // große Einblendung, 4 s (CHAOS-157)
+    // Brett-Regie (CHAOS-143), aus director.getFrame()/getHud() im JS-Kern:
+    "popups": [{ "id": 12, "kind": "coins" | "dice" | "item" | "trap" | "trophy" | "event" | "shield" | "steal",
+                 "slot": 1 | null, "spaceId": null | "s05", "text": "+3", "tone": "good" | "bad" | "neutral" | "gold",
+                 "progress": 0.3, "reaction": null | "cheer" | "hit" | "jump" }],
+    "ticker": [{ "id": 7, "text": "Anna bekommt 3 Münzen", "slot": 1 | null, "tone": "good" }],   // höchstens 4, je 5 s
+    "hud": null | { "boardName": "Wackelwald", "roundText": "Runde 3/10", "banner": null | "Ben ist dran!", "bannerSlot": 2,
+                    "status": null | { "slot": 2, "kind": "roll", "text": "Ben darf würfeln …", "detail": null, "countdown": null | "3 … 2 … 1" },
+                    "players": [{ "slot": 1, "name": "Anna", "color": "#0072B2", "coins": 12, "trophies": 1,
+                                  "items": [{ "id": "shield", "name": "Schild" }], "connected": true, "active": false }],
+                    "tailwind": null | { "lead": "…", "rows": [{ "slot": 2, "name": "Ben", "amount": "+4 Münzen" }] } },
+    "camera": { "x": 3.9, "z": 3.9 },                                    // Blickpunkt (cameraFocus), Swift zieht nach
+    "trophySpaces": ["s12"], "traps": [{ "spaceId": "s15", "owner": 2 }],
+    "sounds": [{ "id": 3, "name": "dice", "voices": [{ "wave": "noise", "freq": 0, "attack": 0.002, "duration": 0.04, "gain": 0.26,
+                                                       "filter": { "type": "bandpass", "freq": 1900, "q": 2 } }] }]
   },
   "minigame": null | {
     "id": "pudding-gerangel", "stage": "intro" | "play" | "results", "elapsedMs": 1234,
@@ -87,6 +103,8 @@ interface ChaosHostInstance {
 ```
 
 - `lobby.settings` (CHAOS-166) ist der Server-Stand der Lobby-Einstellungen für die nächste Partie: Rundenzahl, Vorschläge für die Rundenwahl (aufsteigend) und „Mehr Zeit zum Reagieren“ (CHAOS-124, Reaktionsfenster 5 s statt 3 s). `null` nur, bis die Host-Rolle ihre erste `lobby`-Nachricht hat (in der Praxis schon nach `create`). Ändern über `hostCommand('configure:…')`.
+- **Brett-Regie (CHAOS-143):** `round`, `activeSlot`, `messages` und `notice` folgen dem neuesten Stand (wie bisher). Alles andere zeigt den Stand, den die Regie gerade spielt (`apps/host/src/board/director.ts`, unverändert, in `src/boardDirection.ts`): `pawns` (Lage auf der Hüpf- bzw. Flugbahn, `heading` in Babylon-Konvention, RealityKit: negieren), `popups`, `ticker`, `hud` (Texte aus `texts.ts`, Münzen schon um gespielte Ereignisse aktualisiert), `camera`, `trophySpaces`, `traps`. Während eines Minispiels steht die Regie; danach holt sie ohne Animation auf.
+- `board.sounds`: Klänge der letzten 1,5 s mit steigender `id` je Partie (neue Partie: ab 1). Swift spielt jede ID einmal und setzt den Zähler in der Lobby zurück. `voices` ist das Rezept aus `apps/host/src/fx/sounds.ts` mit Lautstärke und Tonhöhe angewandt.
 - `board.notice` kommt aus `eventNotice` (`apps/host/src/board/texts.ts`): bisher nur in Wachstumsrunden der Sabotage (`round-started` mit `sabotage`), bei `sabotageGrowthRounds: 0` nie. Der Kern hält sie 4 s (`src/notice.ts`); Swift zeigt sie nur in der Phase `board`.
 - `phase` ist `lobby`, solange die Session nicht im Brettspiel ist (auch die M1-Arena erscheint als `lobby`). `paused` hat Vorrang vor `minigame` und `final`.
 - Koordinaten roh aus Babylon/game-core (linkshändig). Pawns: Feldmitte plus Versatz bei mehreren Figuren auf einem Feld.

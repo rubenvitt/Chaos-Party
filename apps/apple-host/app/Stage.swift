@@ -27,6 +27,8 @@ final class Stage {
     /// `true`, sobald das Brett geladen ist oder feststeht, dass es ohne Assets (Grundkörper) läuft.
     private(set) var loaded = false
     var onPhase: ((String) -> Void)?
+    /// Neues Brett-Ereignis im Bild (CHAOS-143, `--ereignisbild`).
+    var onBoardEvent: ((String) -> Void)?
 
     init(renderer: RealityRenderer) {
         self.renderer = renderer
@@ -45,6 +47,7 @@ final class Stage {
         }
         do {
             let scene = try await BoardScene.load(from: folder)
+            scene.onEvent = { [weak self] in self?.onBoardEvent?($0) }
             board = scene
             renderer.entities.append(scene.root)
             primitives.boardEnabled = false

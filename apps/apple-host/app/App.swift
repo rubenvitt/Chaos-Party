@@ -78,6 +78,14 @@ struct OverlayView: View {
                         .scaleEffect(min(geo.size.width / 1920, geo.size.height / 1080))
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
+            } else if let board = overlay.board {
+                // HUD der Brettphase (CHAOS-143), gestaltet für 1920×1080 wie die Lobby.
+                GeometryReader { geo in
+                    let scale = min(geo.size.width / 1920, geo.size.height / 1080)
+                    BoardHudView(board: board)
+                        .scaleEffect(scale)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(overlay.lines.enumerated()), id: \.offset) { Text($0.element) }
@@ -344,6 +352,7 @@ extension StageView {
             }
             coordinator.loop = loop
             coordinator.stage = stage
+            EventSnapshots.attach(stage: stage, loop: loop, runtime: runtime)
             Task { @MainActor in
                 await stage.load(assets: settings.assets)
                 runtime.sceneReady()

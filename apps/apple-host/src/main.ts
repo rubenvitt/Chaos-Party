@@ -27,7 +27,6 @@ import {
   type ConnectionId,
   type Outgoing,
 } from '../../server/src/session.ts';
-import { spreadPawns } from '../../host/src/board/layout.ts';
 import { eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
@@ -55,6 +54,7 @@ import type {
   RenderState,
 } from './contract.ts';
 import { CONFIGURE_PREFIX } from './contract.ts';
+import { createBoardDirection } from './boardDirection.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
 import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
@@ -241,6 +241,9 @@ function create(env: HostEnv): ChaosHostInstance {
   const messages: string[] = [];
   /** Große Einblendung „Sabotage wird stärker!“ (CHAOS-157). */
   const notices = createNoticeTracker();
+  /** Brett-Regie des Browser-Hosts (CHAOS-143): Figurenbahnen, Popups, HUD, Kamera, Klänge. */
+  let direction = createBoardDirection();
+  let lastDirectionAt: number | null = null;
   let stage: { key: string; headless: HeadlessStage } | null = null;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
@@ -320,6 +323,7 @@ function create(env: HostEnv): ChaosHostInstance {
       notices.push(event, receivedAt);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
+    direction.receive(message);
     resultSender.onView(view);
     syncStage();
   };
@@ -338,6 +342,7 @@ function create(env: HostEnv): ChaosHostInstance {
           nextEventSeq = null;
           messages.length = 0;
           notices.clear();
+          direction = createBoardDirection();
           disposeStage();
         }
       },
@@ -384,8 +389,7 @@ function create(env: HostEnv): ChaosHostInstance {
 
   const boardState = (current: BoardView): BoardState => {
     const board = getBoard(current.boardId) ?? DEFAULT_BOARD;
-    const spaces = new Map(board.spaces.map((space) => [space.id, space]));
-    const offsets = spreadPawns(current.players);
+    const shown = direction.fields();
     return {
       round: current.round,
       rounds: current.rounds,
@@ -396,19 +400,9 @@ function create(env: HostEnv): ChaosHostInstance {
         z: space.position.z,
         kind: space.kind,
       })),
-      pawns: current.players.map((player) => {
-        const at = spaces.get(player.spaceId)?.position ?? { x: 0, z: 0 };
-        const offset = offsets.get(player.slot) ?? { x: 0, z: 0 };
-        return {
-          slot: player.slot,
-          spaceId: player.spaceId,
-          x: at.x + offset.x,
-          z: at.z + offset.z,
-          character: player.character,
-        };
-      }),
       messages: [...messages],
       notice: notices.current(now()),
+      ...shown,
     };
   };
 
@@ -503,6 +497,12 @@ function create(env: HostEnv): ChaosHostInstance {
         apply(session.tick());
       }
       flush();
+      // Brett-Regie (CHAOS-143): steht, solange ein Minispiel zu sehen ist (wie `BoardStage`).
+      direction.advance(
+        lastDirectionAt === null ? 0 : now() - lastDirectionAt,
+        contractPhase() !== 'minigame',
+      );
+      lastDirectionAt = now();
       if (stage) {
         const seconds = lastAdvanceAt === null ? 0 : (now() - lastAdvanceAt) / 1000;
         lastAdvanceAt = now();
