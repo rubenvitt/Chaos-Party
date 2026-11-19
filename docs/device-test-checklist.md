@@ -653,3 +653,30 @@ Automatisch geprüft: Unit-Tests der Stimmung und Überblendung (`test/lightMood
 | LS5 | Bildrate (Log `HOST-MESSUNG`) im Brett und im Minispiel, besonders nachts | wie vor CHAOS-193 (Median ≈ 58–60 Bilder/s) | | Log |
 | LS6 | Windstoß- bzw. Platztausch-Feld erreichen | Windringe um die Figur bzw. Ring in Slot-Farbe an Abflug- und Zielfeld | | Foto |
 | LS7 | Siegerpodest | Nachtdunst, Laternen leuchten | | Foto |
+
+## 34. Gesamtlauf: komplette Partie auf der Apple TV und am Mac ohne Rechner (für CHAOS-146, M5-Abnahme CHAOS-164)
+
+**Stand:** 2026-11-19 · **Aufgabe:** CHAOS-146, Gate CHAOS-164 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md) (Bauen, TestFlight, Startparameter), Messwerte aus dem Simulator in EXP-031
+
+Automatisch geprüft, ohne echte Geräte: ganze Partien im tvOS-Simulator (Apple TV 4K, 4K-Ausgabe) und in der Mac-App mit Bot-Controllern über echtes WebSocket. Abgedeckt waren alle fünf Minispiele der Rotation, Pause im Brett und im Minispiel, Trennen und Funkstille mit Wiederverbindung, Hintergrund und Vordergrund, Finale mit Podest und Revanche (EXP-031). **Nicht** geprüft sind echte Fernbedienung, echte iPhones (Browser und native Controller-App), Bildrate und JS-Zeit auf der Apple TV (A15, JavaScriptCore ohne JIT), Hören, Eingabe → Bild. Das ist dieser Abschnitt.
+
+Vorbereitung: Apple TV und iPhones im selben WLAN, **kein Rechner nötig**. Neuester TestFlight-Build „Chaos Party“ auf der Apple TV (§20 TH1–TH2). Für die Messzeilen die App einmal per `xcrun devicectl device process launch … --console` starten (README, „Bauen“) und das Log sichern. Am Mac die neueste notarisierte App oder ein lokaler Build.
+
+| ID   | Schritt | Erwartung | Ergebnis | Nachweis |
+| ---- | ------- | --------- | -------- | -------- |
+| GL1  | Apple TV: App starten, Lobby abwarten | QR-Code, Code, Link `http://<ATV-IP>:8787/?code=…`, Brett im Hintergrund; „Partie starten“ erst nach dem Laden | | Foto |
+| GL2  | iPhone 1 (Safari): QR scannen, Figur wählen, „Bereit!“ | Controller lädt von der Apple TV; Karte am Fernseher mit Porträt und „bereit“ | | |
+| GL3  | iPhone 2 (native Controller-App, ADR-017): QR scannen oder Code eingeben, Figur wählen, „Bereit!“ | Beitritt ohne Rechner; vergebene Figur von iPhone 1 ausgegraut | | Foto |
+| GL4  | Optional iPhone 3 und 4 (gemischt Browser/App); Rundenwahl und „Mehr Zeit zum Reagieren“ mit der Fernbedienung einstellen (Fokus vom Startknopf nach oben), dann starten | Auswahl folgt dem Fokus, Brett zeigt „Runde 1/N“ mit der gewählten Zahl | | |
+| GL5  | Ganze Partie spielen (10 Runden genügen) | Würfel, Hüpfen, Popups, HUD, Kamera auf den Zug; alle fünf Minispiele der Rotation mit Anleitung, Countdown, Spiel und Ergebnis; Lichtstimmung wandert von Morgen bis Nacht | | Fotos je Minispiel |
+| GL6  | Während einer Brettrunde Play/Pause auf der Siri Remote, nach 10 s „Weiter“; dasselbe im laufenden Minispiel | Pausenkarte über Brett bzw. Minispiel; Controller zeigen „Pause“; Fortsetzen ohne Sprung | | |
+| GL7  | iPhone 1: WLAN 20 s aus, wieder an | Host zeigt den Spieler getrennt, danach wieder verbunden; die Partie läuft weiter (Standardwahl bei Fristen) | | |
+| GL8  | Apple TV: Home-Taste, 30 s eine andere App, zurück zu Chaos Party | Partie steht pausiert an derselben Stelle; „Weiter“ setzt fort; Controller bleiben verbunden | | |
+| GL9  | Partie bis zum Ende | Trophäenzählung, Podest mit Figuren (Sieger jubelt), Endstand, Bonus-Titel | | Foto |
+| GL10 | „Nochmal spielen“ | Zurück in die Lobby, Figuren und Runden bleiben; zweite Partie startet | | |
+| GL11 | Messung: im Log alle `HOST-MESSUNG`-Zeilen je Phase (`lobby`, `board`, `minigame`, `final`) | `fps` ≥ 30 in allen Phasen (Ziel 60); rund um Minispiel-Start und -Ende `js_ms_max` < 16,7 und `js_uebersprungen` 0 (CHAOS-169) | | Log |
+| GL12 | Speicher über die Partie: Xcode → Debug Navigator (oder Instruments „Allocations“) am Anfang, nach dem 5. Minispiel und am Endstand | Kein stetiges Wachstum über die Partie, nach der Revanche nicht deutlich höher | | Werte |
+| GL13 | Eingabe → Bild: Zeitlupe (iPhone-Kamera 240 fps) auf Fernseher und Controller, im Minispiel den Stick bewegen | Abstand Daumen → Bewegung am Fernseher notieren (Ziel < 150 ms) | | ms |
+| GL14 | Ton: Brett- und Minispiel-Klänge (§32) | Klänge zur richtigen Zeit, nichts knackt | | |
+| GL15 | Mac: GL1–GL10 mit der Mac-App (Tastatur statt Fernbedienung: Return startet, P/Esc pausiert) | Wie auf der Apple TV | | |
+| GL16 | Gesamturteil | Optik nah am PC-Host? Flüssig? Lust auf eine weitere Runde? | | Kommentar an CHAOS-164 |

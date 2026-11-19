@@ -2412,3 +2412,65 @@ Umgesetzt und gemessen wurde nur **a**: Es deckt beide Blöcke ab. b und c löse
 **Entscheidung:** **discard A/A′.** Kein messbarer Gewinn, dafür ein dauerhafter zweiter Kontext. B war nur eine Messprobe. Ein künstliches Warten vor dem Aufbau (feste Pause oder Fence-Abfrage, bis der GPU-Prozess leer ist) würde die Kennzahl senken, aber auf SwiftShader steht das Bild in dieser Zeit ohnehin (der GPU-Prozess ist belegt), und auf echter Hardware ist die Warteschlange kurz. Nicht umgesetzt; ob überhaupt ein Standbild auf echter Hardware bleibt, zeigt N4. Entwurf und Messcode liegen nicht im Repo (verworfen).
 
 **Offen (nur auf echter Hardware):** N4 der Gerätecheckliste. CHAOS-174 ist verworfen (2026-11-19, Entscheidung an Claude übertragen, `docs/blockers.md`); eine neue Aufgabe nur, wenn N4 ein Standbild zeigt.
+
+---
+
+## EXP-031: Gesamtlauf nativer Apple-Host – komplette Partie im tvOS-Simulator und am Mac (2026-11-19, CHAOS-146)
+
+**Hypothese:** Nach CHAOS-142 … CHAOS-145, CHAOS-190 und CHAOS-193 hostet der native Host eine komplette Partie allein: Lobby mit QR-Code, Brett mit Regie, alle fünf Minispiele der Rotation, Pause, Wiederverbindung, Finale mit Podest und Revanche. Erwartet werden mindestens 30 fps bei 4K in allen Phasen (Ziel 60) und keine JS-Spitze über dem Bild-Budget.
+
+**Aufbau:**
+
+- **Stand:** `main` bei `b477d1f` (PR #92 … #103). USDZ frisch mit `pnpm build:apple-assets` gebaut; ein älterer lokaler Stand vom 18.11. zeigte noch das schwebende Socken-Bündchen.
+- **tvOS:** Simulator „Apple TV 4K (3rd generation)“, tvOS 27.0, 4K-Ausgabe (intern 1920×1080, bilinear, wie auf dem Gerät), am Mac (M3 Max). **Auf Rubens Wunsch statt der echten Apple TV** (19.11.: „wäre es mir lieb, wenn du einen echten Simulator einfach benutzt statt dem Fernseher“).
+- **Mac:** Release-Build, ad hoc signiert mit Hardened Runtime (JavaScriptCore ohne JIT), Display mit 120 Hz.
+- **Controller:** `apps/apple-host/scripts/live-bots.mjs` über echtes WebSocket. tvOS mit 4 Bots, Mac mit 2 Bots, jeweils `--bunt` (Items, Trophäenkauf, Schild, mal zu spät). Dazu `--trennen` (Ben trennt sich und kommt mit Token zurück) und `--funkstille` (Ben verstummt, der Host trennt nach 15 s, Ben kommt zurück).
+- **App:** `--autostart --stumm --pausentest --revanche=8` (Pause einmal im Brett und einmal im Minispiel für je 8 s, „Nochmal spielen“ 8 s nach dem Sieger) und `--bild` für Bilder je Phase. 10 Runden.
+- **Messung:** `HOST-MESSUNG` alle 10 s (fps, JS je Tick, ausgelassene Ticks). Ausgewertet je Phase über alle Fenster. Fenster ohne Anzeige (Mac mit abgeschaltetem Display) sind getrennt gezählt.
+
+**Ergebnis tvOS-Simulator (4 Bots, eine ganze Partie):**
+
+- **Ablauf:** 10 von 10 Minispielen angenommen (jedes der fünf zweimal), Pause im Brett und im Minispiel, Trennen und Funkstille mit Wiederverbindung, Trophäenzählung, Podest. Danach „Nochmal spielen“, die zweite Partie startet. Keine Fehlerzeile, kein Absturz. Aufwärmen der Minispiel-Bühne beim Start: 364 ms.
+- **Hintergrund:** In einem eigenen Lauf lief 25 s lang die Einstellungen-App vorn. Danach war es dieselbe PID, die Partie stand pausiert („Hintergrund: Partie pausiert“, „Vordergrund nach 25,3 s“).
+
+| Phase | Fenster à 10 s | fps Median / Minimum | JS je Tick Median / p95 (Median) / max | ausgelassene Ticks |
+| ----- | -------------- | -------------------- | -------------------------------------- | ------------------ |
+| Brett | 34 | 58,6 / 50,7 | 0,13 / 0,23 / 4,7 ms | 2 von 20261 |
+| Minispiel | 43 | 57,9 / 54,4 | 0,53 / 0,66 / 10,3 ms | 4 von 25489 |
+| Pause | 1 | 58,8 | 0,49 / 0,94 / 7,3 ms | 0 |
+| Finale | 2 | 59,3 / 54,3 | 0,24 / 0,61 / 2,7 ms | 1 von 1169 |
+
+Zum Vergleich der Stand vor PR #96 und PR #100 (gleicher Aufbau, ohne Pausentest): Brett 58,1 / 29,1 fps (das Minimum im ersten Fenster nach dem Laden), Minispiel 58,3 / 49,3 fps, JS max 31,5 ms beim ersten Minispiel-Aufbau. Mit dem Aufwärmen aus CHAOS-192 fällt diese Spitze weg (max 10,3 ms).
+
+**Ergebnis Mac (2 Bots, eine ganze Partie):**
+
+Zwei Läufe, weil das Display des gesperrten Macs im zweiten Lauf abschaltete:
+
+- **Lauf 1, Display an** (Stand vor PR #96 und #100, also ohne Minispiel-Klänge und neue Lichtstimmung): 10 von 10 Minispielen angenommen, Trennen und Funkstille mit Wiederverbindung, Podest.
+
+| Phase | Fenster à 10 s | fps Median / Minimum (Display 120 Hz) | JS je Tick Median / p95 (Median) / max | ausgelassene Ticks |
+| ----- | -------------- | ------------------------------------- | -------------------------------------- | ------------------ |
+| Brett | 16 | 106,3 / 95,4 | 0,19 / 1,53 / 9,3 ms | 11 von 18877 |
+| Minispiel | 42 | 112,6 / 95,8 | 1,24 / 2,13 / 22,9 ms | 91 von 49769 |
+| Finale | 57 | 118,7 / 109,4 | 0,24 / 0,34 / 6,6 ms | 0 von 68320 |
+
+  JavaScriptCore läuft in der Mac-App ohne JIT (Hardened Runtime). Deshalb ist die JS-Zeit im Minispiel höher als im Simulator, und ab und zu fällt ein Tick aus (0,2 %). Die Spielzeit bleibt trotzdem richtig, weil der Kern feste 1/60-Schritte nachholt.
+- **Lauf 2, Display aus** (Endstand `main`, mit `--pausentest` und Revanche): Pause im Brett und im Minispiel, Funkstille mit Wiederverbindung, Finale und Revanche liefen durch. Die App lief aber die ganze Zeit im Ersatztakt (10 Bilder je Sekunde, `angezeigt` 0), und macOS drosselte sie. Bei **4 von 10 Minispielen kam das Ergebnis zu spät** („nicht mehr gebraucht (Server ist weiter)“). Das ist ein echter Fehler für einen verdeckten oder minimierten Mac-Host → **CHAOS-203**. Bildraten aus diesem Lauf sind nicht verwertbar.
+
+**Nebenbefunde:**
+
+- `live-bots.mjs` blieb zweimal am Zug eines Bots stehen. Der Host war daran unschuldig. (1) Eine Antwort fiel in die Pause, der Server lehnte sie mit `paused` ab, und der Bot versuchte es nie wieder. (2) Nach der Revanche zählen die Frage-IDs von vorn, und der Bot hielt sie für schon beantwortet. Beides ist im Skript behoben (wie `test/botMatch.ts`). Ein Mensch tippt nach der Pause ohnehin erneut. Das Spiel wartet bei verbundenen Spielern bewusst ohne Frist.
+- **Speicher:** nicht im Simulator gemessen (der Prozess enthält Metal und Simulator-Hülle, rund 800 MB RSS, kein Vergleich zur Apple TV). Gemessen ist der Speicher des JS-Kerns über drei Partien im Harness (CHAOS-141, CHAOS-145: Zuwachs ≤ 1,7 MB). Auf dem Gerät prüft Ruben GL12.
+- Am gesperrten Mac schaltet das Display nach einiger Zeit ab. Die App läuft dann im Ersatztakt mit 10 Bildern je Sekunde ohne Anzeige weiter (`angezeigt` 0), und macOS drosselt sie: JS-Spitzen bis 5 s. Für das Spiel hat das keine Bedeutung, ein Host-Mac mit dunklem Display spielt nicht.
+
+**Nicht gemessen (echte Hardware, Ruben, Gerätecheckliste §34):**
+
+- Apple TV mit A15: JavaScriptCore ohne JIT, echte GPU bei 4K
+- Fernbedienung
+- echte iPhones im Browser und in der nativen Controller-App
+- Eingabe → Bild
+- Ton
+
+Der Simulator rendert auf der GPU des Macs, und JavaScriptCore hat dort JIT. Die Werte oben sind also eine Obergrenze für die Apple TV, kein Nachweis.
+
+**Entscheidung:** **keep.** Der native Host spielt eine komplette Partie ohne Rechner-Server, mit allen Minispielen der Rotation, Pause, Wiederverbindung, Finale und Revanche. Im Simulator und am Mac bleibt er in allen Phasen weit über 30 fps. Offen ist der Nachweis auf der echten Apple TV (GL1–GL16), danach die M5-Abnahme CHAOS-164.
