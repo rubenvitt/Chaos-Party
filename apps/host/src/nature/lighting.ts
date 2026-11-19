@@ -117,6 +117,13 @@ export interface NatureLook {
    */
   setMood(mood: LightMood, durationMs?: number): void;
   /**
+   * Stimmung nachträglich ankündigen (CHAOS-152: das Brett lebt jetzt die ganze Partie): Himmel
+   * im Hintergrund laden und Nachtlichter bauen, damit ein späteres `setMood` nichts nachlädt.
+   * Erfüllt sich, sobald der Himmel geladen ist, mit `true`, wenn neue Teile entstanden sind
+   * (Shader danach vorbereiten).
+   */
+  prepareMood(mood: LightMood): Promise<boolean>;
+  /**
    * Je Bild mit der Szenenzeit (Sekunden, steigend): Glühwürmchen bewegen, Überblendung
    * fortschreiben. Deterministisch, wenn die Zeit es ist (Testmodus).
    */
@@ -586,6 +593,21 @@ export async function applyNatureLook(
           startMood(target, durationMs);
         },
       );
+    },
+    async prepareMood(target) {
+      if (moods.has(target.id)) return false;
+      moods.set(target.id, target);
+      let added = false;
+      if (!rig && target.night) {
+        rig = buildNightRig();
+        added = true;
+      }
+      if (baseSky && !skies.has(target.sky.hdri)) {
+        added = true;
+        // Fehlt der Himmel, bleibt bei `setMood` der alte stehen; hier nichts melden.
+        await skyFor(target).catch(() => undefined);
+      }
+      return added;
     },
     update(seconds) {
       const dtMs = lastSeconds === null ? 0 : Math.max(0, (seconds - lastSeconds) * 1000);

@@ -50,11 +50,12 @@ jobs:
       - name: Host-Start-Bundle und Apple-Host-Bündel
         run: pnpm check:bundle
 
-      # Das echte Apple-Host-Bündel in einem nackten Kontext (ohne Node-/DOM-APIs): ganze Partie
-      # mit zwei Bot-Controllern, alle Minispiele der Rotation, renderState gegen den Vertrag.
-      # Dieselbe Partie läuft im macOS-Job in JavaScriptCore (Swift-Harness).
-      - name: Apple-Host – Bot-Partie (Node)
-        run: pnpm --filter @chaos-party/apple-host bots --full
+      # Das echte Apple-Host-Bündel in einem nackten Kontext (ohne Node-/DOM-APIs): drei ganze
+      # Partien mit Revanche und zwei Bot-Controllern, alle Minispiele der Rotation, renderState
+      # gegen den Vertrag, Speicher nach Partie 3 < 20 MB über Partie 1 (CHAOS-141).
+      # Eine Partie läuft im macOS-Job in JavaScriptCore (Swift-Harness).
+      - name: Apple-Host – Bot-Partien (Node)
+        run: pnpm --filter @chaos-party/apple-host bots --full --matches 3
 
       - name: Apple-Host – Beispielnachrichten aktuell
         run: node scripts/export-apple-host-fixtures.mjs --check

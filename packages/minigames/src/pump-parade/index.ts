@@ -41,7 +41,7 @@ class PumpParade implements Minigame {
   private running = false;
   private result: MinigameResult | null = null;
 
-  prepare(ctx: MinigameContext): Promise<void> {
+  async prepare(ctx: MinigameContext): Promise<void> {
     this.ctx = ctx;
     const { scene } = ctx;
     const camera = new ArcRotateCamera(
@@ -67,7 +67,9 @@ class PumpParade implements Minigame {
     }
 
     const count = ctx.players.length;
-    ctx.players.forEach((player, index) => {
+    for (const [index, player] of ctx.players.entries()) {
+      // Aufbau je Spieler in einem eigenen Schritt (CHAOS-141).
+      await ctx.pace();
       const x = (index - (count - 1) / 2) * 3;
       const character = ctx.characters.create(scene, player);
       character.root.position.set(x, 0, 0);
@@ -83,8 +85,7 @@ class PumpParade implements Minigame {
       balloon.material = material;
       this.disposables.push(material, balloon);
       this.pumpers.set(player.slot, { slot: player.slot, character, balloon, score: 0 });
-    });
-    return Promise.resolve();
+    }
   }
 
   start(): void {

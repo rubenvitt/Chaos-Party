@@ -10,7 +10,7 @@ import math
 
 import figurkit as k  # importiert bpy zuerst
 from clips import smoothstep, standard_clips
-from mathutils import Vector
+from mathutils import Vector  # noqa: E402
 
 CREAM = k.hex_color("#f3ece0")
 STRIPE = k.hex_color("#e05a4a")
@@ -18,78 +18,161 @@ PATCH = k.hex_color("#b8423a")
 BUTTON_A = k.hex_color("#7a3f2c")
 BUTTON_B = k.hex_color("#3f6fb0")
 THREAD = k.hex_color("#3a2a28")
+CHEEK = k.hex_color("#f2a0a0")
 
 
 def mix(c1, c2, t):
     return tuple(c1[i] + (c2[i] - c1[i]) * t for i in range(3))
 
 
+# CHAOS-162: Die Socke ist eine Röhre entlang einer geschwungenen Mittellinie statt eines
+# Skin-Körpers. So hat sie eine klare Sockenform (gerader Schaft, runde Ferse hinten unten, flacher
+# Fuß, Spitze vorn) und genug Ringe für scharfe Ringel und feine Strickrippen.
+PATH = [
+    (0, 0.04, 1.44),  # im Bündchen (CHAOS-161: das Schaftende steckt im Bündchen)
+    (0, 0.04, 1.1),
+    (0, 0.045, 0.72),
+    (0, 0.035, 0.44),
+    (0, -0.02, 0.25),
+    (0, -0.13, 0.165),
+    (0, -0.265, 0.15),
+    (0, -0.345, 0.15),
+]
+AROUND = 48
+RINGS = 74
+LEG_R = 0.2
+KNIT_RIBS = 24
+HEEL = Vector((0, 0.15, 0.17))
+FOOT_START = 0.6
+"""Anteil der Länge, ab dem der Querschnitt zum Fuß wird."""
+
+
+def section(t: float) -> tuple[float, float]:
+    """Halbachsen (Breite, Höhe) des Querschnitts entlang der Socke (t = 0 oben, 1 Spitze)."""
+    foot = smoothstep(FOOT_START, 0.8, t)
+    rx = LEG_R + (0.178 - LEG_R) * foot - 0.03 * smoothstep(0.9, 1.0, t)
+    rv = LEG_R + (0.14 - LEG_R) * foot - 0.015 * smoothstep(0.9, 1.0, t)
+    return rx, rv
+
+
 def sock():
-    n = k.SkinNode
-    nodes = [
-        n((0, 0.06, 0.26), 0.22),  # 0 Ferse
-        n((0, 0.04, 0.62), 0.205, 0),  # 1
-        n((0, 0.03, 1.0), 0.2, 1),  # 2
-        n((0, 0.04, 1.3), 0.2, 2),  # 3 unter dem Bündchen
-        n((0, -0.16, 0.18), 0.18, 0),  # 4 Fuß
-        n((0, -0.36, 0.16), 0.15, 4),  # 5 Spitze
-    ]
-    mesh = k.skin_mesh("socke", nodes, subdivisions=2)
+    frames = k.path_frames(PATH, RINGS)
+
+    def radius(fr: k.Frame, a: float):
+        rx, rv = section(fr.t)
+        # Strickrippen: zwei Punkte je Rippe, am Schaft deutlich, am Fuß nur angedeutet.
+        knit = 1 + 0.02 * math.cos(a * KNIT_RIBS) * (1 - 0.6 * smoothstep(0.55, 0.7, fr.t))
+        return rx * knit, rv * knit
+
+    mesh = k.tube("socke", frames, radius, around=AROUND, dome_end=0.95, dome_rings=6)
+
+    def shape(p: Vector) -> Vector:
+        # Ferse: runde Ausbeulung hinten unten.
+        p = k.bump(HEEL, Vector((0, 0.75, -0.45)), 0.06, 0.11)(p)
+        # Sohle flach drücken, damit die Socke steht.
+        if p.z < 0.035:
+            p.z = 0.035 - (0.035 - p.z) * 0.35
+        return p
+
+    k.deform(mesh, shape)
+    lo = min(v.co.z for v in mesh.data.vertices)
+    k.deform(mesh, lambda p: p - Vector((0, 0, lo)))
 
     def color(p: Vector, normal: Vector):
-        # Ringel nur am Schaft.
-        stripe = 0.5 + 0.5 * math.sin(p.z * 26)
-        c = mix(CREAM, STRIPE, smoothstep(0.55, 0.75, stripe) * smoothstep(0.42, 0.5, p.z))
+        # Ringel nur am Schaft: zwei breite und zwei schmale Streifen, scharf begrenzt.
+        c = CREAM
+        for z0, z1 in ((1.18, 1.25), (1.06, 1.1), (0.84, 0.91), (0.72, 0.76)):
+            band = smoothstep(z0 - 0.012, z0 + 0.004, p.z) * (1 - smoothstep(z1 - 0.004, z1 + 0.012, p.z))
+            c = mix(c, STRIPE, band)
         # Ferse hinten unten, Spitze vorn.
-        heel = smoothstep(0.08, 0.2, p.y) * (1 - smoothstep(0.32, 0.42, p.z))
-        toe = smoothstep(-0.3, -0.42, p.y)
+        heel_d = (Vector((p.x * 0.8, p.y, p.z)) - HEEL).length
+        heel = 1 - smoothstep(0.2, 0.215, heel_d)
+        toe = smoothstep(0.255, 0.27, -p.y)
         c = mix(c, PATCH, max(heel, toe))
-        # Strick-Maschen: feines Muster aus Helligkeit.
-        knit = 0.94 + 0.06 * math.sin(p.z * 220) * math.sin(math.atan2(p.y, p.x) * 40)
+        # Bäckchen unter den Knopfaugen.
+        for cx in (0.13, -0.14):
+            d = (Vector((p.x, p.y, p.z)) - Vector((cx, -0.15, 0.97))).length
+            c = mix(c, CHEEK, math.exp(-((d / 0.045) ** 2)) * 0.55)
+        # Strick: Rillen zwischen den Rippen etwas dunkler.
+        a = math.atan2(p.x, p.z * 0 + (p.y - 0.04))
+        knit = 0.955 + 0.045 * (0.5 + 0.5 * math.cos(a * KNIT_RIBS))
         return (c[0] * knit, c[1] * knit, c[2] * knit)
 
     k.paint(mesh, color)
     return mesh
 
 
+def surface_front(x: float, z: float) -> float:
+    """y der Schaft-Vorderseite bei (x, z) (Schaft ist rund mit Radius LEG_R um y = 0,04)."""
+    return 0.04 - math.sqrt(max(0.0, LEG_R**2 - x * x))
+
+
 def cuff():
-    ring = k.lathe("buendchen", [(0.0, 1.3), (0.2, 1.3), (0.215, 1.34), (0.215, 1.5), (0.19, 1.52), (0.17, 1.5), (0.17, 1.36), (0.0, 1.36)], segments=48)
+    # Boden der Öffnung bei 1,45: Darunter steckt das Schaftende (erster Pfadpunkt in `PATH`).
+    # Oben ein umgeschlagener, runder Wulst.
+    profile = [(0.0, 1.27), (0.198, 1.27), (0.212, 1.285), (0.218, 1.31), (0.218, 1.47), (0.214, 1.5), (0.204, 1.518), (0.19, 1.524), (0.176, 1.516), (0.169, 1.5), (0.168, 1.47), (0.168, 1.45), (0.0, 1.45)]
+    ring = k.lathe("buendchen", profile, segments=96)
 
     def ribs(p: Vector) -> Vector:
         r = math.hypot(p.x, p.y)
         if r < 0.16:
             return p
         a = math.atan2(p.y, p.x)
-        f = 1 + 0.035 * math.cos(a * 24)
+        # 24 Rippen auf 96 Punkten (4 je Rippe): runde Grate, schmale Rillen.
+        g = (0.5 + 0.5 * math.cos(a * 24)) ** 0.6
+        f = 1 + 0.045 * (g - 0.5) * smoothstep(0.17, 0.2, r)
         return Vector((p.x * f, p.y * f, p.z))
 
     k.deform(ring, ribs)
+    k.deform(ring, lambda p: p + Vector((0, 0.04, 0)))
     return ring
 
 
-def button(name, at, radius, color):
-    disc = k.cylinder(name, at, radius, 0.03, segments=24, axis="Y")
-    rim = k.torus(f"{name}-rand", (at[0], at[1] - 0.012, at[2]), radius * 0.85, radius * 0.16, segments=24, sides=6)
+def button(name, at, radius, color, cross: bool):
+    y = surface_front(at[0], at[2])
+    disc = k.cylinder(name, (at[0], y - 0.008, at[2]), radius, 0.026, segments=24, axis="Y")
+    rim = k.torus(f"{name}-rand", (at[0], y - 0.021, at[2]), radius * 0.84, radius * 0.15, segments=24, sides=6)
     rim.rotation_euler = (math.radians(90), 0, 0)
-    holes = []
+    parts = [k.solid(disc, color), k.solid(rim, mix(color, (1, 1, 1), 0.18))]
     for dx, dz in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        h = k.sphere(f"{name}-loch", (at[0] + dx * radius * 0.28, at[1] - 0.016, at[2] + dz * radius * 0.28), radius * 0.12, segments=8, rings=4)
-        holes.append(k.solid(h, THREAD))
-    k.solid(disc, color)
-    k.solid(rim, mix(color, (1, 1, 1), 0.15))
-    return [disc, rim, *holes]
+        h = k.sphere(f"{name}-loch", (at[0] + dx * radius * 0.27, y - 0.021, at[2] + dz * radius * 0.27), radius * 0.1, scale=(1, 0.5, 1), segments=8, rings=4)
+        parts.append(k.solid(h, mix(color, THREAD, 0.7)))
+    # Faden durch die Löcher: als Kreuz oder als zwei Striche.
+    pairs = [((-1, -1), (1, 1)), ((-1, 1), (1, -1))] if cross else [((-1, -1), (-1, 1)), ((1, -1), (1, 1))]
+    for i, (a, b) in enumerate(pairs):
+        pa = (at[0] + a[0] * radius * 0.27, y - 0.024, at[2] + a[1] * radius * 0.27)
+        pb = (at[0] + b[0] * radius * 0.27, y - 0.024, at[2] + b[1] * radius * 0.27)
+        frames = k.path_frames([pa, pb], 2, ref=(0, 1, 0))
+        parts.append(k.solid(k.tube(f"{name}-faden-{i}", frames, lambda fr, a: (0.006, 0.006), around=6, dome_start=1, dome_end=1, dome_rings=2), THREAD))
+    return parts
+
+
+def stitch(name: str, a: Vector, b: Vector, width: float = 0.009):
+    """Ein gestickter Stich zwischen zwei Punkten, halb in der Oberfläche."""
+    frames = k.path_frames([tuple(a), tuple((a + b) / 2 + Vector((0, -0.004, 0))), tuple(b)], 3, ref=(0, 1, 0))
+    return k.solid(k.tube(name, frames, lambda fr, _: (width, width), around=6, dome_start=1, dome_end=1, dome_rings=2), THREAD)
+
+
+def on_front(x: float, z: float, lift: float = 0.0) -> Vector:
+    return Vector((x, surface_front(x, z) - lift, z))
 
 
 def face():
     parts = []
-    parts += button("knopf-l", (0.085, -0.205, 1.08), 0.055, BUTTON_A)
-    parts += button("knopf-r", (-0.095, -0.2, 1.1), 0.07, BUTTON_B)
-    smile = k.torus("mund", (0, -0.2, 0.96), 0.075, 0.012, segments=24, sides=6)
-    smile.rotation_euler = (math.radians(90), 0, 0)
-    for v in smile.data.vertices:
-        if v.co.y > 0.0:
-            v.co.y *= 0.15
-    parts.append(k.solid(smile, THREAD))
+    parts += button("knopf-l", (0.088, 0, 1.08), 0.055, BUTTON_A, cross=True)
+    parts += button("knopf-r", (-0.095, 0, 1.1), 0.07, BUTTON_B, cross=False)
+    # Gestickter Mund: Stiche entlang eines schiefen Lächelns.
+    arc = []
+    for i in range(11):
+        t = i / 10
+        x = 0.085 - 0.17 * t
+        z = 0.965 - 0.045 * math.sin(t * math.pi) + 0.015 * t
+        arc.append(on_front(x, z, -0.002))
+    for i in range(0, 10, 2):
+        parts.append(stitch(f"mund-{i}", arc[i], arc[i + 1] + (arc[i + 2] - arc[i + 1]) * 0.4))
+    # Hochgezogene Augenbraue über dem großen Knopf.
+    parts.append(stitch("braue-1", on_front(-0.05, 1.19, -0.002), on_front(-0.1, 1.205, -0.002)))
+    parts.append(stitch("braue-2", on_front(-0.1, 1.205, -0.002), on_front(-0.145, 1.195, -0.002)))
     return k.join(parts, "gesicht")
 
 

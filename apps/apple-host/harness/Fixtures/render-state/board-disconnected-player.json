@@ -80,7 +80,8 @@
         "character": "sock"
       }
     ],
-    "messages": []
+    "messages": [],
+    "notice": null
   },
   "minigame": null
 }

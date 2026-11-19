@@ -28,7 +28,7 @@ import {
   type Outgoing,
 } from '../../server/src/session.ts';
 import { spreadPawns } from '../../host/src/board/layout.ts';
-import { eventNotice, eventText, playerName } from '../../host/src/board/texts.ts';
+import { eventText, playerName } from '../../host/src/board/texts.ts';
 import {
   connectHost,
   type HostCommand,
@@ -56,9 +56,26 @@ import type {
   RenderState,
 } from './contract.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
-import { createHeadlessStage, describe, type HeadlessStage } from './stage.ts';
+import { createNoticeTracker } from './notice.ts';
+import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
 
 const now = clock.now;
+
+/**
+ * Minispiel-Aufbau über mehrere `tick` verteilen (CHAOS-141): weiter geht es im nächsten `tick`
+ * (Zeitgeber der virtuellen Uhr feuern nur dort). Gemessen wird mit der echten Uhr: `Date.now()`
+ * hat JavaScriptCore von Haus aus, die virtuelle Uhr steht innerhalb eines `tick`.
+ */
+const PACING = {
+  nextFrame: () =>
+    new Promise<void>((resolve) => {
+      clock.setTimeout(() => {
+        resolve();
+      }, 0);
+    }),
+  now: () => Date.now(),
+  budgetMs: PREPARE_BUDGET_MS,
+};
 
 /** So viele Ticker-Meldungen hält `renderState().board.messages`. */
 const MAX_MESSAGES = 6;
@@ -210,6 +227,8 @@ function create(env: HostEnv): ChaosHostInstance {
   let receivedAt = 0;
   let nextEventSeq: number | null = null;
   const messages: string[] = [];
+  /** Große Einblendung „Sabotage wird stärker!“ (CHAOS-157). */
+  const notices = createNoticeTracker();
   let stage: { key: string; headless: HeadlessStage } | null = null;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
@@ -251,6 +270,7 @@ function create(env: HostEnv): ChaosHostInstance {
           timeLimitMs: plan.kind === 'play' ? plan.timeLimitMs : module.info.durationMs,
           havok,
           log,
+          pacing: PACING,
           onResult: (result) => {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
@@ -284,10 +304,7 @@ function create(env: HostEnv): ChaosHostInstance {
     for (const event of fresh) {
       const text = eventText(event, view, labelOf);
       if (text) messages.push(text.text);
-      // Ansage „Sabotage wird stärker!“ (CHAOS-120): als eigene Ticker-Zeile, bis der native
-      // Host eine große Einblendung hat.
-      const notice = eventNotice(event);
-      if (notice) messages.push(`${notice.title} ${notice.detail}`);
+      notices.push(event, receivedAt);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
     resultSender.onView(view);
@@ -307,6 +324,7 @@ function create(env: HostEnv): ChaosHostInstance {
           view = null;
           nextEventSeq = null;
           messages.length = 0;
+          notices.clear();
           disposeStage();
         }
       },
@@ -376,6 +394,7 @@ function create(env: HostEnv): ChaosHostInstance {
         };
       }),
       messages: [...messages],
+      notice: notices.current(now()),
     };
   };
 
@@ -480,5 +499,9 @@ function create(env: HostEnv): ChaosHostInstance {
 }
 
 const api: ChaosHostApi = { create };
-const internals: ChaosHostInternals = { base64url, rotation: ROTATION };
+const internals: ChaosHostInternals = {
+  base64url,
+  rotation: ROTATION,
+  pendingTimers: () => clock.pending(),
+};
 Object.assign(globalThis, { ChaosHost: api, ChaosHostInternals: internals });

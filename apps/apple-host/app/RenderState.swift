@@ -32,6 +32,13 @@ struct RenderState: Decodable, Equatable {
         var spaces: [Space]?
         var pawns: [Pawn]?
         var messages: [String]?
+        /// Big banner at the top centre (CHAOS-157), e.g. „Sabotage wird stärker!“; 4 s, else null.
+        var notice: Notice?
+    }
+
+    struct Notice: Decodable, Equatable {
+        var title: String
+        var detail: String?
     }
 
     /// World coordinates as in the Babylon host (left-handed: flip z for RealityKit).

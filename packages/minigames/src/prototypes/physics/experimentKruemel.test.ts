@@ -35,11 +35,9 @@ describe('EXP-023 Krümel-Kehraus: Smoke', () => {
 });
 
 /**
- * Die Läufe verlieren im Headless-Harness je Partie Speicher (betrifft alle Minispiele, siehe
- * Folgeaufgabe in `docs/experiments.md` EXP-023). Darum lässt sich die Messung in Teile
- * zerlegen, jeder Teil in einem eigenen Prozess:
- * `KRUEMEL_TABLES=main,close,seat,intruder` (Standard: alle) und `KRUEMEL_ONLY=R3,R4`
- * (Standard: alle Varianten).
+ * Die Messung lässt sich in Teile zerlegen: `KRUEMEL_TABLES=main,close,seat,intruder`
+ * (Standard: alle) und `KRUEMEL_ONLY=R3,R4` (Standard: alle Varianten). Früher nötig, weil der
+ * Headless-Harness je Lauf Speicher verlor; seit CHAOS-126 laufen alle Tabellen in einem Prozess.
  */
 describe.runIf(FULL)('EXP-023 Krümel-Kehraus: Tabellen', () => {
   it('Haupttabelle, knappe Besetzungen, Ecken, Eindringling', async () => {

@@ -6,8 +6,14 @@
  * - **strukturell** (immer geprüft, rechnerunabhängig): WebGL-Kontexte und Render-Schleifen je
  *   Szene dürfen nicht steigen; Draw Calls höchstens +10 % (+5).
  * - **zeitlich** (nur mit `PERF_STRICT=1`, gleicher Rechner nötig): Bildabstand p95 und
- *   Render-Zeit p95 höchstens +25 % (+4 ms bzw. +2 ms), Heap-Höchstwert +20 % (+10 MB);
+ *   Render-Zeit (Median und p95) höchstens +25 % (+4 ms bzw. +2 ms), Heap nach GC +20 % (+10 MB);
  *   längster Block je Szenenwechsel (CHAOS-153) höchstens +50 % (+250 ms bzw. +150 ms).
+ *   Mediane erst ab {@link MIN_FRAMES_FOR_MEDIAN}, p95 erst ab {@link MIN_FRAMES_FOR_P95} Bildern
+ *   je Szene (CHAOS-165).
+ *
+ * Der Heap-**Höchstwert** ohne GC (`heapMaxMB`) wird nur noch berichtet: Er hängt davon ab, ob
+ * kurz vor der Probe eine Garbage Collection lief, und schwankte im selben Stand um bis zu
+ * +90 % (CHAOS-158). Verglichen wird der Heap nach erzwungener GC (`heapRetainedMB`).
  */
 import {
   compareToBaseline,
@@ -24,9 +30,11 @@ export const STRUCTURAL: Readonly<Record<string, Tolerance>> = {
 };
 
 export const TIMING: Readonly<Record<string, Tolerance>> = {
+  frameMedian: { relative: 0.25, absolute: 4 },
   frameP95: { relative: 0.25, absolute: 4 },
+  renderMedian: { relative: 0.25, absolute: 2 },
   renderP95: { relative: 0.25, absolute: 2 },
-  heapMaxMB: { relative: 0.2, absolute: 10 },
+  heapRetainedMB: { relative: 0.2, absolute: 10 },
 };
 
 /**
@@ -72,6 +80,47 @@ export function flatten(scene: ScenePerf): FlatMetrics {
   };
 }
 
+export interface RetainedHeapTracker {
+  /**
+   * Ein Proben-Takt mit den gerade aktiven Szenen. Liefert die Szenen, deren aktuelles
+   * Vorkommen jetzt `afterTicks` Takte in Folge aktiv ist und noch keinen Heap nach GC hat.
+   */
+  tick(activeScenes: readonly string[]): string[];
+  /** Heap nach GC (Bytes) für diese Szenen; je Szene zählt der Höchstwert über die Vorkommen. */
+  record(scenes: readonly string[], bytes: number): void;
+  /** Höchster Heap nach GC der Szene in MB, `null` ohne Messung (Vorkommen zu kurz). */
+  megabytes(scene: string): number | null;
+}
+
+/**
+ * Heap nach GC je Szene (CHAOS-158): einmal je Vorkommen, sobald die Szene `afterTicks` Takte
+ * in Folge aktiv ist. Verschwindet eine Szene, beginnt ihr nächstes Vorkommen von vorn.
+ */
+export function createRetainedHeapTracker(afterTicks: number): RetainedHeapTracker {
+  const streak = new Map<string, number>();
+  const maxBytes = new Map<string, number>();
+  return {
+    tick(activeScenes) {
+      const active = new Set(activeScenes);
+      for (const scene of [...streak.keys()]) if (!active.has(scene)) streak.delete(scene);
+      const due: string[] = [];
+      for (const scene of active) {
+        const count = (streak.get(scene) ?? 0) + 1;
+        streak.set(scene, count);
+        if (count === afterTicks) due.push(scene);
+      }
+      return due;
+    },
+    record(scenes, bytes) {
+      for (const scene of scenes) maxBytes.set(scene, Math.max(maxBytes.get(scene) ?? 0, bytes));
+    },
+    megabytes(scene) {
+      const bytes = maxBytes.get(scene);
+      return bytes === undefined ? null : bytes / MB;
+    },
+  };
+}
+
 /** Kennzahlen je Szenenwechsel als flache Werte (Schlüssel = Übergang, z. B. „brett → minispiel“). */
 export function flattenTransitions(
   summaries: readonly TransitionSummary[],
@@ -91,9 +140,36 @@ export function flattenTransitions(
   );
 }
 
+/**
+ * Ab so vielen Bildern je Szene werden Bildabstand und Render-Zeit (Median) verglichen
+ * (CHAOS-158). Anleitung und Ergebnis der Minispiele zeichnen unter SwiftShader 3–20 Bilder;
+ * selbst ihr Median hängt dann an wenigen Einzelbildern.
+ */
+export const MIN_FRAMES_FOR_MEDIAN = 25;
+
+/**
+ * Ab so vielen Bildern je Szene werden auch die p95-Werte verglichen (CHAOS-165). Darunter ist
+ * p95 praktisch einer der höchsten Einzelwerte: Die Render-Zeit p95 von Sockenregen (≈ 30 Bilder)
+ * lag in fünf Läufen desselben Stands zwischen 14 und 47 ms, der Median bei 6,5–8,6 ms. Betrifft
+ * unter SwiftShader alle Minispiele (29–62 Bilder), Lobby und Podest; das Brett hat ≈ 200.
+ */
+export const MIN_FRAMES_FOR_P95 = 100;
+
+const MIN_FRAMES: Readonly<Record<string, number>> = {
+  frameMedian: MIN_FRAMES_FOR_MEDIAN,
+  renderMedian: MIN_FRAMES_FOR_MEDIAN,
+  frameP95: MIN_FRAMES_FOR_P95,
+  renderP95: MIN_FRAMES_FOR_P95,
+};
+
+export type SceneResult = Omit<RegressionResult, 'status'> & {
+  readonly status: RegressionResult['status'] | 'zu wenige Bilder';
+  readonly kind: 'strukturell' | 'zeitlich';
+};
+
 export interface SceneComparison {
   readonly scene: string;
-  readonly results: readonly (RegressionResult & { readonly kind: 'strukturell' | 'zeitlich' })[];
+  readonly results: readonly SceneResult[];
 }
 
 /** Vergleicht jede Szene der Messung mit derselben Szene der Baseline. */
@@ -111,7 +187,11 @@ export function compareScenes(
           ...r,
           kind: 'strukturell' as const,
         })),
-        ...compareToBaseline(base, now, TIMING).map((r) => ({ ...r, kind: 'zeitlich' as const })),
+        ...compareToBaseline(base, now, TIMING).map((r): SceneResult => ({
+          ...r,
+          kind: 'zeitlich',
+          status: (now.frames ?? 0) < (MIN_FRAMES[r.metric] ?? 0) ? 'zu wenige Bilder' : r.status,
+        })),
       ],
     };
   });
@@ -139,7 +219,7 @@ function fmt(value: number | null | undefined, digits = 1): string {
 /** Markdown-Tabelle der Kennzahlen je Szene. */
 export function sceneTable(scenes: Readonly<Record<string, FlatMetrics>>): string {
   const head =
-    '| Szene | s | Frames | fps | Bildabstand p50/p95 ms | Render p50/p95 ms | Draw Calls p50/max | aktive Meshes | Eingabe→Frame p50/p95 ms (n) | Brett→Frame p50/p95 ms | Kontexte | Schleifen | Heap max MB | Texturen ~MB |';
+    '| Szene | s | Frames | fps | Bildabstand p50/p95 ms | Render p50/p95 ms | Draw Calls p50/max | aktive Meshes | Eingabe→Frame p50/p95 ms (n) | Brett→Frame p50/p95 ms | Kontexte | Schleifen | Heap max / nach GC MB | Texturen ~MB |';
   const sep = '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|';
   const rows = Object.entries(scenes).map(([scene, m]) =>
     [
@@ -155,7 +235,7 @@ export function sceneTable(scenes: Readonly<Record<string, FlatMetrics>>): strin
       `${fmt(m.boardToFrameMedian)} / ${fmt(m.boardToFrameP95)}`,
       fmt(m.contextsMax, 0),
       fmt(m.renderLoopsMax, 0),
-      fmt(m.heapMaxMB),
+      `${fmt(m.heapMaxMB)} / ${fmt(m.heapRetainedMB)}`,
       fmt(m.textureMB),
     ].join(' | '),
   );

@@ -124,6 +124,12 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     await expect(host.getByTestId('start-button')).toBeEnabled();
     await host.getByTestId('start-button').click();
     await expect(host.locator('main.host')).toHaveAttribute('data-phase', 'board');
+    // Brett-Leinwand markieren: Nach dem Minispiel muss es dieselbe sein (CHAOS-152).
+    await host.waitForFunction(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('.board-layer canvas');
+      if (canvas) canvas.dataset.e2eBoard = 'erstes';
+      return canvas !== null;
+    });
 
     // Brettrunde: Entscheidungen beantworten, bis die Minispiel-Bühne erscheint.
     const deadline = Date.now() + 120_000;
@@ -146,6 +152,10 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
       await expect(intro.locator('[data-control="a"]')).toContainText(INFO.controls.a);
     }
     await expect(host.getByTestId('minigame-countdown')).toBeVisible();
+    // Brett bleibt eingehängt, aber unsichtbar (CHAOS-152): zwei Leinwände, kein Brett-HUD.
+    await expect(host.locator('.board-layer')).toHaveAttribute('data-hidden', 'true');
+    await expect(host.getByTestId('board-hud')).toHaveCount(0);
+    await expect(host.locator('canvas')).toHaveCount(2);
     await expect(intro).toContainText('Schraubi');
     await expect(intro).toContainText('Kalle Kaktus');
 
@@ -194,6 +204,9 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     await expect(host.getByTestId('board-hud')).toBeVisible({ timeout: 20_000 });
     await expect(host.getByTestId('minigame-screen')).toHaveCount(0);
     await expect(host.locator('canvas')).toHaveCount(1);
+    // Kein Neuaufbau des Bretts (CHAOS-152): dieselbe Leinwand, wieder sichtbar.
+    await expect(host.locator('.board-layer canvas[data-e2e-board="erstes"]')).toHaveCount(1);
+    await expect(host.locator('.board-layer')).not.toHaveAttribute('data-hidden');
     expect(await host.evaluate(() => window.__chaosMinigame === undefined)).toBe(true);
     await expect.poll(() => chaosServer.server.session.snapshot().game?.state.round).toBe(2);
     await expect

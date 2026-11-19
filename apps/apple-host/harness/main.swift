@@ -40,6 +40,11 @@ for file in fixtureFiles {
     if !RenderState.phases.contains(state.phase) { fail("\(file.lastPathComponent): Phase \(state.phase) unbekannt") }
   } catch { fail("\(file.lastPathComponent): \(error)") }
 }
+// CHAOS-157: die Einblendung „Sabotage wird stärker!“ kommt in der App an.
+if let file = fixtureFiles.first(where: { $0.lastPathComponent == "board-sabotage-notice.json" }) {
+  let state = try RenderState.decode(String(contentsOf: file, encoding: .utf8))
+  if state.board?.notice?.title != "Sabotage wird stärker!" { fail("board-sabotage-notice.json: Einblendung fehlt") }
+} else { fail("board-sabotage-notice.json fehlt") }
 out("Fixtures dekodiert: \(fixtureFiles.count) Dateien mit RenderState.swift")
 
 let ctx = JSContext()!

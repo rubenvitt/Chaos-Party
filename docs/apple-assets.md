@@ -57,12 +57,18 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
 - **Ohne Mac** (Linux-CI, Job „Apple-Assets (USDZ)“): `packages/assets/usd/check_usdz.py` mit usd-core.
   - alle Validatoren von usd-core
   - Figuren: Clip-Tabelle passt zu Zeitleiste und Manifest, jedes Mesh hat ein Material, keine Vertexfarbe im Shader, `akzent` gebunden, `abzeichen` vorne, mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest (±0,1 m)
+  - Figuren, Auflage (CHAOS-161): aufgesetzte Teile schweben nicht über ihrem Träger (`AUFLAGE` in `check_usdz.py`: Socken-Bündchen auf dem Schaft, Kaktus-Blüte auf dem Kaktus, Kaktus im Topf). Gemessen wird der Median des Abstands der Unterseite (unterste 2 cm) zur Trägeroberfläche, Punkte im Träger zählen 0, erlaubt sind 3 cm; in der Ruhepose und am Anfang und in der Mitte jedes Clips, mit gebackenem Skinning. Bounds allein fanden den Fehler nicht.
   - Brett: alle Feld-Anker genau einmal und auf 1 mm am Ort aus `fields`, alle Instanz-Grundmeshes, eingebettete Texturen
 - **Herkunft:** Jede Textur im Brett-Export muss aus einem Manifest-Asset kommen, das das Artefakt in `from` nennt, oder eine Beschriftung (Wegweiser, „Am Zug“-Pfeil, gezeichnet mit Nunito) sein (`scripts/lib/board-images.mjs`). `pnpm check:assets` prüft die Einträge unter `builds` im Manifest und, wenn gebaut, die Budgets.
-- **Auf dem Mac** zusätzlich `packages/assets/usd/check_realitykit.swift`: RealityKit lädt alles, Achsen, Feld-Anker, `abzeichen`, Länge der Zeitleiste.
+- **Auf dem Mac** zusätzlich `packages/assets/usd/check_realitykit.swift`: RealityKit lädt alles, Achsen, Feld-Anker, `abzeichen`, Länge der Zeitleiste und dieselbe Auflage-Prüfung mit den Meshes, wie RealityKit sie geladen hat (nur Ruhepose: das verformte Skinning gibt RealityKit nicht an die CPU heraus).
 - **Optik:** nur am Mac mit Augen, siehe [Gerätecheckliste](device-test-checklist.md), Abschnitt „USDZ-Assets“.
 
 ## Bekannte Grenzen
+
+- **Skin-Modifier-Enden (CHAOS-161):** Skin-Modifier plus Subdivision runden ein Körperende etwa um den Knotenradius ab. Wer ein Teil auf ein Ende setzt (Bündchen, Blüte, Hut), braucht einen Knoten, der bis ins Teil reicht, oder muss das Teil auf die Kuppel absenken; die Auflage-Prüfung meldet es sonst. Rippen und andere Wellen um eine Achse brauchen eine Wellenzahl, die zu den Punkten rundum passt (16 bei Subdivision 2), sonst knittert die Fläche.
+
+- **Nahbilder ohne Mac (CHAOS-162):** `packages/assets/blender/nahbild.py <id> <ziel.png>` rendert eine Figur in Cycles aus drei Blickwinkeln (Dreiviertel, Profil, von oben). Die Babylon-Vitrine zeigt eine Figur aus der Nähe mit `preview.html?nah=<Slot 1–4>`. RealityKit-Nahbilder (`--nah`) gibt es weiter nur am Mac.
+- **Farbatlas packen (CHAOS-162):** Smart UV Project allein legte bei fein unterteilten Figuren Inseln übereinander (Knopffarbe auf der Sockenspitze). `bake_vertex_colors` packt die Inseln danach neu (`pack_islands`, ohne Überlappung).
 
 - **Nicht bitgleich:** Zwei Läufe erzeugen gleichwertige, aber nicht bitgleiche Dateien. Blender packt die UV-Inseln über mehrere Objekte nicht immer gleich, und die Reihenfolge der Prims im USD schwankt. Das galt schon für die GLB-Figuren. Prims, Materialien, Clips und Anker sind gleich; die Prüfungen laufen auf den Inhalt.
 - Die Kulisse ist eine Momentaufnahme: Beispiel-Spielstand, Tageslicht-Stimmung, ohne Wasseranimation, Laternen, Glühwürmchen, Lichtstimmungen und Nachbearbeitung (SSAO, Tiefenschärfe). Was davon der native Host braucht, klärt CHAOS-142/CHAOS-148.

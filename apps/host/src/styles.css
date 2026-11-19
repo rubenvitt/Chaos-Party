@@ -31,6 +31,16 @@ body,
   inset: 0;
 }
 
+/* Brett-Ebene (CHAOS-152): bleibt während eines Minispiels eingehängt, nur unsichtbar. */
+.board-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.board-layer[data-hidden] {
+  visibility: hidden;
+}
+
 .game-canvas {
   display: block;
   width: 100%;
