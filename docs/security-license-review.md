@@ -53,6 +53,10 @@ Die Mac-App des nativen Hosts (`apps/apple-host`, nur macOS, nicht tvOS) bindet 
 - **Angriffsfläche:** Die App lädt einmal täglich `appcast.xml` von einer festen GitHub-Release-Adresse über HTTPS. Feed (`SURequireSignedFeed`) und Zip sind mit einem EdDSA-Schlüssel signiert; die App prüft beides gegen `SUPublicEDKey`, die Zip-Signatur schon vor dem Entpacken (`SUVerifyUpdateBeforeExtraction`). Zusätzlich muss das Update dieselbe Developer-ID-Signatur tragen. Ohne öffentlichen Schlüssel (lokale Builds, PR-CI) startet der Updater gar nicht.
 - **Schlüssel:** Der private Schlüssel liegt nur als Actions-Secret `SPARKLE_ED_PRIVATE_KEY` und im Schlüsselbund von Rubens Mac, nie im Repository. Er geht im Workflow nur per stdin an `sign_update`. Die CI nutzt bei jedem PR ein Wegwerf-Schlüsselpaar.
 
+### Release-Werkzeuge (CHAOS-156, nur Entwicklung/CI)
+
+`semantic-release` 25.0.9 (MIT) und `@commitlint/cli` + `@commitlint/config-conventional` 21.2.4 (MIT) als Dev-Abhängigkeiten im Wurzel-`package.json`, über das Lockfile und die 7-Tage-Sperre (semantic-release 26 war zu neu). Sie laufen nur in der CI: semantic-release im Probelauf ohne Schreibrechte-Bedarf (legt keinen Tag an, veröffentlicht nicht; das macht der Workflow selbst), commitlint gegen die Commits eines PRs. Nichts davon landet in einem Build.
+
 ### Lieferkette
 
 - `pnpm-workspace.yaml`: `minimumReleaseAge: 10080` (neue Paketversionen erst nach 7 Tagen), Install-Skripte nur für `esbuild` (`onlyBuiltDependencies`).

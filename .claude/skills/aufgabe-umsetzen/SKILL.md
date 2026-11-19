@@ -48,6 +48,7 @@ Werkzeuge per ToolSearch in **einem** Aufruf laden: `select:mcp__Zunder__list_st
 
 - Repo-Doku nachziehen: `docs/progress.md` (Stand, validierte Befehle, nächste Schritte), ADR in `docs/decisions/` bei Architekturentscheidungen, bekannte Grenzen.
 - Commit-Body und PR-Beschreibung nennen die Kennung (`CHAOS-12`). PR-Basis `main`.
+- Commit-Kopf nach Conventional Commits (`feat(apple-host): …`, `fix: …`, `docs: …`), Betreff auf Deutsch; der Typ bestimmt die nächste Version der Mac-App (`CLAUDE.md`, CI-Job „Commit-Nachrichten“).
 - Abweichung von einem Akzeptanzkriterium → Kommentar mit Grund, nicht still weglassen.
 
 ## 6. Abschließen

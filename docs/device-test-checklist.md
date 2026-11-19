@@ -562,7 +562,7 @@ Automatisch geprüft (Linux, ohne Mac): USDZ entstehen mit `pnpm build:apple-ass
 
 Automatisch geprüft (CI, jeder PR): App mit Sparkle ad hoc gebaut, Sparkle samt Helfern neu signiert, Selbsttest lädt Sparkle; mit einem Wegwerf-Schlüssel signiert `sign_update` einen Zip, die Signatur passt zum Schlüssel im Info.plist, die `appcast.xml` ist signiert und geprüft. **Nicht** geprüft: dass eine installierte, notarisierte App das nächste Release wirklich findet, lädt, ohne Gatekeeper-Warnung ersetzt und neu startet.
 
-Voraussetzung: Variable `SPARKLE_PUBLIC_ED_KEY` und Secret `SPARKLE_ED_PRIVATE_KEY` sind gesetzt; danach liefen **zwei** Releases (z. B. zweimal „Release (Mac-App)“ → „Run workflow“), und `…/releases/download/macos-appcast/appcast.xml` zeigt die zweite Version.
+Voraussetzung: Variable `SPARKLE_PUBLIC_ED_KEY` und Secret `SPARKLE_ED_PRIVATE_KEY` sind gesetzt; danach liefen **zwei** Releases (jeder Merge mit einem `feat`- oder `fix`-Commit erzeugt einen; ein manueller Lauf ohne neue solche Commits erzeugt keinen), und `…/releases/download/macos-appcast/appcast.xml` zeigt die zweite Version.
 
 | ID | Schritt | Erwartung | Ergebnis | Nachweis |
 |---|---|---|---|---|

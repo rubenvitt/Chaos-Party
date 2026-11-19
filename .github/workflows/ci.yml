@@ -13,6 +13,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Conventional Commits (CHAOS-156): semantic-release liest daraus die Version der Mac-App. Prüft jeden
+  # Commit des PRs; Merge-Commits sind ausgenommen. Regeln: commitlint.config.mjs, Erklärung in CLAUDE.md.
+  commits:
+    name: Commit-Nachrichten (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: commitlint
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE" --to "$HEAD" --verbose
+
   check:
     name: Typecheck, Lint, Format, Test, Build
     runs-on: ubuntu-latest

@@ -8,6 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: '5.0'
+    # Nur für lokale Builds; Releases bekommen ihre Version von semantic-release (CHAOS-156).
     MARKETING_VERSION: '0.1'
     CURRENT_PROJECT_VERSION: '1'
     # Sparkle-Feed der Mac-App (CHAOS-156). Den öffentlichen EdDSA-Schlüssel setzt release-macos.sh aus der

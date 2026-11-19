@@ -5,6 +5,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # Conventional Commits (CHAOS-156): „ci(deps): …“, löst keinen Mac-Release aus.
+    commit-message:
+      prefix: ci
+      include: scope
     groups:
       actions:
         patterns: ['*']

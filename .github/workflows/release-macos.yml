@@ -1,10 +1,12 @@
 name: Release (Mac-App)
 
 # Signierte, notarisierte Mac-App des nativen Hosts (ADR-019, CHAOS-118) als GitHub-Release
-# `macos-v<Version>`: bei jedem Push auf main, der die App oder ihren JS-Kern ändert, dazu manuell.
+# `macos-v<Version>`: bei jedem Push auf main, der die App oder ihren JS-Kern ändert, dazu manuell, aber nur,
+# wenn seit dem letzten Release ein `feat`-, `fix`- oder `perf`-Commit kam (semantic-release, CHAOS-156).
 # Aufbau wie in lichtung (release-macos.sh): Developer-ID-Zertifikat aus Secrets in einen temporären
 # Schlüsselbund, notarytool mit dem App Store Connect API-Key der TestFlight-Workflows, Heften, Zip.
-# Version: MARKETING_VERSION aus apps/apple-host/project.yml plus Laufnummer (0.1.42).
+# Version: semantic-release aus den Conventional Commits seit dem letzten Tag `macos-v…` (release.config.mjs;
+# feat → 0.x+1.0, fix/perf → 0.x.y+1). Build-Nummer (CFBundleVersion, Sparkle vergleicht sie) ist die Laufnummer.
 #
 # Secrets: MACOS_CERTIFICATE_P12 (base64 der .p12 mit „Developer ID Application“ samt Schlüssel),
 # MACOS_CERTIFICATE_PASSWORD, dazu APPLE_API_KEY, APPLE_API_KEY_P8, APPLE_API_ISSUER (wie TestFlight).
@@ -37,13 +39,53 @@ permissions:
   contents: write
 
 jobs:
+  # Günstig unter Linux: Gibt es überhaupt etwas zu veröffentlichen? semantic-release im Probelauf, ohne Tag.
+  version:
+    name: Nächste Version bestimmen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      notes: ${{ steps.next.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # semantic-release braucht alle Commits und Tags seit dem letzten Release.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: semantic-release (Probelauf)
+        id: next
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node apps/apple-host/scripts/next-version.mjs --notes "$RUNNER_TEMP/notes.md"
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+            cat "$RUNNER_TEMP/notes.md"
+            echo
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
   release:
     name: Mac-App signieren, notarisieren, veröffentlichen
+    needs: version
+    if: needs.version.outputs.version != ''
     runs-on: macos-26
     timeout-minutes: 60
     env:
       # Vorabversion, solange Minispiele im nativen Host Grundkörper zeichnen (CHAOS-144); danach auf 'false'.
       PRERELEASE: 'true'
+      VERSION: ${{ needs.version.outputs.version }}
       SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
       SPARKLE_FEED_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/macos-appcast/appcast.xml
     steps:
@@ -84,7 +126,7 @@ jobs:
           pnpm exec playwright install chromium
           BLENDER_PYTHON="$PWD/.venv-blender/bin/python" pnpm build:apple-assets
 
-      - name: Version und Sparkle-Feed prüfen
+      - name: Sparkle-Feed prüfen
         env:
           HAS_SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY != '' }}
         run: |
@@ -97,10 +139,7 @@ jobs:
             echo "::warning::Ohne SPARKLE_PUBLIC_ED_KEY und SPARKLE_ED_PRIVATE_KEY: Release ohne Sparkle-Updates (CHAOS-156)"
             echo "SPARKLE_FEED=false" >> "$GITHUB_ENV"
           fi
-          base=$(sed -nE "s/^ *MARKETING_VERSION: '?([0-9]+\.[0-9]+)'?.*/\1/p" apps/apple-host/project.yml)
-          [ -n "$base" ] || { echo "::error::MARKETING_VERSION in project.yml nicht gefunden"; exit 1; }
-          echo "VERSION=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
-          echo "Version $base.$GITHUB_RUN_NUMBER"
+          echo "Version $VERSION (Build $GITHUB_RUN_NUMBER)"
 
       - name: Zertifikat und API-Key ablegen
         env:
@@ -148,6 +187,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ZIP: ${{ steps.build.outputs.zip }}
+          CHANGES: ${{ needs.version.outputs.notes }}
         run: |
           tag="macos-v$VERSION"
           files=("$ZIP" "$ZIP.sha256")
@@ -169,6 +209,12 @@ jobs:
           - **Updates:** Die App sucht selbst nach neuen Versionen (Sparkle), sofort über „Chaos Party → Nach Updates suchen …“.
           - **Stand:** Vorabversion. Brett und Minispiele sind noch Grundkörper; die echte Grafik folgt.
 
+          ## Änderungen
+
+          NOTES
+          # Notizen von semantic-release (Commits seit dem letzten Release); erste Zeile ist die Versionsüberschrift.
+          printf '%s\n\n' "$(printf '%s\n' "$CHANGES" | sed '1{/^#/d;}')" >> "$RUNNER_TEMP/notes.md"
+          cat >> "$RUNNER_TEMP/notes.md" <<NOTES
           Quelltext dieses Builds: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }} (GPL-3.0). Lizenzhinweise liegen in der App unter \`Contents/Resources/payload/\`, die von Sparkle unter \`Contents/Resources/Sparkle-LICENSE.txt\`.
           NOTES
           gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" \
