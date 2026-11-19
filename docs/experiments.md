@@ -2234,6 +2234,17 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 
 **Offen (nur auf echter Hardware):** Mit Grafikkarte ohne `KHR_parallel_shader_compile` kostet ein Programm wenige ms; dort war der gebündelte Import-Block (A/B) die wahrscheinliche Spitze. Rubens Messung N4 (Gerätecheckliste) steht aus; ob Kontext-Neuaufbau und Brett-Neuaufbau dort spürbar sind, entscheidet über CHAOS-152.
 
+**Nachtrag 2026-11-19 (CHAOS-168): `runner.prepare` verteilt am PC-Host.** Die Bühne gibt dem Runner jetzt `pacing` mit (`apps/host/src/minigame/preparePacing.ts`): höchstens 6 ms je Bild, danach weiter nach dem nächsten gezeichneten Bild (`requestAnimationFrame` + Makroaufgabe, im Hintergrund-Tab spätestens nach 100 ms). Das gilt auch im Testmodus; das Ergebnis des Aufbaus ändert sich nicht, nur seine Verteilung über die Zeit. Gemessen mit temporären Messmarken auf einem Mac (Apple Silicon, Headless-Chromium mit SwiftShader, 1280×720). Die Werte sind nur relativ zu verstehen und nicht mit der Sandbox oben vergleichbar.
+
+| Ablauf | ohne `pacing` | mit `pacing` |
+| --- | --- | --- |
+| Minispiel allein (`?local=1&minigame=…&flow=1&players=4&seed=7`, 5 Minispiele × 2, ohne ersten Lauf mit JIT-Ausreißer): längster Block | 182–212 ms, umfasst Figuren-Ende, `runner.prepare` und Look | 134–160 ms, endet beim Start von `runner.prepare`; in `prepare` kein Long Task |
+| Perf-Partie (`pnpm perf`), Brett → Minispiel: längster Block Median / max | 719 / 794 ms | 763 / 809 ms |
+
+- **Perf-Partie unverändert, weil der längste Block woanders liegt:** Mit Messmarken liegt er in allen 5 Wechseln bei `new Engine(…)` der Minispiel-Bühne (456–845 ms). Das ist der zweite WebGL-Kontext neben dem eingehängten Brett (CHAOS-152). `runner.prepare` erscheint dort höchstens noch als einzelner Abschnitt (einmal 213 ms: ein Bauschritt ohne `pace` dazwischen).
+- **Nach dem ersten Bild** folgen weiterhin Blöcke von 3,6–4,9 s (SwiftShader übersetzt beim ersten Zeichnen mit laufender Render-Schleife). Die Kennzahl „Aufbau → erstes Bild“ zählt sie nicht.
+- **Entscheidung:** keep. Der Aufbau des Minispiels blockiert nicht mehr am Stück. Das Akzeptanzkriterium aus CHAOS-168 („längster Block Brett → Minispiel deutlich unter 0,5–0,77 s“) ist in der Perf-Partie **nicht** erreicht; der nächste Hebel ist der Kontextaufbau (Folgeaufgabe unter CHAOS-44).
+
 ## EXP-026: Figuren als USDZ direkt aus bpy – Vertexfarben als Textur gebacken (2026-11-17, CHAOS-140)
 
 **Hypothese / gewünschtes Spielerlebnis:** Ruben über den Spike CHAOS-138: „die app ist unspielbar auf dem tv weil das garnicht die echten grafiken sind“. Der native Host braucht dieselben Figuren wie der Babylon-Host, mit lackiertem Glanz, leuchtenden Augen und Messing. Erwartet: Werden die Vertexfarben vor dem USD-Export in eine Farbtextur gebacken, bleiben Rauheit, Clearcoat, Metall und Leuchten als `UsdPreviewSurface` erhalten, und RealityKit zeigt die Figuren wie Babylon (bis auf Sheen und Subsurface).
