@@ -71,6 +71,13 @@ struct OverlayView: View {
                         .scaleEffect(scale)
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
+            } else if let screen = overlay.minigame {
+                // Anleitung, Countdown, HUD und Ergebnis (CHAOS-144), gestaltet für 1920×1080.
+                GeometryReader { geo in
+                    MinigameOverlayView(screen: screen, players: overlay.players)
+                        .scaleEffect(min(geo.size.width / 1920, geo.size.height / 1080))
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(overlay.lines.enumerated()), id: \.offset) { Text($0.element) }
@@ -321,6 +328,11 @@ extension StageView {
                 stage.onPhase = { [weak loop] phase in
                     // Kurz warten, bis Figuren stehen und die Kamera nachgezogen hat.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) { loop?.capture(to: "\(path)-\(phase).png") }
+                }
+            }
+            if let path = settings.screenshot {
+                stage.onMinigameStage = { [weak loop, runtime] key in
+                    MinigameSnapshot.schedule(stage: key, path: path, loop: loop, runtime: runtime)
                 }
             }
             if let path = settings.screenshot, let every = settings.screenshotEvery {

@@ -3,7 +3,8 @@
  * `bodies()` zeigt erst die fertige Szene, und eine während des Aufbaus entsorgte Bühne baut
  * nicht weiter und meldet keinen Fehler.
  */
-import { getMinigameModule } from '@chaos-party/minigames';
+import { getMinigameModule, ROTATION } from '@chaos-party/minigames';
+import { loadHavokForNode } from '@chaos-party/minigame-sdk/testing';
 import type { MinigamePlayer, PrepareThrottle } from '@chaos-party/minigame-sdk/babylon';
 import { describe, expect, it } from 'vitest';
 import { createHeadlessStage } from '../src/stage.ts';
@@ -92,6 +93,72 @@ describe('Headless-Bühne: verteilter Aufbau (CHAOS-141)', () => {
     expect(stage.ready).toBe(false);
     expect(stage.runner.state).toBe('disposed');
     expect(stage.bodies()).toEqual([]);
+    expect(logs).toEqual([]);
+  });
+});
+
+describe('Headless-Bühne: Darstellung für Swift (CHAOS-144)', () => {
+  const FOUR: MinigamePlayer[] = [
+    ...PLAYERS,
+    { slot: 3, name: 'Cem', color: '#009E73', symbol: '■', character: 'robot' },
+    { slot: 4, name: 'Dora', color: '#CC79A7', symbol: '★', character: 'cactus' },
+  ];
+
+  it.each(ROTATION)('%s liefert Kamera, Kulisse, Figuren, Rollen und Geometrie', async (id) => {
+    const module = getMinigameModule(id);
+    if (!module) throw new Error(id);
+    const logs: string[] = [];
+    const stage = createHeadlessStage({
+      module,
+      players: FOUR,
+      seed: 7,
+      timeLimitMs: 20_000,
+      havok: module.info.physics ? await loadHavokForNode() : null,
+      onResult: () => undefined,
+      log: (line) => logs.push(line),
+    });
+    for (let index = 0; index < 50 && !stage.ready; index++) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(stage.ready).toBe(true);
+    stage.start();
+    for (let index = 0; index < 120; index++) stage.advance(1 / 60);
+
+    const camera = stage.camera();
+    expect(camera?.fov).toBeGreaterThan(0);
+    expect(stage.backdrop?.halfX).toBeGreaterThan(0);
+
+    const figures = stage.figures();
+    expect(figures.map((figure) => figure.slot)).toEqual([1, 2, 3, 4]);
+    expect(figures.map((figure) => figure.character)).toEqual([
+      'raccoon',
+      'sock',
+      'robot',
+      'cactus',
+    ]);
+
+    const bodies = stage.bodies();
+    expect(bodies.some((body) => body.role === 'figur')).toBe(false);
+    expect(bodies.some((body) => body.role !== undefined)).toBe(true);
+    const geometry = stage.takeGeometry(Number.POSITIVE_INFINITY);
+    const ids = new Set(geometry.map((entry) => entry.id));
+    expect(ids.size).toBe(stage.geometryTotal);
+    // Jeder Körper mit Geometrie verweist auf einen ausgelieferten Eintrag.
+    for (const body of bodies) if (body.mesh) expect(ids.has(body.mesh), body.id).toBe(true);
+    expect(bodies.filter((body) => body.mesh).length).toBeGreaterThan(bodies.length * 0.9);
+    // Ein zweiter Abruf liefert nichts doppelt.
+    expect(stage.takeGeometry(Number.POSITIVE_INFINITY)).toEqual([]);
+
+    stage.celebrate([
+      { slot: 1, place: 1, score: 3 },
+      { slot: 2, place: 2, score: 1 },
+      { slot: 3, place: 3, score: 0 },
+      { slot: 4, place: 3, score: 0 },
+    ]);
+    const after = stage.figures();
+    expect(after.map((figure) => figure.anim)).toEqual(['cheer', 'sad', 'sad', 'sad']);
+    expect(stage.effects(0).some((effect) => effect.kind === 'confetti')).toBe(true);
+    stage.dispose();
     expect(logs).toEqual([]);
   });
 });

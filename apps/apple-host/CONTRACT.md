@@ -61,8 +61,27 @@ interface ChaosHostInstance {
   "minigame": null | {
     "id": "pudding-gerangel", "stage": "intro" | "play" | "results", "elapsedMs": 1234,
     "bodies": [{ "id": "kirsche#57", "shape": "sphere" | "box" | "cylinder",
-                 "pos": [0, 0, 0], "rot": [0, 0, 0, 1], "size": [1, 1, 1], "color": "#D7263D" }],
-    "hud": "48 s · Anna 3 · Ben 1"
+                 "pos": [0, 0, 0], "rot": [0, 0, 0, 1], "size": [1, 1, 1], "color": "#D7263D",
+                 // CHAOS-144, alle optional:
+                 "mesh": "g12", "role": "kirsche", "key": "2", "alpha": 0.4, "glow": "#3A0B11",
+                 "finish": "matt" | "glanz" | "metall" | "stoff", "twoSided": true }],
+    "hud": "48 s · Anna 3 · Ben 1",                                      // Kurzfassung (Debug)
+    "ready": true, "round": 3, "repeat": false, "countdown": 7 | null,
+    "info": { "title": "…", "tagline": "…", "instructions": ["…"], "controls": { "joystick": "Laufen", "a": "Schubsen", "b": null }, "scoreUnit": "Punkte" },
+    "camera": null | { "pos": [0, 11.5, -13.5], "target": [0, -1.3, 0.8], "fov": 0.8, "fovAxis": "vertical" | "horizontal" },
+    "backdrop": null | { "halfX": 7.2, "halfZ": 7.2, "groundY": -3.3, "surface": "wiese" | "decke" },
+    "figures": [{ "slot": 1, "character": "raccoon", "pos": [0, 0, 0], "rot": [0, 0, 0, 1], "scale": [1, 1, 1],
+                  "visible": true, "anim": "run", "animSeq": 4 }],
+    "scoreboard": null | { "seconds": 48, "banner": "…" | null, "waiting": false,
+                           "scores": [{ "slot": 1, "name": "Anna", "character": "Wusel", "color": "#0072B2", "symbol": "●",
+                                        "score": 3, "status": null, "connected": true }] },
+    "results": null | { "aborted": false, "headline": "Anna gewinnt!", "highlights": ["…"],
+                        "rows": [{ "slot": 1, "name": "Anna", "character": "Wusel", "color": "#0072B2", "symbol": "●",
+                                   "place": 1, "tied": false, "scoreText": "5 Punkte", "coins": 10, "prizes": ["Schild"] }] },
+    "effects": [{ "seq": 7, "kind": "impact" | "sparkle" | "confetti" | … | "shake", "pos": [0, 0, 0], "color": null, "strength": 1 }],
+    "geometry": [{ "id": "g12", "vertices": 482, "positions": "<base64>", "normals": "<base64>", "indices": "<base64>",
+                   "wideIndices": false, "extent": [1, 0.5, 1] }],
+    "geometryTotal": 43
   }
 }
 ```
@@ -71,4 +90,15 @@ interface ChaosHostInstance {
 - `board.notice` kommt aus `eventNotice` (`apps/host/src/board/texts.ts`): bisher nur in Wachstumsrunden der Sabotage (`round-started` mit `sabotage`), bei `sabotageGrowthRounds: 0` nie. Der Kern hält sie 4 s (`src/notice.ts`); Swift zeigt sie nur in der Phase `board`.
 - `phase` ist `lobby`, solange die Session nicht im Brettspiel ist (auch die M1-Arena erscheint als `lobby`). `paused` hat Vorrang vor `minigame` und `final`.
 - Koordinaten roh aus Babylon/game-core (linkshändig). Pawns: Feldmitte plus Versatz bei mehreren Figuren auf einem Feld.
-- Körper: `pos` = Weltmitte der Bounding-Box, `rot` = Weltrotation (x, y, z, w), `size` = lokale Ausdehnung × Skalierung (vor der Rotation). `shape` wird aus den Eckpunkten geschätzt (Kugel / Zylinder inkl. Scheibe, Kapsel und Torus / sonst Quader). `color` ist `diffuseColor` bzw. `albedoColor`. Unsichtbare und deaktivierte Meshes fehlen; Thin Instances werden nicht einzeln ausgegeben. Eine stabile Zuordnung Körper → Darstellung folgt mit CHAOS-144/149.
+- Körper: `pos` = Weltmitte der Bounding-Box, `rot` = Weltrotation (x, y, z, w), `size` = lokale Ausdehnung × Skalierung (vor der Rotation). `shape` wird aus den Eckpunkten geschätzt (Kugel / Zylinder inkl. Scheibe, Kapsel und Torus / sonst Quader). `color` ist `diffuseColor` bzw. `albedoColor`. Unsichtbare und deaktivierte Meshes fehlen; Thin Instances werden nicht einzeln ausgegeben. Figuren (`markVisual`-Rolle `figur`) fehlen in `bodies`; sie kommen als `figures`.
+
+### Minispiel-Darstellung (CHAOS-144)
+
+- **Geometrie statt Grundform:** Die Minispiele bauen ihre Requisiten aus Babylon-Meshes. Der Kern schickt deren echte Geometrie einmal je Minispiel (`src/geometry.ts`): dedupliziert (gleiche Vertexdaten = ein Eintrag), um die Mitte der lokalen Bounding-Box verschoben, als Base64 der rohen Bytes (Float32-Positionen, Int8-Normalen ÷ 127, Uint16- bzw. Uint32-Indizes, little-endian). `geometry` enthält nur, was seit dem letzten `renderState` fertig kodiert ist (höchstens ≈ 256 KB und 2 ms Kodierzeit je Aufruf); jeder Eintrag kommt genau einmal. Ein Körper mit `mesh` wird mit Skalierung `size / extent` je Achse gezeichnet (Achse ohne Ausdehnung: 1); fehlt die Geometrie noch, zeichnet Swift `shape`. Swift spiegelt z an Positionen und Normalen; Babylons Vorderseiten (im Uhrzeigersinn) werden dadurch zu RealityKits Vorderseiten, die Indizes bleiben.
+- **Rollen:** `role`/`key` aus `markVisual` (CHAOS-149), fehlt = Kulisse. Swift kann einzelne Rollen später durch eigene Modelle oder Effekte ersetzen; heute zeichnet es jede Rolle mit ihrer Geometrie.
+- **Material:** `color` und `alpha` (Material × Sichtbarkeit) je Bild, `glow` = Eigenleuchten, `finish` aus `look.material` (Rauheit wie der Look des Browser-Hosts), `twoSided` = `backFaceCulling = false`.
+- **Look:** Die Bühne gibt dem Minispiel wie der Browser-Host einen `look` (gleicher Code-Pfad, kein eigenes Licht, kein Boden bis zum Horizont). `backdrop` ist die Spielfläche aus `look.backdrop`; die Kulisse drumherum (Wiese, Picknickdecke, Bäume) baut Swift.
+- **Figuren:** Wurzelknoten (Füße) mit Lage, Rotation und Skalierung; `anim` ist die zuletzt gespielte Animation, `animSeq` zählt jedes `play` (Einmal-Clips wie `hit` erneut abspielen). Im Ergebnis jubelt Platz 1, die anderen schmollen (wie `celebrate` im Browser-Host).
+- **Kamera:** `scene.activeCamera` je Bild (Position, Ziel, Öffnungswinkel in Radiant).
+- **Effekte:** `ctx.fx.burst`/`shake` als nummerierte Ereignisse der letzten 1,5 s; Swift spielt jede `seq` einmal. Klänge fehlen im nativen Host noch.
+- **Bildschirme:** `info`, `countdown` (Intro), `scoreboard` (Spiel), `results` (Ergebnis mit Münzen und Trostpreis) kommen aus denselben Funktionen wie im Browser-Host (`plan.ts`, `results.ts`, `texts.ts`); `repeat` = kurze Anleitung (CHAOS-66).

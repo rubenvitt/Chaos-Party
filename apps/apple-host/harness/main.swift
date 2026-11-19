@@ -52,6 +52,23 @@ if let file = fixtureFiles.first(where: { $0.lastPathComponent == "lobby-setting
     fail("lobby-settings.json: Einstellungen \(String(describing: settings))")
   }
 } else { fail("lobby-settings.json fehlt") }
+// CHAOS-144: Minispiel-Darstellung – Geometrie dekodiert (z gespiegelt), Figuren, Bildschirme.
+if let file = fixtureFiles.first(where: { $0.lastPathComponent == "minigame-play.json" }),
+   let m = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).minigame {
+  guard let g = m.geometry?.first?.decoded() else { fail("minigame-play.json: Geometrie nicht dekodierbar") }
+  if g.positions.count != 4 || g.indices != [0, 1, 2, 0, 2, 3] || g.positions[0] != SIMD3(-0.5, 0, 0.5)
+    || g.normals[0] != SIMD3(0, 1, 0) || g.extent != SIMD3(1, 0, 1) {
+    fail("minigame-play.json: Geometrie falsch dekodiert: \(g)")
+  }
+  if m.figures?.count != 2 || m.camera == nil || m.backdrop?.surface != "decke" || m.scoreboard?.scores?.count != 2
+    || m.info?.title.isEmpty != false || m.bodies?.first?.mesh != "g1" {
+    fail("minigame-play.json: Minispiel-Felder fehlen")
+  }
+} else { fail("minigame-play.json fehlt") }
+if let file = fixtureFiles.first(where: { $0.lastPathComponent == "minigame-results.json" }),
+   let rows = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).minigame?.results?.rows {
+  if rows.count != 2 || rows[0].coins != 10 || rows[1].prizes != ["Schild"] { fail("minigame-results.json: Ergebnis falsch") }
+} else { fail("minigame-results.json: Ergebnis fehlt") }
 out("Fixtures dekodiert: \(fixtureFiles.count) Dateien mit RenderState.swift")
 
 let ctx = JSContext()!
@@ -248,6 +265,7 @@ for c in controllers {
 }
 drain()
 
+var geometryDecoded = 0
 while now < limitMs {
   now += step
   RunLoop.current.run(until: Date())  // GC-Zeitgeber von JSC laufen über die Run-Loop (wie in der App)
@@ -270,6 +288,16 @@ while now < limitMs {
   renderStats[key, default: Stat()].add(renderMs)
 
   frame += 1
+  // CHAOS-144: jede Geometrie kommt genau einmal; alle müssen mit RenderState.swift dekodierbar sein.
+  if let entries = minigame?["geometry"] as? [Any], !entries.isEmpty {
+    guard let decoded = try? RenderState.decode(stateText), let list = decoded.minigame?.geometry else {
+      fail("renderState mit Geometrie nicht dekodierbar")
+    }
+    for entry in list {
+      if entry.decoded() == nil { fail("Geometrie \(entry.id) (\(decoded.minigame?.id ?? "?")) nicht dekodierbar") }
+      geometryDecoded += 1
+    }
+  }
   if phase != lastPhase || stageName != lastStage || frame % 60 == 0 {
     do {
       let decoded = try RenderState.decode(stateText)
@@ -327,6 +355,8 @@ while now < limitMs {
   if full && phase == "final" { out("[\(Int(now)) ms] Endstand erreicht"); break }
 }
 
+if geometryDecoded == 0 { fail("keine Minispiel-Geometrie dekodiert") }
+out("Minispiel-Geometrien dekodiert: \(geometryDecoded)")
 out("\nCPU-Zeit je Tick (macOS-JSC, faktisch ohne JIT; Apple TV langsamer):")
 for key in tickStats.keys.sorted() {
   out("  \(key): tick \(tickStats[key]!.text); renderState \(renderStats[key]!.text)")

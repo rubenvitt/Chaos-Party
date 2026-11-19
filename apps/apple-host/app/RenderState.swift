@@ -76,6 +76,24 @@ struct RenderState: Decodable, Equatable {
         var elapsedMs: Double?
         var bodies: [Body]?
         var hud: String?
+        // CHAOS-144: real graphics and the shared screens (intro, HUD, results).
+        /// Stage built in the JS core (bodies and geometry follow).
+        var ready: Bool?
+        var info: Info?
+        var round: Int?
+        /// Ran before in this match: short instructions (CHAOS-66).
+        var `repeat`: Bool?
+        /// Intro: whole seconds until the start.
+        var countdown: Int?
+        var camera: Camera?
+        var backdrop: Backdrop?
+        var figures: [Figure]?
+        var scoreboard: Scoreboard?
+        var results: Results?
+        var effects: [Effect]?
+        /// New geometry since the last frame; each entry arrives exactly once.
+        var geometry: [Geometry]?
+        var geometryTotal: Int?
     }
 
     /// One mesh of the headless minigame scene: centre of its world bounding box, world rotation (x, y, z, w),
@@ -87,6 +105,117 @@ struct RenderState: Decodable, Equatable {
         var rot: [Float]?
         var size: [Float]?
         var color: String?
+        /// Geometry id (`minigame.geometry`); scale = size / geometry extent per axis (CHAOS-144).
+        var mesh: String?
+        /// Visual role (`markVisual`, CHAOS-149) and its key; nil = scenery of the minigame.
+        var role: String?
+        var key: String?
+        var alpha: Float?
+        var glow: String?
+        /// matt, lack (default), glanz, metall, stoff
+        var finish: String?
+        var twoSided: Bool?
+    }
+
+    struct Info: Decodable, Equatable {
+        var title: String
+        var tagline: String? = nil
+        var instructions: [String]? = nil
+        var controls: Controls? = nil
+        var scoreUnit: String? = nil
+    }
+
+    struct Controls: Decodable, Equatable {
+        var joystick: String?
+        var a: String?
+        var b: String?
+    }
+
+    /// Babylon coordinates (flip z); `fov` in radians on `fovAxis` (vertical, horizontal).
+    struct Camera: Decodable, Equatable {
+        var pos: [Float]
+        var target: [Float]
+        var fov: Float?
+        var fovAxis: String?
+    }
+
+    /// `LookArea`: free play area around the origin; surface wiese or decke.
+    struct Backdrop: Decodable, Equatable {
+        var halfX: Float
+        var halfZ: Float
+        var groundY: Float?
+        var surface: String?
+    }
+
+    /// A player's figure: root (feet) in Babylon coordinates, last animation and its counter.
+    struct Figure: Decodable, Equatable {
+        var slot: Int
+        var character: String?
+        var pos: [Float]
+        var rot: [Float]?
+        var scale: [Float]?
+        var visible: Bool?
+        var anim: String?
+        var animSeq: Int?
+    }
+
+    struct Scoreboard: Decodable, Equatable {
+        var seconds: Int?
+        var banner: String?
+        var waiting: Bool?
+        var scores: [Score]?
+    }
+
+    struct Score: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var color: String?
+        var symbol: String?
+        var score: Double?
+        var status: String?
+        var connected: Bool?
+    }
+
+    struct Results: Decodable, Equatable {
+        var aborted: Bool?
+        var headline: String?
+        var rows: [ResultRow]?
+        var highlights: [String]?
+    }
+
+    struct ResultRow: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var color: String?
+        var symbol: String?
+        var place: Int?
+        var tied: Bool?
+        var scoreText: String?
+        var coins: Int?
+        var prizes: [String]?
+    }
+
+    /// Particle burst (`VfxId`) or camera shake (`shake`); play each `seq` once.
+    struct Effect: Decodable, Equatable {
+        var seq: Int
+        var kind: String
+        var pos: [Float]?
+        var color: String?
+        var strength: Float?
+    }
+
+    /// Mesh geometry as base64 of little-endian bytes: positions Float32×3 (centred on the local bounding box),
+    /// normals Int8×3 (÷127), indices UInt16 (`wideIndices`: UInt32). Babylon coordinates (left-handed).
+    struct Geometry: Decodable, Equatable {
+        var id: String
+        var vertices: Int
+        var positions: String
+        var normals: String
+        var indices: String
+        var wideIndices: Bool?
+        var extent: [Float]?
     }
 
     /// The phases the contract knows (`CONTRACT_PHASES`).
@@ -94,5 +223,59 @@ struct RenderState: Decodable, Equatable {
 
     static func decode(_ json: String) throws -> RenderState {
         try JSONDecoder().decode(RenderState.self, from: Data(json.utf8))
+    }
+}
+
+/// Geometry in RealityKit space (right-handed): z mirrored on positions and normals.
+struct DecodedGeometry {
+    var positions: [SIMD3<Float>]
+    var normals: [SIMD3<Float>]
+    var indices: [UInt32]
+    var extent: SIMD3<Float>
+}
+
+extension RenderState.Geometry {
+    /// Decodes the base64 buffers (CHAOS-144); nil if a buffer is missing or has the wrong length.
+    func decoded() -> DecodedGeometry? {
+        guard vertices > 0, let p = Data(base64Encoded: positions), let n = Data(base64Encoded: normals),
+              let i = Data(base64Encoded: indices), p.count == vertices * 12, n.count == vertices * 3 else { return nil }
+        let wide = wideIndices ?? false
+        let indexCount = i.count / (wide ? 4 : 2)
+        guard indexCount >= 3, indexCount % 3 == 0, i.count == indexCount * (wide ? 4 : 2) else { return nil }
+        var positions = [SIMD3<Float>](repeating: .zero, count: vertices)
+        var normals = [SIMD3<Float>](repeating: .zero, count: vertices)
+        var indices = [UInt32](repeating: 0, count: indexCount)
+        p.withUnsafeBytes { raw in
+            for v in 0..<vertices {
+                let x = Float(bitPattern: UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: v * 12, as: UInt32.self)))
+                let y = Float(bitPattern: UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: v * 12 + 4, as: UInt32.self)))
+                let z = Float(bitPattern: UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: v * 12 + 8, as: UInt32.self)))
+                positions[v] = SIMD3(x, y, -z)
+            }
+        }
+        n.withUnsafeBytes { raw in
+            for v in 0..<vertices {
+                let x = Float(raw.load(fromByteOffset: v * 3, as: Int8.self))
+                let y = Float(raw.load(fromByteOffset: v * 3 + 1, as: Int8.self))
+                let z = Float(raw.load(fromByteOffset: v * 3 + 2, as: Int8.self))
+                let length = (x * x + y * y + z * z).squareRoot()
+                normals[v] = length > 0 ? SIMD3(x, y, -z) / length : SIMD3(0, 1, 0)
+            }
+        }
+        var valid = true
+        i.withUnsafeBytes { raw in
+            for k in 0..<indexCount {
+                let value = wide ? UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: k * 4, as: UInt32.self))
+                    : UInt32(UInt16(littleEndian: raw.loadUnaligned(fromByteOffset: k * 2, as: UInt16.self)))
+                if value >= UInt32(vertices) { valid = false }
+                indices[k] = value
+            }
+        }
+        guard valid else { return nil }
+        // Babylon's front faces wind clockwise (left-handed); mirroring z turns them counter-clockwise, which is what
+        // RealityKit expects. Indices stay as they are.
+        let e = extent ?? []
+        return DecodedGeometry(positions: positions, normals: normals, indices: indices,
+                               extent: e.count == 3 ? SIMD3(e[0], e[1], e[2]) : .zero)
     }
 }
