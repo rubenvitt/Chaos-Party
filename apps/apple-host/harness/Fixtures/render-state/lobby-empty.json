@@ -15,5 +15,12 @@
     "players": []
   },
   "board": null,
-  "minigame": null
+  "minigame": null,
+  "final": null,
+  "pause": {
+    "paused": false,
+    "canPause": false,
+    "roundText": null,
+    "sounds": []
+  }
 }

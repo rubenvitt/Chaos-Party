@@ -19,6 +19,9 @@ enum Main {
 
 struct ChaosHostApp: App {
     @StateObject private var runtime = HostRuntime()
+    /// Pause über Tastatur bzw. Fernbedienung (CHAOS-145).
+    @StateObject private var pause = PauseControl()
+    @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
     @StateObject private var updates = Updates()
     #endif
@@ -27,8 +30,13 @@ struct ChaosHostApp: App {
         WindowGroup("Chaos Party") {
             ZStack(alignment: .topLeading) {
                 StageView(runtime: runtime).ignoresSafeArea()
-                OverlayView(overlay: runtime.overlay, start: { runtime.command("start") }, command: runtime.command)
+                OverlayView(overlay: runtime.overlay, start: { runtime.command("start") }, command: runtime.command, pause: pause)
             }
+            #if os(tvOS)
+            // Play/Pause und Menü (CHAOS-145); Menü nur in der Partie, in der Lobby führt es zum Home-Bildschirm.
+            .onPlayPauseCommand { pause.toggle() }
+            .onExitCommand(perform: runtime.overlay.pause.paused || runtime.overlay.pause.canPause ? { pause.escape() } : nil)
+            #endif
             #if os(macOS)
             .frame(minWidth: 960, minHeight: 540)
             #endif
@@ -38,10 +46,25 @@ struct ChaosHostApp: App {
                 UIApplication.shared.isIdleTimerDisabled = true
                 #endif
                 runtime.start()
+                pause.runtime = runtime
+                LaunchProbes.attach(runtime: runtime)
                 #if os(macOS)
+                pause.installKeys()
                 LobbySnapshot.schedule(runtime: runtime)
                 #endif
             }
+            #if os(tvOS)
+            // Hintergrund und zurück (CHAOS-145): Partie pausieren, Kern ruhen lassen, Listener prüfen.
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .background:
+                    let task = UIApplication.shared.beginBackgroundTask(withName: "pause")
+                    runtime.enterBackground { UIApplication.shared.endBackgroundTask(task) }
+                case .active: runtime.enterForeground()
+                default: break
+                }
+            }
+            #endif
         }
         #if os(macOS)
         .commands {
@@ -59,8 +82,29 @@ struct OverlayView: View {
     let start: () -> Void
     /// `hostCommand` für die Lobby-Einstellungen (`configure:…`, CHAOS-166).
     var command: (String) -> Void = { _ in }
+    /// Pause-Bedienung (CHAOS-145); `nil` in Tests und Bildern.
+    var pause: PauseControl?
 
     var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            content
+            // Pause über allem, auch über dem Minispiel (CHAOS-145).
+            if overlay.pause.paused || overlay.pause.canPause {
+                GeometryReader { geo in
+                    Group {
+                        if let pause { PauseLayerContainer(pause: overlay.pause, control: pause) } else {
+                            PauseLayerView(pause: overlay.pause, confirming: false)
+                        }
+                    }
+                    .scaleEffect(min(geo.size.width / 1920, geo.size.height / 1080))
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+    }
+
+    @ViewBuilder private var content: some View {
         ZStack(alignment: .bottomLeading) {
             if overlay.phase == "lobby" || overlay.phase == "start" {
                 // Gestaltet für 1920×1080, skaliert auf jede Fenstergröße (Mac) bzw. 4K (Apple TV).
@@ -75,6 +119,13 @@ struct OverlayView: View {
                 // Anleitung, Countdown, HUD und Ergebnis (CHAOS-144), gestaltet für 1920×1080.
                 GeometryReader { geo in
                     MinigameOverlayView(screen: screen, players: overlay.players)
+                        .scaleEffect(min(geo.size.width / 1920, geo.size.height / 1080))
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            } else if let finale = overlay.finale {
+                // Trophäenzählung und Siegerbildschirm (CHAOS-145), gestaltet für 1920×1080.
+                GeometryReader { geo in
+                    FinaleOverlayView(screen: finale, command: command)
                         .scaleEffect(min(geo.size.width / 1920, geo.size.height / 1080))
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
@@ -353,6 +404,7 @@ extension StageView {
             coordinator.loop = loop
             coordinator.stage = stage
             EventSnapshots.attach(stage: stage, loop: loop, runtime: runtime)
+            FinaleSnapshots.attach(loop: loop, runtime: runtime)
             Task { @MainActor in
                 await stage.load(assets: settings.assets)
                 runtime.sceneReady()

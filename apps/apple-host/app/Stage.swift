@@ -18,6 +18,10 @@ final class Stage {
     private let primitives = Primitives()
     private var board: BoardScene?
     private var minigame: MinigameScene?
+    /// Siegerpodest (CHAOS-145), mit den Figuren der Minispiel-Bühne.
+    private var podium: PodiumScene?
+    /// `pause`-/`resume`-Klang (CHAOS-145).
+    private let pauseSounds = BoardSounds()
     /// Minispiel-Abschnitt gewechselt (`<runde>-<id>-<stage>`), für `--bild` (CHAOS-144).
     var onMinigameStage: ((String) -> Void)? {
         didSet { minigame?.onStage = onMinigameStage }
@@ -67,6 +71,10 @@ final class Stage {
         scene.onStage = onMinigameStage
         renderer.entities.append(scene.root)
         minigame = scene
+        let podium = PodiumScene(models: models)
+        podium.root.isEnabled = false
+        renderer.entities.append(podium.root)
+        self.podium = podium
     }
 
     func apply(_ s: RenderState) {
@@ -76,6 +84,19 @@ final class Stage {
         if s.phase != phase {
             phase = s.phase
             onPhase?(phase)
+        }
+        pauseSounds.play(s.pause?.sounds ?? [])
+        // Finale (CHAOS-145): Das Podest entsteht schon in der Zählung (unsichtbar), zu sehen am Siegerbildschirm.
+        if s.phase == "final", let f = s.final, let podium {
+            podium.apply(f, visible: f.done, dt: dt)
+            if f.done {
+                show(podium: podium)
+                return
+            }
+            podium.root.isEnabled = false
+        } else if let podium, s.phase != "final" {
+            if podium.root.isEnabled { podium.root.isEnabled = false }
+            if s.phase == "lobby" { podium.leave() }
         }
         if let m = s.minigame, s.phase == "minigame" || s.phase == "paused", let scene = minigame {
             show(minigame: scene)
@@ -112,6 +133,17 @@ final class Stage {
         renderer.lighting.resource = scene.sky
         // Etwas heller als das Brett: Der Look des Browser-Hosts hellt Minispiele mit Bodenlicht auf.
         renderer.lighting.intensityExponent = scene.sky == nil ? 0 : scene.skyExponent + 0.5
+        renderer.cameraSettings.colorBackground = .color(scene.clearColor)
+    }
+
+    private func show(podium scene: PodiumScene) {
+        board?.root.isEnabled = false
+        primitives.root.isEnabled = false
+        minigame?.root.isEnabled = false
+        scene.root.isEnabled = true
+        renderer.activeCamera = scene.camera
+        renderer.lighting.resource = scene.sky
+        renderer.lighting.intensityExponent = scene.sky == nil ? 0 : scene.skyExponent
         renderer.cameraSettings.colorBackground = .color(scene.clearColor)
     }
 

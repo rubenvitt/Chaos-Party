@@ -45,6 +45,13 @@ export const HOST_COMMANDS = ['start', 'pause', 'resume', 'end-game', 'rematch']
 export type HostCommandName = (typeof HOST_COMMANDS)[number];
 
 /**
+ * Host-Befehle, die nur im Kern wirken und nie an den Server gehen (CHAOS-145):
+ * `skip-finale` springt in der Trophäenzählung direkt zum Siegerbildschirm („Überspringen“).
+ */
+export const LOCAL_HOST_COMMANDS = ['skip-finale'] as const;
+export type LocalHostCommandName = (typeof LOCAL_HOST_COMMANDS)[number];
+
+/**
  * Lobby-Einstellungen über `hostCommand` (CHAOS-166), wie Rundenwahl und Schalter am PC-Host:
  * `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`) oder beides
  * mit Komma: `configure:rounds=12,moreReactionTime=1`. Runden 1–`MAX_ROUNDS`. Nur in der Lobby;
@@ -67,7 +74,12 @@ export interface ChaosHostInstance {
   tick(nowMs: number): void;
   /** JSON nach `RenderStateSchema`; Swift ruft es je Bild nach `tick` auf. */
   renderState(): string;
-  /** Einer von `HOST_COMMANDS` oder `configure:…` (`CONFIGURE_PREFIX`); Unbekanntes wird geloggt und ignoriert. */
+  /**
+   * Einer von `HOST_COMMANDS`, `LOCAL_HOST_COMMANDS` oder `configure:…` (`CONFIGURE_PREFIX`);
+   * Unbekanntes wird geloggt und ignoriert. `pause`, `resume` und `rematch` gehen nur an den
+   * Server, wenn sie gerade passen (`renderState().pause.canPause`, `pause.paused`, Finale);
+   * sonst loggt der Kern „ignoriert“ (CHAOS-145).
+   */
   hostCommand(cmd: string): void;
   /** Szene geladen (nur mit `env.deferSceneReady`): schickt `host-ready` (CHAOS-142). */
   sceneReady(): void;
@@ -502,6 +514,139 @@ export const MinigameStateSchema = z.strictObject({
   geometryTotal: z.number().int().min(0),
 });
 
+// --- Finale und Pause (CHAOS-145) -------------------------------------------------------------
+
+/** Abschnitte des Finales (`FinaleBeat` aus `apps/host/src/finale/finalePlan.ts`). */
+export const FINALE_BEATS = ['intro', 'reveal', 'tiebreak', 'winner'] as const;
+
+const finalePlayer = {
+  slot,
+  name: z.string(),
+  /** Figur (USDZ auf dem Podest, Porträt in Karten und Rangliste). */
+  character,
+  /** Anzeigename der Figur („Wusel“). */
+  characterName: z.string(),
+  color: hexColor,
+  /** Slot-Symbol (●, ▲, ■, ★), immer zusätzlich zur Farbe. */
+  symbol: z.string(),
+};
+
+/** Karte der Trophäenzählung (`FinaleCard`), Werte schon hochgezählt. */
+export const FinaleCardSchema = z.strictObject({
+  ...finalePlayer,
+  place: z.number().int().min(1),
+  /** „per Münzen“, „per Minispiel-Siegen“, „geteilt“ (`CRITERION_BADGE`) oder `null`. */
+  badge: z.string().nullable(),
+  /** Aufgedeckt (oder gerade im Aufdecken). */
+  revealed: z.boolean(),
+  /** Gerade dran. */
+  active: z.boolean(),
+  trophies: z.number().int().min(0),
+  coins: z.number().int().min(0),
+  /** Platz als Stempel sichtbar. */
+  placeShown: z.boolean(),
+});
+
+/** Zeile des Endstands am Siegerbildschirm (nach Platz, dann Slot). */
+export const FinaleRankSchema = z.strictObject({
+  ...finalePlayer,
+  place: z.number().int().min(1),
+  badge: z.string().nullable(),
+  trophies: z.number().int().min(0),
+  coins: z.number().int().min(0),
+});
+
+/** Bonus-Titel (`bonusAwards`, höchstens drei). */
+export const FinaleAwardSchema = z.strictObject({
+  /** `AwardId` (`coin-magnet`, `minigame-ace`, …). */
+  id: z.string(),
+  title: z.string(),
+  /** „17 Münzen eingesammelt“ */
+  detail: z.string(),
+  slots: z.array(slot),
+  /** Namen der Träger, mit „ & “ verbunden. */
+  names: z.string(),
+});
+
+/**
+ * Ein Platz auf dem Siegerpodest (`apps/host/src/finale/podiumLayout.ts`): Block der Höhe
+ * `height` bei `x` (Babylon-Koordinaten, Kamera blickt von −z), Deckel in Slot-Farbe, Figur oben.
+ */
+export const PodiumEntrySchema = z.strictObject({
+  slot,
+  character,
+  color: hexColor,
+  symbol: z.string(),
+  place: z.number().int().min(1),
+  x: z.number(),
+  height: z.number().positive(),
+  /** Farbstich des Holzblocks (Gold, Silber, Bronze, Lila). */
+  blockColor: hexColor,
+  /** Clip der Figur: Platz 1 `cheer`, letzter Platz `sad`, sonst `jump` (wie `celebrate`). */
+  anim: z.enum(['cheer', 'sad', 'jump']),
+});
+
+/** Siegerbildschirm: Endstand, Begründung, Bonus-Titel. */
+export const FinaleWinnerSchema = z.strictObject({
+  /** „Anna gewinnt!“ bzw. „Anna & Ben gewinnen!“ (`winnerText`). */
+  headline: z.string(),
+  /** Begründung, wenn der Sieg nicht über die Trophäen fiel (`winnerReason`), sonst `null`. */
+  reason: z.string().nullable(),
+  /** „Vorzeitig beendet – es zählt der Stand von Runde 4/10“ oder `null`. */
+  earlyNote: z.string().nullable(),
+  ranking: z.array(FinaleRankSchema),
+  awards: z.array(FinaleAwardSchema),
+});
+
+/**
+ * Finale (CHAOS-145): Trophäenzählung und Siegerbildschirm wie `Finale.tsx` im Browser-Host.
+ * Der Ablauf (`finalePlan.ts`) läuft als Zeitfunktion im Kern (`src/finaleView.ts`); Swift
+ * zeichnet Karten bzw. Podest, Endstand und Bonus-Titel und spielt `sounds`.
+ */
+export const FinaleStateSchema = z.strictObject({
+  beat: z.enum(FINALE_BEATS),
+  beatIndex: z.number().int().min(0),
+  /** Fortschritt im aktuellen Abschnitt 0…1 (Sieger: 1). */
+  progress: z.number().min(0).max(1),
+  /** Siegerbildschirm erreicht (bleibt stehen bis zur Revanche). */
+  done: z.boolean(),
+  /** ms seit Beginn des Finales (nach `skip-finale`: `winnerAtMs`). */
+  elapsedMs: z.number().min(0),
+  /** Ab hier steht der Siegerbildschirm. */
+  winnerAtMs: z.number().min(0),
+  endedEarly: z.boolean(),
+  /** „Spielende“ bzw. „Partie vorzeitig beendet“. */
+  kicker: z.string(),
+  /** Titel und Zeile der Trophäenzählung (Gleichstand-Ansage im Abschnitt `tiebreak`). */
+  title: z.string(),
+  lead: z.string(),
+  /** Karten der Zählung in Slot-Reihenfolge. */
+  cards: z.array(FinaleCardSchema),
+  winner: FinaleWinnerSchema,
+  /** Podest nach Platz (dann Slot); steht schon in der Zählung, damit Swift es vorab bauen kann. */
+  podium: z.array(PodiumEntrySchema),
+  /** „Nochmal spielen“ möglich (Siegerbildschirm, Host verbunden): `hostCommand('rematch')`. */
+  canRematch: z.boolean(),
+  /** Klänge des Finales der letzten 1,5 s (`finaleCues`), eigene IDs ab 1 je Finale. */
+  sounds: z.array(SoundCueSchema),
+});
+
+/**
+ * Pause (CHAOS-145) wie `PauseControls` im Browser-Host. Maßgeblich ist der Server-Stand
+ * (`view.paused`); Pausieren geht im Brett und im Minispiel, nicht vor dem Start und nicht im
+ * Finale (`canPause`).
+ */
+export const PauseStateSchema = z.strictObject({
+  /** Partie pausiert (auch über einem Minispiel: `phase` ist dann `paused`, `minigame` bleibt). */
+  paused: z.boolean(),
+  /** `hostCommand('pause')` wirkt gerade (Fernbedienung, P/Esc, Knopf). */
+  canPause: z.boolean(),
+  /** „Runde 3/10“ für die Pausenkarte; `null` außerhalb der Partie. */
+  roundText: z.string().nullable(),
+  /** `pause`- bzw. `resume`-Klang beim Wechsel der letzten 1,5 s; IDs steigen über die App-Laufzeit. */
+  sounds: z.array(SoundCueSchema),
+});
+
 export const RenderStateSchema = z.strictObject({
   phase: z.enum(CONTRACT_PHASES),
   lobby: z.strictObject({
@@ -513,6 +658,10 @@ export const RenderStateSchema = z.strictObject({
   }),
   board: BoardStateSchema.nullable(),
   minigame: MinigameStateSchema.nullable(),
+  /** Finale (Phase `final`), sonst `null` (CHAOS-145). */
+  final: FinaleStateSchema.nullable(),
+  /** Pause und ob sie gerade möglich ist; immer da (CHAOS-145). */
+  pause: PauseStateSchema,
 });
 
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
@@ -535,4 +684,10 @@ export type MinigameEffect = z.infer<typeof MinigameEffectSchema>;
 export type MinigameInfoView = z.infer<typeof MinigameInfoSchema>;
 export type MinigameScoreboard = z.infer<typeof MinigameScoreboardSchema>;
 export type MinigameResults = z.infer<typeof MinigameResultsSchema>;
+export type FinaleCard = z.infer<typeof FinaleCardSchema>;
+export type FinaleRank = z.infer<typeof FinaleRankSchema>;
+export type FinaleAward = z.infer<typeof FinaleAwardSchema>;
+export type PodiumEntry = z.infer<typeof PodiumEntrySchema>;
+export type FinaleState = z.infer<typeof FinaleStateSchema>;
+export type PauseState = z.infer<typeof PauseStateSchema>;
 export type RenderState = z.infer<typeof RenderStateSchema>;

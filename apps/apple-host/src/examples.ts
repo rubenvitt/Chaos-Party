@@ -9,11 +9,13 @@
  */
 import type {
   BoardState,
+  FinaleState,
   Hud,
   LobbyPlayer,
   LobbySettingsState,
   MinigameGeometry,
   MinigameState,
+  PauseState,
   RenderState,
 } from './contract.ts';
 
@@ -357,8 +359,270 @@ const MINIGAME_PLAY: MinigameState = {
   hud: '48 s · Anna 3 · Ben 1',
 };
 
-/** Name (Dateiname ohne `.json`) → Beispiel. */
-export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = {
+/**
+ * Finale (CHAOS-145): vier Spieler, Ben und Cleo gleichauf bei den Trophäen, die Münzen
+ * entscheiden; Partie vorzeitig beendet. Hier der Siegerbildschirm, `final-tally` die Zählung.
+ */
+const FINALE_WINNER: FinaleState = {
+  beat: 'winner',
+  beatIndex: 6,
+  progress: 1,
+  done: true,
+  elapsedMs: 16_600,
+  winnerAtMs: 16_600,
+  endedEarly: true,
+  kicker: 'Partie vorzeitig beendet',
+  title: 'Endstand',
+  lead: 'Ben gewinnt!',
+  cards: [
+    {
+      slot: 1,
+      name: 'Anna',
+      character: 'raccoon',
+      characterName: 'Wusel',
+      color: '#0072B2',
+      symbol: '●',
+      place: 3,
+      badge: null,
+      revealed: true,
+      active: false,
+      trophies: 1,
+      coins: 9,
+      placeShown: true,
+    },
+    {
+      slot: 2,
+      name: 'Ben',
+      character: 'sock',
+      characterName: 'Socke Sigi',
+      color: '#E69F00',
+      symbol: '▲',
+      place: 1,
+      badge: 'per Münzen',
+      revealed: true,
+      active: false,
+      trophies: 2,
+      coins: 14,
+      placeShown: true,
+    },
+    {
+      slot: 3,
+      name: 'Cleo',
+      character: 'robot',
+      characterName: 'Schraubi',
+      color: '#009E73',
+      symbol: '■',
+      place: 2,
+      badge: 'per Münzen',
+      revealed: true,
+      active: false,
+      trophies: 2,
+      coins: 6,
+      placeShown: true,
+    },
+    {
+      slot: 4,
+      name: 'Dana',
+      character: 'cactus',
+      characterName: 'Kalle Kaktus',
+      color: '#CC79A7',
+      symbol: '★',
+      place: 4,
+      badge: null,
+      revealed: true,
+      active: false,
+      trophies: 0,
+      coins: 21,
+      placeShown: true,
+    },
+  ],
+  winner: {
+    headline: 'Ben gewinnt!',
+    reason: 'Gleich viele Trophäen – die Münzen haben entschieden.',
+    earlyNote: 'Vorzeitig beendet – es zählt der Stand von Runde 7/10',
+    ranking: [
+      {
+        slot: 2,
+        name: 'Ben',
+        character: 'sock',
+        characterName: 'Socke Sigi',
+        color: '#E69F00',
+        symbol: '▲',
+        place: 1,
+        badge: 'per Münzen',
+        trophies: 2,
+        coins: 14,
+      },
+      {
+        slot: 3,
+        name: 'Cleo',
+        character: 'robot',
+        characterName: 'Schraubi',
+        color: '#009E73',
+        symbol: '■',
+        place: 2,
+        badge: 'per Münzen',
+        trophies: 2,
+        coins: 6,
+      },
+      {
+        slot: 1,
+        name: 'Anna',
+        character: 'raccoon',
+        characterName: 'Wusel',
+        color: '#0072B2',
+        symbol: '●',
+        place: 3,
+        badge: null,
+        trophies: 1,
+        coins: 9,
+      },
+      {
+        slot: 4,
+        name: 'Dana',
+        character: 'cactus',
+        characterName: 'Kalle Kaktus',
+        color: '#CC79A7',
+        symbol: '★',
+        place: 4,
+        badge: null,
+        trophies: 0,
+        coins: 21,
+      },
+    ],
+    awards: [
+      {
+        id: 'coin-magnet',
+        title: 'Münzmagnet',
+        detail: '31 Münzen eingesammelt',
+        slots: [4],
+        names: 'Dana',
+      },
+      {
+        id: 'minigame-ace',
+        title: 'Minispiel-Ass',
+        detail: '3 Minispiele gewonnen',
+        slots: [1, 2],
+        names: 'Anna & Ben',
+      },
+      {
+        id: 'globetrotter',
+        title: 'Weltenbummler',
+        detail: '58 Felder gelaufen',
+        slots: [3],
+        names: 'Cleo',
+      },
+    ],
+  },
+  podium: [
+    {
+      slot: 2,
+      character: 'sock',
+      color: '#E69F00',
+      symbol: '▲',
+      place: 1,
+      x: 1.125,
+      height: 1.5,
+      blockColor: '#ffd75e',
+      anim: 'cheer',
+    },
+    {
+      slot: 3,
+      character: 'robot',
+      color: '#009E73',
+      symbol: '■',
+      place: 2,
+      x: -1.125,
+      height: 1,
+      blockColor: '#e2e8ee',
+      anim: 'jump',
+    },
+    {
+      slot: 1,
+      character: 'raccoon',
+      color: '#0072B2',
+      symbol: '●',
+      place: 3,
+      x: 3.375,
+      height: 0.68,
+      blockColor: '#eaa974',
+      anim: 'jump',
+    },
+    {
+      slot: 4,
+      character: 'cactus',
+      color: '#CC79A7',
+      symbol: '★',
+      place: 4,
+      x: -3.375,
+      height: 0.42,
+      blockColor: '#cfc6f2',
+      anim: 'sad',
+    },
+  ],
+  canRematch: true,
+  sounds: [
+    {
+      id: 9,
+      name: 'win',
+      voices: [{ wave: 'triangle', freq: 523, delay: 0, attack: 0.01, duration: 0.18, gain: 0.3 }],
+    },
+  ],
+};
+
+/** Mitten in der Zählung: Cleo (Platz 2) wird gerade aufgedeckt, Münzen zählen noch. */
+const FINALE_TALLY: FinaleState = {
+  ...FINALE_WINNER,
+  beat: 'reveal',
+  beatIndex: 3,
+  progress: 0.62,
+  done: false,
+  elapsedMs: 9_536,
+  title: 'Die Trophäenzählung!',
+  lead: 'Platz 2: Cleo',
+  cards: FINALE_WINNER.cards.map((card) =>
+    card.slot === 3
+      ? { ...card, active: true, coins: 1, placeShown: false }
+      : card.place < 2
+        ? { ...card, revealed: false, trophies: 0, coins: 0, placeShown: false }
+        : card,
+  ),
+  canRematch: false,
+  sounds: [],
+};
+
+const PLAYERS_FINALE: LobbyPlayer[] = [
+  ...PLAYERS_IN_GAME,
+  { slot: 3, name: 'Cleo', color: '#009E73', connected: true, ready: true, character: 'robot' },
+  { slot: 4, name: 'Dana', color: '#CC79A7', connected: false, ready: true, character: 'cactus' },
+];
+
+/** Pause (CHAOS-145): außerhalb der Partie weder Pause noch Rundentext. */
+const NO_PAUSE: PauseState = { paused: false, canPause: false, roundText: null, sounds: [] };
+
+/** `pause` passend zur Phase, falls ein Beispiel nichts Eigenes setzt. */
+function pauseFor(example: ExampleBase): PauseState {
+  const roundText = example.board
+    ? `Runde ${String(example.board.round)}/${String(example.board.rounds)}`
+    : null;
+  switch (example.phase) {
+    case 'board':
+    case 'minigame':
+      return { ...NO_PAUSE, canPause: true, roundText };
+    case 'paused':
+      return { ...NO_PAUSE, paused: true, roundText };
+    case 'final':
+      return { ...NO_PAUSE, roundText };
+    default:
+      return NO_PAUSE;
+  }
+}
+
+/** Beispiele ohne die Felder, die fast immer gleich sind (`final`, `pause`, CHAOS-145). */
+type ExampleBase = Omit<RenderState, 'final' | 'pause'> &
+  Partial<Pick<RenderState, 'final' | 'pause'>>;
+
+const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
   'lobby-empty': {
     phase: 'lobby',
     lobby: { ...JOIN, players: [] },
@@ -502,11 +766,48 @@ export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = {
     lobby: { ...JOIN, players: PLAYERS_IN_GAME },
     board: BOARD,
     minigame: null,
+    pause: {
+      paused: true,
+      canPause: false,
+      roundText: 'Runde 3/10',
+      sounds: [
+        {
+          id: 4,
+          name: 'pause',
+          voices: [
+            { wave: 'sine', freq: 660, freqEnd: 330, attack: 0.01, duration: 0.2, gain: 0.2 },
+          ],
+        },
+      ],
+    },
+  },
+  // CHAOS-145: Pause über einem laufenden Minispiel; die Anzeige des Minispiels bleibt stehen.
+  'paused-minigame': {
+    phase: 'paused',
+    lobby: { ...JOIN, players: PLAYERS_IN_GAME },
+    board: { ...BOARD, activeSlot: null },
+    minigame: { ...MINIGAME_PLAY, geometry: [], effects: [] },
   },
   final: {
     phase: 'final',
-    lobby: { ...JOIN, players: PLAYERS_IN_GAME },
-    board: { ...BOARD, round: 10, activeSlot: null, messages: ['Anna gewinnt mit 3 Trophäen!'] },
+    lobby: { ...JOIN, players: PLAYERS_FINALE },
+    board: { ...BOARD, round: 7, activeSlot: null, messages: ['Ben gewinnt!'] },
     minigame: null,
+    final: FINALE_WINNER,
+  },
+  'final-tally': {
+    phase: 'final',
+    lobby: { ...JOIN, players: PLAYERS_FINALE },
+    board: { ...BOARD, round: 7, activeSlot: null, messages: ['Ben gewinnt!'] },
+    minigame: null,
+    final: FINALE_TALLY,
   },
 };
+
+/** Name (Dateiname ohne `.json`) → Beispiel. */
+export const RENDER_STATE_EXAMPLES: Readonly<Record<string, RenderState>> = Object.fromEntries(
+  Object.entries(EXAMPLES).map(([name, example]) => [
+    name,
+    { ...example, final: example.final ?? null, pause: example.pause ?? pauseFor(example) },
+  ]),
+);

@@ -1,0 +1,405 @@
+{
+  "phase": "final",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "settings": {
+      "rounds": 10,
+      "roundPresets": [
+        10,
+        16,
+        20
+      ],
+      "moreReactionTime": false
+    },
+    "players": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "color": "#0072B2",
+        "connected": true,
+        "ready": true,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "color": "#E69F00",
+        "connected": true,
+        "ready": true,
+        "character": "sock"
+      },
+      {
+        "slot": 3,
+        "name": "Cleo",
+        "color": "#009E73",
+        "connected": true,
+        "ready": true,
+        "character": "robot"
+      },
+      {
+        "slot": 4,
+        "name": "Dana",
+        "color": "#CC79A7",
+        "connected": false,
+        "ready": true,
+        "character": "cactus"
+      }
+    ]
+  },
+  "board": {
+    "round": 7,
+    "rounds": 10,
+    "activeSlot": null,
+    "spaces": [
+      {
+        "id": "s00",
+        "x": 0,
+        "z": 0,
+        "kind": "start"
+      },
+      {
+        "id": "s01",
+        "x": 2.4,
+        "z": 0.5,
+        "kind": "coins-plus"
+      },
+      {
+        "id": "s02",
+        "x": 4.6,
+        "z": 1.6,
+        "kind": "coins-minus"
+      },
+      {
+        "id": "s03",
+        "x": 6.2,
+        "z": 3.4,
+        "kind": "event"
+      },
+      {
+        "id": "s04",
+        "x": 6.8,
+        "z": 5.8,
+        "kind": "item"
+      },
+      {
+        "id": "s05",
+        "x": 5.9,
+        "z": 8.1,
+        "kind": "trophy"
+      }
+    ],
+    "pawns": [
+      {
+        "slot": 1,
+        "spaceId": "s03",
+        "x": 5.75,
+        "z": 3.4,
+        "character": "raccoon",
+        "y": 0,
+        "hop": null,
+        "heading": null,
+        "connected": true
+      },
+      {
+        "slot": 2,
+        "spaceId": "s03",
+        "x": 6.65,
+        "z": 3.4,
+        "character": "sock",
+        "y": 0,
+        "hop": null,
+        "heading": null,
+        "connected": true
+      }
+    ],
+    "messages": [
+      "Ben gewinnt!"
+    ],
+    "notice": null,
+    "popups": [],
+    "ticker": [
+      {
+        "id": 4,
+        "text": "Anna würfelt 4!",
+        "slot": 1,
+        "tone": "neutral"
+      },
+      {
+        "id": 7,
+        "text": "Anna bekommt 3 Münzen",
+        "slot": 1,
+        "tone": "good"
+      }
+    ],
+    "hud": {
+      "boardName": "Wackelwald",
+      "roundText": "Runde 3/10",
+      "banner": null,
+      "bannerSlot": null,
+      "status": {
+        "slot": 2,
+        "kind": "roll",
+        "text": "Ben darf würfeln …",
+        "detail": null,
+        "countdown": null
+      },
+      "players": [
+        {
+          "slot": 1,
+          "name": "Anna",
+          "color": "#0072B2",
+          "coins": 12,
+          "trophies": 1,
+          "items": [
+            {
+              "id": "shield",
+              "name": "Schild"
+            }
+          ],
+          "connected": true,
+          "active": false
+        },
+        {
+          "slot": 2,
+          "name": "Ben",
+          "color": "#E69F00",
+          "coins": 7,
+          "trophies": 0,
+          "items": [],
+          "connected": true,
+          "active": true
+        }
+      ],
+      "tailwind": null
+    },
+    "camera": {
+      "x": 3.9,
+      "z": 3.9
+    },
+    "trophySpaces": [
+      "s05"
+    ],
+    "traps": [
+      {
+        "spaceId": "s02",
+        "owner": 1
+      }
+    ],
+    "sounds": []
+  },
+  "minigame": null,
+  "final": {
+    "beat": "reveal",
+    "beatIndex": 3,
+    "progress": 0.62,
+    "done": false,
+    "elapsedMs": 9536,
+    "winnerAtMs": 16600,
+    "endedEarly": true,
+    "kicker": "Partie vorzeitig beendet",
+    "title": "Die Trophäenzählung!",
+    "lead": "Platz 2: Cleo",
+    "cards": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "character": "raccoon",
+        "characterName": "Wusel",
+        "color": "#0072B2",
+        "symbol": "●",
+        "place": 3,
+        "badge": null,
+        "revealed": true,
+        "active": false,
+        "trophies": 1,
+        "coins": 9,
+        "placeShown": true
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "character": "sock",
+        "characterName": "Socke Sigi",
+        "color": "#E69F00",
+        "symbol": "▲",
+        "place": 1,
+        "badge": "per Münzen",
+        "revealed": false,
+        "active": false,
+        "trophies": 0,
+        "coins": 0,
+        "placeShown": false
+      },
+      {
+        "slot": 3,
+        "name": "Cleo",
+        "character": "robot",
+        "characterName": "Schraubi",
+        "color": "#009E73",
+        "symbol": "■",
+        "place": 2,
+        "badge": "per Münzen",
+        "revealed": true,
+        "active": true,
+        "trophies": 2,
+        "coins": 1,
+        "placeShown": false
+      },
+      {
+        "slot": 4,
+        "name": "Dana",
+        "character": "cactus",
+        "characterName": "Kalle Kaktus",
+        "color": "#CC79A7",
+        "symbol": "★",
+        "place": 4,
+        "badge": null,
+        "revealed": true,
+        "active": false,
+        "trophies": 0,
+        "coins": 21,
+        "placeShown": true
+      }
+    ],
+    "winner": {
+      "headline": "Ben gewinnt!",
+      "reason": "Gleich viele Trophäen – die Münzen haben entschieden.",
+      "earlyNote": "Vorzeitig beendet – es zählt der Stand von Runde 7/10",
+      "ranking": [
+        {
+          "slot": 2,
+          "name": "Ben",
+          "character": "sock",
+          "characterName": "Socke Sigi",
+          "color": "#E69F00",
+          "symbol": "▲",
+          "place": 1,
+          "badge": "per Münzen",
+          "trophies": 2,
+          "coins": 14
+        },
+        {
+          "slot": 3,
+          "name": "Cleo",
+          "character": "robot",
+          "characterName": "Schraubi",
+          "color": "#009E73",
+          "symbol": "■",
+          "place": 2,
+          "badge": "per Münzen",
+          "trophies": 2,
+          "coins": 6
+        },
+        {
+          "slot": 1,
+          "name": "Anna",
+          "character": "raccoon",
+          "characterName": "Wusel",
+          "color": "#0072B2",
+          "symbol": "●",
+          "place": 3,
+          "badge": null,
+          "trophies": 1,
+          "coins": 9
+        },
+        {
+          "slot": 4,
+          "name": "Dana",
+          "character": "cactus",
+          "characterName": "Kalle Kaktus",
+          "color": "#CC79A7",
+          "symbol": "★",
+          "place": 4,
+          "badge": null,
+          "trophies": 0,
+          "coins": 21
+        }
+      ],
+      "awards": [
+        {
+          "id": "coin-magnet",
+          "title": "Münzmagnet",
+          "detail": "31 Münzen eingesammelt",
+          "slots": [
+            4
+          ],
+          "names": "Dana"
+        },
+        {
+          "id": "minigame-ace",
+          "title": "Minispiel-Ass",
+          "detail": "3 Minispiele gewonnen",
+          "slots": [
+            1,
+            2
+          ],
+          "names": "Anna & Ben"
+        },
+        {
+          "id": "globetrotter",
+          "title": "Weltenbummler",
+          "detail": "58 Felder gelaufen",
+          "slots": [
+            3
+          ],
+          "names": "Cleo"
+        }
+      ]
+    },
+    "podium": [
+      {
+        "slot": 2,
+        "character": "sock",
+        "color": "#E69F00",
+        "symbol": "▲",
+        "place": 1,
+        "x": 1.125,
+        "height": 1.5,
+        "blockColor": "#ffd75e",
+        "anim": "cheer"
+      },
+      {
+        "slot": 3,
+        "character": "robot",
+        "color": "#009E73",
+        "symbol": "■",
+        "place": 2,
+        "x": -1.125,
+        "height": 1,
+        "blockColor": "#e2e8ee",
+        "anim": "jump"
+      },
+      {
+        "slot": 1,
+        "character": "raccoon",
+        "color": "#0072B2",
+        "symbol": "●",
+        "place": 3,
+        "x": 3.375,
+        "height": 0.68,
+        "blockColor": "#eaa974",
+        "anim": "jump"
+      },
+      {
+        "slot": 4,
+        "character": "cactus",
+        "color": "#CC79A7",
+        "symbol": "★",
+        "place": 4,
+        "x": -3.375,
+        "height": 0.42,
+        "blockColor": "#cfc6f2",
+        "anim": "sad"
+      }
+    ],
+    "canRematch": false,
+    "sounds": []
+  },
+  "pause": {
+    "paused": false,
+    "canPause": false,
+    "roundText": "Runde 7/10",
+    "sounds": []
+  }
+}
