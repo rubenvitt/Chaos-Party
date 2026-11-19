@@ -439,7 +439,7 @@ Automatisch geprüft (Software-Rendering, feste Frames): Figur fliegt beim Winds
 
 Automatisch geprüft ist nur, was ohne Mac geht: Icons erzeugt und angesehen, Nutzlast (`prepare.sh`) unter Linux gebaut, Abbruch des Skripts bei fehlender Nutzlast. Archivieren, Signieren und Upload laufen erst im Workflow `testflight-tv.yml` auf `main`.
 
-**2026-11-19 (CHAOS-200):** TV1 und TV3 erledigt Claude: App-Eintrag „Chaos Party Host“ (Store-Name „Chaos Party“ war vergeben) mit tvOS und macOS, interne Gruppe „Intern“ mit Zugriff auf alle Builds, Ruben als Tester. TV2/TH1 grün (Lauf 44562548725, Build 20261119.1610). Die Mac-App kommt seitdem als App-Store-Variante in denselben Eintrag (TM1–TM2).
+**2026-11-19 (CHAOS-200):** TV1 erledigt Claude, TV3 teilweise: App-Eintrag „Chaos Party Host“ (Store-Name „Chaos Party“ war vergeben) mit tvOS und macOS, interne Gruppe „Intern“ mit Zugriff auf alle Builds, Ruben als Tester. TV2/TH1 grün (Lauf 44562548725, Build 20261119.1610); der Build war am Abend noch in der Verarbeitung bei Apple, die Gruppe bekommt ihn danach automatisch. Die Mac-App kommt seitdem als App-Store-Variante in denselben Eintrag (TM1–TM2).
 
 Seit CHAOS-151 ist der neueste Build der native Host (`apps/apple-host`), nicht mehr der RealityKit-Spike. TV1–TV3 gelten unverändert. TV4–TV9 betreffen die älteren Spike-Builds; sie bleiben in der TestFlight-App unter den älteren Builds installierbar, bis sie ablaufen (90 Tage nach dem Upload).
 

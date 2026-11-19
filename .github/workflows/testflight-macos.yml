@@ -34,8 +34,9 @@ permissions:
 jobs:
   upload:
     name: Mac zu TestFlight
-    # macos-latest: App Store Connect verlangt ein aktuelles SDK.
-    runs-on: macos-latest
+    # macos-26 wie der Job „Native Apps“: freigegebenes Xcode und macOS 26, damit der Selbsttest die App
+    # (Mindestversion macOS 26) starten kann.
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
