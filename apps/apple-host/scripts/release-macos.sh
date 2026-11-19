@@ -14,6 +14,9 @@
 #   ASC_KEY_ID, ASC_ISSUER_ID   API-Key für notarytool (Pflicht ohne RELEASE_DRY_RUN)
 #   ASC_KEY_PATH        Standard ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 #   SKIP_PREPARE=1      payload/ nicht neu anlegen (CI: nach ./prepare.sh); SKIP_BUILD=1 gilt für prepare.sh
+#   SPARKLE_PUBLIC_ED_KEY  öffentlicher EdDSA-Schlüssel für Sparkle (CHAOS-156; CI: Repository-Variable). Ohne ihn
+#                       baut die App ohne Updater; ein echtes Release warnt dann, weil es sich nie selbst aktualisiert.
+#   SPARKLE_FEED_URL    Adresse der appcast.xml, Standard aus project.yml
 #
 # Ergebnis: build/release/Chaos-Party-<VERSION>-macOS.zip (ad hoc: …-macOS-adhoc.zip) mit „Chaos Party.app“,
 # daneben die .sha256. Lokal mit Zertifikat im Anmelde-Schlüsselbund:
@@ -65,6 +68,11 @@ mkdir -p "$OUT"
 xcodegen generate
 
 echo "Version $VERSION ($BUILD_NUMBER)"
+SPARKLE_SETTINGS=(SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}")
+[[ -n "${SPARKLE_FEED_URL:-}" ]] && SPARKLE_SETTINGS+=(SPARKLE_FEED_URL="$SPARKLE_FEED_URL")
+if [[ -z "${SPARKLE_PUBLIC_ED_KEY:-}" && "$DRY_RUN" != 1 ]]; then
+  echo "WARNUNG: SPARKLE_PUBLIC_ED_KEY fehlt, diese App sucht nie nach Updates (CHAOS-156)" >&2
+fi
 # Universal (arm64 + x86_64): Release baut ohne ONLY_ACTIVE_ARCH. Keine Basis-Entitlements, damit kein
 # get-task-allow in die Signatur kommt (die Notarisierung lehnt es ab).
 xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost -configuration Release \
@@ -72,10 +80,35 @@ xcodebuild -project ChaosHost.xcodeproj -scheme ChaosHost -configuration Release
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="$TEAM" \
   ENABLE_HARDENED_RUNTIME=YES CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO OTHER_CODE_SIGN_FLAGS="$SIGN_FLAGS" \
+  "${SPARKLE_SETTINGS[@]}" \
   archive
 
 # Unter dem Anzeigenamen ausliefern; der Ordnername gehört nicht zur Signatur.
 ditto "$ARCHIVE/Products/Applications/ChaosHost.app" "$APP"
+
+# --- Sparkle neu signieren (CHAOS-156) ---------------------------------------------------------
+# Xcode signiert beim Kopieren nur die äußere Hülle von Sparkle.framework; die Helfer darin (XPC-Dienste,
+# Autoupdate, Updater.app) müssen für die Notarisierung ebenfalls Developer ID, Hardened Runtime und Zeitstempel
+# tragen. Reihenfolge von innen nach außen, wie in Sparkles Doku („Code Signing“); danach die App selbst.
+FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
+[[ -d "$FRAMEWORK" ]] || { echo "Sparkle.framework fehlt in der App" >&2; exit 1; }
+# shellcheck disable=SC2086 # SIGN_FLAGS enthält bewusst mehrere Wörter
+sign() { codesign --force --sign "$IDENTITY" --options runtime $SIGN_FLAGS "$@"; }
+for xpc in "$FRAMEWORK"/Versions/B/XPCServices/*.xpc; do
+  [[ -e "$xpc" ]] && sign --preserve-metadata=entitlements "$xpc"
+done
+sign "$FRAMEWORK/Versions/B/Autoupdate"
+sign "$FRAMEWORK/Versions/B/Updater.app"
+sign "$FRAMEWORK"
+sign "$APP"
+
+# Sparkle-Schlüssel im fertigen Info.plist: Feed immer, öffentlicher Schlüssel genau der übergebene.
+plist="$APP/Contents/Info.plist"
+feed=$(plutil -extract SUFeedURL raw -o - "$plist")
+key=$(plutil -extract SUPublicEDKey raw -o - "$plist" 2>/dev/null || true)
+[[ "$feed" == https://* ]] || { echo "SUFeedURL fehlt oder ist keine https-Adresse: $feed" >&2; exit 1; }
+[[ "$key" == "${SPARKLE_PUBLIC_ED_KEY:-}" ]] || { echo "SUPublicEDKey im Info.plist passt nicht: „$key“" >&2; exit 1; }
+echo "Sparkle: Feed $feed, öffentlicher Schlüssel ${key:-(keiner, Updater aus)}"
 
 # --- Prüfen ---------------------------------------------------------------------------------
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -118,4 +151,5 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 echo "Fertig: $ZIP ($(du -h "$ZIP" | cut -f1))"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   echo "zip=apps/apple-host/$ZIP" >> "$GITHUB_OUTPUT"
+  echo "feed=$feed" >> "$GITHUB_OUTPUT"
 fi

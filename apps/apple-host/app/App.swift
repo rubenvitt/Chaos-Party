@@ -19,6 +19,9 @@ enum Main {
 
 struct ChaosHostApp: App {
     @StateObject private var runtime = HostRuntime()
+    #if os(macOS)
+    @StateObject private var updates = Updates()
+    #endif
 
     var body: some SwiftUI.Scene {
         WindowGroup("Chaos Party") {
@@ -40,6 +43,14 @@ struct ChaosHostApp: App {
                 #endif
             }
         }
+        #if os(macOS)
+        .commands {
+            // CHAOS-156: Sparkle prüft ohnehin täglich; der Menüpunkt prüft sofort.
+            CommandGroup(after: .appInfo) {
+                Button("Nach Updates suchen …") { updates.check() }.disabled(!updates.canCheck)
+            }
+        }
+        #endif
     }
 }
 

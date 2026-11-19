@@ -23,6 +23,9 @@ enum SelfTest {
 
     static func run() -> Never {
         hostLog("SELBSTTEST startet (\(Bundle.main.bundlePath))")
+        // CHAOS-156: Sparkle.framework ist eingebettet, signiert und lädt unter der Hardened Runtime.
+        hostLog("SELBSTTEST Sparkle \(Updates.sparkleVersion), Feed \(Updates.feed?.url ?? "aus")")
+        if Updates.sparkleVersion == "?" { finish(false, "Sparkle.framework nicht geladen") }
         started = Date()
         runtime.start()
         let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in MainActor.assumeIsolated { step() } }

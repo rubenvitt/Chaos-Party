@@ -161,4 +161,13 @@ Ruben (Chat, CHAOS-137): „ich habe nur DIE EINE Variante, deshalb alle Minispi
 - **Kein semantic-release** (Abweichung von der Aufgabe, die lichtung als Vorlage nennt): Die Commits hier folgen nicht Conventional Commits, semantic-release würde nie eine Version erzeugen. Version ist `MARKETING_VERSION` aus `project.yml` plus Laufnummer des Workflows; eine neue Hauptversion setzt man in `project.yml`.
 - **Ohne JIT-Berechtigung:** Die App bekommt keine Entitlements. Dass JavaScriptCore samt WebAssembly (Havok) unter der Hardened Runtime trotzdem läuft, belegt der Selbsttest `ChaosHost --selftest` in der CI bei jedem PR (ad hoc signiert, sonst wie das Release). Scheitert er eines Tages daran, ist `com.apple.security.cs.allow-jit` die Abhilfe; sie ist mit der Notarisierung vereinbar.
 - **Universal-Binary** (arm64 + x86_64), weil macOS 26 noch Intel-Macs unterstützt.
-- **Kein Sparkle-Feed:** Aktualisieren heißt vorerst, den neuen Zip vom Release zu laden (Backlog-Idee).
+- **Kein Sparkle-Feed:** Aktualisieren heißt vorerst, den neuen Zip vom Release zu laden (Backlog-Idee). Überholt durch Nachtrag 4.
+
+## Nachtrag 4 (2026-11-18, CHAOS-156): Automatische Updates der Mac-App mit Sparkle
+
+- **Sparkle 2.10.1** (MIT) als Swift Package, nur im macOS-Ziel (`destinationFilters: [macOS]`); tvOS bekommt Updates weiter über TestFlight. Menüpunkt „Nach Updates suchen …“ im App-Menü, sonst prüft Sparkle täglich von selbst.
+- **Feed an fester Adresse:** `appcast.xml` liegt als Asset am Release `macos-appcast` (Vorabversion, wird bei jedem Lauf ersetzt): `…/releases/download/macos-appcast/appcast.xml`. Kein GitHub Pages, keine zweite Stelle. Der Feed enthält nur das neueste Release; Sparkle braucht nicht mehr. Der Release `macos-appcast` darf nicht gelöscht werden.
+- **Versionen:** Sparkle vergleicht `CFBundleVersion`, und die ist die Laufnummer des Workflows (steigt immer). Lokale Builds tragen einen Zeitstempel als Build-Nummer und sehen darum keine Updates.
+- **Zwei Signaturen:** EdDSA für Zip und Feed (`SURequireSignedFeed`, `SUVerifyUpdateBeforeExtraction`) und Developer ID für die App. Der Workflow prüft die Zip-Signatur gegen genau den öffentlichen Schlüssel, der in der App steht (`scripts/appcast.mjs`); ein Schlüsselpaar, das nicht zusammenpasst, bricht den Lauf ab, bevor ein Feed erscheint.
+- **Schlüssel außerhalb des Repos:** öffentlicher Schlüssel als Repository-Variable `SPARKLE_PUBLIC_ED_KEY` (kommt beim Bau als `SUPublicEDKey` ins Info.plist), privater als Secret `SPARKLE_ED_PRIVATE_KEY`. Fehlen beide, baut der Workflow das Release ohne Updater und warnt; fehlt nur der private, bricht er ab.
+- **Sparkle neu signiert:** Xcode signiert beim Kopieren nur die Hülle des Frameworks. `release-macos.sh` signiert XPC-Dienste, `Autoupdate`, `Updater.app`, das Framework und danach die App mit Developer ID und Hardened Runtime nach. Der Selbsttest prüft, dass Sparkle lädt.
