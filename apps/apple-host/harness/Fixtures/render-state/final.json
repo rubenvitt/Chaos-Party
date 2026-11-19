@@ -77,22 +77,100 @@
       {
         "slot": 1,
         "spaceId": "s03",
-        "x": 5.95,
+        "x": 5.75,
         "z": 3.4,
-        "character": "raccoon"
+        "character": "raccoon",
+        "y": 0,
+        "hop": null,
+        "heading": null,
+        "connected": true
       },
       {
         "slot": 2,
         "spaceId": "s03",
-        "x": 6.45,
+        "x": 6.65,
         "z": 3.4,
-        "character": "sock"
+        "character": "sock",
+        "y": 0,
+        "hop": null,
+        "heading": null,
+        "connected": true
       }
     ],
     "messages": [
       "Anna gewinnt mit 3 Trophäen!"
     ],
-    "notice": null
+    "notice": null,
+    "popups": [],
+    "ticker": [
+      {
+        "id": 4,
+        "text": "Anna würfelt 4!",
+        "slot": 1,
+        "tone": "neutral"
+      },
+      {
+        "id": 7,
+        "text": "Anna bekommt 3 Münzen",
+        "slot": 1,
+        "tone": "good"
+      }
+    ],
+    "hud": {
+      "boardName": "Wackelwald",
+      "roundText": "Runde 3/10",
+      "banner": null,
+      "bannerSlot": null,
+      "status": {
+        "slot": 2,
+        "kind": "roll",
+        "text": "Ben darf würfeln …",
+        "detail": null,
+        "countdown": null
+      },
+      "players": [
+        {
+          "slot": 1,
+          "name": "Anna",
+          "color": "#0072B2",
+          "coins": 12,
+          "trophies": 1,
+          "items": [
+            {
+              "id": "shield",
+              "name": "Schild"
+            }
+          ],
+          "connected": true,
+          "active": false
+        },
+        {
+          "slot": 2,
+          "name": "Ben",
+          "color": "#E69F00",
+          "coins": 7,
+          "trophies": 0,
+          "items": [],
+          "connected": true,
+          "active": true
+        }
+      ],
+      "tailwind": null
+    },
+    "camera": {
+      "x": 3.9,
+      "z": 3.9
+    },
+    "trophySpaces": [
+      "s05"
+    ],
+    "traps": [
+      {
+        "spaceId": "s02",
+        "owner": 1
+      }
+    ],
+    "sounds": []
   },
   "minigame": null
 }

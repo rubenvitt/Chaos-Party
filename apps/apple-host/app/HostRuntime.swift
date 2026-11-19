@@ -33,6 +33,8 @@ struct Overlay: Equatable {
     var settings: RenderState.LobbySettings?
     /// Anleitung, HUD und Ergebnis eines Minispiels (CHAOS-144), auch in dessen Pause.
     var minigame: MinigameScreen?
+    /// HUD der Brettphase aus der Regie (CHAOS-143); nur in der Phase `board`.
+    var board: BoardOverlay?
     var stats = ""
 }
 
@@ -199,6 +201,7 @@ final class HostRuntime: ObservableObject {
         }
         o.notice = s.phase == "board" ? s.board?.notice : nil
         o.minigame = s.phase == "minigame" || s.phase == "paused" ? s.minigame.map(MinigameScreen.init) : nil
+        o.board = s.phase == "board" ? s.board.flatMap { b in b.hud.map { BoardOverlay(hud: $0, ticker: b.ticker ?? [], notice: b.notice) } } : nil
         if o != overlay { overlay = o }
         let players = s.lobby?.players ?? []
         if autostart, overlay.sceneLoaded, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) {

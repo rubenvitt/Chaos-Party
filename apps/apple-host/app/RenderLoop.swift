@@ -152,6 +152,16 @@ final class RenderLoop: NSObject {
         guard now - lastFrame > 0.1 else { return }
         onFrame(lastFrame > 0 ? min(0.1, now - lastFrame) : 1.0 / 30)
         lastFrame = now
+        // Bildschirm aus oder gesperrt (CHAOS-143): `--bild` rendert dann ein Bild ohne Anzeige und kopiert die interne Textur.
+        guard let presenter, presenter.wantsCapture, !slots.isEmpty, renderer.activeCamera != nil, presenter.tryReserve() else { return }
+        let slot = slots[nextSlot]
+        nextSlot = (nextSlot + 1) % slots.count
+        do {
+            try renderer.updateAndRender(deltaTime: 0.1, cameraOutput: slot.output, onComplete: presenter.offscreen(for: slot.texture))
+        } catch {
+            presenter.release()
+            hostLog("FEHLER updateAndRender: \(error)")
+        }
     }
 
     private func configure(_ size: CGSize) {
@@ -207,12 +217,13 @@ final class RenderLoop: NSObject {
 
     /// Nächstes präsentiertes Bild als PNG schreiben (nur mit `--bild`).
     func capture(to path: String) {
+        capture { image in writePNG(image, to: path) }
+    }
+
+    /// Nächstes Bild als `CGImage` (nur mit `--bild`); `done` läuft auf einem beliebigen Thread.
+    func capture(_ done: @escaping @Sendable (CGImage) -> Void) {
         presenter?.requestCapture { texture in
-            guard let image = cgImage(from: texture) else { return }
-            let url = URL(fileURLWithPath: path) as CFURL
-            guard let dest = CGImageDestinationCreateWithURL(url, "public.png" as CFString, 1, nil) else { return }
-            CGImageDestinationAddImage(dest, image, nil)
-            if CGImageDestinationFinalize(dest) { hostLog("Bild gespeichert: \(path)") }
+            if let image = cgImage(from: texture) { done(image) }
         }
     }
 
@@ -235,6 +246,13 @@ final class RenderLoop: NSObject {
 }
 
 enum HostRenderError: Error { case missing(String) }
+
+func writePNG(_ image: CGImage, to path: String) {
+    let url = URL(fileURLWithPath: path) as CFURL
+    guard let dest = CGImageDestinationCreateWithURL(url, "public.png" as CFString, 1, nil) else { return }
+    CGImageDestinationAddImage(dest, image, nil)
+    if CGImageDestinationFinalize(dest) { hostLog("Bild gespeichert: \(path)") }
+}
 
 private func cgImage(from texture: MTLTexture) -> CGImage? {
     let (w, h) = (texture.width, texture.height)
@@ -339,6 +357,37 @@ final class Presenter: @unchecked Sendable {
 
     func completion(for texture: MTLTexture) -> @Sendable (RealityRenderer) -> Void {
         { [self] _ in self.present(texture) }
+    }
+
+    var wantsCapture: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return pendingCapture != nil
+    }
+
+    /// Ohne Anzeige: die interne Textur (vor dem Hochskalieren) als Bildschirmfoto liefern.
+    func offscreen(for texture: MTLTexture) -> @Sendable (RealityRenderer) -> Void {
+        { [self] _ in self.captureSource(texture) }
+    }
+
+    private func captureSource(_ source: MTLTexture) {
+        lock.lock(); defer { lock.unlock() }
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: Presenter.format, width: source.width,
+                                                            height: source.height, mipmapped: false)
+        desc.storageMode = .shared
+        guard let deliver = pendingCapture, let copy = device.makeTexture(descriptor: desc), let buffer = queue.makeCommandBuffer(),
+              let blit = buffer.makeBlitCommandEncoder() else {
+            free.signal()
+            return
+        }
+        pendingCapture = nil
+        blit.copy(from: source, to: copy)
+        blit.endEncoding()
+        let free = self.free
+        buffer.addCompletedHandler { _ in
+            deliver(copy)
+            free.signal()
+        }
+        buffer.commit()
     }
 
     private func present(_ source: MTLTexture) {

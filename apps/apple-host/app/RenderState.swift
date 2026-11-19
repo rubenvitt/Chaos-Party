@@ -45,6 +45,128 @@ struct RenderState: Decodable, Equatable {
         var messages: [String]?
         /// Big banner at the top centre (CHAOS-157), e.g. „Sabotage wird stärker!“; 4 s, else null.
         var notice: Notice?
+        // Board direction from the shared director (CHAOS-143): what the scene and HUD show this frame.
+        var popups: [Popup]?
+        var ticker: [TickerEntry]?
+        var hud: Hud?
+        /// Camera focus (Babylon coordinates); Swift eases towards it.
+        var camera: Point?
+        var trophySpaces: [String]?
+        var traps: [Trap]?
+        /// Sound cues of the last 1.5 s; play every id once.
+        var sounds: [SoundCue]?
+    }
+
+    struct Point: Decodable, Equatable {
+        var x: Float
+        var z: Float
+    }
+
+    struct Trap: Decodable, Equatable {
+        var spaceId: String
+        var owner: Int
+    }
+
+    /// Hop or flight of a pawn: walk = hop to the neighbour field, gust/swap = one flight from `from` to `to`.
+    struct Hop: Decodable, Equatable {
+        var from: String
+        var to: String
+        var t: Float
+        var style: String
+    }
+
+    /// Popup above a pawn (`slot`) or a field (`spaceId`); kinds coins, dice, item, trap, trophy, event, shield, steal.
+    struct Popup: Decodable, Equatable {
+        var id: Int
+        var kind: String
+        var slot: Int?
+        var spaceId: String?
+        var text: String
+        /// good, bad, neutral, gold
+        var tone: String
+        /// 0 when it appears … 1 when it is gone.
+        var progress: Float
+        /// One-shot clip of the pawn `slot`: cheer, hit, jump.
+        var reaction: String?
+    }
+
+    struct TickerEntry: Decodable, Equatable {
+        var id: Int
+        var text: String
+        var slot: Int?
+        var tone: String?
+    }
+
+    struct Hud: Decodable, Equatable {
+        var boardName: String?
+        var roundText: String?
+        var banner: String?
+        var bannerSlot: Int?
+        var status: Status?
+        var players: [HudPlayer]?
+        var tailwind: Tailwind?
+
+        struct Status: Decodable, Equatable {
+            var slot: Int
+            var kind: String?
+            var text: String
+            var detail: String?
+            var countdown: String?
+        }
+
+        struct HudPlayer: Decodable, Equatable {
+            var slot: Int
+            var name: String
+            var color: String?
+            var coins: Int
+            var trophies: Int
+            var items: [Item]?
+            var connected: Bool?
+            var active: Bool?
+        }
+
+        struct Item: Decodable, Equatable {
+            var id: String
+            var name: String
+        }
+
+        struct Tailwind: Decodable, Equatable {
+            var lead: String?
+            var rows: [Row]
+
+            struct Row: Decodable, Equatable {
+                var slot: Int
+                var name: String
+                var amount: String
+            }
+        }
+    }
+
+    /// Procedural sound (`apps/host/src/fx/sounds.ts`), volume and pitch already applied.
+    struct SoundCue: Decodable, Equatable {
+        var id: Int
+        var name: String
+        var voices: [Voice]
+    }
+
+    struct Voice: Decodable, Equatable {
+        /// sine, triangle, square, sawtooth, noise
+        var wave: String
+        var freq: Double
+        var freqEnd: Double?
+        var delay: Double?
+        var attack: Double
+        var duration: Double
+        var gain: Double
+        var filter: Filter?
+
+        struct Filter: Decodable, Equatable {
+            /// lowpass, bandpass, highpass
+            var type: String
+            var freq: Double
+            var freqEnd: Double?
+            var q: Double?
+        }
     }
 
     struct Notice: Decodable, Equatable {
@@ -64,9 +186,16 @@ struct RenderState: Decodable, Equatable {
     struct Pawn: Decodable, Equatable {
         var slot: Int
         var spaceId: String?
+        /// Shown position (Babylon coordinates): field centre plus spread, or the point on the hop/flight path.
         var x: Float
         var z: Float
         var character: String?
+        /// Height above the field surface (hop or flight arc).
+        var y: Float?
+        var hop: Hop?
+        /// Babylon yaw `atan2(dx, dz)` (RealityKit: negate); null = standing, face the camera.
+        var heading: Float?
+        var connected: Bool?
     }
 
     struct Minigame: Decodable, Equatable {

@@ -133,13 +133,149 @@ export const BoardSpaceSchema = z.strictObject({
   kind: z.string(),
 });
 
+/** Wie eine Figur zum Ziel kommt (CHAOS-52): `walk` hüpft, `gust`/`swap` fliegen. */
+export const MOVE_STYLES = ['walk', 'gust', 'swap'] as const;
+
+export const PawnHopSchema = z.strictObject({
+  from: z.string(),
+  to: z.string(),
+  /** Fortschritt des laufenden Sprungs bzw. Flugs 0…1. */
+  t: z.number().min(0).max(1),
+  style: z.enum(MOVE_STYLES),
+});
+
 export const PawnSchema = z.strictObject({
   slot,
+  /** Feld, auf dem die Figur steht; beim Hüpfen und Fliegen das Feld, von dem sie abspringt. */
   spaceId: z.string(),
-  /** Feldmitte plus Versatz, wenn mehrere Figuren auf einem Feld stehen (`spreadPawns`). */
+  /**
+   * Gezeigte Lage aus der Brett-Regie (CHAOS-143): im Stand Feldmitte plus Versatz
+   * (`spreadPawns`), beim Hüpfen und Fliegen der Punkt auf der Bahn (`hopPoint`/`flightPoint`).
+   */
   x: z.number(),
   z: z.number(),
   character,
+  /** Höhe über der Feldoberfläche (Sprung- bzw. Flugbogen), im Stand 0. */
+  y: z.number(),
+  /** Laufender Sprung oder Flug, sonst `null`. */
+  hop: PawnHopSchema.nullable(),
+  /**
+   * Blickrichtung (Babylon: Drehung um y, `atan2(dx, dz)`): beim Hüpfen die Laufrichtung (weich
+   * hindrehen), im Flug samt Drehung um sich selbst (direkt setzen); im Stand `null` (zur Kamera).
+   */
+  heading: z.number().nullable(),
+  connected: z.boolean(),
+});
+
+export const POPUP_KINDS = [
+  'coins',
+  'dice',
+  'item',
+  'trap',
+  'trophy',
+  'event',
+  'shield',
+  'steal',
+] as const;
+export const MESSAGE_TONES = ['good', 'bad', 'neutral', 'gold'] as const;
+/** Einmal-Reaktionen der Figur auf ein Popup über ihr (Clips aus `clips.json`). */
+export const PAWN_REACTIONS = ['cheer', 'hit', 'jump'] as const;
+
+export const PopupSchema = z.strictObject({
+  /** Eindeutig, solange das Popup lebt (`POPUP_MS` = 1,4 s). */
+  id: z.number().int(),
+  kind: z.enum(POPUP_KINDS),
+  /** Über dieser Figur … */
+  slot: slot.nullable(),
+  /** … oder über diesem Feld (wenn `slot` `null` ist). */
+  spaceId: z.string().nullable(),
+  /** Kurzer Text (≤ 12 Zeichen), z. B. „+3“, „5“, „Falle!“. */
+  text: z.string(),
+  tone: z.enum(MESSAGE_TONES),
+  /** 0 beim Erscheinen … 1 beim Verschwinden. */
+  progress: z.number().min(0).max(1),
+  /** Reaktion der Figur `slot` (einmal je Popup), wie `reactionFor` im Babylon-Host. */
+  reaction: z.enum(PAWN_REACTIONS).nullable(),
+});
+
+export const TickerEntrySchema = z.strictObject({
+  id: z.number().int(),
+  text: z.string(),
+  /** Färbt die Meldung (Spielerfarbe); `null` = neutral. */
+  slot: slot.nullable(),
+  tone: z.enum(MESSAGE_TONES),
+});
+
+export const HudPlayerSchema = z.strictObject({
+  slot,
+  name: z.string(),
+  color: hexColor,
+  coins: z.number().int(),
+  trophies: z.number().int(),
+  /** `ItemKind` aus game-core und Anzeigename (`ITEM_NAMES`). */
+  items: z.array(z.strictObject({ id: z.string(), name: z.string() })),
+  connected: z.boolean(),
+  active: z.boolean(),
+});
+
+export const HudSchema = z.strictObject({
+  /** Name des Bretts („Wackelwald“). */
+  boardName: z.string(),
+  /** „Runde 2/10“ (`roundText`) aus dem gezeigten Stand. */
+  roundText: z.string(),
+  /** Großes Banner „Anna ist dran!“ (`bannerText`) oder `null`. */
+  banner: z.string().nullable(),
+  bannerSlot: slot.nullable(),
+  /** Statuszeile zur offenen Entscheidung (`promptStatus`/`promptDetail`/`countdownText`). */
+  status: z
+    .strictObject({
+      slot,
+      kind: z.string(),
+      text: z.string(),
+      detail: z.string().nullable(),
+      /** „3 … 2 … 1“ nur im Reaktionsfenster, sonst `null`. */
+      countdown: z.string().nullable(),
+    })
+    .nullable(),
+  /** Spielerleiste unten, nach Slot sortiert; Münzen schon um gespielte Ereignisse aktualisiert. */
+  players: z.array(HudPlayerSchema),
+  /** Rückenwind-Karte im Rundenende (CHAOS-125) oder `null`. */
+  tailwind: z
+    .strictObject({
+      lead: z.string(),
+      rows: z.array(z.strictObject({ slot, name: z.string(), amount: z.string() })),
+    })
+    .nullable(),
+});
+
+export const SOUND_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'noise'] as const;
+
+/** Eine Stimme eines prozeduralen Klangs (`apps/host/src/fx/sounds.ts`), Zeiten in s. */
+export const SoundVoiceSchema = z.strictObject({
+  wave: z.enum(SOUND_WAVES),
+  freq: z.number(),
+  freqEnd: z.number().optional(),
+  delay: z.number().optional(),
+  attack: z.number(),
+  duration: z.number(),
+  gain: z.number(),
+  filter: z
+    .strictObject({
+      type: z.enum(['lowpass', 'bandpass', 'highpass']),
+      freq: z.number(),
+      freqEnd: z.number().optional(),
+      q: z.number().optional(),
+    })
+    .optional(),
+});
+
+export const SoundCueSchema = z.strictObject({
+  /** Steigt je Klang; Swift spielt jede ID einmal. */
+  id: z.number().int(),
+  /** `SoundName` aus `apps/host/src/fx/sounds.ts`. */
+  name: z.string(),
+  /** Rezept mit Lautstärke und Tonhöhe schon angewandt (`shapeRecipe`). */
+  voices: z.array(SoundVoiceSchema),
 });
 
 export const NoticeSchema = z.strictObject({
@@ -160,6 +296,20 @@ export const BoardStateSchema = z.strictObject({
    * „Klau: 6 Münzen · Falle: 5 Münzen“ in Wachstumsrunden; 4 s sichtbar, sonst `null`.
    */
   notice: NoticeSchema.nullable(),
+  /** Popups über Figuren und Feldern (Münzen, Würfel, Items …) aus der Brett-Regie (CHAOS-143). */
+  popups: z.array(PopupSchema),
+  /** Ereignis-Ticker der Regie: höchstens 4, je 5 s, mit Ton und Spielerfarbe. */
+  ticker: z.array(TickerEntrySchema),
+  /** HUD-Daten aus dem gezeigten Stand der Regie. */
+  hud: HudSchema.nullable(),
+  /** Blickpunkt der Kamera (`cameraFocus`: Brettmitte, leicht zum aktiven Spieler); Swift zieht nach. */
+  camera: z.strictObject({ x: z.number(), z: z.number() }),
+  /** Felder mit Trophäe (Pokal sichtbar). */
+  trophySpaces: z.array(z.string()),
+  /** Versteckte Fallen samt Besitzer (Mitte in Besitzerfarbe). */
+  traps: z.array(z.strictObject({ spaceId: z.string(), owner: slot })),
+  /** Klänge der letzten `SOUND_WINDOW_MS`, in dem Moment ausgelöst, in dem die Regie spielt. */
+  sounds: z.array(SoundCueSchema),
 });
 
 /** Oberflächen aus `look.material` (`LookFinish` im minigame-sdk, CHAOS-62). */
@@ -368,6 +518,11 @@ export const RenderStateSchema = z.strictObject({
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
 export type LobbySettingsState = z.infer<typeof LobbySettingsStateSchema>;
 export type Notice = z.infer<typeof NoticeSchema>;
+export type Pawn = z.infer<typeof PawnSchema>;
+export type Popup = z.infer<typeof PopupSchema>;
+export type TickerEntry = z.infer<typeof TickerEntrySchema>;
+export type Hud = z.infer<typeof HudSchema>;
+export type SoundCue = z.infer<typeof SoundCueSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
 export type Body = z.infer<typeof BodySchema>;
 export type MinigameState = z.infer<typeof MinigameStateSchema>;

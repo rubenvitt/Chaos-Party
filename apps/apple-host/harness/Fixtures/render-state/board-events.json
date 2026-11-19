@@ -1,0 +1,257 @@
+{
+  "phase": "board",
+  "lobby": {
+    "joinUrl": "http://192.168.0.2:8787/?code=AB12",
+    "joinCode": "AB12",
+    "settings": {
+      "rounds": 10,
+      "roundPresets": [
+        10,
+        16,
+        20
+      ],
+      "moreReactionTime": false
+    },
+    "players": [
+      {
+        "slot": 1,
+        "name": "Anna",
+        "color": "#0072B2",
+        "connected": true,
+        "ready": true,
+        "character": "raccoon"
+      },
+      {
+        "slot": 2,
+        "name": "Ben",
+        "color": "#E69F00",
+        "connected": true,
+        "ready": true,
+        "character": "sock"
+      }
+    ]
+  },
+  "board": {
+    "round": 3,
+    "rounds": 10,
+    "activeSlot": 2,
+    "spaces": [
+      {
+        "id": "s00",
+        "x": 0,
+        "z": 0,
+        "kind": "start"
+      },
+      {
+        "id": "s01",
+        "x": 2.4,
+        "z": 0.5,
+        "kind": "coins-plus"
+      },
+      {
+        "id": "s02",
+        "x": 4.6,
+        "z": 1.6,
+        "kind": "coins-minus"
+      },
+      {
+        "id": "s03",
+        "x": 6.2,
+        "z": 3.4,
+        "kind": "event"
+      },
+      {
+        "id": "s04",
+        "x": 6.8,
+        "z": 5.8,
+        "kind": "item"
+      },
+      {
+        "id": "s05",
+        "x": 5.9,
+        "z": 8.1,
+        "kind": "trophy"
+      }
+    ],
+    "pawns": [
+      {
+        "slot": 1,
+        "spaceId": "s01",
+        "x": 3.1,
+        "z": 1.9,
+        "character": "raccoon",
+        "y": 1.2,
+        "hop": {
+          "from": "s01",
+          "to": "s04",
+          "t": 0.4,
+          "style": "gust"
+        },
+        "heading": 4.2,
+        "connected": true
+      },
+      {
+        "slot": 2,
+        "spaceId": "s03",
+        "x": 6.4,
+        "z": 4.2,
+        "character": "sock",
+        "y": 0.81,
+        "hop": {
+          "from": "s03",
+          "to": "s04",
+          "t": 0.35,
+          "style": "walk"
+        },
+        "heading": 0.24,
+        "connected": false
+      }
+    ],
+    "messages": [
+      "Anna würfelt eine 4.",
+      "Anna bekommt 3 Münzen.",
+      "Ben ist am Zug."
+    ],
+    "notice": null,
+    "popups": [
+      {
+        "id": 11,
+        "kind": "dice",
+        "slot": 2,
+        "spaceId": null,
+        "text": "5",
+        "tone": "neutral",
+        "progress": 0.3,
+        "reaction": null
+      },
+      {
+        "id": 12,
+        "kind": "coins",
+        "slot": 1,
+        "spaceId": null,
+        "text": "−3",
+        "tone": "bad",
+        "progress": 0.1,
+        "reaction": "hit"
+      },
+      {
+        "id": 13,
+        "kind": "trophy",
+        "slot": null,
+        "spaceId": "s05",
+        "text": "Hier!",
+        "tone": "gold",
+        "progress": 0.6,
+        "reaction": null
+      }
+    ],
+    "ticker": [
+      {
+        "id": 4,
+        "text": "Anna würfelt 4!",
+        "slot": 1,
+        "tone": "neutral"
+      },
+      {
+        "id": 7,
+        "text": "Anna bekommt 3 Münzen",
+        "slot": 1,
+        "tone": "good"
+      }
+    ],
+    "hud": {
+      "boardName": "Wackelwald",
+      "roundText": "Runde 3/10",
+      "banner": "Ben ist dran!",
+      "bannerSlot": 2,
+      "status": {
+        "slot": 1,
+        "kind": "reaction",
+        "text": "Anna kann reagieren!",
+        "detail": null,
+        "countdown": "3 … 2 … 1"
+      },
+      "players": [
+        {
+          "slot": 1,
+          "name": "Anna",
+          "color": "#0072B2",
+          "coins": 12,
+          "trophies": 1,
+          "items": [
+            {
+              "id": "shield",
+              "name": "Schild"
+            }
+          ],
+          "connected": true,
+          "active": false
+        },
+        {
+          "slot": 2,
+          "name": "Ben",
+          "color": "#E69F00",
+          "coins": 7,
+          "trophies": 0,
+          "items": [],
+          "connected": true,
+          "active": true
+        }
+      ],
+      "tailwind": {
+        "lead": "Wer bei den Trophäen hinten liegt, bekommt Münzen.",
+        "rows": [
+          {
+            "slot": 2,
+            "name": "Ben",
+            "amount": "+4 Münzen"
+          }
+        ]
+      }
+    },
+    "camera": {
+      "x": 3.9,
+      "z": 3.9
+    },
+    "trophySpaces": [
+      "s05"
+    ],
+    "traps": [
+      {
+        "spaceId": "s02",
+        "owner": 1
+      }
+    ],
+    "sounds": [
+      {
+        "id": 3,
+        "name": "dice",
+        "voices": [
+          {
+            "wave": "noise",
+            "freq": 0,
+            "delay": 0,
+            "attack": 0.002,
+            "duration": 0.04,
+            "gain": 0.26,
+            "filter": {
+              "type": "bandpass",
+              "freq": 1900,
+              "q": 2
+            }
+          },
+          {
+            "wave": "sine",
+            "freq": 210,
+            "freqEnd": 110,
+            "delay": 0.32,
+            "attack": 0.003,
+            "duration": 0.14,
+            "gain": 0.3
+          }
+        ]
+      }
+    ]
+  },
+  "minigame": null
+}

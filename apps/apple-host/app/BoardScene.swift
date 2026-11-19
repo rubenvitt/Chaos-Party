@@ -3,13 +3,18 @@ import QuartzCore
 import Foundation
 import RealityKit
 
-/// Brett mit echter Grafik (CHAOS-142): Kulisse `brett.usdz`, Gras- und Blumen-Instanzen, Figuren als USDZ,
-/// Sonne und Himmelslicht wie im Babylon-Host, Kamera mit Übersicht und Fokus auf den aktiven Spieler.
+/// Brett mit echter Grafik (CHAOS-142) und Brett-Regie (CHAOS-143): Kulisse `brett.usdz`, Gras- und Blumen-Instanzen,
+/// Figuren als USDZ auf Sockeln, Sonne und Himmelslicht wie im Babylon-Host. Was sich bewegt, liefert die Regie des
+/// Browser-Hosts im JS-Kern (`renderState().board`): Hüpfen und Fliegen der Figuren, Popups, Kameraziel, Trophäen,
+/// Fallen und Klänge. Hier wird nur gezeichnet, nachgebaut aus `apps/host/src/board/createBoardScene.ts`.
 /// Assets aus `pnpm build:apple-assets` (CHAOS-140, `docs/apple-assets.md`), von `prepare.sh` nach `payload/szene/`.
 ///
 /// Koordinaten: `brett.usdz` ist rechtshändig wie RealityKit und entsteht aus Babylon mit `(x, y, z) → (-x, y, z)`
 /// (`apps/host/src/export/boardExport.ts`). Die Figuren stehen darum auf den Feld-Ankern `feld_<id>` des Bretts;
-/// nur der Versatz mehrerer Figuren auf einem Feld (Babylon-Koordinaten aus `renderState`) wird gespiegelt.
+/// nur der Versatz zur Feldmitte (Babylon-Koordinaten aus `renderState`) wird gespiegelt, ebenso Blickrichtungen.
+///
+/// Der Export enthält Teile des Beispiel-Spielstands (Pokale auf s12/s24, eine Falle, Pfeil und Ring am Zug). Sie
+/// werden beim Laden abgenommen und dienen als Vorlagen: Pokale und Fallen entstehen je nach `trophySpaces`/`traps`.
 @MainActor
 final class BoardScene {
     let root = Entity()
@@ -18,14 +23,33 @@ final class BoardScene {
     let skyExponent: Float
     let clearColor: CGColor
     let instances: Int
+    /// Neues Brett-Ereignis im Bild (Popup-Art, Flug, Rückenwind, Sabotage), für Ereignis-Bilder (`--ereignisbild`).
+    var onEvent: ((String) -> Void)?
 
     private let anchors: [String: SIMD3<Float>]
     private let figures: [String: FigureTemplate]
-    /// Brettmitte in Babylon-Koordinaten (wie `boardBounds` im Babylon-Host), für den Kamerafokus.
+    /// Höhe der Feldoberfläche (Anker), falls ein Feld fehlt.
+    private let surfaceY: Float
+    /// Brettmitte in Babylon-Koordinaten (wie `boardBounds` im Babylon-Host); Ersatz, falls `board.camera` fehlt.
     private var center: SIMD2<Float>
     private var focus: SIMD2<Float>?
     private var pawns: [Int: Pawn] = [:]
     private var missingAnchors = Set<String>()
+    private let popups = PopupLayer()
+    private let sounds = BoardSounds()
+    private var time: Double = 0
+    /// Popups, auf die eine Figur schon reagiert hat bzw. die schon gemeldet sind.
+    private var reacted = Set<Int>()
+    private var announced = Set<Int>()
+    private var tailwindShown = false
+    private var noticeShown = false
+
+    private let trophyTemplate: Entity?
+    private let trapTemplate: Entity?
+    private var trophies: [String: Entity] = [:]
+    private var traps: [String: Entity] = [:]
+    private let activeRing: Entity?
+    private let activeArrow: ModelEntity?
 
     // Babylon-Host (`apps/host/src/board/createBoardScene.ts`, `layout.ts`).
     private static let cameraOffset = SIMD3<Float>(0, 28, -17.5)
@@ -34,22 +58,35 @@ final class BoardScene {
     private static let cameraHalfLife: Double = 0.7
     private static let turnHalfLife: Double = 0.09
     private static let characterScale: Float = 1.3
-    /// Laufgeschwindigkeit, bis die Brett-Regie (CHAOS-143) die Hüpfer des Babylon-Hosts übernimmt.
-    private static let runSpeed: Float = 7
     /// Blick zur Kamera (Figur schaut nach +z, die Kamera steht bei -z).
     private static let faceCamera = Float.pi
+    /// Im Stand lehnt sich die Figur zur hoch stehenden Kamera zurück (`STAND_TILT`), im Windstoß nach vorn.
+    private static let standTilt: Float = -0.32
+    private static let gustTilt: Float = 0.4
+    /// Ereignisse für Bilder: Popup-Art → Name.
+    private static let eventNames = ["coins": "muenzen", "dice": "wuerfel", "item": "item", "trap": "falle", "trophy": "trophaee",
+                                     "event": "ereignis", "shield": "schild", "steal": "klau"]
 
     private struct Pawn {
-        let entity: Entity
+        let root: Entity
+        /// Drehknoten der Figur (Blickrichtung und Neigung), auf dem Sockel.
+        let facing: Entity
+        let figure: Entity
+        let symbol: Entity
         let character: String
-        var position: SIMD3<Float>
         var yaw: Float
+        var tilt: Float
         var animation = ""
+        /// Einmal-Clip (Reaktion, Flug) läuft bis dahin.
+        var oneShotUntil: Double = 0
+        var flying: String?
+        var connected = true
     }
 
     struct FigureTemplate {
         let entity: Entity
         let clips: [String: AnimationResource]
+        let durations: [String: Double]
     }
 
     private init(root board: Entity, meta: SceneMeta, anchors: [String: SIMD3<Float>], figures: [String: FigureTemplate],
@@ -58,13 +95,26 @@ final class BoardScene {
         self.figures = figures
         self.sky = sky
         self.instances = instances
+        surfaceY = anchors.values.first?.y ?? 0.3
         skyExponent = log2(max(meta.sky?.intensity ?? 0.35, 0.01) * 2.5)
         let c = meta.clearColor
         clearColor = CGColor(red: CGFloat(c[0]), green: CGFloat(c[1]), blue: CGFloat(c[2]), alpha: 1)
         // Brettmitte aus den Feldern (Babylon: x gespiegelt).
         let xs = meta.fields.map { -$0.position[0] }, zs = meta.fields.map { $0.position[2] }
         center = xs.isEmpty ? .zero : [(xs.min()! + xs.max()!) / 2, (zs.min()! + zs.max()!) / 2]
+        // Teile des Beispiel-Spielstands abnehmen; der erste Pokal und die erste Falle werden Vorlagen.
+        trophyTemplate = Self.detach(from: board, prefix: "pokal_s", anchors: anchors)
+        trapTemplate = Self.detach(from: board, prefix: "falle_s", anchors: anchors)
+        _ = Self.detach(from: board, prefix: "am_zug_pfeil", anchors: anchors)
+        activeRing = board.findEntity(named: "am_zug_ring")
+        activeRing?.isEnabled = false
+        activeArrow = CardTexture.arrow().map { billboard($0, size: [BoardLook.arrowSize, BoardLook.arrowSize], name: "am-zug-pfeil") }
         root.addChild(board)
+        root.addChild(popups.root)
+        if let activeArrow {
+            activeArrow.isEnabled = false
+            root.addChild(activeArrow)
+        }
         camera.camera.fieldOfViewInDegrees = meta.camera.fovY * 180 / .pi
         camera.camera.fieldOfViewOrientation = .vertical
         camera.camera.near = meta.camera.near
@@ -81,7 +131,29 @@ final class BoardScene {
             light.look(at: simd_normalize(vec(sun.direction)), from: .zero, relativeTo: nil)
             root.addChild(light)
         }
-        placeCamera(dt: 0, active: nil)
+        placeCamera(dt: 0, target: center)
+    }
+
+    /// Nimmt alle Knoten `<prefix><feld>` aus dem Brett; liefert den ersten als Vorlage, Lage relativ zu seinem Feld-Anker.
+    private static func detach(from board: Entity, prefix: String, anchors: [String: SIMD3<Float>]) -> Entity? {
+        var found: [Entity] = []
+        var stack = [board]
+        while let entity = stack.popLast() {
+            if entity.name.hasPrefix(prefix) { found.append(entity) } else { stack += entity.children }
+        }
+        var template: Entity?
+        for entity in found {
+            // Weltlage übernehmen: Der Export hängt unter einem gedrehten Knoten (z oben).
+            let world = entity.transformMatrix(relativeTo: nil)
+            entity.removeFromParent()
+            guard template == nil else { continue }
+            entity.setTransformMatrix(world, relativeTo: nil)
+            // `pokal_s12` → Feld s12, `falle_s15_2` → Feld s15.
+            let field = entity.name.dropFirst(prefix.count - 1).split(separator: "_").first.map(String.init) ?? ""
+            entity.position -= anchors[field] ?? entity.position
+            template = entity
+        }
+        return template
     }
 
     /// Ordner mit `brett.usdz`, `brett.szene.json`, `brett.instanzen.json` und `figuren/`.
@@ -119,7 +191,8 @@ final class BoardScene {
                 continue
             }
             let entity = try await Entity(contentsOf: url)
-            figures[id] = FigureTemplate(entity: entity, clips: clips(of: entity, table: folder.appending(path: "figuren/\(id).clips.json")))
+            let (clips, durations) = clips(of: entity, table: folder.appending(path: "figuren/\(id).clips.json"))
+            figures[id] = FigureTemplate(entity: entity, clips: clips, durations: durations)
         }
         let sky = try? await EnvironmentResource(equirectangular: hemisphereImage(
             sky: meta.sky?.color ?? [0.83, 0.9, 0.96], ground: meta.sky?.ground ?? meta.sky?.color ?? [0.49, 0.54, 0.32]))
@@ -131,13 +204,22 @@ final class BoardScene {
 
     /// Lobby: Übersicht ohne Figuren.
     func showOverview(dt: Double) {
-        for (_, pawn) in pawns { pawn.entity.removeFromParent() }
+        for (_, pawn) in pawns { pawn.root.removeFromParent() }
         pawns.removeAll()
-        placeCamera(dt: dt, active: nil)
+        sync(trophies: [])
+        sync(traps: [], colors: [:])
+        popups.update([], camera: camera.orientation) { _ in nil }
+        activeRing?.isEnabled = false
+        activeArrow?.isEnabled = false
+        sounds.reset()
+        reacted.removeAll()
+        announced.removeAll()
+        placeCamera(dt: dt, target: center)
     }
 
-    /// Ein Bild des Bretts: Figuren auf ihren Feldern, Kamera zum aktiven Spieler.
+    /// Ein Bild des Bretts nach der Regie: Figuren auf ihren Bahnen, Popups, Marker, Kamera, Klänge.
     func apply(_ board: RenderState.Board, players: [RenderState.Player], dt: Double) {
+        time += dt
         let spaces = Dictionary((board.spaces ?? []).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let colors = Dictionary(players.map { ($0.slot, $0.color ?? "") }, uniquingKeysWith: { a, _ in a })
         var seen = Set<Int>()
@@ -146,84 +228,232 @@ final class BoardScene {
             let target = position(of: p, spaces: spaces)
             let character = p.character ?? "robot"
             if let pawn = pawns[p.slot], pawn.character != character {
-                pawn.entity.removeFromParent()
+                pawn.root.removeFromParent()
                 pawns[p.slot] = nil
             }
             if pawns[p.slot] == nil {
-                guard let made = makePawn(character: character, color: colors[p.slot] ?? "", at: target) else { continue }
+                guard let made = makePawn(slot: p.slot, character: character, color: colors[p.slot] ?? "", at: target) else { continue }
                 pawns[p.slot] = made
             }
-            step(slot: p.slot, to: target, dt: dt)
+            pose(slot: p.slot, p, at: target, dt: dt)
         }
         for slot in pawns.keys where !seen.contains(slot) {
-            pawns[slot]?.entity.removeFromParent()
+            pawns[slot]?.root.removeFromParent()
             pawns[slot] = nil
         }
-        let active = board.activeSlot.flatMap { pawns[$0] }.map { SIMD2<Float>(-$0.position.x, $0.position.z) }
-        placeCamera(dt: dt, active: active)
+        let popupList = board.popups ?? []
+        react(to: popupList)
+
+        let activeSlot = board.hud?.players?.first { $0.active == true }?.slot
+        let legacy = (board.activeSlot.flatMap { pawns[$0] }).map { pawn -> SIMD2<Float> in
+            let p = SIMD2<Float>(-pawn.root.position.x, pawn.root.position.z)
+            return center + (p - center) * Self.cameraFollow
+        }
+        placeCamera(dt: dt, target: board.camera.map { SIMD2($0.x, $0.z) } ?? legacy ?? center)
+        let facingCamera = camera.orientation(relativeTo: nil)
+        syncActive(activeSlot.flatMap { pawns[$0] }, camera: facingCamera)
+        sync(trophies: board.trophySpaces ?? [])
+        sync(traps: board.traps ?? [], colors: colors)
+        popups.update(popupList, camera: facingCamera) { [anchors, pawns] popup in
+            if let slot = popup.slot { return pawns[slot]?.root.position(relativeTo: nil) }
+            return popup.spaceId.flatMap { anchors[$0] }
+        }
+        sounds.play(board.sounds ?? [])
+        announce(board, popups: popupList)
     }
 
-    /// Feld-Anker plus gespiegelter Versatz (mehrere Figuren auf einem Feld).
+    /// Feld-Anker plus gespiegelter Versatz (mehrere Figuren auf einem Feld, Bahn beim Hüpfen und Fliegen) plus Höhe.
     private func position(of pawn: RenderState.Pawn, spaces: [String: RenderState.Space]) -> SIMD3<Float> {
+        let lift = pawn.y ?? 0
         if let id = pawn.spaceId, let anchor = anchors[id], let space = spaces[id] {
-            return anchor + SIMD3(-(pawn.x - space.x), 0, pawn.z - space.z)
+            return anchor + SIMD3(-(pawn.x - space.x), lift, pawn.z - space.z)
         }
         let key = pawn.spaceId ?? "–"
         if !missingAnchors.contains(key) {
             missingAnchors.insert(key)
             hostLog("FEHLER kein Feld-Anker für \(key) – Figur nach renderState-Koordinaten")
         }
-        return SIMD3(-pawn.x, anchors.values.first?.y ?? 0.3, pawn.z)
+        return SIMD3(-pawn.x, surfaceY + lift, pawn.z)
     }
 
-    private func makePawn(character: String, color: String, at position: SIMD3<Float>) -> Pawn? {
+    private func makePawn(slot: Int, character: String, color: String, at position: SIMD3<Float>) -> Pawn? {
         guard let template = figures[character] ?? figures.values.first else { return nil }
-        let entity = template.entity.clone(recursive: true)
-        entity.scale = SIMD3(repeating: Self.characterScale)
-        tint(entity, color: color, character: character)
-        entity.position = position
-        entity.orientation = simd_quatf(angle: Self.faceCamera, axis: [0, 1, 0])
-        root.addChild(entity)
-        var pawn = Pawn(entity: entity, character: character, position: position, yaw: Self.faceCamera)
+        let pawnRoot = Entity()
+        pawnRoot.name = "figur-\(slot)"
+        pawnRoot.position = position
+        let slotColor = color.isEmpty ? "#cccccc" : color
+        pawnRoot.addChild(PawnParts.base(color: slotColor))
+        let facing = Entity()
+        facing.position.y = BoardLook.pawnLift
+        let figure = template.entity.clone(recursive: true)
+        figure.scale = SIMD3(repeating: Self.characterScale)
+        tint(figure, color: color, character: character)
+        facing.addChild(figure)
+        pawnRoot.addChild(facing)
+        let symbol = PawnParts.symbol(slot: slot, color: slotColor)
+        symbol.position.y = BoardLook.symbolY
+        pawnRoot.addChild(symbol)
+        root.addChild(pawnRoot)
+        var pawn = Pawn(root: pawnRoot, facing: facing, figure: figure, symbol: symbol, character: character,
+                        yaw: Self.faceCamera, tilt: Self.standTilt)
+        facing.orientation = Self.orientation(yaw: pawn.yaw, tilt: pawn.tilt)
         play(&pawn, "idle")
         return pawn
     }
 
-    /// Läuft geradlinig zum Ziel (Laufen-Clip, Blick in Laufrichtung), danach Ruhe und Blick zur Kamera.
-    private func step(slot: Int, to target: SIMD3<Float>, dt: Double) {
+    /// Lage und Haltung je Bild wie `syncPawns`: im Flug direkt nach der Regie (samt Drehung), beim Hüpfen in
+    /// Laufrichtung, im Stand zur Kamera und leicht zurückgelehnt.
+    private func pose(slot: Int, _ p: RenderState.Pawn, at target: SIMD3<Float>, dt: Double) {
         guard var pawn = pawns[slot] else { return }
-        let delta = target - pawn.position
-        let distance = simd_length(SIMD2(delta.x, delta.z))
-        let heading: Float
-        if distance > 0.02 {
-            let travel = min(distance, Self.runSpeed * Float(dt))
-            pawn.position += delta * (travel / max(distance, 0.0001))
-            heading = atan2(delta.x, delta.z)
+        pawn.root.position = target
+        let factor = Float(dt <= 0 ? 0 : 1 - pow(0.5, dt / Self.turnHalfLife))
+        if let hop = p.hop, hop.style != "walk" {
+            pawn.yaw = -(p.heading ?? 0)
+            pawn.tilt = hop.style == "gust" ? Self.gustTilt : 0
+            if pawn.flying != hop.style {
+                pawn.flying = hop.style
+                playOnce(&pawn, hop.style == "gust" ? "fall" : "jump")
+                onEvent?(hop.style == "gust" ? "windstoss" : "platztausch")
+            }
+        } else if p.hop != nil {
+            pawn.flying = nil
+            turn(&pawn, to: p.heading.map { -$0 } ?? pawn.yaw, tilt: 0, factor: factor)
             play(&pawn, "run")
         } else {
-            pawn.position = target
-            heading = Self.faceCamera
-            play(&pawn, "idle")
+            pawn.flying = nil
+            turn(&pawn, to: Self.faceCamera, tilt: Self.standTilt, factor: factor)
+            if pawn.animation == "run" || (time >= pawn.oneShotUntil && pawn.animation != "idle") { play(&pawn, "idle") }
         }
-        var turn = (heading - pawn.yaw).truncatingRemainder(dividingBy: 2 * .pi)
-        if turn > .pi { turn -= 2 * .pi }
-        if turn < -.pi { turn += 2 * .pi }
-        pawn.yaw += turn * Float(1 - pow(0.5, dt / Self.turnHalfLife))
-        pawn.entity.position = pawn.position
-        pawn.entity.orientation = simd_quatf(angle: pawn.yaw, axis: [0, 1, 0])
+        pawn.facing.orientation = Self.orientation(yaw: pawn.yaw, tilt: pawn.tilt)
+        // Symbol schwebt leicht (wie `SYMBOL_Y + 0.06 * sin(simMs / 300 + slot)`).
+        pawn.symbol.position.y = BoardLook.symbolY + 0.06 * Float(sin(time * 1000 / 300 + Double(slot)))
+        let connected = p.connected ?? true
+        if connected != pawn.connected {
+            pawn.connected = connected
+            if connected { pawn.root.components.remove(OpacityComponent.self) } else { pawn.root.components.set(OpacityComponent(opacity: 0.35)) }
+        }
         pawns[slot] = pawn
+    }
+
+    private func turn(_ pawn: inout Pawn, to heading: Float, tilt: Float, factor: Float) {
+        var delta = (heading - pawn.yaw).truncatingRemainder(dividingBy: 2 * .pi)
+        if delta > .pi { delta -= 2 * .pi }
+        if delta < -.pi { delta += 2 * .pi }
+        pawn.yaw += delta * factor
+        pawn.tilt += (tilt - pawn.tilt) * factor
+    }
+
+    private static func orientation(yaw: Float, tilt: Float) -> simd_quatf {
+        simd_quatf(angle: yaw, axis: [0, 1, 0]) * simd_quatf(angle: tilt, axis: [1, 0, 0])
+    }
+
+    /// Reaktion der Figur auf ein neues Popup über ihr (die Regie liefert `reaction`); während des Hüpfens hat `run` Vorrang.
+    private func react(to list: [RenderState.Popup]) {
+        let ids = Set(list.map(\.id))
+        reacted.formIntersection(ids)
+        for popup in list where !reacted.contains(popup.id) {
+            reacted.insert(popup.id)
+            guard let slot = popup.slot, let reaction = popup.reaction, var pawn = pawns[slot], pawn.animation != "run" else { continue }
+            playOnce(&pawn, reaction)
+            pawns[slot] = pawn
+        }
+    }
+
+    /// Meldet neue Ereignisse im Bild (Popup-Art, Rückenwind, Sabotage) für `--ereignisbild`.
+    private func announce(_ board: RenderState.Board, popups list: [RenderState.Popup]) {
+        guard let onEvent else { return }
+        announced.formIntersection(Set(list.map(\.id)))
+        for popup in list where !announced.contains(popup.id) {
+            announced.insert(popup.id)
+            onEvent(Self.eventNames[popup.kind] ?? popup.kind)
+        }
+        let tailwind = board.hud?.tailwind != nil
+        if tailwind, !tailwindShown { onEvent("rueckenwind") }
+        tailwindShown = tailwind
+        let notice = board.notice != nil
+        if notice, !noticeShown { onEvent("sabotage") }
+        noticeShown = notice
     }
 
     private func play(_ pawn: inout Pawn, _ name: String) {
         guard pawn.animation != name, let clip = figures[pawn.character]?.clips[name],
-              let owner = Self.find(in: pawn.entity, where: { !$0.availableAnimations.isEmpty }) else { return }
+              let owner = Self.find(in: pawn.figure, where: { !$0.availableAnimations.isEmpty }) else { return }
         pawn.animation = name
         owner.playAnimation(clip, transitionDuration: 0.2)
     }
 
-    /// Kamera wie im Babylon-Host: Brettmitte, zum aktiven Spieler leicht verschoben, exponentiell nachgezogen.
-    private func placeCamera(dt: Double, active: SIMD2<Float>?) {
-        let target = active.map { center + ($0 - center) * Self.cameraFollow } ?? center
+    /// Einmal-Clip (Reaktion, Flug); danach geht die Figur im Stand zurück zu `idle`.
+    private func playOnce(_ pawn: inout Pawn, _ name: String) {
+        guard let clip = figures[pawn.character]?.clips[name],
+              let owner = Self.find(in: pawn.figure, where: { !$0.availableAnimations.isEmpty }) else { return }
+        pawn.animation = name
+        pawn.oneShotUntil = time + (figures[pawn.character]?.durations[name] ?? 0.8)
+        owner.playAnimation(clip, transitionDuration: 0.15)
+    }
+
+    /// Ring am Boden und Pfeil über dem Kopf des Spielers am Zug (`syncActive`).
+    private func syncActive(_ pawn: Pawn?, camera facing: simd_quatf) {
+        guard let pawn else {
+            activeRing?.isEnabled = false
+            activeArrow?.isEnabled = false
+            return
+        }
+        let p = pawn.root.position
+        activeRing?.isEnabled = true
+        activeRing?.setPosition(SIMD3(p.x, surfaceY + 0.04, p.z), relativeTo: nil)
+        activeArrow?.isEnabled = true
+        activeArrow?.position = SIMD3(p.x, p.y + BoardLook.pawnHeight + BoardLook.arrowAbove + BoardLook.arrowBob * Float(sin(time * 1000 / 180)), p.z)
+        activeArrow?.orientation = facing
+    }
+
+    /// Pokal je Trophäenfeld, dreht sich und schwebt (`syncTrophies`).
+    private func sync(trophies active: [String]) {
+        let wanted = Set(active)
+        for (id, node) in trophies where !wanted.contains(id) {
+            node.removeFromParent()
+            trophies[id] = nil
+        }
+        guard let template = trophyTemplate else { return }
+        for id in active {
+            guard let anchor = anchors[id] else { continue }
+            let node = trophies[id] ?? {
+                let made = template.clone(recursive: true)
+                made.name = "pokal-\(id)"
+                root.addChild(made)
+                trophies[id] = made
+                return made
+            }()
+            node.position = SIMD3(anchor.x + template.position.x, anchor.y + 0.15 + 0.08 * Float(sin(time * 1000 / 400)), anchor.z + template.position.z)
+            node.orientation = simd_quatf(angle: -Float(time * 1000 / 900), axis: [0, 1, 0]) * template.orientation
+        }
+    }
+
+    /// Versteckte Fallen, Mitte in Besitzerfarbe (`syncTraps`).
+    private func sync(traps list: [RenderState.Trap], colors: [Int: String]) {
+        let wanted = Dictionary(list.map { ("\($0.spaceId)|\($0.owner)", $0) }, uniquingKeysWith: { a, _ in a })
+        for (key, node) in traps where wanted[key] == nil {
+            node.removeFromParent()
+            traps[key] = nil
+        }
+        guard let template = trapTemplate else { return }
+        for (key, trap) in wanted where traps[key] == nil {
+            guard let anchor = anchors[trap.spaceId] else { continue }
+            let node = template.clone(recursive: true)
+            node.name = "falle-\(key)"
+            node.position = anchor + template.position
+            if let center = node.findEntity(named: "falle_mitte"), var model = Self.find(in: center, where: { $0.components.has(ModelComponent.self) })?
+                .components[ModelComponent.self] {
+                let color = colors[trap.owner].flatMap { $0.isEmpty ? nil : $0 } ?? "#cccccc"
+                model.materials = model.materials.map { _ in PawnParts.paint(color, glow: true) }
+                Self.find(in: center, where: { $0.components.has(ModelComponent.self) })?.components.set(model)
+            }
+            root.addChild(node)
+            traps[key] = node
+        }
+    }
+
+    /// Kamera wie im Babylon-Host: Blickpunkt aus der Regie (`cameraFocus`), exponentiell nachgezogen.
+    private func placeCamera(dt: Double, target: SIMD2<Float>) {
         if let current = focus, dt > 0 {
             focus = current + (target - current) * Float(1 - pow(0.5, dt / Self.cameraHalfLife))
         } else {
@@ -263,23 +493,26 @@ final class BoardScene {
 
     // MARK: Laden
 
-    /// Clips aus `<id>.clips.json` (alle Clips auf einer Zeitleiste, CHAOS-140); fehlt die Tabelle, die ganze Animation als `idle`.
-    private static func clips(of figure: Entity, table: URL) -> [String: AnimationResource] {
+    /// Clips aus `<id>.clips.json` (alle Clips auf einer Zeitleiste, CHAOS-140) samt Länge; fehlt die Tabelle, die ganze
+    /// Animation als `idle`.
+    private static func clips(of figure: Entity, table: URL) -> (clips: [String: AnimationResource], durations: [String: Double]) {
         guard let owner = find(in: figure, where: { !$0.availableAnimations.isEmpty }) else {
             hostLog("FEHLER \(figure.name): keine Animation")
-            return [:]
+            return ([:], [:])
         }
         let source = owner.availableAnimations[0]
         guard let data = try? Data(contentsOf: table), let parsed = try? JSONDecoder().decode(FigureClips.self, from: data) else {
-            return ["idle": source.repeat()]
+            return (["idle": source.repeat()], [:])
         }
         var result: [String: AnimationResource] = [:]
+        var durations: [String: Double] = [:]
         for clip in parsed.clips {
             guard let resource = try? AnimationResource.generate(with: source.definition.trimmed(start: clip.start, end: clip.end))
             else { continue }
             result[clip.name] = clip.loop == false ? resource : resource.repeat()
+            durations[clip.name] = clip.end - clip.start
         }
-        return result
+        return (result, durations)
     }
 
     private struct FigureClips: Decodable {
