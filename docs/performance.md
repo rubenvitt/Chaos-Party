@@ -289,6 +289,10 @@ Heap nach GC schwankt um ≤ 2 MB (≤ 3 %), der Höchstwert um bis zu 30 %. Die
 
 **Gewollte Strukturänderung:** Kontexte im Minispiel 1 → 2, Heap nach GC im Minispiel 52–74 → 112–145 MB (Brett bleibt im Speicher; Finale/Podest liegen bei ≈ 120 MB). Revanche ×3 unverändert (Lobby 1 Kontext, kein Wachstum). Baseline der Partie danach neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`).
 
+## 3i. Wechsel Brett → Minispiel: Warten auf den GPU-Prozess (CHAOS-174)
+
+Der längste Block Brett → Minispiel (Perf-Partie auf dem Mac, Median 0,79–0,84 s) ist **kein** Kontextaufbau. Mit Messmarken ([EXP-030](experiments.md)) wandert er immer zum ersten synchronen GL-Aufruf nach dem Ausblenden des Bretts (`new Engine(…)`, eine Größenänderung der Leinwand oder ein Aufruf beim Figuren-Laden) und dauert dort ≈ 0,8 s. Wird die Bühne 1,5 s später aufgebaut, kostet `new Engine(…)` 15–20 ms und der längste Block sinkt auf 124–150 ms. Lesart: SwiftShader arbeitet beim Wechsel noch vorausgelaufene Brett-Bilder ab. Eine über die Partie geteilte Minispiel-Engine brachte keinen Gewinn (Median 789–1344 ms) und wurde verworfen. Die Kennzahl „brett → minispiel“ misst auf SwiftShader also vor allem diese Warteschlange; ob auf echter Hardware ein Standbild bleibt, zeigt nur N4.
+
 ## 4. Umgesetzte Optimierungen
 
 | Engpass (belegt durch) | Änderung | Ergebnis |

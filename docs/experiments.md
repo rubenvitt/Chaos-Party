@@ -2243,7 +2243,7 @@ Größere Blöcke liegen im echten Ablauf **außerhalb** der Shader-Vorbereitung
 
 - **Perf-Partie unverändert, weil der längste Block woanders liegt:** Mit Messmarken liegt er in allen 5 Wechseln bei `new Engine(…)` der Minispiel-Bühne (456–845 ms). Das ist der zweite WebGL-Kontext neben dem eingehängten Brett (CHAOS-152). `runner.prepare` erscheint dort höchstens noch als einzelner Abschnitt (einmal 213 ms: ein Bauschritt ohne `pace` dazwischen).
 - **Nach dem ersten Bild** folgen weiterhin Blöcke von 3,6–4,9 s (SwiftShader übersetzt beim ersten Zeichnen mit laufender Render-Schleife). Die Kennzahl „Aufbau → erstes Bild“ zählt sie nicht.
-- **Entscheidung:** keep. Der Aufbau des Minispiels blockiert nicht mehr am Stück. Das Akzeptanzkriterium aus CHAOS-168 („längster Block Brett → Minispiel deutlich unter 0,5–0,77 s“) ist in der Perf-Partie **nicht** erreicht; der nächste Hebel ist der Kontextaufbau (Folgeaufgabe unter CHAOS-44).
+- **Entscheidung:** keep. Der Aufbau des Minispiels blockiert nicht mehr am Stück. Das Akzeptanzkriterium aus CHAOS-168 („längster Block Brett → Minispiel deutlich unter 0,5–0,77 s“) ist in der Perf-Partie **nicht** erreicht; der nächste Hebel ist der Kontextaufbau (Folgeaufgabe unter CHAOS-44). **Korrektur (EXP-030, CHAOS-174):** Nicht der Kontextaufbau kostet die Zeit, sondern das Warten des ersten synchronen GL-Aufrufs auf den GPU-Prozess, der noch Brett-Bilder abarbeitet; ein frischer Kontext kostet 15–20 ms.
 
 ## EXP-026: Figuren als USDZ direkt aus bpy – Vertexfarben als Textur gebacken (2026-11-17, CHAOS-140)
 
@@ -2375,3 +2375,40 @@ Umgesetzt und gemessen wurde nur **a**: Es deckt beide Blöcke ab. b und c löse
 **Entscheidung:** **keep a.** Baseline der Partie neu geschrieben (`PERF_UPDATE_BASELINE=1 pnpm perf -g Partie`): Kontexte 2 und Heap im Minispiel sind gewollt. b und c nicht umgesetzt; nur angehen, falls N4 auf echter Hardware noch ein Standbild zeigt.
 
 **Offen (nur auf echter Hardware):** N4 (Gerätecheckliste). Speicher: Zwei Kontexte gibt es seit CHAOS-39/71 schon im Finale; neu ist, dass sie während jedes Minispiels bestehen. Auf einem PC mit wenig Grafikspeicher (integrierte GPU) wäre ein Kontextverlust denkbar; nicht beobachtet.
+
+---
+
+## EXP-030: Minispiel-Engine über die Partie behalten (2026-11-19, CHAOS-174)
+
+**Hypothese / gewünschtes Spielerlebnis:** Der längste Block beim Wechsel Brett → Minispiel (Perf-Partie, Mac, Median ≈ 0,72–0,76 s) entsteht beim Erzeugen des zweiten WebGL-Kontexts neben dem eingehängten Brett (EXP-025, Nachtrag CHAOS-168: Messmarken legten ihn auf `new Engine(…)`). Bleibt die Minispiel-Engine samt Leinwand über die Minispiele einer Partie bestehen und ist nur die Szene je Minispiel neu, entfällt er.
+
+**Auftrag:** Ruben hat die Aufgabe am 2026-11-19 direkt beauftragt („CHAOS-174 + CHAOS-175“).
+
+**Varianten:**
+
+| | Idee | Erwartung |
+|---|---|---|
+| A | Geteilte Engine (Ausleihe je Minispiel, entsorgt beim Finale bzw. in der Lobby), Auflösung bei jeder Ausleihe auf den Ausgangswert zurück | Block weg ab dem 2. Minispiel; Preis: 2 Kontexte am Brett |
+| A′ | wie A, aber ohne Größenwechsel der Leinwand beim Ausleihen | wie A |
+| B | Messprobe, nicht zum Behalten: eigene Engine wie bisher, Aufbau der Bühne 1,5 s nach dem Ausblenden des Bretts | zeigt, ob `new Engine(…)` selbst teuer ist |
+
+**Testumgebung:** Mac (Apple Silicon), Headless-Chromium mit SwiftShader, `pnpm perf` (Partie: 4 Bots, 3 Runden, 5 Minispiele, Stufe `minimal`), ein Worker, nichts anderes rechenintensiv daneben. Für A′ und B temporäre Messmarken in Bühne und Brett (`performance.now()` je Schritt) plus die Long Tasks des Debug-Protokolls. Werte nur relativ, nur auf diesem Rechner.
+
+**Ergebnisse (längster Block je Wechsel Brett → Minispiel, in Partie-Reihenfolge):**
+
+| Lauf | 1 | 2 | 3 | 4 | 5 | Median | Wo der Block liegt |
+|---|---|---|---|---|---|---|---|
+| vorher (`main` 102589a) | 571 | 622 | 11 473 | 899 | 836 | 836 ms | `new Engine(…)` (EXP-025) |
+| A | 416 | 728 | 1701 | 1344 | 3772 | 1344 ms | `engine.resize()` der geliehenen Engine: 761–1017 ms |
+| A′ | 619 | 739 | 803 | 873 | 789 | 789 ms | jetzt im Laden der Figuren bzw. im ersten Schritt von `runner.prepare` |
+| B | 150 | 124 | 779 | 143 | 131 | 143 ms | `new Engine(…)` kostet 15–20 ms; Wechsel 3: Brett bereitet die Nacht-Stimmung vor (`prepareSceneGradually` des Bretts direkt beim Ausblenden) |
+
+- **Hypothese widerlegt:** Der Block hängt nicht am Kontextaufbau, sondern am **ersten synchronen GL-Aufruf nach dem Ausblenden des Bretts**. Vorher war das `new Engine(…)`, in A die Größenänderung der Leinwand, in A′ ein Aufruf beim Figuren-Laden, in B Wechsel 3 die Shader-Vorbereitung des Bretts. Jeder wartet ≈ 0,8 s auf den GPU-Prozess. Mit 1,5 s Abstand (B) ist dieselbe Wartezeit verschwunden, und ein frischer Kontext kostet 15–20 ms.
+- **Wahrscheinliche Ursache:** SwiftShader rechnet die Bilder des Bretts auf der CPU im GPU-Prozess; Chromium lässt die Seite einige Bilder vorauslaufen. Beim Ausblenden liegen noch ≈ 0,8 s Brett-Arbeit in der Warteschlange, und der erste synchrone Aufruf (egal welcher Kontext) wartet, bis sie abgearbeitet ist. Auf einer echten GPU wären das wenige Bilder zu je wenigen ms. Gesichert ist nur die Verschiebung des Blocks; die Warteschlange als Ursache ist abgeleitet, nicht direkt gemessen.
+- **Minispiel → Brett:** auf diesem Mac schon vorher ohne Long Task (alle 5 Wechsel 0 ms), also auch dort kein Gewinn durch A.
+- **Preis von A:** zweiter Kontext während der ganzen Brettphase (`brett.contextsMax` 1 → 2, schlägt gegen die Baseline an). Revanche ×3 blieb bei 1 Kontext in der Lobby, Heap unverändert (37,6 → 52,5 MB gegenüber 37,9 → 52,2 MB vorher).
+- Nach dem ersten Bild folgen in allen Varianten weiter 3,6–4,9 s Shader-Übersetzung mit laufender Render-Schleife (wie EXP-025); die Kennzahl zählt sie nicht.
+
+**Entscheidung:** **discard A/A′.** Kein messbarer Gewinn, dafür ein dauerhafter zweiter Kontext. B war nur eine Messprobe. Ein künstliches Warten vor dem Aufbau (feste Pause oder Fence-Abfrage, bis der GPU-Prozess leer ist) würde die Kennzahl senken, aber auf SwiftShader steht das Bild in dieser Zeit ohnehin (der GPU-Prozess ist belegt), und auf echter Hardware ist die Warteschlange kurz. Nicht umgesetzt; ob überhaupt ein Standbild auf echter Hardware bleibt, zeigt N4. Entwurf und Messcode liegen nicht im Repo (verworfen).
+
+**Offen (nur auf echter Hardware):** N4 der Gerätecheckliste. CHAOS-174 ist verworfen (2026-11-19, Entscheidung an Claude übertragen, `docs/blockers.md`); eine neue Aufgabe nur, wenn N4 ein Standbild zeigt.
