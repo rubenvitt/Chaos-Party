@@ -3,7 +3,11 @@
 // Kreis und A im Wechsel (wie `test/botMatch.ts`). Mit `--autostart` startet die App von selbst.
 // `--spieler <1–4>` (Standard 2); `--bunt` (CHAOS-143) entscheidet abwechslungsreich statt immer die erste
 // Option: Items, Trophäe kaufen, Schild, mal zu spät reagieren, damit eine Partie alle Brett-Ereignisse zeigt.
+// Wiederverbindung (CHAOS-145): `--trennen <s>` – Ben schließt nach s Sekunden die Verbindung und kommt 4 s später mit
+// seinem Token zurück; `--funkstille <s>` – Ben verstummt nach s Sekunden (wie ein Handy ohne WLAN), der Host trennt
+// ihn nach 15 s, nach 20 s kommt er auf einer neuen Verbindung zurück.
 //   node apps/apple-host/scripts/live-bots.mjs 'http://<ip>:<port>/?code=ABCD' [--sekunden 600] [--spieler 4] [--bunt]
+//     [--trennen 60] [--funkstille 120]
 // Join-Link aus dem Log der App (`JOIN-URL …`). Node ≥ 22 (globales WebSocket).
 const PROTOCOL_VERSION = 4; // packages/protocol/src/version.ts
 const BOTS = [
@@ -20,6 +24,12 @@ const seconds = secondsArg >= 0 ? Number(args[secondsArg + 1]) : 600;
 const playersArg = args.indexOf('--spieler');
 const players = Math.min(4, Math.max(1, playersArg >= 0 ? Number(args[playersArg + 1]) : 2));
 const colorful = args.includes('--bunt');
+const numberArg = (/** @type {string} */ name) => {
+  const index = args.indexOf(name);
+  return index >= 0 ? Number(args[index + 1]) : null;
+};
+const dropAfter = numberArg('--trennen');
+const silenceAfter = numberArg('--funkstille');
 const joinCode = joinUrl.searchParams.get('code') ?? '';
 
 /**
@@ -43,8 +53,13 @@ const wsUrl = `ws://${joinUrl.host}/ws`;
 
 /** @param {{ name: string, character: string }} bot */
 function bot({ name, character }) {
-  const ws = new WebSocket(wsUrl);
+  /** @type {WebSocket} */
+  let ws;
   let seq = 0;
+  /** @type {string | null} */
+  let token = null;
+  /** Funkstille: nichts senden, nichts lesen (CHAOS-145). */
+  let silent = false;
   /** @type {number | null} */
   let slot = null;
   /** @type {string[]} */
@@ -54,17 +69,18 @@ function bot({ name, character }) {
   const answered = new Set();
   /** @type {(type: string, fields?: Record<string, unknown>) => void} */
   const send = (type, fields = {}) => {
-    if (ws.readyState === WebSocket.OPEN)
+    if (ws.readyState === WebSocket.OPEN && !silent)
       ws.send(JSON.stringify({ v: PROTOCOL_VERSION, type, ...fields }));
   };
-  ws.addEventListener('open', () => {
-    send('join', { joinCode, seats: 1, names: [name] });
-  });
-  ws.addEventListener('message', (event) => {
+  /** @param {MessageEvent} event */
+  const onMessage = (event) => {
+    if (silent) return;
     const m = JSON.parse(String(event.data));
     if (m.type === 'welcome') {
+      const rejoined = token !== null;
       slot = m.players[0]?.slot ?? null;
-      console.log(`${name}: Slot ${String(slot)}`);
+      token = m.sessionToken;
+      console.log(`${name}: Slot ${String(slot)}${rejoined ? ' (wieder verbunden)' : ''}`);
     } else if (m.type === 'context' && slot !== null) {
       actions = m.actions ?? [];
       if (actions.includes('pick-character') && !picked) {
@@ -87,10 +103,35 @@ function bot({ name, character }) {
     } else if (m.type === 'error') {
       console.log(`${name}: error ${String(m.code)} ${String(m.message)}`);
     }
-  });
-  ws.addEventListener('close', () => {
-    console.log(`${name}: Verbindung zu`);
-  });
+  };
+  /** Neue Verbindung; mit Token als `reconnect`, sonst `join`. */
+  const connect = () => {
+    ws = new WebSocket(wsUrl);
+    ws.addEventListener('open', () => {
+      if (token) send('reconnect', { sessionToken: token });
+      else send('join', { joinCode, seats: 1, names: [name] });
+    });
+    ws.addEventListener('message', onMessage);
+    const current = ws;
+    ws.addEventListener('close', (event) => {
+      if (current === ws) console.log(`${name}: Verbindung zu (${String(event.code)})`);
+    });
+  };
+  connect();
+  const drop = () => {
+    console.log(`${name}: trennt sich`);
+    ws.close();
+    setTimeout(connect, 4000);
+  };
+  const silence = () => {
+    console.log(`${name}: Funkstille`);
+    silent = true;
+    setTimeout(() => {
+      console.log(`${name}: wieder im Netz`);
+      silent = false;
+      connect();
+    }, 20_000);
+  };
   const timer = setInterval(() => {
     if (slot === null) return;
     const now = Date.now();
@@ -106,14 +147,21 @@ function bot({ name, character }) {
   const heartbeat = setInterval(() => {
     send('heartbeat', { t: Date.now() });
   }, 5000);
-  return () => {
-    clearInterval(timer);
-    clearInterval(heartbeat);
-    ws.close();
+  return {
+    drop,
+    silence,
+    stop: () => {
+      clearInterval(timer);
+      clearInterval(heartbeat);
+      ws.close();
+    },
   };
 }
 
-const stops = BOTS.slice(0, players).map(bot);
+const bots = BOTS.slice(0, players).map(bot);
+const ben = bots[1];
+if (ben && dropAfter !== null) setTimeout(ben.drop, dropAfter * 1000);
+if (ben && silenceAfter !== null) setTimeout(ben.silence, silenceAfter * 1000);
 setTimeout(() => {
-  for (const stop of stops) stop();
+  for (const b of bots) b.stop();
 }, seconds * 1000);

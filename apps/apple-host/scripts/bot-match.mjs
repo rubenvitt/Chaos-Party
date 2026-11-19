@@ -2,6 +2,9 @@
 //   pnpm --filter @chaos-party/apple-host bots                       # bis zum ersten angenommenen Minispiel
 //   pnpm --filter @chaos-party/apple-host bots --full                # ganze Partie, alle Minispiele der Rotation
 //   pnpm --filter @chaos-party/apple-host bots --full --matches 3    # drei Partien mit Revanche, Speicher je Partie (CHAOS-141)
+// Mit `--full` prüft die erste Partie außerdem Pause (Brett, Minispiel), Wiederverbindung (sauber
+// und nach Funkstille) und das Finale bis zum Siegerbildschirm, jede weitere „Überspringen“
+// (CHAOS-145, `exercise`); `--ohne-extras` lässt das weg.
 // Vorher `pnpm --filter @chaos-party/apple-host build`. Exit 1, wenn die Partie nicht sauber läuft
 // oder der Speicher nach der ersten Partie um mehr als `MAX_GROWTH_MB` wächst.
 import { readFileSync } from 'node:fs';
@@ -20,6 +23,7 @@ const full = args.includes('--full');
 const verbose = args.includes('--verbose');
 const matchesArg = args.indexOf('--matches');
 const matches = matchesArg >= 0 ? Number(args[matchesArg + 1]) : 1;
+const exercise = full && !args.includes('--ohne-extras');
 
 setFlagsFromString('--expose-gc');
 const gc = /** @type {() => void} */ (runInNewContext('gc'));
@@ -34,6 +38,7 @@ const result = await runBotMatch({
   wasm: readFileSync(WASM_FILE),
   full,
   matches,
+  exercise,
   validateEvery: 30,
   log: verbose ? (line) => console.log(line) : undefined,
   onFrame: (frame) => {

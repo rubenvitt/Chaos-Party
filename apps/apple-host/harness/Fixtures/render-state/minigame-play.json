@@ -417,5 +417,12 @@
       }
     ],
     "hud": "48 s · Anna 3 · Ben 1"
+  },
+  "final": null,
+  "pause": {
+    "paused": false,
+    "canPause": true,
+    "roundText": "Runde 3/10",
+    "sounds": []
   }
 }

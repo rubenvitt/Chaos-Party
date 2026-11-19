@@ -174,5 +174,27 @@
     ],
     "sounds": []
   },
-  "minigame": null
+  "minigame": null,
+  "pause": {
+    "paused": true,
+    "canPause": false,
+    "roundText": "Runde 3/10",
+    "sounds": [
+      {
+        "id": 4,
+        "name": "pause",
+        "voices": [
+          {
+            "wave": "sine",
+            "freq": 660,
+            "freqEnd": 330,
+            "attack": 0.01,
+            "duration": 0.2,
+            "gain": 0.2
+          }
+        ]
+      }
+    ]
+  },
+  "final": null
 }
