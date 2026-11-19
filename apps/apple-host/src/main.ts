@@ -58,6 +58,7 @@ import { CONFIGURE_PREFIX } from './contract.ts';
 import { createBoardDirection } from './boardDirection.ts';
 import { createFinaleView } from './finaleView.ts';
 import { createSoundTrack } from './soundTrack.ts';
+import { minigameLight } from './lightMood.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
 import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
@@ -503,6 +504,7 @@ function create(env: HostEnv): ChaosHostInstance {
       geometry: headless?.takeGeometry(GEOMETRY_CHARS_PER_FRAME, GEOMETRY_BUDGET_MS) ?? [],
       geometryTotal: headless?.geometryTotal ?? 0,
       sounds: sounds.cues(stageKeyOf(current, isKnownMinigame)),
+      light: minigameLight(minigame.round, current.rounds),
     };
   };
 

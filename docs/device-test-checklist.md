@@ -618,7 +618,6 @@ Automatisch bzw. von Claude geprüft: Regie-Tests (`apps/host/src/board/director
 |---|---|---|---|---|
 | PS1 | PC: Partie spielen, bis eine Figur auf einem Münzfeld ein Item bekommt oder würfelt und gleich danach Münzen bekommt | Die Popups stehen übereinander, beide lesbar; das jüngere schiebt sich nicht über das ältere | | Foto |
 | PS2 | Mac-App (nativer Host): dasselbe | wie PS1 | | Foto |
-||||||| parent of fdeddcb (feat(apple-host): Minispiele mit Klängen wie im Babylon-Host)
 
 ## 32. Minispiel-Klänge im nativen Host (für CHAOS-190)
 
@@ -634,3 +633,19 @@ Automatisch bzw. von Claude geprüft (19.11.): Klänge je Minispiel wie im Brows
 | MK4 | Kuckucks-Klatsche mit vier Spielern (dichteste Klangfolge)                  | Ton bleibt im Takt; Log: `Minispiel-Klänge …: n gespielt, m verworfen` mit kleinem `m`                                           |          | Log-Zeile  |
 | MK5 | Gleiche Stelle am PC (Babylon-Host) anhören                                 | Gleiche Klänge, ähnliche Lautstärke wie am PC und wie die Brett-Klänge                                                            |          |            |
 | MK6 | App mit `--stumm` starten                                                   | Minispiele bleiben still                                                                                                          |          |            |
+
+## 33. Nativer Host: Lichtstimmung je Runde, Flug-Effekte, Minispiel-Kulisse, Aufwärmen (für CHAOS-193, CHAOS-192)
+
+**Stand:** 2026-11-19 · **Aufgaben:** CHAOS-193, CHAOS-192 · **Anleitung:** [`apps/apple-host/README.md`](../apps/apple-host/README.md), Abschnitt „App“ (Lichtstimmung, Minispiele, Aufwärmen)
+
+Automatisch geprüft: Unit-Tests der Stimmung und Überblendung (`test/lightMood.test.ts`), Bündel-Test mit strengem Schema, `bots --full`, Swift-Harness, Builds für macOS und tvOS. Im tvOS-Simulator und am Mac mit Bot-Controllern: fünf Runden Morgen bis Nacht, alle fünf Minispiele, Bildpaare gegen den Babylon-Host, Bildrate im Simulator, Aufwärmen im Log. **Nicht** geprüft: echte Apple TV (Bildrate mit 12 000 Grashalmen und bis zu sechs Punktlichtern nachts, Dauer des Aufwärmens), Windstoß und Platztausch (kamen in den Bot-Partien nicht vor).
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| LS1 | Apple TV: App starten, Log lesen | `Aufwärmen: … Bilder unsichtbar […] ms` vor `host-ready`; Lobby erscheint ohne merkliche Verzögerung | | Log |
+| LS2 | Partie mit 5 Runden, erstes Minispiel | Geometrie steht vor Ende des Countdowns (Log: `… s vor Ende des Countdowns`), kein Ruckeln beim Wechsel | | Log |
+| LS3 | Brett über alle Runden ansehen | Morgen, Mittag, Abend, Dämmerung, Nacht; Wechsel weich über etwa 4 s; nachts leuchten die Laternen | | Foto |
+| LS4 | Minispiele über die Runden | Licht passt zur Runde; Kuckucksuhr orange statt braun; Grashalme und Laternen; im flachen Blick (Kuckucks-Klatsche) keine Kante am Horizont | | Foto |
+| LS5 | Bildrate (Log `HOST-MESSUNG`) im Brett und im Minispiel, besonders nachts | wie vor CHAOS-193 (Median ≈ 58–60 Bilder/s) | | Log |
+| LS6 | Windstoß- bzw. Platztausch-Feld erreichen | Windringe um die Figur bzw. Ring in Slot-Farbe an Abflug- und Zielfeld | | Foto |
+| LS7 | Siegerpodest | Nachtdunst, Laternen leuchten | | Foto |

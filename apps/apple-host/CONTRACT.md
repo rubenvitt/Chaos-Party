@@ -76,7 +76,12 @@ interface ChaosHostInstance {
     "camera": { "x": 3.9, "z": 3.9 },                                    // Blickpunkt (cameraFocus), Swift zieht nach
     "trophySpaces": ["s12"], "traps": [{ "spaceId": "s15", "owner": 2 }],
     "sounds": [{ "id": 3, "name": "dice", "voices": [{ "wave": "noise", "freq": 0, "attack": 0.002, "duration": 0.04, "gain": 0.26,
-                                                       "filter": { "type": "bandpass", "freq": 1900, "q": 2 } }] }]
+                                                       "filter": { "type": "bandpass", "freq": 1900, "q": 2 } }] }],
+    "light": { "mood": "mittag", "keyIntensity": 3.4, "keyTint": "#fffaf0", "keyElevation": 0.7,  // CHAOS-193
+               "skyIntensity": 1, "fillIntensity": 0.35, "fillSky": "#d4e6f4", "fillGround": "#7d8a52",
+               "environment": { "mood": "mittag", "sky": "#d4e6f4", "ground": "#7d8a52", "skyIntensity": 1, "fillIntensity": 0.35 },
+               "haze": "#d4e6f4", "exposure": 1.3, "lampsOn": 0, "lanternColor": "#ff9c4a", "lanternIntensity": 0,
+               "lanternRange": 0, "grassTip": "#acd462" }
   },
   "minigame": null | {
     "id": "pudding-gerangel", "stage": "intro" | "play" | "results", "elapsedMs": 1234,
@@ -103,7 +108,8 @@ interface ChaosHostInstance {
                    "wideIndices": false, "extent": [1, 0.5, 1] }],
     "geometryTotal": 43,
     "sounds": [{ "id": 41, "name": "hit", "voices": [{ "wave": "sine", "freq": 190, "freqEnd": 70, "attack": 0.004, "duration": 0.16,
-                                                       "gain": 0.2 }] }]
+                                                       "gain": 0.2 }] }],
+    "light": { … }                                                      // wie board.light, Stimmung der Runde (CHAOS-193)
   },
   "final": null | {                                                      // nur in der Phase final (CHAOS-145)
     "beat": "intro" | "reveal" | "tiebreak" | "winner", "beatIndex": 3, "progress": 0.62, "done": false,
@@ -127,6 +133,7 @@ interface ChaosHostInstance {
 - **Brett-Regie (CHAOS-143):** `round`, `activeSlot`, `messages` und `notice` folgen dem neuesten Stand (wie bisher). Alles andere zeigt den Stand, den die Regie gerade spielt (`apps/host/src/board/director.ts`, unverändert, in `src/boardDirection.ts`): `pawns` (Lage auf der Hüpf- bzw. Flugbahn, `heading` in Babylon-Konvention, RealityKit: negieren), `popups`, `ticker`, `hud` (Texte aus `texts.ts`, Münzen schon um gespielte Ereignisse aktualisiert), `camera`, `trophySpaces`, `traps`. Während eines Minispiels steht die Regie; danach holt sie ohne Animation auf.
 - `board.sounds`: Klänge der letzten 1,5 s mit steigender `id` je Partie (neue Partie: ab 1). Swift spielt jede ID einmal und setzt den Zähler in der Lobby zurück. `voices` ist das Rezept aus `apps/host/src/fx/sounds.ts` mit Lautstärke und Tonhöhe angewandt.
 - `board.notice` kommt aus `eventNotice` (`apps/host/src/board/texts.ts`): bisher nur in Wachstumsrunden der Sabotage (`round-started` mit `sabotage`), bei `sabotageGrowthRounds: 0` nie. Der Kern hält sie 4 s (`src/notice.ts`); Swift zeigt sie nur in der Phase `board`.
+- **Lichtstimmung (CHAOS-193):** `board.light` und `minigame.light` sind der `LightState` des Browser-Hosts (`apps/host/src/lighting/transition.ts`) aus `LIGHT_MOODS`, gerechnet in `src/lightMood.ts`. Das Brett folgt der gezeigten Runde der Regie: der erste Stand gilt sofort, jeder spätere Rundenwechsel blendet über 4 s über (`MOOD_TRANSITION_MS`); während eines Minispiels steht die Überblendung. Minispiele erben die Stimmung ihrer Runde (`moodForRound`), ohne Überblendung. `environment` nennt die Stimmung, deren Himmelslicht gerade gilt (Wechsel zur Hälfte der Überblendung wie das HDRI), mit ihren reinen Farben und Stärken; Swift baut es je Stimmung einmal (`app/SceneLight.swift`). Farben sRGB, Intensitäten in Babylon-Einheiten. In der Lobby gibt es kein `board` und damit keine Stimmung (Swift zeigt das Licht des Exports).
 - `phase` ist `lobby`, solange die Session nicht im Brettspiel ist (auch die M1-Arena erscheint als `lobby`). `paused` hat Vorrang vor `minigame` und `final`.
 - Koordinaten roh aus Babylon/game-core (linkshändig). Pawns: Feldmitte plus Versatz bei mehreren Figuren auf einem Feld.
 - Körper: `pos` = Weltmitte der Bounding-Box, `rot` = Weltrotation (x, y, z, w), `size` = lokale Ausdehnung × Skalierung (vor der Rotation). `shape` wird aus den Eckpunkten geschätzt (Kugel / Zylinder inkl. Scheibe, Kapsel und Torus / sonst Quader). `color` ist `diffuseColor` bzw. `albedoColor`. Unsichtbare und deaktivierte Meshes fehlen; Thin Instances werden nicht einzeln ausgegeben. Figuren (`markVisual`-Rolle `figur`) fehlen in `bodies`; sie kommen als `figures`.
@@ -136,7 +143,7 @@ interface ChaosHostInstance {
 - **Geometrie statt Grundform:** Die Minispiele bauen ihre Requisiten aus Babylon-Meshes. Der Kern schickt deren echte Geometrie einmal je Minispiel (`src/geometry.ts`): dedupliziert (gleiche Vertexdaten = ein Eintrag), um die Mitte der lokalen Bounding-Box verschoben, als Base64 der rohen Bytes (Float32-Positionen, Int8-Normalen ÷ 127, Uint16- bzw. Uint32-Indizes, little-endian). `geometry` enthält nur, was seit dem letzten `renderState` fertig kodiert ist (höchstens ≈ 256 KB und 2 ms Kodierzeit je Aufruf); jeder Eintrag kommt genau einmal. Ein Körper mit `mesh` wird mit Skalierung `size / extent` je Achse gezeichnet (Achse ohne Ausdehnung: 1); fehlt die Geometrie noch, zeichnet Swift `shape`. Swift spiegelt z an Positionen und Normalen; Babylons Vorderseiten (im Uhrzeigersinn) werden dadurch zu RealityKits Vorderseiten, die Indizes bleiben.
 - **Rollen:** `role`/`key` aus `markVisual` (CHAOS-149), fehlt = Kulisse. Swift kann einzelne Rollen später durch eigene Modelle oder Effekte ersetzen; heute zeichnet es jede Rolle mit ihrer Geometrie.
 - **Material:** `color` und `alpha` (Material × Sichtbarkeit) je Bild, `glow` = Eigenleuchten, `finish` aus `look.material` (Rauheit wie der Look des Browser-Hosts), `twoSided` = `backFaceCulling = false`.
-- **Look:** Die Bühne gibt dem Minispiel wie der Browser-Host einen `look` (gleicher Code-Pfad, kein eigenes Licht, kein Boden bis zum Horizont). `backdrop` ist die Spielfläche aus `look.backdrop`; die Kulisse drumherum (Wiese, Picknickdecke, Bäume) baut Swift.
+- **Look:** Die Bühne gibt dem Minispiel wie der Browser-Host einen `look` (gleicher Code-Pfad, kein eigenes Licht, kein Boden bis zum Horizont). `backdrop` ist die Spielfläche aus `look.backdrop`; die Kulisse drumherum (Wiese, Picknickdecke, Bäume, Steine, Blumen, Grashalme, Laternen, Dunst und Himmelskuppel) baut Swift, Licht und Dunst nach `light` (CHAOS-193).
 - **Figuren:** Wurzelknoten (Füße) mit Lage, Rotation und Skalierung; `anim` ist die zuletzt gespielte Animation, `animSeq` zählt jedes `play` (Einmal-Clips wie `hit` erneut abspielen). Im Ergebnis jubelt Platz 1, die anderen schmollen (wie `celebrate` im Browser-Host).
 - **Kamera:** `scene.activeCamera` je Bild (Position, Ziel, Öffnungswinkel in Radiant).
 - **Effekte:** `ctx.fx.burst`/`shake` als nummerierte Ereignisse der letzten 1,5 s; Swift spielt jede `seq` einmal.

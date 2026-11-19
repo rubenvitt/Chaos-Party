@@ -18,6 +18,9 @@ import type {
   PauseState,
   RenderState,
 } from './contract.ts';
+import { LIGHT_MOODS } from '../../host/src/lighting/moods.ts';
+import { lightStateOf, mixLightStates } from '../../host/src/lighting/transition.ts';
+import { lightOf, moodLight } from './lightMood.ts';
 
 /** Server-Standard: 10 Runden, Vorschläge 10/16/20, „Mehr Zeit zum Reagieren“ aus (CHAOS-166). */
 const SETTINGS: LobbySettingsState = {
@@ -128,6 +131,8 @@ const BOARD: BoardState = {
   trophySpaces: ['s05'],
   traps: [{ spaceId: 's02', owner: 1 }],
   sounds: [],
+  // Runde 3 von 10: Mittag (CHAOS-193).
+  light: moodLight('mittag'),
 };
 
 /** Mitten in der Regie: Ben hüpft, Würfel- und Münz-Popup, Klang, Anna weht davon. */
@@ -343,6 +348,7 @@ const MINIGAME_PLAY: MinigameState = {
       ],
     },
   ],
+  light: moodLight('mittag'),
   bodies: [
     {
       id: 'buehne#12',
@@ -700,6 +706,17 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
       ...BOARD,
       round: 6,
       activeSlot: 1,
+      // Rundenwechsel 5 → 6 mitten in der Überblendung Abend → Dämmerung (CHAOS-193).
+      light: lightOf({
+        from: 'abend',
+        to: 'daemmerung',
+        mix: 0.4,
+        state: mixLightStates(
+          lightStateOf(LIGHT_MOODS.abend),
+          lightStateOf(LIGHT_MOODS.daemmerung),
+          0.4,
+        ),
+      }),
       messages: ['Runde 6 beginnt!'],
       notice: { title: 'Sabotage wird stärker!', detail: 'Klau: 6 Münzen · Falle: 5 Münzen' },
     },
@@ -883,7 +900,13 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
   final: {
     phase: 'final',
     lobby: { ...JOIN, players: PLAYERS_FINALE },
-    board: { ...BOARD, round: 7, activeSlot: null, messages: ['Ben gewinnt!'] },
+    board: {
+      ...BOARD,
+      round: 7,
+      activeSlot: null,
+      messages: ['Ben gewinnt!'],
+      light: moodLight('nacht'),
+    },
     minigame: null,
     final: FINALE_WINNER,
   },

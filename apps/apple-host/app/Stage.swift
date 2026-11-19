@@ -1,3 +1,4 @@
+import Metal
 import QuartzCore
 import RealityKit
 #if os(macOS)
@@ -62,12 +63,13 @@ final class Stage {
             hostLog("FEHLER Brett laden: \(error)")
         }
         await loadMinigame(folder: folder)
+        await warmUp()
     }
 
     /// Minispiel-Bühne (CHAOS-144): Figuren vorab laden, damit der Wechsel Brett → Minispiel nicht ruckelt.
     private func loadMinigame(folder: URL?) async {
         let models = await MinigameScene.loadModels(folder: folder)
-        let scene = MinigameScene(models: models, sky: board?.sky, skyExponent: board?.skyExponent ?? 0,
+        let scene = MinigameScene(models: models, grass: board?.grass ?? [], sky: board?.sky, skyExponent: board?.skyExponent ?? 0,
                                   clearColor: board?.clearColor ?? CGColor(red: 0.83, green: 0.9, blue: 0.96, alpha: 1))
         scene.root.isEnabled = false
         scene.onStage = onMinigameStage
@@ -133,10 +135,11 @@ final class Stage {
         primitives.root.isEnabled = false
         scene.root.isEnabled = true
         renderer.activeCamera = scene.camera
-        renderer.lighting.resource = scene.sky
-        // Etwas heller als das Brett: Der Look des Browser-Hosts hellt Minispiele mit Bodenlicht auf.
-        renderer.lighting.intensityExponent = scene.sky == nil ? 0 : scene.skyExponent + 0.5
-        renderer.cameraSettings.colorBackground = .color(scene.clearColor)
+        // Lichtstimmung der Runde (CHAOS-193): Himmelslicht, Stärke und Dunst als Hintergrund aus `SceneLight`.
+        let light = scene.sceneLight
+        renderer.lighting.resource = light.environment
+        renderer.lighting.intensityExponent = light.environment == nil ? 0 : light.exponent
+        renderer.cameraSettings.colorBackground = .color(light.background)
     }
 
     private func show(podium scene: PodiumScene) {
@@ -155,10 +158,75 @@ final class Stage {
         board.root.isEnabled = visible
         primitives.root.isEnabled = !visible
         renderer.activeCamera = visible ? board.camera : primitives.camera
-        renderer.lighting.resource = visible ? board.sky : nil
-        renderer.lighting.intensityExponent = visible ? board.skyExponent : 0
-        renderer.cameraSettings.colorBackground = .color(visible ? board.clearColor
+        // Lichtstimmung der Runde (CHAOS-193), in der Lobby das Licht des Exports.
+        let light = board.sceneLight
+        renderer.lighting.resource = visible ? light.environment : nil
+        renderer.lighting.intensityExponent = visible ? light.exponent : 0
+        renderer.cameraSettings.colorBackground = .color(visible ? light.background
             : CGColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
+    }
+
+    // MARK: Aufwärmen (CHAOS-192)
+
+    /// So viele Bilder rendert das Aufwärmen (je Hälfte bei Tag und bei Nacht).
+    private static let warmUpFrames = 8
+
+    /// Beim ersten Minispiel nach dem Start erschien die Geometrie im tvOS-Simulator bis 2,2 s nach dem Aufbau
+    /// (CHAOS-144): Der erste `MeshResource`-Bau und die ersten Shader der Minispiel-Materialien fielen in die Anleitung.
+    /// Darum einmal nach dem Laden: Minispiel-Bühne mit allen Varianten aufbauen (`MinigameScene.prepareWarmUp`) und
+    /// ein paar Bilder unsichtbar in eine kleine Textur rendern, mit demselben Renderer, Format und Kantenglätten wie
+    /// die Anzeige. Die Anzeige zeigt währenddessen weiter das Brett.
+    private func warmUp() async {
+        guard let scene = minigame, let device = MTLCreateSystemDefaultDevice() else { return }
+        let t0 = CACurrentMediaTime()
+        let meshMs = await scene.prepareWarmUp()
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: Presenter.format, width: 320, height: 180, mipmapped: false)
+        desc.usage = [.renderTarget, .shaderRead]
+        desc.storageMode = .private
+        guard let texture = device.makeTexture(descriptor: desc),
+              let output = try? RealityRenderer.CameraOutput(.singleProjection(colorTexture: texture)) else {
+            scene.finishWarmUp()
+            return
+        }
+        var frames: [String] = []
+        for frame in 0..<Self.warmUpFrames {
+            scene.warmUpNight(frame >= Self.warmUpFrames / 2)
+            let start = CACurrentMediaTime()
+            let ok = await renderOffscreen(scene, output: output)
+            frames.append(ok ? String(format: "%.0f", (CACurrentMediaTime() - start) * 1000) : "–")
+        }
+        scene.finishWarmUp()
+        hostLog(String(format: "Aufwärmen: MeshResource %.0f ms, Bilder unsichtbar [%@] ms, gesamt %.0f ms", meshMs,
+                       frames.joined(separator: ", "), (CACurrentMediaTime() - t0) * 1000))
+    }
+
+    /// Ein Bild der Minispiel-Szene in `output`; danach steht alles wieder wie vorher (im selben Durchlauf des
+    /// Hauptthreads, das nächste Bild der Anzeige sieht nichts davon).
+    private func renderOffscreen(_ scene: MinigameScene, output: RealityRenderer.CameraOutput) async -> Bool {
+        let saved = (camera: renderer.activeCamera, lighting: renderer.lighting, background: renderer.cameraSettings.colorBackground,
+                     board: board?.root.isEnabled, primitives: primitives.root.isEnabled, minigame: scene.root.isEnabled)
+        board?.root.isEnabled = false
+        primitives.root.isEnabled = false
+        scene.root.isEnabled = true
+        renderer.activeCamera = scene.camera
+        renderer.lighting.resource = scene.sceneLight.environment
+        renderer.lighting.intensityExponent = scene.sceneLight.exponent
+        renderer.cameraSettings.colorBackground = .color(scene.sceneLight.background)
+        let done = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            do {
+                try renderer.updateAndRender(deltaTime: 1.0 / 60, cameraOutput: output) { _ in continuation.resume(returning: true) }
+            } catch {
+                hostLog("FEHLER Aufwärmen: \(error)")
+                continuation.resume(returning: false)
+            }
+            board?.root.isEnabled = saved.board ?? false
+            primitives.root.isEnabled = saved.primitives
+            scene.root.isEnabled = saved.minigame
+            renderer.activeCamera = saved.camera
+            renderer.lighting = saved.lighting
+            renderer.cameraSettings.colorBackground = saved.background
+        }
+        return done
     }
 }
 

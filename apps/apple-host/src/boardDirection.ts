@@ -44,7 +44,8 @@ import {
 } from '../../host/src/board/texts.ts';
 import { boardEventSound } from '../../host/src/fx/boardSounds.ts';
 import { SOUNDS, shapeRecipe } from '../../host/src/fx/sounds.ts';
-import type { Hud, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
+import type { Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
+import { createBoardLight } from './lightMood.ts';
 
 /** Größter Regie-Schritt je `tick` (wie `MAX_STEP_MS` in `createBoardScene.ts`). */
 export const MAX_STEP_MS = 100;
@@ -62,6 +63,8 @@ export interface BoardDirectionFields {
   readonly trophySpaces: string[];
   readonly traps: { spaceId: string; owner: 1 | 2 | 3 | 4 }[];
   readonly sounds: SoundCue[];
+  /** Lichtstimmung der gezeigten Runde (CHAOS-193, `./lightMood.ts`). */
+  readonly light: Light;
 }
 
 export interface BoardDirection {
@@ -178,6 +181,7 @@ export function createBoardDirection(): BoardDirection {
   /** `getHud()` liefert dasselbe Objekt, bis sich Sichtbares ändert: HUD und Ticker nur dann neu. */
   let hudCache: { snapshot: HudSnapshot; hud: Hud | null; ticker: TickerEntry[] } | null = null;
   let boundsCache: { board: BoardDefinition; bounds: BoardBounds } | null = null;
+  const light = createBoardLight();
 
   director.onEvent((event) => {
     const cue = boardEventSound(event);
@@ -222,6 +226,8 @@ export function createBoardDirection(): BoardDirection {
         }
         director.advance(step);
       }
+      const shown = director.getFrame().view;
+      light.advance(step, shown ? { round: shown.round, rounds: shown.rounds } : null, visible);
       if (sounds.length > 0 && now - (sounds[0]?.at ?? now) >= SOUND_WINDOW_MS) {
         sounds = sounds.filter((cue) => now - cue.at < SOUND_WINDOW_MS);
       }
@@ -265,6 +271,9 @@ export function createBoardDirection(): BoardDirection {
         trophySpaces: [...(view?.trophySpaces ?? [])],
         traps: (view?.traps ?? []).map((t) => ({ spaceId: t.spaceId, owner: t.owner })),
         sounds: sounds.map(({ id, name, voices }) => ({ id, name, voices })),
+        light: light.current(
+          view ? { round: view.round, rounds: view.rounds } : { round: 1, rounds: 1 },
+        ),
       };
     },
   };

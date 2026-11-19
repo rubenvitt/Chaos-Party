@@ -59,6 +59,40 @@ struct RenderState: Decodable, Equatable {
         var traps: [Trap]?
         /// Sound cues of the last 1.5 s; play every id once.
         var sounds: [SoundCue]?
+        /// Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193).
+        var light: Light?
+    }
+
+    /// Lichtstimmung (CHAOS-193): `LightState` des Browser-Hosts, im JS-Kern gerechnet. Farben `#rrggbb` (sRGB),
+    /// Intensitäten in Babylon-Einheiten; Umsetzung in `app/SceneLight.swift`.
+    struct Light: Decodable, Equatable {
+        struct Environment: Decodable, Equatable {
+            var mood: String
+            var sky: String
+            var ground: String
+            var skyIntensity: Float?
+            var fillIntensity: Float?
+        }
+
+        var mood: String
+        var keyIntensity: Float
+        var keyTint: String
+        /// Sinus der Sonnenhöhe.
+        var keyElevation: Float
+        var skyIntensity: Float
+        var fillIntensity: Float
+        var fillSky: String
+        var fillGround: String
+        /// Stimmung, deren Himmelslicht gerade gilt, mit ihren reinen Bodenlicht-Farben.
+        var environment: Environment
+        var haze: String
+        var exposure: Float
+        /// Laternen an (0…1), Glas leuchtet ab 0,25.
+        var lampsOn: Float
+        var lanternColor: String
+        var lanternIntensity: Float
+        var lanternRange: Float
+        var grassTip: String?
     }
 
     struct Point: Decodable, Equatable {
@@ -232,6 +266,8 @@ struct RenderState: Decodable, Equatable {
         /// Sound cues of the last 1.5 s (CHAOS-190): the minigame's `ctx.fx.sound`, start and countdown ticks in the
         /// intro, cheer in the results. Ids rise over the core's lifetime; play every id once.
         var sounds: [SoundCue]?
+        /// Lichtstimmung der Runde (CHAOS-193).
+        var light: Light?
     }
 
     /// One mesh of the headless minigame scene: centre of its world bounding box, world rotation (x, y, z, w),

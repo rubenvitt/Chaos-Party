@@ -173,7 +173,31 @@
         "owner": 1
       }
     ],
-    "sounds": []
+    "sounds": [],
+    "light": {
+      "mood": "daemmerung",
+      "keyIntensity": 3.28,
+      "keyTint": "#ffba83",
+      "keyElevation": 0.505,
+      "skyIntensity": 0.68,
+      "fillIntensity": 0.33,
+      "fillSky": "#bcadb0",
+      "fillGround": "#697548",
+      "environment": {
+        "mood": "abend",
+        "sky": "#f2d2b0",
+        "ground": "#7d8a52",
+        "skyIntensity": 0.9,
+        "fillIntensity": 0.35
+      },
+      "haze": "#b4a39f",
+      "exposure": 1.49,
+      "lampsOn": 0.4,
+      "lanternColor": "#ff9c4a",
+      "lanternIntensity": 2,
+      "lanternRange": 6,
+      "grassTip": "#9fb86a"
+    }
   },
   "minigame": null,
   "final": null,
