@@ -60,7 +60,7 @@ import { NatureMaterials } from '../nature/materials.ts';
 import { createAdaptiveQuality, QUALITY, qualityLabel } from '../nature/quality.ts';
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
-import type { MoveStyle } from './animation.ts';
+import { POPUP_STACK_HEIGHT, type MoveStyle } from './animation.ts';
 import type { BoardFrame, FramePawn, FramePopup } from './director.ts';
 import {
   approach,
@@ -981,6 +981,9 @@ export function createBoardScene(
       // Während des Hüpfens hat `run` Vorrang; danach reagiert die Figur auf das nächste Popup.
       if (pawn && animation && pawn.character.animation !== 'run') pawn.character.play(animation);
     }
+    // Gestapelte Popups (CHAOS-189) entlang der Bildschirm-Senkrechten versetzen: Ein Versatz in
+    // Welt-Y würde die schräge Kamera verkürzen, und die Karten überdeckten sich trotzdem.
+    const screenUp = camera.getDirection(Vector3.Up());
     for (const popup of list) {
       let label = popups.get(popup.id);
       if (!label) {
@@ -1011,7 +1014,12 @@ export function createBoardScene(
       const t = popup.progress;
       const pop = Math.min(1, t / 0.12);
       label.mesh.scaling.setAll(0.6 + 0.4 * pop);
-      label.mesh.position.set(anchor.x, anchor.y + PAWN.height + 1.2 + t * 0.9, anchor.z);
+      const stack = popup.stack * POPUP_STACK_HEIGHT;
+      label.mesh.position.set(
+        anchor.x + screenUp.x * stack,
+        anchor.y + PAWN.height + 1.2 + t * 0.9 + screenUp.y * stack,
+        anchor.z + screenUp.z * stack,
+      );
       label.material.alpha = t > 0.75 ? Math.max(0, 1 - (t - 0.75) / 0.25) : 1;
     }
   }

@@ -33,6 +33,8 @@ enum BoardLook {
     static let arrowBob: Float = 0.15
     /// So lange lebt ein Popup (`POPUP_MS`); nur für das Aufräumen, den Fortschritt liefert die Regie.
     static let popupSeconds = 1.4
+    /// Abstand gestapelter Popups (`POPUP_STACK_HEIGHT`, CHAOS-189).
+    static let popupStackHeight: Float = 1.4
 }
 
 /// Text-Karte als Textur, wie `createLabel`: abgerundet, dicke Kontur, fette runde Schrift.
@@ -166,7 +168,9 @@ final class PopupLayer {
             let t = popup.progress
             let pop = min(1, t / 0.12)
             entity.scale = SIMD3(repeating: 0.6 + 0.4 * pop)
-            entity.position = at + SIMD3(0, BoardLook.pawnHeight + 1.2 + t * 0.9, 0)
+            // Gestapelte Popups (CHAOS-189) entlang der Bildschirm-Senkrechten, wie `syncPopups`.
+            let stack = camera.act(SIMD3<Float>(0, 1, 0)) * (Float(popup.stack ?? 0) * BoardLook.popupStackHeight)
+            entity.position = at + SIMD3(0, BoardLook.pawnHeight + 1.2 + t * 0.9, 0) + stack
             entity.orientation = camera
             entity.components.set(OpacityComponent(opacity: t > 0.75 ? max(0, 1 - (t - 0.75) / 0.25) : 1))
         }

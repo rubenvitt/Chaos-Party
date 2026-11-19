@@ -64,7 +64,8 @@ interface ChaosHostInstance {
     // Brett-Regie (CHAOS-143), aus director.getFrame()/getHud() im JS-Kern:
     "popups": [{ "id": 12, "kind": "coins" | "dice" | "item" | "trap" | "trophy" | "event" | "shield" | "steal",
                  "slot": 1 | null, "spaceId": null | "s05", "text": "+3", "tone": "good" | "bad" | "neutral" | "gold",
-                 "progress": 0.3, "reaction": null | "cheer" | "hit" | "jump" }],
+                 "progress": 0.3, "stack": 0, "reaction": null | "cheer" | "hit" | "jump" }],
+                                                                         // stack: Stapelebene gleichzeitiger Popups über derselben Stelle, je 1,4 entlang Kamera-oben (CHAOS-189)
     "ticker": [{ "id": 7, "text": "Anna bekommt 3 Münzen", "slot": 1 | null, "tone": "good" }],   // höchstens 4, je 5 s
     "hud": null | { "boardName": "Wackelwald", "roundText": "Runde 3/10", "banner": null | "Ben ist dran!", "bannerSlot": 2,
                     "status": null | { "slot": 2, "kind": "roll", "text": "Ben darf würfeln …", "detail": null, "countdown": null | "3 … 2 … 1" },

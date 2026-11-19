@@ -201,6 +201,58 @@ describe('createBoardDirector', () => {
     expect(director.getHud().messages).toEqual([]);
   });
 
+  it('stapelt gleichzeitige Popups über derselben Stelle statt sie zu überdecken (CHAOS-189)', () => {
+    const director = started();
+    // Blau steht auf s07: Münzen über Blau (700 ms), dann eine Falle auf s07 und eine auf s30.
+    director.receive(
+      msg(
+        DEMO_VIEW,
+        [
+          { type: 'coins-changed', slot: 1, delta: 3, balance: 15, reason: 'space' },
+          { type: 'trap-placed', slot: 2, spaceId: 's07' },
+          { type: 'trap-placed', slot: 2, spaceId: 's30' },
+        ],
+        0,
+      ),
+    );
+    expect(director.getFrame().popups).toEqual([
+      expect.objectContaining({ kind: 'coins', slot: 1, stack: 0 }),
+    ]);
+    director.advance(700);
+    // Feld-Popup über Blaus Feld: eine Ebene höher als das Münz-Popup über Blau.
+    expect(director.getFrame().popups).toEqual([
+      expect.objectContaining({ kind: 'coins', slot: 1, stack: 0 }),
+      expect.objectContaining({ kind: 'trap', spaceId: 's07', stack: 1 }),
+    ]);
+    director.advance(700);
+    // Anderes Feld: beginnt wieder unten.
+    expect(director.getFrame().popups).toEqual([
+      expect.objectContaining({ kind: 'trap', spaceId: 's07', stack: 1 }),
+      expect.objectContaining({ kind: 'trap', spaceId: 's30', stack: 0 }),
+    ]);
+  });
+
+  it('gibt eine Ebene frei, sobald ihr Popup abgelaufen ist (CHAOS-189)', () => {
+    const director = started();
+    const dice = (total: number): BoardEvent => ({
+      type: 'dice-rolled',
+      slot: 1,
+      faces: [1, total - 1],
+      total,
+    });
+    director.receive(msg(DEMO_VIEW, [dice(3), dice(4)], 0));
+    director.advance(900);
+    expect(director.getFrame().popups.map((p) => p.stack)).toEqual([0, 1]);
+    // Das erste Popup ist weg, das zweite steht noch auf Ebene 1: das nächste nimmt Ebene 0.
+    director.advance(900);
+    expect(POPUP_MS).toBeLessThan(1800);
+    director.receive(msg(DEMO_VIEW, [dice(5)], 2));
+    expect(director.getFrame().popups.map((p) => [p.text, p.stack])).toEqual([
+      ['4', 1],
+      ['5', 0],
+    ]);
+  });
+
   it('blendet „Sabotage wird stärker!“ ein, hält kurz an und blendet aus (CHAOS-120)', () => {
     const director = started();
     const next: BoardView = { ...DEMO_VIEW, round: 3, gamePhase: 'turn-start', prompt: null };

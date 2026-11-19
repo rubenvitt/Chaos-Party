@@ -206,6 +206,11 @@ export const PopupSchema = z.strictObject({
   tone: z.enum(MESSAGE_TONES),
   /** 0 beim Erscheinen … 1 beim Verschwinden. */
   progress: z.number().min(0).max(1),
+  /**
+   * Stapelebene (CHAOS-189): 0 = unten; gleichzeitige Popups über derselben Stelle werden um
+   * `stack × POPUP_STACK_HEIGHT` (1,4) entlang der Bildschirm-Senkrechten versetzt.
+   */
+  stack: z.number().int().min(0),
   /** Reaktion der Figur `slot` (einmal je Popup), wie `reactionFor` im Babylon-Host. */
   reaction: z.enum(PAWN_REACTIONS).nullable(),
 });

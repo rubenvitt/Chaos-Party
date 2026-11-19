@@ -90,6 +90,8 @@ struct RenderState: Decodable, Equatable {
         var tone: String
         /// 0 when it appears … 1 when it is gone.
         var progress: Float
+        /// Stack level (CHAOS-189): 0 = bottom; simultaneous popups over the same spot are offset by `stack × popupStackHeight` along the camera's up axis.
+        var stack: Int?
         /// One-shot clip of the pawn `slot`: cheer, hit, jump.
         var reaction: String?
     }

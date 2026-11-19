@@ -606,3 +606,14 @@ Automatisch geprüft: `bots --full` (Pause im Brett und im Minispiel, saubere Tr
 | FP8 | Apple TV per Hand in den Ruhezustand, 2 Minuten, aufwecken, App öffnen | wie FP7 | | Log |
 | FP9 | Partie zu Ende spielen (z. B. 2 Runden) | Zählung, Podest mit Figuren (Platz 1 jubelt), Endstand, Bonus-Titel; Klänge passen | | Foto |
 | FP10 | „Nochmal spielen“ (Auswahl auf der Fernbedienung) | Zurück in die Lobby ohne Neustart, Figuren bleiben, neue Partie startet | | |
+
+## 31. Gleichzeitige Popups über dem Brett (für CHAOS-189)
+
+**Stand:** 2026-11-19 · **Aufgabe:** CHAOS-189
+
+Automatisch bzw. von Claude geprüft: Regie-Tests (`apps/host/src/board/director.test.ts`, Stapelebenen und Freigabe abgelaufener Ebenen), Babylon-Host im lokalen Brett-Modus mit Würfel-, Münz- und Item-Popup über Blau (Bild [`chaos189-popups-gestapelt.jpg`](screenshots/chaos189-popups-gestapelt.jpg)). **Nicht** geprüft: der native Host (Swift-Teil, in der Cloud-Sitzung gab es kein Swift; die CI baut ihn auf macOS), Rubens Urteil.
+
+| ID | Schritt | Erwartung | Ergebnis | Nachweis |
+|---|---|---|---|---|
+| PS1 | PC: Partie spielen, bis eine Figur auf einem Münzfeld ein Item bekommt oder würfelt und gleich danach Münzen bekommt | Die Popups stehen übereinander, beide lesbar; das jüngere schiebt sich nicht über das ältere | | Foto |
+| PS2 | Mac-App (nativer Host): dasselbe | wie PS1 | | Foto |

@@ -256,6 +256,7 @@ export function createBoardDirection(): BoardDirection {
           text: p.text,
           tone: p.tone,
           progress: p.progress,
+          stack: p.stack,
           reaction: p.slot === null ? null : reactionFor(p),
         })),
         ticker,
