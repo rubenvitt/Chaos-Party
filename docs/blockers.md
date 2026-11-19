@@ -18,4 +18,4 @@ Offene und gelöste Blocker (Format: `.claude/skills/blocker-eskalieren`). Gespi
 
 **Frage an Ruben:** Darf CHAOS-174 verworfen werden, bis N4 auf echter Hardware ein Standbild beim Wechsel Brett → Minispiel zeigt (Option A)?
 
-**Status:** offen
+**Status:** gelöst 2026-11-19: Option A. Ruben: „Keine Ahnung, was ich entscheiden muss, aber entscheide du für mich.“ Claude hat entschieden: CHAOS-174 verworfen. Kommt bei N4 auf echter Hardware ein Standbild beim Wechsel Brett → Minispiel heraus, entsteht eine neue Aufgabe mit diesem Messwert.

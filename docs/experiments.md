@@ -2411,4 +2411,4 @@ Umgesetzt und gemessen wurde nur **a**: Es deckt beide Blöcke ab. b und c löse
 
 **Entscheidung:** **discard A/A′.** Kein messbarer Gewinn, dafür ein dauerhafter zweiter Kontext. B war nur eine Messprobe. Ein künstliches Warten vor dem Aufbau (feste Pause oder Fence-Abfrage, bis der GPU-Prozess leer ist) würde die Kennzahl senken, aber auf SwiftShader steht das Bild in dieser Zeit ohnehin (der GPU-Prozess ist belegt), und auf echter Hardware ist die Warteschlange kurz. Nicht umgesetzt; ob überhaupt ein Standbild auf echter Hardware bleibt, zeigt N4. Entwurf und Messcode liegen nicht im Repo (verworfen).
 
-**Offen (nur auf echter Hardware):** N4 der Gerätecheckliste. Frage an Ruben in `docs/blockers.md`.
+**Offen (nur auf echter Hardware):** N4 der Gerätecheckliste. CHAOS-174 ist verworfen (2026-11-19, Entscheidung an Claude übertragen, `docs/blockers.md`); eine neue Aufgabe nur, wenn N4 ein Standbild zeigt.
