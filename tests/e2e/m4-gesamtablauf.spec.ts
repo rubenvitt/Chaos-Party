@@ -49,7 +49,9 @@ const TEST_PACING = {
   spaceEventMs: 400,
   turnEndMs: 200,
   minigameIntroMs: 3000,
-  minigameResultsMs: 2000,
+  // Ergebnisanzeige 5 s statt 2 s (CHAOS-170): Der Test prüft die Ergebnisanzeige am Host, solange
+  // sie steht; unter Last kam er in der Cloud-Sandbox mit 2 s zu spät (Bühne schon weg).
+  minigameResultsMs: 5000,
   roundEndMs: 300,
   reactionWindowMs: 5000,
   disconnectGraceMs: 15_000,
@@ -479,10 +481,19 @@ async function playMinigame(
     return minigame?.state ?? null;
   });
   expect(finished, 'Minispiel zu Ende gerechnet').toBe('finished');
+  // Erst die Ergebnisanzeige, dann die Annahme (CHAOS-170): Die Anzeige steht nur
+  // `minigameResultsMs` lang, danach entfernt der Host die Bühne samt Testhaken
+  // (`resultState` liest dann `null`). `toHaveAttribute` prüft im DOM ohne die wachsenden
+  // Pausen von `expect.poll`; `accepted` kommt oft schon mit dem Ack, solange noch `play` steht.
+  await expect(host.getByTestId('minigame-screen'), 'Ergebnisanzeige am Host').toHaveAttribute(
+    'data-stage',
+    'results',
+  );
   await expect
-    .poll(() => host.evaluate(() => window.__chaosMinigame?.resultState ?? null))
+    .poll(() => host.evaluate(() => window.__chaosMinigame?.resultState ?? null), {
+      message: 'Ergebnis vom Server angenommen',
+    })
     .toBe('accepted');
-  await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'results');
   // Controller zeigen das eigene Ergebnis (Platz, Münzen) – mitgezählt im Controller selbst.
   for (const seat of seats) {
     await expect
