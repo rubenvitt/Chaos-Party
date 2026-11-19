@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nur für ad hoc signierte Mac-Builds (lokal nach README „Bauen“, RELEASE_DRY_RUN=1), CHAOS-176.
+  Ab macOS 27 lädt ein ad hoc signierter Prozess mit Hardened Runtime kein ebenfalls ad hoc signiertes
+  Framework mehr (dyld: „mapping process and mapped file (non-platform) have different Team IDs“), also
+  auch Sparkle.framework nicht. Die Hardened Runtime bleibt an; ausgeschaltet ist nur die Library Validation.
+  JIT-Berechtigungen gibt es weiterhin keine (ADR-019 §7). Das notarisierte Release (Developer ID, gleiche
+  Team-ID für App und Sparkle) trägt diese Datei nie, release-macos.sh prüft das.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

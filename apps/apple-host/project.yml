@@ -63,6 +63,10 @@ targets:
         # Hardened Runtime immer am Mac, damit jeder lokale und CI-Build so läuft wie die notarisierte App
         # (JavaScriptCore ohne JIT-Berechtigung, ADR-019 §7; geprüft mit `ChaosHost --selftest`).
         'ENABLE_HARDENED_RUNTIME[sdk=macosx*]': YES
+        # Ad hoc signiert lädt die App unter macOS 27 das ad hoc signierte Sparkle.framework nur ohne Library
+        # Validation (CHAOS-176). Die Datei enthält nur disable-library-validation, keine JIT-Berechtigung;
+        # release-macos.sh lässt sie für das Developer-ID-Release weg und prüft das.
+        'CODE_SIGN_ENTITLEMENTS[sdk=macosx*]': config/ChaosHost-adhoc.entitlements
         # Das Mehrplattform-Ziel erbt den iOS/tvOS-Suchpfad @executable_path/Frameworks; am Mac liegen eingebettete
         # Frameworks (Sparkle, CHAOS-156) in Contents/Frameworks, sonst bricht dyld beim Start ab.
         'LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]': '$(inherited) @executable_path/../Frameworks'
