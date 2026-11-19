@@ -44,6 +44,15 @@ Alle stehen auf der Positivliste in `scripts/check-licenses.mjs` (MIT, ISC, BSD,
 
 Die erzeugten USDZ stehen mit Herkunft und Lizenz im Manifest unter `builds` und in `herkunft.json` neben den Dateien (GPL-3.0-only; darin CC0-Texturen von Poly Haven und mit Nunito gezeichnete Wegweiser, OFL-1.1). Siehe [`apple-assets.md`](apple-assets.md).
 
+### Sparkle in der Mac-App (CHAOS-156)
+
+Die Mac-App des nativen Hosts (`apps/apple-host`, nur macOS, nicht tvOS) bindet **Sparkle 2.10.1** als Swift Package ein (automatische Updates). Geprüft am 18.11.2026:
+
+- **Lizenz:** MIT (Sparkle selbst), dazu im selben `LICENSE` bsdiff (BSD-2-Clause-artig), sais-lite (MIT) und ed25519 (zlib). Alle frei kombinierbar mit GPL-3.0. Der Text liegt als `apps/apple-host/licenses/Sparkle-LICENSE.txt` im Repo und in der App unter `Contents/Resources/Sparkle-LICENSE.txt`.
+- **Version und Herkunft:** `exactVersion: 2.10.1` in `project.yml` (Tag vom 25.10.2026, also älter als die 7-Tage-Sperre); das Binär-Paket prüft Xcode gegen die SHA-256 im `Package.swift` des Tags. Das Werkzeug `sign_update` lädt der Workflow aus dem Release-Archiv `Sparkle-2.10.1.tar.xz` mit fester SHA-256 (`scripts/sparkle-feed.sh`).
+- **Angriffsfläche:** Die App lädt einmal täglich `appcast.xml` von einer festen GitHub-Release-Adresse über HTTPS. Feed (`SURequireSignedFeed`) und Zip sind mit einem EdDSA-Schlüssel signiert; die App prüft beides gegen `SUPublicEDKey`, die Zip-Signatur schon vor dem Entpacken (`SUVerifyUpdateBeforeExtraction`). Zusätzlich muss das Update dieselbe Developer-ID-Signatur tragen. Ohne öffentlichen Schlüssel (lokale Builds, PR-CI) startet der Updater gar nicht.
+- **Schlüssel:** Der private Schlüssel liegt nur als Actions-Secret `SPARKLE_ED_PRIVATE_KEY` und im Schlüsselbund von Rubens Mac, nie im Repository. Er geht im Workflow nur per stdin an `sign_update`. Die CI nutzt bei jedem PR ein Wegwerf-Schlüsselpaar.
+
 ### Lieferkette
 
 - `pnpm-workspace.yaml`: `minimumReleaseAge: 10080` (neue Paketversionen erst nach 7 Tagen), Install-Skripte nur für `esbuild` (`onlyBuiltDependencies`).

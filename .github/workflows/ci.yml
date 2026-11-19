@@ -286,9 +286,37 @@ jobs:
       # Mac-Release ohne Secrets probeweise (CHAOS-118): dasselbe Skript wie release-macos.yml, aber ad hoc
       # signiert. Prüft Archiv, Hardened Runtime, Entitlements und den Selbsttest der fertigen App (JS-Kern,
       # Havok, HTTP, WebSocket-Beitritt). Nur Notarisierung und Heften laufen erst im Release-Workflow.
+      # Sparkle (CHAOS-156): ein Wegwerf-Schlüsselpaar nur für diesen Lauf, im Format von `generate_keys -x`
+      # (base64 des 32-Byte-Seeds) und SUPublicEDKey (base64 der 32 Byte). Der echte Schlüssel ist nur im
+      # Release-Workflow (Secret SPARKLE_ED_PRIVATE_KEY).
+      - name: Apple-Host – Wegwerf-Schlüssel für Sparkle
+        if: hashFiles('apps/apple-host/scripts/sparkle-feed.sh') != ''
+        run: |
+          node -e '
+            const { generateKeyPairSync } = require("node:crypto");
+            const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+            const b64 = (s) => Buffer.from(s, "base64url").toString("base64");
+            const pub = b64(publicKey.export({ format: "jwk" }).x);
+            const priv = b64(privateKey.export({ format: "jwk" }).d);
+            console.log(`::add-mask::${priv}`);
+            require("node:fs").appendFileSync(process.env.GITHUB_ENV, `SPARKLE_PUBLIC_ED_KEY=${pub}\nSPARKLE_ED_PRIVATE_KEY=${priv}\n`);
+          '
+
       - name: Apple-Host – Mac-Release probeweise (ad hoc, Hardened Runtime, Selbsttest)
+        id: mac-release
         if: hashFiles('apps/apple-host/scripts/release-macos.sh') != ''
         env:
           RELEASE_DRY_RUN: '1'
           SKIP_PREPARE: '1'
         run: apps/apple-host/scripts/release-macos.sh
+
+      # Derselbe Feed-Weg wie im Release-Workflow: sign_update signiert den Zip, appcast.mjs prüft die Signatur
+      # gegen den Schlüssel der App, sign_update signiert und prüft die appcast.xml.
+      - name: Apple-Host – Sparkle-Feed probeweise
+        if: hashFiles('apps/apple-host/scripts/sparkle-feed.sh') != ''
+        env:
+          ZIP: ${{ steps.mac-release.outputs.zip }}
+        run: |
+          ZIP="$GITHUB_WORKSPACE/$ZIP" VERSION=0.1.0 BUILD_NUMBER="$GITHUB_RUN_NUMBER" APPCAST="$RUNNER_TEMP/appcast.xml" \
+            DOWNLOAD_URL=https://example.invalid/Chaos-Party-0.1.0-macOS.zip RELEASE_URL=https://example.invalid/ \
+            PRERELEASE=true apps/apple-host/scripts/sparkle-feed.sh

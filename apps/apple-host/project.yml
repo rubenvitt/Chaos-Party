@@ -10,6 +10,16 @@ settings:
     SWIFT_VERSION: '5.0'
     MARKETING_VERSION: '0.1'
     CURRENT_PROJECT_VERSION: '1'
+    # Sparkle-Feed der Mac-App (CHAOS-156). Den öffentlichen EdDSA-Schlüssel setzt release-macos.sh aus der
+    # Repository-Variable SPARKLE_PUBLIC_ED_KEY; ohne ihn bleibt der Updater aus (lokale Builds, PR-CI).
+    SPARKLE_FEED_URL: https://github.com/rubenvitt/chaos-party/releases/download/macos-appcast/appcast.xml
+    SPARKLE_PUBLIC_ED_KEY: ''
+# Sparkle 2 (MIT, CHAOS-156): automatische Updates der Mac-App. Binär-Paket, die Prüfsumme steht im
+# Package.swift des Tags; Version bewusst fest, Updates per Hand nach Blick ins CHANGELOG.
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
 targets:
   ChaosHost:
     type: application
@@ -24,11 +34,20 @@ targets:
       # tvOS-Icons und Top-Shelf-Bilder für TestFlight (CHAOS-119/151, scripts/tv-icons.py).
       - path: app-tv/Assets.xcassets
         destinationFilters: [tvOS]
+      # Lizenz von Sparkle, das nur die Mac-App enthält (CHAOS-156).
+      - path: licenses/Sparkle-LICENSE.txt
+        buildPhase: resources
+        destinationFilters: [macOS]
+    dependencies:
+      - package: Sparkle
+        destinationFilters: [macOS]
     settings:
       base:
         PRODUCT_NAME: ChaosHost
         PRODUCT_BUNDLE_IDENTIFIER: dev.rubeen.chaosparty.host
         GENERATE_INFOPLIST_FILE: YES
+        # Sparkle-Schlüssel (SUFeedURL, SUPublicEDKey …) gibt es nur am Mac; Xcode mischt sie in das erzeugte Info.plist.
+        'INFOPLIST_FILE[sdk=macosx*]': config/Info-macOS.plist
         INFOPLIST_KEY_CFBundleDisplayName: Chaos Party
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Controller im lokalen Netz verbinden sich mit diesem Gerät.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -43,6 +62,9 @@ targets:
         # Hardened Runtime immer am Mac, damit jeder lokale und CI-Build so läuft wie die notarisierte App
         # (JavaScriptCore ohne JIT-Berechtigung, ADR-019 §7; geprüft mit `ChaosHost --selftest`).
         'ENABLE_HARDENED_RUNTIME[sdk=macosx*]': YES
+        # Das Mehrplattform-Ziel erbt den iOS/tvOS-Suchpfad @executable_path/Frameworks; am Mac liegen eingebettete
+        # Frameworks (Sparkle, CHAOS-156) in Contents/Frameworks, sonst bricht dyld beim Start ab.
+        'LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]': '$(inherited) @executable_path/../Frameworks'
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: '-'
         DEVELOPMENT_TEAM: ''
