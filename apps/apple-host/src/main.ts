@@ -318,7 +318,7 @@ function create(env: HostEnv): ChaosHostInstance {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
                 (result.cut
-                  ? ' (Spielzeit des Servers vorbei, beendet)'
+                  ? ' (Frist des Servers, Stand gewertet)'
                   : result.forced
                     ? ' (Laufzeit wertet)'
                     : ''),
@@ -559,8 +559,8 @@ function create(env: HostEnv): ChaosHostInstance {
         lastAdvanceAt = now();
         try {
           stage.headless.advance(seconds);
-          // Ablauf am Spielstart des Servers (CHAOS-206): spät gestartetes oder langsam
-          // gerechnetes Spiel mit dem Server beenden, damit das Ergebnis in dessen Frist kommt.
+          // Ablauf an der Frist des Servers (CHAOS-206): spät gestartetes oder langsam
+          // gerechnetes Spiel vorher werten, damit das Ergebnis noch angenommen wird.
           const running = stage.headless.runner.state === 'running';
           if (
             view &&

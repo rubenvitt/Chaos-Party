@@ -78,9 +78,9 @@ export interface MinigameScreenProps {
    */
   readonly lightByRound?: boolean;
   /**
-   * Spielende am Server ausrichten (CHAOS-206, Standard `true`): Ein spät gestartetes Spiel endet
-   * mit der Spielzeit des Servers, die Anzeige zählt bis dorthin. Der lokale Ablauf hat keinen
-   * Server und keine Frist.
+   * Spielende an der Frist des Servers ausrichten (CHAOS-206, Standard `true`): Ein spät
+   * gestartetes Spiel wird vor der Frist gewertet, die Anzeige zählt bis dorthin. Der lokale
+   * Ablauf hat keinen Server und keine Frist.
    */
   readonly serverDeadline?: boolean;
 }
@@ -328,8 +328,8 @@ export function MinigameScreen(props: MinigameScreenProps) {
       setNow(clockNow);
       const stage = stageRef.current;
       if (stage?.status === 'ready') setHud(stage.hud());
-      // Ablauf am Spielstart des Servers (CHAOS-206): spät gestartetes oder langsam gerechnetes
-      // Spiel mit dem Server beenden, damit das Ergebnis in dessen Frist kommt.
+      // Ablauf an der Frist des Servers (CHAOS-206): spät gestartetes oder langsam gerechnetes
+      // Spiel vorher werten, damit das Ergebnis noch angenommen wird.
       const current = latest.current.props;
       if (
         stage &&
@@ -399,7 +399,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
               ? plan.remainingMs
               : test || props.serverDeadline === false
                 ? (hud?.remainingMs ?? plan.timeLimitMs)
-                : // Höchstens die Restzeit des Servers (CHAOS-206); im Testmodus treibt `step`.
+                : // Höchstens bis zur Frist des Servers (CHAOS-206); im Testmodus treibt `step`.
                   shownRemainingMs(hud?.remainingMs ?? plan.timeLimitMs, view, receivedAt, clock)
           }
         />

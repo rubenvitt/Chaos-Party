@@ -92,9 +92,9 @@ export interface RunnerResult {
   /** `true`, wenn das Minispiel kein (gültiges) Ergebnis lieferte und die Laufzeit aus dem HUD werten musste. */
   readonly forced: boolean;
   /**
-   * `true`, wenn der Host das Spiel mit `finishNow` vorzeitig beendet hat (Spielzeit des Servers
-   * vorbei, CHAOS-206); dann ist auch `forced` gesetzt, sofern das Minispiel selbst noch kein
-   * Ergebnis hatte.
+   * `true`, wenn der Host das Spiel mit `finishNow` vorzeitig beendet hat (Frist des Servers für
+   * das Ergebnis naht, CHAOS-206); dann ist auch `forced` gesetzt, sofern das Minispiel selbst
+   * noch kein Ergebnis hatte.
    */
   readonly cut: boolean;
   /** Gerechnete Spielzeit bis zum Ergebnis (ms). */

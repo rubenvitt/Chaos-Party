@@ -92,7 +92,7 @@ export interface MinigameStage extends PerfSource {
   /** Spielzeit starten (idempotent; vor dem Laden: direkt danach). */
   start(): void;
   /**
-   * Spielzeit des Servers vorbei (CHAOS-206, `playDeadline`): Läuft das Spiel, wertet die
+   * Frist des Servers naht (CHAOS-206, `playDeadline`): Läuft das Spiel, wertet die
    * Laufzeit jetzt den Stand (`runner.finishNow`); sonst startet es nicht mehr. Idempotent.
    */
   endPlay(): void;

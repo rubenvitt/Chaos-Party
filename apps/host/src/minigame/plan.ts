@@ -71,22 +71,34 @@ function serverPlayLeftMs(view: BoardView, receivedAt: number, now: number): num
 }
 
 /**
- * So lange darf das Spiel des Hosts über das Ende der Spielzeit des Servers hinauslaufen, dann
- * wertet der Host den Stand (CHAOS-206). Weit unter der Kulanz des Servers
- * (`minigameResultGraceMs`, 15 s), auch bei langsamen Ticks.
+ * So lange vor der Frist des Servers (Spielzeit + `minigameResultGraceMs`) wertet der Host ein
+ * noch laufendes Minispiel selbst (CHAOS-206). 3 s decken den 100-ms-Takt des PC-Hosts, lange
+ * JS-Ticks (nach CHAOS-203 am Mac höchstens 31 ms, auf langsamen Geräten mehr) und den Weg zum
+ * Server mit viel Luft ab.
  */
-export const PLAY_OVERRUN_MS = 1_000;
+export const RESULT_MARGIN_MS = 3_000;
 
 /**
- * Ablauf des Hosts am Spielstart des Servers (`playStartedAt`) ausrichten (CHAOS-206). Die
- * Spielzeit eines Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`); ist die Bühne erst
- * nach dem Countdown fertig oder rechnet der Host langsamer als die Uhr, liefe das Spiel über das
- * Ende beim Server hinaus und das Ergebnis käme womöglich nach dessen Frist.
- * - `'end'` bei laufendem Spiel (`running`): Die Spielzeit des Servers ist seit
- *   `PLAY_OVERRUN_MS` vorbei, der Host wertet jetzt (`runner.finishNow`).
- * - `'end'` bei noch nicht gestartetem Spiel: Es bleiben weniger als `MIN_RESTART_MS`; es startet
- *   nicht mehr (Begründung bei `planPlay`), der Server bricht nach seiner Frist ohne Münzen ab.
- * - sonst `'keep'`; außerhalb von `minigame-play` immer. In der Pause steht die Uhr.
+ * Zeit (ms) bis zur Frist des Servers für das Ergebnis, ab `now`; `null` außerhalb von
+ * `minigame-play` oder ohne Frist im Stand. `view.remainingMs` ist in `minigame-play` die Zeit
+ * bis zum Abbruch (Spielstart + Spielzeit + Kulanz); in der Pause steht sie.
+ */
+function resultDeadlineLeftMs(view: BoardView, receivedAt: number, now: number): number | null {
+  if (minigameStageOf(view) !== 'play' || view.remainingMs === null) return null;
+  return view.remainingMs - (view.paused ? 0 : Math.max(0, now - receivedAt));
+}
+
+/**
+ * Ablauf des Hosts an der Frist des Servers ausrichten (CHAOS-206). Die Spielzeit eines
+ * Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`); ist die Bühne erst nach dem
+ * Countdown fertig oder rechnet der Host langsamer als die Uhr, läuft das Spiel über das Ende
+ * beim Server hinaus. Das ist in Ordnung, solange das Ergebnis vor der Frist ankommt.
+ * - `'end'` bei laufendem Spiel (`running`): Bis zur Frist bleiben höchstens
+ *   `RESULT_MARGIN_MS`; der Host wertet jetzt (`runner.finishNow`).
+ * - `'end'` bei noch nicht gestartetem Spiel: Vor diesem Punkt blieben weniger als
+ *   `MIN_RESTART_MS` Spielzeit; es startet nicht mehr (Begründung bei `planPlay`), der Server
+ *   bricht nach seiner Frist ohne Münzen ab.
+ * - sonst `'keep'`; außerhalb von `minigame-play` immer.
  */
 export function playDeadline(
   view: BoardView,
@@ -94,17 +106,16 @@ export function playDeadline(
   now: number,
   running: boolean,
 ): 'keep' | 'end' {
-  const elapsed = view.minigame?.elapsedMs;
-  if (minigameStageOf(view) !== 'play' || elapsed === null || elapsed === undefined) return 'keep';
-  const left = serverPlayLeftMs(view, receivedAt, now);
-  const end = running ? left <= -PLAY_OVERRUN_MS : left < MIN_RESTART_MS;
+  const left = resultDeadlineLeftMs(view, receivedAt, now);
+  if (left === null) return 'keep';
+  const end = running ? left <= RESULT_MARGIN_MS : left - RESULT_MARGIN_MS < MIN_RESTART_MS;
   return end ? 'end' : 'keep';
 }
 
 /**
- * Restzeit für die Anzeige im Spiel: die des Minispiels, höchstens die des Servers. Läuft das
- * Spiel des Hosts später als beim Server, zählt die Uhr bis zum Ende beim Server herunter, denn
- * dann endet es (`playDeadline`).
+ * Restzeit für die Anzeige im Spiel: die des Minispiels, höchstens bis zum Punkt, an dem der
+ * Host wegen der Frist des Servers wertet (`playDeadline`). Sonst zeigte die Uhr beim Abbruch
+ * noch Sekunden an.
  */
 export function shownRemainingMs(
   hudRemainingMs: number,
@@ -112,7 +123,9 @@ export function shownRemainingMs(
   receivedAt: number,
   now: number,
 ): number {
-  return Math.min(hudRemainingMs, remainingPlayMs(view, receivedAt, now));
+  const left = resultDeadlineLeftMs(view, receivedAt, now);
+  if (left === null) return hudRemainingMs;
+  return Math.max(0, Math.min(hudRemainingMs, Math.round(left - RESULT_MARGIN_MS)));
 }
 
 export type PlayPlan =
