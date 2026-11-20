@@ -1,7 +1,8 @@
 /**
  * Brett-Export über den Web-Host (CHAOS-75, Build-Schritt seit CHAOS-140): startet einen eigenen
  * Vite-Dev-Server und ein Headless-Chromium (Software-Rendering reicht), baut das echte Brett mit
- * dem Beispiel-Spielstand (Grafikstufe `hoch`) und schreibt
+ * dem Beispiel-Spielstand (Grafikstufe `hoch`) und schreibt je Brett (CHAOS-212: alle Bretter aus
+ * dem Register mit einem Server und einem Browser)
  *
  * - `brett.glb`: Kulisse ohne Figuren, Kameras und Instanzen, mit Feld-Ankern `feld_<id>`,
  * - `brett.szene.json`: Kamera, Licht, Figurenorte, Felder,
@@ -22,12 +23,27 @@ import { chromium } from '@playwright/test';
  */
 
 /**
- * @param {{ root: string, out: string, port?: number, timeoutMs?: number, verbose?: boolean }} options
+ * Ein Brett nach `out` (ohne `boardId`: das Standardbrett der Export-Seite).
+ * @param {{ root: string, out: string, boardId?: string, port?: number, timeoutMs?: number, verbose?: boolean }} options
  * @returns {Promise<{ meta: BoardMeta, names: unknown }>}
  */
-export async function exportBoard({
+export async function exportBoard({ boardId, out, ...options }) {
+  const [result] = await exportBoards({ ...options, boards: [boardId], outFor: () => out });
+  if (!result) throw new Error('kein Export');
+  return result;
+}
+
+/**
+ * Mehrere Bretter nacheinander mit demselben Vite-Server und Browser (CHAOS-212).
+ * @param {{ root: string, boards: readonly (string | undefined)[],
+ *   outFor: (boardId: string | undefined) => string, port?: number, timeoutMs?: number,
+ *   verbose?: boolean }} options
+ * @returns {Promise<{ boardId: string | undefined, meta: BoardMeta, names: unknown }[]>}
+ */
+export async function exportBoards({
   root,
-  out,
+  boards,
+  outFor,
   port = 5199,
   timeoutMs = 240_000,
   verbose = false,
@@ -59,27 +75,38 @@ export async function exportBoard({
       args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     });
     try {
-      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-      page.on('pageerror', (error) => console.error('Seitenfehler:', error.message));
-      page.on('console', (m) => {
-        if (m.type() === 'error' || verbose) console.error(`[${m.type()}]`, m.text());
-      });
-      await page.goto(
-        `http://localhost:${String(port)}/host/src/export/boardExport.html?qualitaet=hoch`,
-      );
-      await page.waitForFunction(
-        () => /** @type {any} */ (globalThis).__boardExport?.ready === true,
-        undefined,
-        { timeout: timeoutMs },
-      );
-      const result = await page.evaluate(readExport);
-      if (!result) throw new Error('kein Export');
-      if (result.error) throw new Error(result.error);
-      mkdirSync(out, { recursive: true });
-      writeFileSync(join(out, 'brett.glb'), Buffer.from(result.glbBase64, 'base64'));
-      writeFileSync(join(out, 'brett.szene.json'), `${JSON.stringify(result.meta, null, 2)}\n`);
-      writeFileSync(join(out, 'brett.instanzen.json'), JSON.stringify(result.instances));
-      return { meta: result.meta, names: result.names };
+      const results = [];
+      for (const boardId of boards) {
+        // Eigene Seite je Brett: Babylon-Engine, Texturen und Speicher fangen jedes Mal neu an.
+        const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+        try {
+          page.on('pageerror', (error) => console.error('Seitenfehler:', error.message));
+          page.on('console', (m) => {
+            if (m.type() === 'error' || verbose) console.error(`[${m.type()}]`, m.text());
+          });
+          const query = boardId === undefined ? '' : `&brett=${encodeURIComponent(boardId)}`;
+          await page.goto(
+            `http://localhost:${String(port)}/host/src/export/boardExport.html?qualitaet=hoch${query}`,
+          );
+          await page.waitForFunction(
+            () => /** @type {any} */ (globalThis).__boardExport?.ready === true,
+            undefined,
+            { timeout: timeoutMs },
+          );
+          const result = await page.evaluate(readExport);
+          if (!result) throw new Error(`kein Export (${boardId ?? 'Standardbrett'})`);
+          if (result.error) throw new Error(`${boardId ?? 'Standardbrett'}: ${result.error}`);
+          const out = outFor(boardId);
+          mkdirSync(out, { recursive: true });
+          writeFileSync(join(out, 'brett.glb'), Buffer.from(result.glbBase64, 'base64'));
+          writeFileSync(join(out, 'brett.szene.json'), `${JSON.stringify(result.meta, null, 2)}\n`);
+          writeFileSync(join(out, 'brett.instanzen.json'), JSON.stringify(result.instances));
+          results.push({ boardId, meta: result.meta, names: result.names });
+        } finally {
+          await page.close();
+        }
+      }
+      return results;
     } finally {
       await browser.close();
     }

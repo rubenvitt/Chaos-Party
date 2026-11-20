@@ -4,7 +4,8 @@
  *
  *   pnpm build:apple-assets                    # alles nach build/apple-assets/
  *   pnpm build:apple-assets --nur=figuren      # nur Figuren (≈ 30 s)
- *   pnpm build:apple-assets --nur=brett        # nur die Kulisse (≈ 3–10 min, Software-Rendering)
+ *   pnpm build:apple-assets --nur=brett        # nur die Kulissen (je Brett ≈ 3–10 min, Software-Rendering)
+ *   pnpm build:apple-assets --nur=brett --brett=wackelwald   # nur eine Kulisse
  *   pnpm build:apple-assets --out=<ordner>     # anderer Ausgabeordner
  *
  * Ausgabe (nicht eingecheckt):
@@ -12,9 +13,11 @@
  *   Vertexfarben als Farbtextur gebacken, Materialien als UsdPreviewSurface mit Rauheit,
  *   Clearcoat, Metall und Leuchten, alle Clips auf einer Zeitleiste;
  * - `figuren/<id>.clips.json`: Lage der Clips auf der Zeitleiste (Sekunden, für `trimmed`);
- * - `brett.usdz`: Kulisse aus dem Web-Host (`scripts/lib/board-export.mjs`) über Blender nach
- *   USDZ (`packages/assets/usd/glb_to_usdz.py`), mit Feld-Ankern `feld_<id>` aus game-core;
- * - `brett.szene.json` (Kamera, Licht, Figurenorte, Felder), `brett.instanzen.json` (Gras);
+ * - je Brett aus `BOARD_REGISTRY` (CHAOS-212) ein Ordner `bretter/<brett-id>/` mit
+ *   - `brett.usdz`: Kulisse aus dem Web-Host (`scripts/lib/board-export.mjs`) über Blender nach
+ *     USDZ (`packages/assets/usd/glb_to_usdz.py`), mit Feld-Ankern `feld_<id>` aus game-core;
+ *   - `brett.szene.json` (Kamera, Licht, Figurenorte, Felder), `brett.instanzen.json` (Gras);
+ *   jedes Brett braucht im Manifest ein Artefakt `bretter/<brett-id>/brett.usdz`;
  * - `herkunft.json`: Lizenzen und Herkunft je Artefakt aus `packages/assets/manifest.json`.
  *
  * Danach prüft `packages/assets/usd/check_usdz.py` (usd-core, ohne Mac) alles, auf einem Mac
@@ -39,9 +42,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { provenance } from '../packages/assets/src/builds.ts';
+import { BOARD_REGISTRY } from '../packages/game-core/src/board/registry.ts';
 import { CHARACTER_IDS } from '../packages/assets/src/contract.ts';
 import { ManifestSchema } from '../packages/assets/src/manifest.ts';
-import { exportBoard } from './lib/board-export.mjs';
+import { exportBoards } from './lib/board-export.mjs';
 import { boardImageProblems, glbImageNames } from './lib/board-images.mjs';
 
 const BUILD = 'apple-host';
@@ -59,6 +63,19 @@ if (only && only !== 'figuren' && only !== 'brett') {
   throw new Error(`--nur=${only}: erlaubt sind figuren oder brett`);
 }
 const out = resolve(root, option('out') ?? build.out);
+const onlyBoard = option('brett');
+const boardIds = BOARD_REGISTRY.map((info) => info.id).filter(
+  (id) => onlyBoard === undefined || id === onlyBoard,
+);
+if (boardIds.length === 0) throw new Error(`--brett=${String(onlyBoard)}: Brett nicht im Register`);
+/** Artefakt-Pfad der Kulisse eines Bretts (CHAOS-212). */
+const boardPath = (/** @type {string} */ id) => `bretter/${id}/brett.usdz`;
+// Vor dem langen Export: Fehlt einem Brett die Herkunft im Manifest, gleich abbrechen.
+for (const id of boardIds) {
+  if (!build.artifacts.some((a) => a.path === boardPath(id))) {
+    throw new Error(`Artefakt ${boardPath(id)} fehlt im Manifest (builds.${BUILD}.artifacts)`);
+  }
+}
 const check = !args.includes('--ohne-pruefung');
 
 /**
@@ -121,36 +138,50 @@ if (only !== 'brett') {
 }
 
 if (only !== 'figuren') {
+  // Kulisse vor CHAOS-212 lag direkt im Ausgabeordner; alte Reste nicht mitprüfen oder einpacken.
+  for (const file of ['brett.usdz', 'brett.szene.json', 'brett.instanzen.json']) {
+    rmSync(join(out, file), { force: true });
+  }
   const work = mkdtempSync(join(tmpdir(), 'chaos-brett-'));
   try {
-    console.log('Brett: Export aus dem Web-Host (Vite + Chromium) …');
-    const { meta } = await exportBoard({
+    console.log(`Bretter: Export aus dem Web-Host (Vite + Chromium): ${boardIds.join(', ')} …`);
+    const results = await exportBoards({
       root,
-      out: work,
+      boards: boardIds,
+      outFor: (id) => join(work, id ?? 'standard'),
       timeoutMs: Number(process.env.BOARD_EXPORT_TIMEOUT ?? 900_000),
       verbose: Boolean(process.env.BOARD_EXPORT_VERBOSE),
     });
-    const artifact = build.artifacts.find((a) => a.path === 'brett.usdz');
-    if (!artifact) throw new Error('Artefakt brett.usdz fehlt im Manifest');
-    const problems = boardImageProblems(
-      glbImageNames(readFileSync(join(work, 'brett.glb'))),
-      manifest,
-      artifact.from,
-    );
-    if (problems.length > 0) {
-      throw new Error(`Brett-Texturen ohne passende Herkunft:\n  ${problems.join('\n  ')}`);
+    for (const { boardId, meta } of results) {
+      if (boardId === undefined) continue;
+      const from = join(work, boardId);
+      const to = join(out, 'bretter', boardId);
+      const artifact = build.artifacts.find((a) => a.path === boardPath(boardId));
+      if (!artifact) throw new Error(`Artefakt ${boardPath(boardId)} fehlt im Manifest`);
+      const problems = boardImageProblems(
+        glbImageNames(readFileSync(join(from, 'brett.glb'))),
+        manifest,
+        artifact.from,
+      );
+      if (problems.length > 0) {
+        throw new Error(
+          `${boardId}: Brett-Texturen ohne passende Herkunft:\n  ${problems.join('\n  ')}`,
+        );
+      }
+      rmSync(to, { recursive: true, force: true });
+      mkdirSync(to, { recursive: true });
+      run(
+        py,
+        ['packages/assets/usd/glb_to_usdz.py', join(from, 'brett.glb'), join(to, 'brett.usdz')],
+        {
+          quiet: /^(USDZ|WARNUNG)/,
+        },
+      );
+      for (const file of ['brett.szene.json', 'brett.instanzen.json']) {
+        copyFileSync(join(from, file), join(to, file));
+      }
+      console.log(`Brett ${boardId}: ${String(meta.fields?.length ?? 0)} Feld-Anker`);
     }
-    run(
-      py,
-      ['packages/assets/usd/glb_to_usdz.py', join(work, 'brett.glb'), join(out, 'brett.usdz')],
-      {
-        quiet: /^(USDZ|WARNUNG)/,
-      },
-    );
-    for (const file of ['brett.szene.json', 'brett.instanzen.json']) {
-      copyFileSync(join(work, file), join(out, file));
-    }
-    console.log(`Brett: ${String(meta.fields?.length ?? 0)} Feld-Anker`);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -175,7 +206,14 @@ writeFileSync(
 );
 
 if (check) {
-  run(py, ['-I', 'packages/assets/usd/check_usdz.py', out, `--manifest=${manifestPath}`]);
+  const complete = only === undefined && onlyBoard === undefined ? ['--vollstaendig'] : [];
+  run(py, [
+    '-I',
+    'packages/assets/usd/check_usdz.py',
+    out,
+    `--manifest=${manifestPath}`,
+    ...complete,
+  ]);
   const onMac = process.platform === 'darwin';
   if (onMac && process.env.RK_CHECK !== '0' && only === undefined) {
     run('swift', ['packages/assets/usd/check_realitykit.swift', out]);

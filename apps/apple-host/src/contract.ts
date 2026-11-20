@@ -381,6 +381,11 @@ export const LightSchema = z.strictObject({
 });
 
 export const BoardStateSchema = z.strictObject({
+  /**
+   * Gespieltes Brett (CHAOS-212): ID aus dem Brett-Register, schon aufgelöst (unbekannte ID →
+   * Standardbrett). Swift lädt danach die Kulisse `bretter/<boardId>/`.
+   */
+  boardId: z.string(),
   round: z.number().int().min(1),
   rounds: z.number().int().min(1),
   activeSlot: slot.nullable(),

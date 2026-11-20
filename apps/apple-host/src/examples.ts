@@ -95,6 +95,7 @@ const HUD: Hud = {
 };
 
 const BOARD: BoardState = {
+  boardId: 'wackelwald',
   round: 3,
   rounds: 10,
   activeSlot: 2,

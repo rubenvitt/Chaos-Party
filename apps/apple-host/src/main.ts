@@ -466,6 +466,7 @@ function create(env: HostEnv): ChaosHostInstance {
     const board = getBoard(current.boardId) ?? DEFAULT_BOARD;
     const shown = direction.fields();
     return {
+      boardId: board.id,
       round: current.round,
       rounds: current.rounds,
       activeSlot: current.activeSlot,
