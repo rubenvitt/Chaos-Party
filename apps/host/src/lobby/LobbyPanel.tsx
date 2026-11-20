@@ -195,6 +195,16 @@ export function LobbyPanel({
               </select>
             </label>
           )}
+          <button
+            type="button"
+            className="lobby-gallery-button"
+            data-testid="gallery-button"
+            onClick={() => {
+              setGalleryOpen(true);
+            }}
+          >
+            Minispiel-Galerie
+          </button>
         </div>
 
         <div className="lobby-side">
@@ -322,17 +332,6 @@ export function LobbyPanel({
           <p className="start-hint" data-testid="start-hint">
             {start.hint}
           </p>
-
-          <button
-            type="button"
-            className="lobby-gallery-button"
-            data-testid="gallery-button"
-            onClick={() => {
-              setGalleryOpen(true);
-            }}
-          >
-            Minispiel-Galerie
-          </button>
 
           {showJoinHelp && (
             <div className="join-help" role="note" data-testid="join-help">

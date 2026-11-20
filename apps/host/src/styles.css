@@ -1878,7 +1878,7 @@ body,
 
 /* Minispiel-Galerie (CHAOS-87): Übersicht über der Lobby, im Stil der Lobby-Karte. */
 .lobby-gallery-button {
-  justify-self: start;
+  margin-top: 12px;
   padding: 6px 14px;
   border: 3px solid #1b1530;
   border-radius: 999px;
