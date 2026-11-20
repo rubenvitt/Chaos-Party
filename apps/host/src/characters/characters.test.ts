@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
+import { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { Logger } from '@babylonjs/core/Misc/logger.js';
@@ -115,6 +116,42 @@ describe('Figuren-Bibliothek', () => {
       handle.dispose();
     },
   );
+
+  it.each([
+    ['sock', 'strick'],
+    ['raccoon', 'fell'],
+    ['robot', 'lack'],
+    ['cactus', 'kaktus'],
+  ] as const)(
+    '%s: Feinstruktur als Normal-Textur am Material „%s“ (CHAOS-172)',
+    async (id, materialName) => {
+      const level = Logger.LogLevels;
+      Logger.LogLevels = Logger.ErrorLogLevel;
+      engine = new NullEngine();
+      Logger.LogLevels = level;
+      scene = new Scene(engine);
+      new FreeCamera('kamera', new Vector3(0, 1, 5), scene);
+      library = await loadCharacters(scene, { sources, keepPbr: true });
+      const handle = library.create(scene, player(1, id));
+      const mat = handle.meshes
+        .map((m) => m.material)
+        .find((m) => m?.name.split('#')[0] === materialName);
+      expect(mat).toBeInstanceOf(PBRMaterial);
+      const pbr = mat as PBRMaterial;
+      expect(pbr.bumpTexture).not.toBeNull();
+      expect(pbr.bumpTexture?.coordinatesIndex).toBe(0);
+      handle.dispose();
+    },
+  );
+
+  it('Standard-Materialien behalten die Normal-Textur (Vitrine, CHAOS-172)', async () => {
+    const { scene: s, library: lib } = await setup();
+    const handle = lib.create(s, player(4, 'sock'));
+    const knit = handle.meshes.map((m) => m.material).find((m) => m?.name.startsWith('strick'));
+    expect(knit).toBeInstanceOf(StandardMaterial);
+    expect((knit as StandardMaterial).bumpTexture).not.toBeNull();
+    handle.dispose();
+  });
 
   it('zwei Figuren derselben Art haben getrennte Materialien', async () => {
     const { scene: s, library: lib } = await setup();

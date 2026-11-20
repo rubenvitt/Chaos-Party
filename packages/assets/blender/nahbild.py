@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import bpy  # noqa: E402
 
 import portrait as p  # noqa: E402
+import struktur  # noqa: E402
 
 SIZE = 900
 VIEWS = (("dreiviertel", 28.0, 6.0), ("profil", 90.0, 4.0), ("oben", 20.0, 38.0))
@@ -36,6 +37,7 @@ def main() -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     importlib.import_module(figure).build()
+    struktur.apply()  # Feinstruktur wie im Export (CHAOS-172)
     p.pose_idle()
     p.lights()
     p.render_settings(int(opts.get("samples", "64")), denoise=True)

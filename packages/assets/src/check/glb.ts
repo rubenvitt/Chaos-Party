@@ -35,6 +35,24 @@ interface GltfPrimitive {
   readonly mode?: number;
 }
 
+/** Material mit beliebigen Textur-Plätzen (`normalTexture`, `pbrMetallicRoughness.baseColorTexture` …). */
+export interface GltfMaterial {
+  readonly name?: string;
+  readonly [key: string]: unknown;
+}
+
+/** Eingebettetes Bild (CHAOS-172: Normal-Texturen der Feinstruktur). */
+export interface GlbImage {
+  readonly mimeType: string;
+  readonly bytes: Uint8Array;
+}
+
+/** Verwendung einer Textur: Material und Platz (Pfad im Material, z. B. `normalTexture`). */
+export interface GlbTextureSlot {
+  readonly material: string;
+  readonly slot: string;
+}
+
 export interface GltfJson {
   readonly asset?: { readonly version?: string };
   readonly scene?: number;
@@ -44,12 +62,19 @@ export interface GltfJson {
     readonly name?: string;
     readonly primitives: readonly GltfPrimitive[];
   }[];
-  readonly materials?: readonly { readonly name?: string }[];
+  readonly materials?: readonly GltfMaterial[];
   readonly animations?: readonly { readonly name?: string }[];
   readonly accessors?: readonly GltfAccessor[];
   readonly bufferViews?: readonly GltfBufferView[];
-  readonly textures?: readonly unknown[];
-  readonly images?: readonly unknown[];
+  readonly textures?: readonly {
+    readonly source?: number;
+    readonly extensions?: Readonly<Record<string, { readonly source?: number }>>;
+  }[];
+  readonly images?: readonly {
+    readonly mimeType?: string;
+    readonly bufferView?: number;
+    readonly uri?: string;
+  }[];
   readonly skins?: readonly unknown[];
 }
 
@@ -63,6 +88,10 @@ export interface GlbStats {
   readonly primitives: number;
   readonly triangles: number;
   readonly textures: number;
+  /** Eingebettete Bilder (Bytes aus dem Binär-Chunk; externe URIs sind nicht erlaubt). */
+  readonly images: readonly GlbImage[];
+  /** Alle Stellen, an denen ein Material eine Textur benutzt. */
+  readonly textureSlots: readonly GlbTextureSlot[];
   /** Achsenparalleler Rahmen in Weltkoordinaten (Ruhepose). */
   readonly min: readonly [number, number, number];
   readonly max: readonly [number, number, number];
@@ -246,8 +275,55 @@ export function glbStats(bytes: Uint8Array): GlbStats {
     primitives,
     triangles,
     textures: (json.textures?.length ?? 0) + (json.images?.length ?? 0),
+    images: readImages(json, bin),
+    textureSlots: textureSlots(json),
     min,
     max,
     footprintRadius: footprint,
   };
+}
+
+function readImages(json: GltfJson, bin: Uint8Array | null): GlbImage[] {
+  return (json.images ?? []).map((image, i) => {
+    if (image.bufferView === undefined || !bin) {
+      throw new GlbError(
+        `Bild ${String(i)} nicht eingebettet (externe Dateien sind nicht erlaubt)`,
+      );
+    }
+    const view = json.bufferViews?.[image.bufferView];
+    if (!view) throw new GlbError(`Bild ${String(i)}: bufferView fehlt`);
+    const start = view.byteOffset ?? 0;
+    if (start + view.byteLength > bin.byteLength) {
+      throw new GlbError(`Bild ${String(i)} ragt über den Binär-Chunk hinaus`);
+    }
+    return {
+      mimeType: image.mimeType ?? '?',
+      bytes: bin.subarray(start, start + view.byteLength),
+    };
+  });
+}
+
+/** Sucht in jedem Material alle Objekte unter Schlüsseln `…Texture` mit einem `index`. */
+function textureSlots(json: GltfJson): GlbTextureSlot[] {
+  const out: GlbTextureSlot[] = [];
+  const walk = (material: string, value: unknown, path: string): void => {
+    if (value === null || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const childPath = path ? `${path}.${key}` : key;
+      if (
+        key.endsWith('Texture') &&
+        child !== null &&
+        typeof child === 'object' &&
+        'index' in child
+      ) {
+        out.push({ material, slot: childPath });
+      } else {
+        walk(material, child, childPath);
+      }
+    }
+  };
+  (json.materials ?? []).forEach((m, i) => {
+    walk(m.name ?? `#${String(i)}`, m, '');
+  });
+  return out;
 }

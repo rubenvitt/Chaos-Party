@@ -13,6 +13,9 @@
  * - GLB-Figuren: Animationsnamen genau wie im Vertrag, Höhe/Füße/Grundfläche aus den echten
  *   Eckpunkten (Ruhepose, mit Knoten-Transformen), Meshes/Primitives/Materialien/Dreiecke im
  *   Budget, Material `akzent` vorhanden und benutzt, Knoten `abzeichen` vorhanden;
+ *   Texturen (CHAOS-172) nur als `normalTexture` (Farben bleiben Vertexfarben, der Host färbt
+ *   `akzent` über die Grundfarbe), höchstens `maxImages` eingebettete WebP/PNG, je Bild im
+ *   Budget, WebP quadratisch mit Zweierpotenz bis `maxImageSize`;
  * - SVG: keine Skripte, Ereignis-Attribute oder externen Verweise;
  * - WebP: gültiger Container mit lesbaren Maßen;
  * - HDR (CHAOS-62): vollständig dekodierbar, Seitenverhältnis 2:1 (Panorama), Spitzenwert > 1
@@ -43,7 +46,7 @@ import {
   type AssetManifest,
 } from '../manifest.ts';
 import { checkBuildEntries } from '../builds.ts';
-import { GlbError, glbStats } from './glb.ts';
+import { GlbError, glbStats, type GlbStats } from './glb.ts';
 import { HdrError, hdrInfo } from './hdr.ts';
 import { WebpError, webpInfo, type WebpInfo } from './webp.ts';
 
@@ -211,6 +214,7 @@ function checkModel(
       `${label}: ${String(stats.triangles)} Dreiecke, Budget ${String(budget.maxTriangles)}`,
     );
   }
+  errors.push(...checkModelTextures(stats.images, stats.textureSlots, budget, label));
   if (!stats.materials.includes(ACCENT_MATERIAL)) {
     errors.push(
       `${label}: Material „${ACCENT_MATERIAL}“ fehlt (wird zur Laufzeit in Slot-Farbe gefärbt)`,
@@ -224,8 +228,58 @@ function checkModel(
   const note =
     `${label}: ${kib(bytes.byteLength)}, Höhe ${height.toFixed(2)}, Radius ${stats.footprintRadius.toFixed(2)}, ` +
     `${String(stats.meshes)} Meshes/${String(stats.primitives)} Primitives, ${String(stats.materials.length)} Materialien, ` +
-    `${String(stats.triangles)} Dreiecke, ${String(stats.animations.length)} Animationen`;
+    `${String(stats.triangles)} Dreiecke, ${String(stats.animations.length)} Animationen` +
+    (stats.images.length > 0
+      ? `, ${String(stats.images.length)} Normal-Textur (${stats.images.map((i) => kib(i.bytes.byteLength)).join(', ')})`
+      : '');
   return { errors, note };
+}
+
+/** Feinstruktur (CHAOS-172): nur Normal-Texturen, wenige und kleine Bilder. */
+function checkModelTextures(
+  images: GlbStats['images'],
+  slots: GlbStats['textureSlots'],
+  budget: AssetManifest['budgets']['model'],
+  label: string,
+): string[] {
+  const errors: string[] = [];
+  for (const { material, slot } of slots) {
+    if (slot !== 'normalTexture') {
+      errors.push(
+        `${label}: Material „${material}“ nutzt eine Textur in „${slot}“; erlaubt ist nur normalTexture (Farben bleiben Vertexfarben)`,
+      );
+    }
+  }
+  if (images.length > budget.maxImages) {
+    errors.push(
+      `${label}: ${String(images.length)} eingebettete Bilder, Budget ${String(budget.maxImages)}`,
+    );
+  }
+  images.forEach((image, i) => {
+    const name = `${label}: Bild ${String(i)}`;
+    if (image.bytes.byteLength > budget.maxImageBytes) {
+      errors.push(
+        `${name} zu groß: ${kib(image.bytes.byteLength)} > Budget ${kib(budget.maxImageBytes)}`,
+      );
+    }
+    if (image.mimeType === 'image/webp') {
+      try {
+        const info = webpInfo(image.bytes);
+        const pow2 = (n: number): boolean => n > 0 && (n & (n - 1)) === 0;
+        if (info.width !== info.height || !pow2(info.width) || info.width > budget.maxImageSize) {
+          errors.push(
+            `${name}: ${String(info.width)}×${String(info.height)} muss quadratisch mit Zweierpotenz bis ${String(budget.maxImageSize)} sein`,
+          );
+        }
+      } catch (error) {
+        const reason = error instanceof WebpError ? error.message : String(error);
+        errors.push(`${name}: WebP nicht lesbar – ${reason}`);
+      }
+    } else if (image.mimeType !== 'image/png') {
+      errors.push(`${name}: Format ${image.mimeType} nicht erlaubt (WebP oder PNG)`);
+    }
+  });
+  return errors;
 }
 
 /** Porträt und Akzent-Maske je Figur (Lobby und Controller laden genau diese Dateien). */

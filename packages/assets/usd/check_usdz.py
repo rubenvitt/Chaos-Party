@@ -10,7 +10,9 @@ Exit-Code 1 bei Fehlern. Geprüft wird:
 - Figuren (`figuren/<id>.usdz`): Clip-Tabelle `<id>.clips.json` passt zur Zeitleiste und zu den
   Animationsnamen im Manifest; Material `akzent` vorhanden und gebunden; jedes Mesh hat ein
   Material (RealityKit zeigt Vertexfarben nur ohne Material, die Farbe muss also aus der
-  Textur kommen); `UsdPreviewSurface` liest keine Vertexfarbe; Knoten `abzeichen` vorne (+z);
+  Textur kommen); `UsdPreviewSurface` liest keine Vertexfarbe; jede gelesene UV-Primvar liegt am
+  Mesh, mindestens ein Material hat eine Normal-Textur (raw, scale 2, bias -1; CHAOS-172);
+  Knoten `abzeichen` vorne (+z);
   mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest; aufgesetzte Teile
   (`AUFLAGE`, z. B. Socken-Bündchen, Kaktus-Blüte) liegen in Ruhepose und in jedem Clip auf
   ihrem Träger auf, statt darüber zu schweben (CHAOS-161);
@@ -220,13 +222,39 @@ def check_figure(path: Path, manifest: dict, tmp: Path) -> None:
             fail(f"{path.name}: Mesh {prim.GetPath()} ohne Material")
             continue
         bound.add(material.GetPrim().GetName())
+        # CHAOS-172: Farbatlas (`st`) und Feinstruktur (`struktur`) lesen verschiedene UV-Maps;
+        # jede gelesene Primvar muss am Mesh liegen, sonst zeigt RealityKit Unsinn.
+        primvars = {pv.GetPrimvarName() for pv in UsdGeom.PrimvarsAPI(prim).GetPrimvars()}
+        for shader in Usd.PrimRange(material.GetPrim()):
+            if shader.IsA(UsdShade.Shader) and UsdShade.Shader(shader).GetIdAttr().Get() == "UsdPrimvarReader_float2":
+                varname = UsdShade.Shader(shader).GetInput("varname").Get()
+                if varname not in primvars:
+                    fail(f"{path.name}: {prim.GetPath()} hat keine UV-Primvar „{varname}“ ({shader.GetPath()})")
     if "akzent" in materials and "akzent" not in bound:
         fail(f"{path.name}: Material „akzent“ an keinem Mesh")
+    structured: list[str] = []
     for prim in stage.Traverse():
         if prim.IsA(UsdShade.Shader):
             shader_id = UsdShade.Shader(prim).GetIdAttr().Get()
             if shader_id == "UsdPrimvarReader_float3":
                 fail(f"{path.name}: {prim.GetPath()} liest eine Vertexfarbe (RealityKit ignoriert das)")
+            if shader_id == "UsdPreviewSurface":
+                normal = UsdShade.Shader(prim).GetInput("normal")
+                sources = normal.GetConnectedSources()[0] if normal else []
+                if not sources:
+                    continue
+                texture = UsdShade.Shader(sources[0].source.GetPrim())
+                space = texture.GetInput("sourceColorSpace")
+                if not space or space.Get() != "raw":
+                    fail(f"{path.name}: Normal-Textur an {prim.GetPath()} nicht als „raw“ gelesen")
+                scale, bias = texture.GetInput("scale"), texture.GetInput("bias")
+                if not scale or not bias or tuple(scale.Get())[:3] != (2, 2, 2) or tuple(bias.Get())[:3] != (-1, -1, -1):
+                    fail(f"{path.name}: Normal-Textur an {prim.GetPath()} ohne scale 2 / bias -1")
+                structured.append(prim.GetParent().GetName())
+    if not structured:
+        fail(f"{path.name}: keine Feinstruktur (Normal-Textur) gefunden (CHAOS-172)")
+    else:
+        notes.append(f"{path.name}: Feinstruktur an {sorted(structured)}")
 
     badge = [p for p in stage.Traverse() if p.GetName() == "abzeichen"]
     if len(badge) != 1:

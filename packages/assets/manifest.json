@@ -3,11 +3,14 @@
   "version": 1,
   "budgets": {
     "model": {
-      "maxBytes": 524288,
+      "maxBytes": 786432,
       "maxMeshes": 12,
       "maxPrimitives": 24,
       "maxMaterials": 6,
-      "maxTriangles": 15000
+      "maxTriangles": 15000,
+      "maxImages": 1,
+      "maxImageBytes": 32768,
+      "maxImageSize": 256
     },
     "texture": {
       "maxBytes": 131072
@@ -25,11 +28,11 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/robot.glb",
-      "description": "Figur Schraubi (lackierter Blech-Aufziehroboter mit gefasten Kanten, Nieten, Nähten, Lüftungsschlitzen, Schlauchgelenken, Bildschirmgesicht im Rahmen, Federantenne mit Glühbirne und Aufziehschlüssel; starre Teile am Skelett); Material „akzent“ = Halsring in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Schraubi (lackierter Blech-Aufziehroboter mit gefasten Kanten, Nieten, Nähten, Lüftungsschlitzen, Schlauchgelenken, Bildschirmgesicht im Rahmen, Federantenne mit Glühbirne und Aufziehschlüssel; starre Teile am Skelett; Lack-Normal-Textur mit Orangenhaut und Kratzern, CHAOS-172); Material „akzent“ = Halsring in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 393216,
+      "budgetBytes": 655360,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
       "height": 1.47
     },
@@ -38,11 +41,11 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/cactus.glb",
-      "description": "Figur Kalle Kaktus (gerippter Saguaro mit Areolen und Dornen im Tontopf, Sonnenbrille mit Fassung, Blüte und Halstuch; Skinning); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Kalle Kaktus (gerippter Saguaro mit Areolen und Dornen im Tontopf, Sonnenbrille mit Fassung, Blüte und Halstuch; Skinning; Haut-Normal-Textur, CHAOS-172); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 524288,
+      "budgetBytes": 720896,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
       "height": 1.58
     },
@@ -51,11 +54,11 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/raccoon.glb",
-      "description": "Figur Wusel (Waschbär mit Maske, Fellwangen, Schnurrhaaren, Pfoten mit Fingern und Zehen und bauschigem Ringelschwanz; Skinning, Fell-Sheen); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Wusel (Waschbär mit Maske, Fellwangen, Schnurrhaaren, Pfoten mit Fingern und Zehen und bauschigem Ringelschwanz; Skinning, Fell-Sheen und Fell-Normal-Textur, CHAOS-172); Material „akzent“ = Halstuch in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 524288,
+      "budgetBytes": 655360,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
       "height": 1.543
     },
@@ -64,11 +67,11 @@
       "kind": "model",
       "source": "generated",
       "path": "packages/assets/models/characters/sock.glb",
-      "description": "Figur Socke Sigi (Strick-Socke mit Ferse, Spitze, Ringeln, ungleichen Knopfaugen und gesticktem Mund; Skinning); Material „akzent“ = Rippbündchen in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
+      "description": "Figur Socke Sigi (Strick-Socke mit Ferse, Spitze, Ringeln, ungleichen Knopfaugen und gesticktem Mund; Skinning; Strickmaschen als Normal-Textur, CHAOS-172); Material „akzent“ = Rippbündchen in Slot-Farbe, Knoten „abzeichen“ = Slot-Symbol.",
       "generator": "packages/assets/blender/build-all.sh",
       "license": "GPL-3.0-only",
       "attribution": "Chaos Party – eigener Entwurf, mit Blender aus Skript erzeugt (CHAOS-58)",
-      "budgetBytes": 524288,
+      "budgetBytes": 589824,
       "animations": ["idle", "run", "jump", "hit", "cheer", "sad", "fall"],
       "height": 1.507
     },
@@ -602,34 +605,34 @@
         {
           "id": "apple-figur-robot",
           "path": "figuren/robot.usdz",
-          "description": "Figur Schraubi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (robot.clips.json).",
+          "description": "Figur Schraubi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall, Leuchten und Normal-Textur der Feinstruktur (UV-Map struktur, CHAOS-172); alle Clips auf einer Zeitleiste (robot.clips.json).",
           "license": "GPL-3.0-only",
           "from": ["figur-robot"],
-          "budgetBytes": 1572864
+          "budgetBytes": 2097152
         },
         {
           "id": "apple-figur-cactus",
           "path": "figuren/cactus.usdz",
-          "description": "Figur Kalle Kaktus als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (cactus.clips.json).",
+          "description": "Figur Kalle Kaktus als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall, Leuchten und Normal-Textur der Feinstruktur (UV-Map struktur, CHAOS-172); alle Clips auf einer Zeitleiste (cactus.clips.json).",
           "license": "GPL-3.0-only",
           "from": ["figur-cactus"],
-          "budgetBytes": 1572864
+          "budgetBytes": 2097152
         },
         {
           "id": "apple-figur-raccoon",
           "path": "figuren/raccoon.usdz",
-          "description": "Figur Wusel als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (raccoon.clips.json).",
+          "description": "Figur Wusel als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall, Leuchten und Normal-Textur der Feinstruktur (UV-Map struktur, CHAOS-172); alle Clips auf einer Zeitleiste (raccoon.clips.json).",
           "license": "GPL-3.0-only",
           "from": ["figur-raccoon"],
-          "budgetBytes": 1572864
+          "budgetBytes": 2097152
         },
         {
           "id": "apple-figur-sock",
           "path": "figuren/sock.usdz",
-          "description": "Figur Sigi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall und Leuchten; alle Clips auf einer Zeitleiste (sock.clips.json).",
+          "description": "Figur Sigi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall, Leuchten und Normal-Textur der Feinstruktur (UV-Map struktur, CHAOS-172); alle Clips auf einer Zeitleiste (sock.clips.json).",
           "license": "GPL-3.0-only",
           "from": ["figur-sock"],
-          "budgetBytes": 1572864
+          "budgetBytes": 2097152
         }
       ]
     }

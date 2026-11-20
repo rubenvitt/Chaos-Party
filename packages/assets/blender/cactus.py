@@ -453,7 +453,7 @@ def extra(name: str, p: float) -> k.Pose:
 
 def build() -> None:
     k.reset()
-    skin = k.material("kaktus", vertex_colors=True, roughness=0.55, subsurface=0.08, coat=0.15)
+    skin = k.material("kaktus", vertex_colors=True, roughness=0.55, subsurface=0.08, coat=0.15, structure="haut")
     clay = k.material("ton", vertex_colors=True, roughness=0.85)
     gloss = k.material("glanz", vertex_colors=True, roughness=0.05, coat=1.0)
     petals = k.material("bluete", vertex_colors=True, roughness=0.6, sheen=0.4, subsurface=0.1)

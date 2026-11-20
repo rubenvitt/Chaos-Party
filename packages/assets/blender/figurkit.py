@@ -4,7 +4,8 @@ Figuren-Baukasten für Blender als Python-Modul (bpy 5.3, CHAOS-58).
 Figuren entstehen als reproduzierbare Skripte statt aus starren Grundkörpern:
 - Körper, Glieder und Schwanz aus Skin-Modifier + Subdivision (weiche, organische Formen),
 - Kopf aus einer verformten Kugel (Schnauze, Wangen), Augen als glänzende Kugeln,
-- Farben als Vertexfarben (keine Texturen), Fell über Sheen im PBR-Material,
+- Farben als Vertexfarben, Fell über Sheen im PBR-Material, Feinstruktur (Strick, Fell, Lack,
+  Kaktushaut) als kleine kachelbare Normal-Textur (`struktur.py`, CHAOS-172),
 - Skelett (Armature) mit den Vertrags-Gelenken `huepfer` und `abzeichen`,
 - Animationen mit den Namen aus `CHARACTER_ANIMATIONS`, Export als GLB.
 
@@ -24,6 +25,8 @@ from typing import Callable, Iterable, Sequence
 import bpy  # zuerst: stellt bmesh und mathutils bereit
 import bmesh  # noqa: E402
 from mathutils import Euler, Vector  # noqa: E402
+
+import struktur  # noqa: E402
 
 Vec = tuple[float, float, float]
 Color = tuple[float, float, float]
@@ -59,7 +62,9 @@ def material(
     coat: float = 0.0,
     emission: float = 0.0,
     subsurface: float = 0.0,
+    structure: str | None = None,
 ) -> bpy.types.Material:
+    """PBR-Material. `structure`: Muster aus `struktur.MUSTER` (Normal-Textur, CHAOS-172)."""
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     tree = mat.node_tree
@@ -83,6 +88,8 @@ def material(
         bsdf.inputs["Emission Strength"].default_value = emission
     if subsurface > 0:
         bsdf.inputs["Subsurface Weight"].default_value = subsurface
+    if structure is not None:
+        struktur.mark(mat, structure)
     return mat
 
 
@@ -363,6 +370,7 @@ def bake_clips(rig: bpy.types.Object, clips: Sequence[Clip], bones: Sequence[str
 
 
 def export_glb(path: str) -> None:
+    struktur.apply()
     bpy.ops.export_scene.gltf(
         filepath=path,
         export_format="GLB",
@@ -376,7 +384,9 @@ def export_glb(path: str) -> None:
         export_vertex_color="ACTIVE",
         export_all_vertex_colors=False,
         export_materials="EXPORT",
-        export_image_format="NONE",
+        # Nur die Normal-Textur der Feinstruktur (CHAOS-172); Farben bleiben Vertexfarben.
+        export_image_format="WEBP",
+        export_image_quality=90,
         export_cameras=False,
         export_lights=False,
         export_extras=False,
@@ -391,6 +401,9 @@ def export_glb(path: str) -> None:
 
 ATLAS_SIZE = 1024
 """Kantenlänge der Farbtextur, in die die Vertexfarben gebacken werden (eine je Figur)."""
+
+ATLAS_UV = "farbatlas"
+"""UV-Map des Farbatlas (im USD als `st` exportiert, die Struktur-Map bleibt `struktur`)."""
 
 CLIP_GAP_FRAMES = 6
 """Leere Bilder zwischen zwei Clips auf der Zeitleiste, damit beim Zuschneiden nichts überblendet."""
@@ -452,6 +465,11 @@ def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Ima
     objects.sort(key=lambda o: o.name)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
+        # Eigene UV-Map für den Atlas; die Feinstruktur behält ihre Map `struktur` (CHAOS-172).
+        # Aktiv (Projektion und Backen) und für das Rendern aktiv (USD: wird zur Primvar `st`).
+        layer = obj.data.uv_layers.get(ATLAS_UV) or obj.data.uv_layers.new(name=ATLAS_UV)
+        obj.data.uv_layers.active = layer
+        layer.active_render = True
         obj.select_set(True)
     bpy.context.view_layer.objects.active = objects[0]
     bpy.ops.object.mode_set(mode="EDIT")
@@ -472,6 +490,10 @@ def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Ima
         node.image = image
         node.interpolation = "Linear"
         mat.node_tree.nodes.active = node
+        uv = mat.node_tree.nodes.new("ShaderNodeUVMap")
+        uv.name = "farbatlas_uv"
+        uv.uv_map = ATLAS_UV
+        mat.node_tree.links.new(uv.outputs["UV"], node.inputs["Vector"])
 
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
@@ -487,6 +509,7 @@ def bake_vertex_colors(image_name: str, size: int = ATLAS_SIZE) -> bpy.types.Ima
         vertex_nodes = [n for n in tree.nodes if n.bl_idname == "ShaderNodeVertexColor"]
         if not vertex_nodes:
             tree.nodes.remove(atlas)  # Material ohne Vertexfarbe: Konstante bleibt
+            tree.nodes.remove(tree.nodes["farbatlas_uv"])
             continue
         for vc in vertex_nodes:
             for link in list(vc.outputs["Color"].links):
@@ -514,6 +537,7 @@ def export_usdz(path: str, texture_dir: str) -> list[dict[str, object]]:
     assert _baked is not None, "erst bake_clips aufrufen"
     rig = _baked.rig
     add_badge_anchor(rig)
+    struktur.apply()  # vor dem Atlas: die Struktur-Map entsteht in der Ruhepose
 
     image = bake_vertex_colors(f"{rig.name}_farbe")
     if image is not None:
