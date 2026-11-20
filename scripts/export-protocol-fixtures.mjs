@@ -304,6 +304,14 @@ const controllerToServer = {
   release: createMessage('release', { slot: 1, seq: 7, button: 'b' }),
   gesture: createMessage('gesture', { slot: 1, seq: 8, kind: 'swipe-left' }),
   reaction: createMessage('reaction', { slot: 1, seq: 9, windowId: 3 }),
+  // CHAOS-87: Daumen nach dem Minispiel (native App ohne Oberfläche dafür, CHAOS-219).
+  rate: createMessage('rate', {
+    slot: 1,
+    seq: 10,
+    minigameId: 'sockenregen',
+    round: 2,
+    vote: 'up',
+  }),
 };
 
 /** Server-Nachrichten anderer Rollen: Der Controller muss sie als `.unknown` überspringen. */
