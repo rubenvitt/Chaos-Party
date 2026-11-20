@@ -20,7 +20,7 @@ import {
   type PlayerCount,
 } from '@chaos-party/minigame-kit';
 
-// Bot-Profile, Protokoll und Kennzahlen liegen seit CHAOS-83 im Baukasten (ADR-020); hier unter
+// Bot-Profile, Protokoll und Kennzahlen liegen seit CHAOS-83 im Baukasten (ADR-021); hier unter
 // den alten Namen weitergereicht, damit die Experimente unverändert laufen.
 export { BOT_PROFILES, LeadTracker, gaussian, lineup, reactionSample };
 export type { BotProfile, GameRecord, PlayerCount };

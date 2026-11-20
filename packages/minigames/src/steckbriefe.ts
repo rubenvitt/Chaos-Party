@@ -1,5 +1,5 @@
 /**
- * Vielfalts-Steckbriefe der Minispiele (README §5.5, ADR-020). Je Spiel: Kernverb, Ziel,
+ * Vielfalts-Steckbriefe der Minispiele (README §5.5, ADR-021). Je Spiel: Kernverb, Ziel,
  * Arena-Form, Kamera, Bedienung, Spielform, Tempo und Ort. Der gemeinsame Vertragstest
  * (CHAOS-84) prüft damit den Mindestabstand neuer Spiele zum ähnlichsten bestehenden.
  */

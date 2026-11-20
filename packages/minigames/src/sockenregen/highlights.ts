@@ -1,6 +1,6 @@
 /**
  * Höhepunkte für die Ergebnisanzeige von Sockenregen (rein, testbar). 0–4 Zeilen à höchstens
- * 64 Zeichen, mit Spielernamen. Vorlagen und Textgrenzen aus dem Baukasten (ADR-020).
+ * 64 Zeichen, mit Spielernamen. Vorlagen und Textgrenzen aus dem Baukasten (ADR-021).
  */
 import { buildHighlights, type HighlightRule } from '@chaos-party/minigame-kit';
 import type { Slot } from '@chaos-party/minigame-sdk';

@@ -11,7 +11,7 @@
  * Koordinaten: Ebene x/z, +z = vom Fernseher weg („Stick nach oben“), Arena-Mitte (0, 0).
  * Zeit nur über `step(dt)`, Zufall nur über den übergebenen `MinigameRng`.
  *
- * Unterbau aus dem Baukasten (ADR-020, CHAOS-83): Spielzeit mit Endphase (`MatchClock`),
+ * Unterbau aus dem Baukasten (ADR-021, CHAOS-83): Spielzeit mit Endphase (`MatchClock`),
  * Wurf-Takt mit Vorwarnung (`Spawner`), Laufen/Hechten/Benommenheit (`movement`). Die Regeln
  * (Fangen, Plätten, gezielte Bügeleisen, herausspringende Socke) bleiben hier.
  */

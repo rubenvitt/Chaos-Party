@@ -42,6 +42,17 @@ Ruben hat die Werkzeugwahl freigegeben („Pakete als Basis oder Blender + MCP�
 - Das Budget je Figur steigt von 300 auf 384 KiB, weil Skinning-Daten (Gelenke, Gewichte) und Vertexfarben dazukommen. Ist-Stand: 110–324 KiB, 2 800–10 300 Dreiecke.
 - Die Porträts zeigen noch die M3-Figuren (eigene Folgeaufgabe). **Nachtrag 2026-11-15 (CHAOS-61):** erledigt. Die Porträts entstehen jetzt ebenfalls in Blender (`portrait.py`, Cycles-Render als WebP mit Akzent-Maske), der TS-Generator in `packages/assets/src/generator/` ist entfernt. Renders sind nicht byte-gleich reproduzierbar; `check:assets` prüft Format, Maße, Alpha und das Paar Bild/Maske.
 
+## Nachtrag 2026-11-20: Requisiten der Minispiele (CHAOS-88)
+
+Die Pipeline trägt jetzt auch die **Requisiten** der Minispiele: `requisitkit.py` (parametrische
+Grundformen auf `figurkit`), `requisiten.py` (Sets je Familie), `props.py`/`props-all.sh`
+(statische GLBs nach `packages/assets/models/props/`, Kontaktbogen). Gleiche Regeln wie bei den
+Figuren: Vertexfarben, Blender nur als Werkzeug, Ergebnis ist Eigenwerk (GPL-3.0-only), GLBs
+werden mit committet, CI prüft Vertrag und Budget statt Reproduzierbarkeit. Neu sind die
+Manifest-Art `prop`, das Budget je Requisit und je Minispiel und der Katalog `props.ts`
+(Details: `docs/art-direction.md`, Abschnitt „Requisiten der Minispiele“). CC0-Quellen wurden für
+die Pilot-Sets nicht gebraucht; Importe liefen weiter über die Positivliste und `origin`.
+
 ## Überprüfung
 
 Neu bewerten, wenn bpy in CI gebraucht wird (dann ein Container-Job mit gepinnter Version), wenn Figuren handmodelliert werden sollen (Blender mit Oberfläche bzw. MCP) oder wenn die Bildrate am Ziel-PC mit vier geskinnten Figuren nicht reicht.

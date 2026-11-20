@@ -35,7 +35,7 @@ export class SockenregenBot implements MinigameBot<SockenregenLogic> {
     this.senses = new BotSenses(profile, rng);
   }
 
-  /** Gemeinsame Bot-Schnittstelle (ADR-020): Stick setzen, A für den Hechtsprung. */
+  /** Gemeinsame Bot-Schnittstelle (ADR-021): Stick setzen, A für den Hechtsprung. */
   act(game: SockenregenLogic): BotAction | null {
     const decision = this.decide(game);
     if (!decision) return null;

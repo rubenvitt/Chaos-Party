@@ -1,5 +1,5 @@
 /**
- * „Hallo Baukasten“ – Muster-Minispiel (CHAOS-83, ADR-020). Zeigt den Weg: Steckbrief in
+ * „Hallo Baukasten“ – Muster-Minispiel (CHAOS-83, ADR-021). Zeigt den Weg: Steckbrief in
  * `info.ts`, reine Logik in `logic.ts`, Bot in `bot.ts`, hier nur die Ansicht. Arena, Kamera,
  * Bühne, Figuren mit Abzeichen und Pool kommen aus `@chaos-party/minigame-kit/babylon`.
  */

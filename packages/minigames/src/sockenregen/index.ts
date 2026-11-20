@@ -5,7 +5,7 @@
  * und in `dispose` wieder entfernt; Zeit nur über `update`, Zufall nur über `ctx.rng`.
  *
  * Bühne (Aufräumen, Materialien im Look), Slot-Abzeichen, Fangring, Sterne und Animationswahl
- * kommen aus dem Baukasten (`@chaos-party/minigame-kit/babylon`, ADR-020).
+ * kommen aus dem Baukasten (`@chaos-party/minigame-kit/babylon`, ADR-021).
  */
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MINIGAME_INFOS } from './catalog.ts';
 import { STECKBRIEFE, getSteckbrief } from './steckbriefe.ts';
 
-describe('Vielfalts-Steckbriefe (ADR-020)', () => {
+describe('Vielfalts-Steckbriefe (ADR-021)', () => {
   it('jedes Minispiel hat einen Steckbrief, die Bedienung passt zum Controller', () => {
     expect(Object.keys(STECKBRIEFE).sort()).toEqual(MINIGAME_INFOS.map((info) => info.id).sort());
     for (const info of MINIGAME_INFOS) {

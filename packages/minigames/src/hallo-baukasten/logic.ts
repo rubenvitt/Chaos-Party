@@ -1,6 +1,6 @@
 /**
  * Logik von „Hallo Baukasten“ (rein): Glühwürmchen landen angekündigt in Lichtkreisen; wer
- * darin steht, fängt sie. Zeit, Takt, Bewegung, Punkte, Höhepunkte: Baukasten (ADR-020).
+ * darin steht, fängt sie. Zeit, Takt, Bewegung, Punkte, Höhepunkte: Baukasten (ADR-021).
  */
 import {
   EventTally,

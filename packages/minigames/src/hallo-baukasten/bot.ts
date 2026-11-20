@@ -1,5 +1,5 @@
 /**
- * Bot für „Hallo Baukasten“ über die gemeinsame Bot-Schnittstelle (ADR-020): läuft zum
+ * Bot für „Hallo Baukasten“ über die gemeinsame Bot-Schnittstelle (ADR-021): läuft zum
  * erreichbaren Glühwürmchen, das er bemerkt hat, und hechtet bei Zeitnot. Der Störenfried
  * stellt sich manchmal der Führung in den Weg.
  */

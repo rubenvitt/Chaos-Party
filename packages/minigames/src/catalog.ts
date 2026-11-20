@@ -5,7 +5,7 @@
  * Neues Minispiel: Ordner `src/<id>/` mit `info.ts` (rein) und `index.ts` (Modul), hier in
  * `MINIGAME_INFOS` und – wenn es in Partien vorkommen soll – in `ROTATION` eintragen, in
  * `index.ts` das Modul registrieren und in `steckbriefe.ts` den Vielfalts-Steckbrief anlegen.
- * Bausteine dafür im Baukasten `@chaos-party/minigame-kit` (ADR-020); Muster: `hallo-baukasten/`.
+ * Bausteine dafür im Baukasten `@chaos-party/minigame-kit` (ADR-021); Muster: `hallo-baukasten/`.
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
 import { HALLO_BAUKASTEN_INFO } from './hallo-baukasten/info.ts';

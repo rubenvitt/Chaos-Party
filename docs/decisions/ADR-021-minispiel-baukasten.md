@@ -1,4 +1,4 @@
-# ADR-020: Minispiel-Baukasten als eigenes Paket `minigame-kit` (Unterbau, keine Spielvorlage)
+# ADR-021: Minispiel-Baukasten als eigenes Paket `minigame-kit` (Unterbau, keine Spielvorlage)
 
 **Status:** Angenommen
 **Datum:** 2026-11-20
@@ -74,6 +74,8 @@ Der Mindestabstand ist `MIN_DIFFERENCES = 3` Merkmale zum ähnlichsten Spiel (RE
 - Alle bisherigen Tests und die Screenshot-Baselines bleiben grün.
 
 **5. Muster-Minispiel „Hallo Baukasten“** (`packages/minigames/src/hallo-baukasten/`, nicht in der Rotation): Glühwürmchen landen angekündigt am Teich; wer im Lichtkreis steht, fängt sie. Steckbrief, Logik und Ansicht haben zusammen 300 Zeilen (ein Test hält die Grenze), der Bot 71 Zeilen. Es zeigt die Aufteilung `info.ts` / `logic.ts` (rein) / `bot.ts` / `index.ts` (Ansicht) und läuft automatisch durch die Katalog-Prüfungen (CHAOS-34). Es ist ein Lesebeispiel, keine Vorlage zum Kopieren der Spielidee.
+
+**6. Zusammenspiel mit den KI-Spielern (ADR-020).** ADR-020 verlangt für jedes Minispiel der Rotation einen Bot, den der Host für KI-Plätze nutzt; den Vertrag dafür legt CHAOS-180 fest. Die Bausteine hier sind dafür die Grundlage: `BotProfile` mit Reaktionszeit, Zielrauschen, Aufmerksamkeit und Fehlerrate entspricht den Stellgrößen der Stärke aus ADR-020, `BotSenses` lässt einen Bot nur sehen, was ein Mensch sehen kann (angekündigt, mit Reaktionszeit). Die Stärke 0–1 aus ADR-020 auf ein Profil abzubilden (zwischen Neuling und Profi interpolieren) und die Beobachtung statt der ganzen Logik zu übergeben, gehört zu CHAOS-180, nicht hierher.
 
 ## Betrachtete Alternativen
 

@@ -2,7 +2,7 @@
   "name": "@chaos-party/minigame-kit",
   "version": "0.0.0",
   "private": true,
-  "description": "Minispiel-Baukasten (ADR-020): Unterbau für Zeit, Punkte, Spawner, Gefahren, Bewegung, Bots, Höhepunkte und Steckbrief (rein) sowie Bühne, Arenen, Kameras und Slot-Abzeichen (`./babylon`). Keine Spielvorlage.",
+  "description": "Minispiel-Baukasten (ADR-021): Unterbau für Zeit, Punkte, Spawner, Gefahren, Bewegung, Bots, Höhepunkte und Steckbrief (rein) sowie Bühne, Arenen, Kameras und Slot-Abzeichen (`./babylon`). Keine Spielvorlage.",
   "license": "GPL-3.0-only",
   "type": "module",
   "sideEffects": false,

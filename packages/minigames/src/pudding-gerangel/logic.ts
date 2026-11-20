@@ -170,7 +170,7 @@ export function leaderOf(scores: readonly { slot: Slot; score: number }[]): Slot
 
 /**
  * Lenkung als Geschwindigkeitsänderung für einen Schritt: zieht die waagrechte Geschwindigkeit
- * zu Stick × Höchsttempo, begrenzt durch `maxAcceleration` (Baukasten, ADR-020).
+ * zu Stick × Höchsttempo, begrenzt durch `maxAcceleration` (Baukasten, ADR-021).
  */
 export function steeringDeltaV(velocity: Vec2, stick: { x: number; y: number }, dt: number): Vec2 {
   return kitSteeringDeltaV(velocity, stick, dt, PAWN);

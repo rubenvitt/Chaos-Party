@@ -1,5 +1,5 @@
 /**
- * Vielfalts-Steckbrief (rein, README §5.5, ADR-020): Merkmale, in denen sich Minispiele
+ * Vielfalts-Steckbrief (rein, README §5.5, ADR-021): Merkmale, in denen sich Minispiele
  * unterscheiden sollen. Ein neues Spiel muss sich vom ähnlichsten bestehenden in mindestens
  * `MIN_DIFFERENCES` Merkmalen unterscheiden; der gemeinsame Vertragstest (CHAOS-84) rechnet das
  * mit `mostSimilar` aus und nennt das ähnlichste Spiel.

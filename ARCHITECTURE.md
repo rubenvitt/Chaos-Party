@@ -43,7 +43,7 @@ chaos-party/
     game-core/            # Pure rules, seeded RNG, scoring, turn state
     protocol/             # Typed, versioned messages and validation
     minigame-sdk/         # Minigame lifecycle and shared APIs
-    minigame-kit/         # Minigame building blocks: clock, spawner, movement, bots, arenas, cameras (ADR-020)
+    minigame-kit/         # Minigame building blocks: clock, spawner, movement, bots, arenas, cameras (ADR-021)
     minigames/            # The minigames, one folder each (ADR-012)
     ui/                   # Optional shared design primitives
     assets/               # Manifests, conversion/validation tooling
@@ -119,6 +119,10 @@ interface Minigame {
 ```
 
 The final contract should define scene ownership, input mapping, time limits, scoring, lifecycle cleanup, pause/reconnect behavior and deterministic test hooks. Minigames must not mutate global board state directly; they return validated results for game-core to apply.
+
+## Computer players (KI seats, ADR-020)
+
+Each seat is `human` or `ai` (at least one human). A KI seat has no connection, token or iPad zone. **Board decisions run in the session server** as a virtual controller: the seat reads the same controller context and answers through the same `choose` validation as a human, after a seeded "thinking" delay. **Minigame inputs are generated in the host** next to `createMinigameRunner` and enter through the same `handleInput` path, because only the host knows the minigame state (ADR-012). Both parts are TypeScript and therefore identical on the PC host and the native Apple host (ADR-019). Strength is one value 0…1 (easy/medium/hard fixed, or dynamic per round); play styles are assigned per seed. Every KI seat uses its own derived random stream so it never shifts game-core randomness.
 
 ## Hybrid asset pipeline
 

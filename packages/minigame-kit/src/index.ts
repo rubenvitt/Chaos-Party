@@ -1,5 +1,5 @@
 /**
- * `@chaos-party/minigame-kit` – reiner Teil des Minispiel-Baukastens (ADR-020), ohne Babylon.
+ * `@chaos-party/minigame-kit` – reiner Teil des Minispiel-Baukastens (ADR-021), ohne Babylon.
  * Optik-Bausteine (Bühne, Arenen, Kameras, Abzeichen) unter `@chaos-party/minigame-kit/babylon`.
  *
  * Der Baukasten ist **Unterbau, keine Spielvorlage** (README §5.5): Zeit, Punkte, Spawner,
