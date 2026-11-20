@@ -91,6 +91,11 @@ export interface MinigameStage extends PerfSource {
   resume(): void;
   /** Spielzeit starten (idempotent; vor dem Laden: direkt danach). */
   start(): void;
+  /**
+   * Spielzeit des Servers vorbei (CHAOS-206, `playDeadline`): Läuft das Spiel, wertet die
+   * Laufzeit jetzt den Stand (`runner.finishNow`); sonst startet es nicht mehr. Idempotent.
+   */
+  endPlay(): void;
   input(slot: Slot, input: MinigameInput): void;
   setConnected(slot: Slot, connected: boolean): void;
   /** Figuren jubeln (Platz 1) bzw. schmollen; Jubel-Klang und Konfetti. Einmal je Bühne. */
@@ -154,7 +159,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   let library: CharacterLibrary | null = null;
   let handles = new Map<Slot, CharacterHandle>();
   // Als Objekt, damit TypeScript die Werte nach `await` nicht fälschlich festnagelt.
-  const flags = { startRequested: false, celebrated: false, paused: false };
+  const flags = { startRequested: false, celebrated: false, paused: false, ended: false };
   const isDisposed = () => status === 'disposed';
 
   const resize = () => {
@@ -169,7 +174,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   };
 
   const startNow = () => {
-    if (runner?.state !== 'ready') return;
+    if (runner?.state !== 'ready' || flags.ended) return;
     runner.start();
   };
 
@@ -273,6 +278,10 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
     start() {
       flags.startRequested = true;
       if (status === 'ready') startNow();
+    },
+    endPlay() {
+      if (runner?.state === 'running') runner.finishNow();
+      else flags.ended = true;
     },
     input(slot, input) {
       runner?.input(slot, input);

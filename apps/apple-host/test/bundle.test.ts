@@ -6,7 +6,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { getMinigameInfo } from '@chaos-party/minigames/catalog';
 import { HAVOK_WASM_SOURCE, bundle } from '../build.mjs';
+import { PLAY_OVERRUN_MS } from '../../host/src/minigame/plan.ts';
 import { RenderStateSchema, type RenderState } from '../src/contract.ts';
 import { PROBLEM_MARKERS, loadBundle, runBotMatch, seededBytes, settle } from './botMatch.ts';
 
@@ -166,6 +168,30 @@ describe('Bündel', () => {
     expect(phases.slice(0, 2)).toEqual(['lobby', 'board']);
     expect(phases).toContain('minigame-play');
     expect(result.ok).toBe(true);
+  }, 60_000);
+
+  it('richtet ein spät aufgebautes Minispiel am Spielstart des Servers aus (CHAOS-206)', async () => {
+    // Anleitung 7 s, die Bühne ist erst 5 s nach dem Spielstart beim Server fertig.
+    const lines: string[] = [];
+    const result = await runBotMatch({
+      code,
+      wasm,
+      full: false,
+      seed: 3,
+      stageDelayMs: 7_000 + 5_000,
+      log: (line) => lines.push(line),
+    });
+    expect(result.exceptions).toEqual([]);
+    expect(result.problems).toEqual([]);
+    expect(result.serverErrors).toEqual([]);
+    expect(result.resultsAccepted).toBe(1);
+    expect(result.ok).toBe(true);
+    const id = result.minigamesBuilt[0] ?? '';
+    const playMs = getMinigameInfo(id)?.durationMs ?? 0;
+    expect(playMs).toBeGreaterThan(5_000);
+    // Ohne Ausrichtung käme das Ergebnis erst 5 s nach dem Ende beim Server (CHAOS-206).
+    expect(result.resultAfterPlayMs[0]).toBeLessThanOrEqual(playMs + PLAY_OVERRUN_MS + 200);
+    expect(lines.some((line) => line.includes('Spielzeit des Servers vorbei'))).toBe(true);
   }, 60_000);
 
   it('schickt host-ready mit deferSceneReady erst nach sceneReady() und spielt dann normal', async () => {

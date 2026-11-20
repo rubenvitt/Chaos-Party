@@ -56,13 +56,63 @@ export const MIN_RESTART_MS = 3_000;
  * Empfang des Stands. Vor dem Spiel (`elapsedMs = null`) die volle Spielzeit.
  */
 export function remainingPlayMs(view: BoardView, receivedAt: number, now: number): number {
+  return Math.max(0, Math.round(serverPlayLeftMs(view, receivedAt, now)));
+}
+
+/** Wie `remainingPlayMs`, aber ungekappt: negativ = die Spielzeit des Servers ist um so viel vorbei. */
+function serverPlayLeftMs(view: BoardView, receivedAt: number, now: number): number {
   const minigame = view.minigame;
   if (!minigame) return 0;
   const elapsed = minigame.elapsedMs ?? 0;
   // In der Pause (auch der Auto-Pause beim Neuladen, CHAOS-68) läuft keine Spielzeit.
   const sinceReceive =
     minigame.elapsedMs === null || view.paused ? 0 : Math.max(0, now - receivedAt);
-  return Math.max(0, Math.round(minigame.playMs - elapsed - sinceReceive));
+  return minigame.playMs - elapsed - sinceReceive;
+}
+
+/**
+ * So lange darf das Spiel des Hosts über das Ende der Spielzeit des Servers hinauslaufen, dann
+ * wertet der Host den Stand (CHAOS-206). Weit unter der Kulanz des Servers
+ * (`minigameResultGraceMs`, 15 s), auch bei langsamen Ticks.
+ */
+export const PLAY_OVERRUN_MS = 1_000;
+
+/**
+ * Ablauf des Hosts am Spielstart des Servers (`playStartedAt`) ausrichten (CHAOS-206). Die
+ * Spielzeit eines Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`); ist die Bühne erst
+ * nach dem Countdown fertig oder rechnet der Host langsamer als die Uhr, liefe das Spiel über das
+ * Ende beim Server hinaus und das Ergebnis käme womöglich nach dessen Frist.
+ * - `'end'` bei laufendem Spiel (`running`): Die Spielzeit des Servers ist seit
+ *   `PLAY_OVERRUN_MS` vorbei, der Host wertet jetzt (`runner.finishNow`).
+ * - `'end'` bei noch nicht gestartetem Spiel: Es bleiben weniger als `MIN_RESTART_MS`; es startet
+ *   nicht mehr (Begründung bei `planPlay`), der Server bricht nach seiner Frist ohne Münzen ab.
+ * - sonst `'keep'`; außerhalb von `minigame-play` immer. In der Pause steht die Uhr.
+ */
+export function playDeadline(
+  view: BoardView,
+  receivedAt: number,
+  now: number,
+  running: boolean,
+): 'keep' | 'end' {
+  const elapsed = view.minigame?.elapsedMs;
+  if (minigameStageOf(view) !== 'play' || elapsed === null || elapsed === undefined) return 'keep';
+  const left = serverPlayLeftMs(view, receivedAt, now);
+  const end = running ? left <= -PLAY_OVERRUN_MS : left < MIN_RESTART_MS;
+  return end ? 'end' : 'keep';
+}
+
+/**
+ * Restzeit für die Anzeige im Spiel: die des Minispiels, höchstens die des Servers. Läuft das
+ * Spiel des Hosts später als beim Server, zählt die Uhr bis zum Ende beim Server herunter, denn
+ * dann endet es (`playDeadline`).
+ */
+export function shownRemainingMs(
+  hudRemainingMs: number,
+  view: BoardView,
+  receivedAt: number,
+  now: number,
+): number {
+  return Math.min(hudRemainingMs, remainingPlayMs(view, receivedAt, now));
 }
 
 export type PlayPlan =

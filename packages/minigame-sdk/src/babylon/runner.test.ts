@@ -121,7 +121,7 @@ function probe(options: {
 async function setup(
   module: MinigameModule,
   players = 2,
-  extra: Partial<Pick<RunnerOptions, 'maxStepsPerAdvance' | 'look' | 'pacing'>> = {},
+  extra: Partial<Pick<RunnerOptions, 'maxStepsPerAdvance' | 'look' | 'pacing' | 'onResult'>> = {},
 ) {
   const headless = createHeadlessScene();
   const runner = createMinigameRunner(module, {
@@ -201,6 +201,29 @@ describe('Minispiel-Laufzeit', () => {
     expect(run.outcome?.result.placements.map((p) => p.slot)).toEqual([1, 2, 3]);
     expect(run.outcome?.elapsedMs).toBeGreaterThan(5_000);
     expect(run.outcome?.elapsedMs).toBeLessThan(6_100);
+  });
+
+  it('finishNow wertet den Stand sofort und nur im laufenden Spiel (CHAOS-206)', async () => {
+    const { module } = probe({});
+    const results: unknown[] = [];
+    const { runner, headless } = await setup(module, 3, {
+      onResult: (value) => results.push(value),
+    });
+    runner.finishNow();
+    await runner.prepare();
+    runner.finishNow();
+    expect(runner.state).toBe('ready');
+    runner.start();
+    runner.step(60);
+    runner.finishNow();
+    expect(runner.state).toBe('finished');
+    expect(runner.result).toMatchObject({ forced: true, cut: true, elapsedMs: 1000 });
+    // HUD-Punkte 10 - Slot → Slot 1 vorn.
+    expect(runner.result?.result.placements.map((p) => p.slot)).toEqual([1, 2, 3]);
+    runner.finishNow();
+    expect(results).toHaveLength(1);
+    runner.dispose();
+    headless.dispose();
   });
 
   it('ersetzt ein ungültiges Ergebnis durch die HUD-Wertung', async () => {

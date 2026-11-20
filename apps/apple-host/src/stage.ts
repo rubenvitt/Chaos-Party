@@ -80,6 +80,11 @@ export interface HeadlessStageOptions {
   readonly now?: () => number;
   /** Klang aus `ctx.fx.sound` und dem Jubel im Ergebnis (CHAOS-190); fehlt = stumm. */
   readonly onSound?: (id: SoundId, options?: PlayOptions) => void;
+  /**
+   * Bühne frühestens zu dieser Zeit (Uhr aus `now`) fertig melden: künstlich später Aufbau für
+   * Tests (`HostEnv.debugStageDelayMs`, CHAOS-206). Braucht `pacing`.
+   */
+  readonly readyNotBefore?: number;
 }
 
 /**
@@ -95,6 +100,12 @@ export interface HeadlessStage {
   readonly ready: boolean;
   /** Spielzeit starten (idempotent; vor Ende von `prepare`: direkt danach). */
   start(): void;
+  /**
+   * Spielzeit des Servers vorbei (CHAOS-206, `playDeadline`): Läuft das Spiel, wertet die
+   * Laufzeit jetzt den Stand (`runner.finishNow`); sonst startet es nicht mehr. Idempotent;
+   * `true`, wenn der Aufruf etwas geändert hat.
+   */
+  endPlay(): boolean;
   /** Partie-Pause wie `stage.pause()/resume()` im Browser-Host; idempotent. */
   setPaused(paused: boolean): void;
   /** Echte Zeit vergeht: feste 1/60-Schritte über `runner.advance`. */
@@ -204,6 +215,8 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     disposed: false,
     ready: false,
     celebrated: false,
+    /** `endPlay` vor dem Start: Das Spiel startet nicht mehr. */
+    ended: false,
   };
   const figures = new Map<Slot, FigureEntry>();
   let backdrop: MinigameBackdrop | null = null;
@@ -237,7 +250,7 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     },
   };
   const startNow = () => {
-    if (flags.ready && runner.state === 'ready') runner.start();
+    if (flags.ready && !flags.ended && runner.state === 'ready') runner.start();
   };
   const runner = createMinigameRunner(options.module, {
     scene,
@@ -333,10 +346,19 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     }
   };
 
+  /** Künstlich später Aufbau (`readyNotBefore`): Bilder abwarten. */
+  const holdBack = async () => {
+    const until = options.readyNotBefore;
+    const pacing = options.pacing;
+    if (until === undefined || !pacing) return;
+    while (now() < until && !flags.disposed) await pacing.nextFrame();
+  };
+
   // JSContext verschluckt abgelehnte Promises: Fehler ausdrücklich melden.
   runner
     .prepare()
     .then(classifyAll)
+    .then(holdBack)
     .then(
       () => {
         if (flags.disposed) return;
@@ -366,6 +388,15 @@ export function createHeadlessStage(options: HeadlessStageOptions): HeadlessStag
     start() {
       flags.startRequested = true;
       startNow();
+    },
+    endPlay() {
+      if (runner.state === 'running') {
+        runner.finishNow();
+        return true;
+      }
+      if (flags.ended || runner.state === 'finished' || runner.state === 'disposed') return false;
+      flags.ended = true;
+      return true;
     },
     setPaused(paused) {
       if (paused === flags.paused) return;

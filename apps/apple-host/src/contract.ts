@@ -45,6 +45,12 @@ export interface HostEnv {
    * dem Startparameter `--rueckenwind` oder der Umgebungsvariable `RUECKENWIND=1`.
    */
   tailwind?: boolean;
+  /**
+   * Nur Tests und Nachstellen (CHAOS-206): Jede Minispiel-Bühne ist frühestens so viele ms nach
+   * Beginn ihres Aufbaus fertig, wie auf einem gedrosselten Gerät. Fehlt der Wert, baut sie so
+   * schnell wie möglich.
+   */
+  debugStageDelayMs?: number;
 }
 
 /** Host-Befehle, die `hostCommand` versteht (wie die Knöpfe am PC-Host). */

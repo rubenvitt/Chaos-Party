@@ -91,6 +91,12 @@ export interface RunnerResult {
   readonly result: MinigameResult;
   /** `true`, wenn das Minispiel kein (gültiges) Ergebnis lieferte und die Laufzeit aus dem HUD werten musste. */
   readonly forced: boolean;
+  /**
+   * `true`, wenn der Host das Spiel mit `finishNow` vorzeitig beendet hat (Spielzeit des Servers
+   * vorbei, CHAOS-206); dann ist auch `forced` gesetzt, sofern das Minispiel selbst noch kein
+   * Ergebnis hatte.
+   */
+  readonly cut: boolean;
   /** Gerechnete Spielzeit bis zum Ergebnis (ms). */
   readonly elapsedMs: number;
 }
@@ -102,6 +108,12 @@ export interface MinigameRunner {
   readonly paused: boolean;
   prepare(): Promise<void>;
   start(): void;
+  /**
+   * Spiel sofort beenden (CHAOS-206): Hat das Minispiel schon ein gültiges Ergebnis, gilt es;
+   * sonst wertet die Laufzeit den Stand aus dem HUD wie bei Zeitüberschreitung. Nur in
+   * `running`, sonst wirkungslos.
+   */
+  finishNow(): void;
   /** Eingabe eines Slots; außerhalb von `running` oder für Fremde still ignoriert. */
   input(slot: Slot, input: MinigameInput): void;
   /** Verbindungsstatus; bei Trennung neutrale Eingaben (Stick 0/0, Knöpfe los). */
@@ -158,20 +170,21 @@ export function createMinigameRunner(
 
   const elapsedMs = () => Math.round(steps * FIXED_STEP_SECONDS * 1000);
 
-  const settle = (candidate: MinigameResult | null): void => {
+  /** `cut`: von außen beendet (`finishNow`), dann wertet die Laufzeit auch ohne Überzeit. */
+  const settle = (candidate: MinigameResult | null, cut = false): void => {
     if (result) return;
     const overtime = elapsedMs() > timeLimitMs + OVERTIME_GRACE_MS;
     if (candidate) {
       const check = checkResult(candidate, { minigameId: info.id, slots, scoring: info.scoring });
       if (check.ok) {
-        finish({ result: candidate, forced: false, elapsedMs: elapsedMs() });
+        finish({ result: candidate, forced: false, cut, elapsedMs: elapsedMs() });
         return;
       }
       console.error(`Minispiel ${info.id}: ungültiges Ergebnis (${check.reason}), werte selbst`);
-    } else if (!overtime) {
+    } else if (!overtime && !cut) {
       return;
     }
-    finish({ result: fallbackResult(), forced: true, elapsedMs: elapsedMs() });
+    finish({ result: fallbackResult(), forced: true, cut, elapsedMs: elapsedMs() });
   };
 
   const fallbackResult = (): MinigameResult => {
@@ -270,6 +283,10 @@ export function createMinigameRunner(
       state = 'running';
       game.start();
       for (const slot of disconnected) neutralize(slot);
+    },
+    finishNow() {
+      if (state !== 'running') return;
+      settle(game.getResult(), true);
     },
     input(slot, input) {
       if (state !== 'running' || paused || !slots.includes(slot) || disconnected.has(slot)) return;

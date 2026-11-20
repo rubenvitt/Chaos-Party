@@ -66,3 +66,14 @@ Neu bewerten, wenn Host-Neuladen im Playtest stört, wenn ein Minispiel eigene C
 `MinigameContext` bekommt `pace(): Promise<void>`. Minispiele rufen es in `prepare` zwischen ihren Bauschritten auf (`await ctx.pace()`, etwa je Mesh-Gruppe, Figur oder vorgewärmtem Gegenstand). Mit Taktgeber (`RunnerOptions.pacing`: nächstes Bild, echte Uhr, Budget in ms) gibt `pace` ab, sobald das Budget des Bildes verbraucht ist, und der Aufbau geht im nächsten Bild weiter. Ohne Taktgeber löst `pace` sofort auf: Tests und der PC-Host bauen wie bisher am Stück. Wird die Laufzeit während des Aufbaus entsorgt, wirft `pace` `PrepareAborted` und `prepare` endet ohne weitere Meshes.
 
 Grund: Im nativen Apple-Host läuft JavaScriptCore ohne JIT. Ein Aufbau am Stück hielt dort ein Bild bis zu 98 ms an (EXP-024), in der Interpreter-Näherung des Harness bis 330 ms. Mit `pace` und 2 ms Budget liegt das längste Bild in der Näherung bei 19 ms (EXP-024, Nachtrag). Bauschritte zwischen zwei `pace` sollten klein bleiben: eine Kugel mit Standard-Segmenten kostet ohne JIT bereits gut 10 ms.
+
+## Nachtrag 2 (2026-11-20, CHAOS-206): Host richtet das Spielende am Server aus
+
+Die Spielzeit eines Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`). Ist die Bühne erst nach dem Countdown fertig (langsamer Aufbau, gedrosselter Mac, CHAOS-203) oder rechnet der Host langsamer als die Uhr, liefe sein Spiel über das Ende beim Server hinaus. Kommt das Ergebnis dann erst nach Spielzeit + `minigameResultGraceMs`, ist das Minispiel abgebrochen. Darum richtet der Host seinen Ablauf am Spielstart des Servers aus (`playDeadline` in `apps/host/src/minigame/plan.ts`, beide Hosts):
+
+- Läuft das Spiel noch `PLAY_OVERRUN_MS` (1 s) nach dem Ende der Spielzeit beim Server, beendet der Host es mit `runner.finishNow()`. Hat das Minispiel noch kein Ergebnis, wertet die Laufzeit den Stand aus dem HUD (`RunnerResult.cut`, Log „Spielzeit des Servers vorbei“).
+- Wird die Bühne erst fertig, wenn beim Server weniger als `MIN_RESTART_MS` (3 s) bleiben, startet das Spiel nicht mehr (Begründung wie beim Neuladen, Punkt 6). Der Server bricht nach seiner Frist ohne Münzen ab.
+- Die angezeigte Restzeit ist höchstens die des Servers (`shownRemainingMs`): Ein spät gestartetes Spiel zählt bis zum Ende beim Server herunter, die Spieler bekommen entsprechend weniger Zeit.
+- In der Pause steht die Uhr (`remainingPlayMs`). Im Testmodus des PC-Hosts (`?test=1`) greift nichts davon, dort treibt `step` das Spiel.
+
+Nachstellen: `HostEnv.debugStageDelayMs` verzögert im Apple-Host jede Bühne künstlich. Der Bündel-Test „richtet ein spät aufgebautes Minispiel … aus“ baut 5 s zu spät auf und erwartet die Annahme spätestens 1,2 s nach dem Ende beim Server; ohne die Ausrichtung kam das Ergebnis 5 s danach.

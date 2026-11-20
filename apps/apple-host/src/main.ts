@@ -38,8 +38,10 @@ import {
   intentToMinigameInput,
   minigameStageOf,
   planPlay,
+  playDeadline,
   playersFromView,
   remainingPlayMs,
+  shownRemainingMs,
   stageKeyOf,
 } from '../../host/src/minigame/plan.ts';
 import { resultPayload } from '../../host/src/minigame/results.ts';
@@ -306,13 +308,20 @@ function create(env: HostEnv): ChaosHostInstance {
           log,
           pacing: PACING,
           now,
+          ...(env.debugStageDelayMs === undefined
+            ? {}
+            : { readyNotBefore: now() + env.debugStageDelayMs }),
           onSound: (id, options) => {
             sounds.play(id, options, key);
           },
           onResult: (result) => {
             log(
               `Minispiel ${result.result.minigameId} fertig nach ${result.elapsedMs} ms` +
-                (result.forced ? ' (Laufzeit wertet)' : ''),
+                (result.cut
+                  ? ' (Spielzeit des Servers vorbei, beendet)'
+                  : result.forced
+                    ? ' (Laufzeit wertet)'
+                    : ''),
             );
             resultSender.submit(resultPayload(result.result, round));
           },
@@ -467,7 +476,9 @@ function create(env: HostEnv): ChaosHostInstance {
       const plan = planPlay(current, receivedAt, now());
       const waiting = plan.kind === 'wait' || !headless?.ready;
       const remaining =
-        hudData && !waiting ? hudData.remainingMs : remainingPlayMs(current, receivedAt, now());
+        hudData && !waiting
+          ? shownRemainingMs(hudData.remainingMs, current, receivedAt, now())
+          : remainingPlayMs(current, receivedAt, now());
       scoreboard = scoreboardView(current, hudData, remaining, plan.kind === 'wait');
     }
     let results: MinigameState['results'] = null;
@@ -548,6 +559,17 @@ function create(env: HostEnv): ChaosHostInstance {
         lastAdvanceAt = now();
         try {
           stage.headless.advance(seconds);
+          // Ablauf am Spielstart des Servers (CHAOS-206): spät gestartetes oder langsam
+          // gerechnetes Spiel mit dem Server beenden, damit das Ergebnis in dessen Frist kommt.
+          const running = stage.headless.runner.state === 'running';
+          if (
+            view &&
+            playDeadline(view, receivedAt, now(), running) === 'end' &&
+            stage.headless.endPlay() &&
+            !running
+          ) {
+            log(`Minispiel ${stage.key}: zu spät fertig, startet nicht mehr`);
+          }
         } catch (error) {
           log(`Minispiel-Schritt: ${describe(error)}`);
         }

@@ -6,8 +6,11 @@ import {
   minigameStageOf,
   phaseSecondsLeft,
   planPlay,
+  PLAY_OVERRUN_MS,
+  playDeadline,
   playersFromView,
   remainingPlayMs,
+  shownRemainingMs,
   stageKeyOf,
 } from './plan.ts';
 import { minigameView } from './testViews.ts';
@@ -88,6 +91,40 @@ describe('Spielzeit und Host-Neuladen', () => {
     expect(phaseSecondsLeft(null, 0, 0)).toBeNull();
     // Uhr vor Empfang (z. B. eingefrorene Testuhr): volle Zeit.
     expect(phaseSecondsLeft(2500, 1000, 0)).toBe(3);
+  });
+});
+
+describe('Ablauf am Spielstart des Servers (CHAOS-206)', () => {
+  // playMs 8000; Stand empfangen bei 1000 mit elapsedMs 0 → Ende beim Server bei 9000.
+  const play = minigameView('minigame-play', { playMs: 8000, elapsedMs: 0 });
+
+  it('beendet ein laufendes Spiel erst PLAY_OVERRUN_MS nach dem Ende beim Server', () => {
+    expect(playDeadline(play, 1000, 9000, true)).toBe('keep');
+    expect(playDeadline(play, 1000, 9000 + PLAY_OVERRUN_MS - 1, true)).toBe('keep');
+    expect(playDeadline(play, 1000, 9000 + PLAY_OVERRUN_MS, true)).toBe('end');
+  });
+
+  it('startet ein spät aufgebautes Spiel nur, wenn noch MIN_RESTART_MS bleiben', () => {
+    // 5 s zu spät fertig: 3 s bleiben, das Spiel startet noch (und endet mit dem Server).
+    expect(playDeadline(play, 1000, 6000, false)).toBe('keep');
+    expect(playDeadline(play, 1000, 6001, false)).toBe('end');
+    expect(playDeadline(play, 1000, 9000 - MIN_RESTART_MS + 1, false)).toBe('end');
+  });
+
+  it('außerhalb des Spiels nie, in der Pause zählt nur der Stand beim Empfang', () => {
+    expect(playDeadline(minigameView('minigame-intro'), 0, 99_000, true)).toBe('keep');
+    expect(playDeadline(minigameView('minigame-results'), 0, 99_000, false)).toBe('keep');
+    expect(playDeadline({ ...play, paused: true }, 1000, 99_000, true)).toBe('keep');
+    // Pausiert, aber schon über das Ende hinaus: beenden (der Server nimmt das Ergebnis in der
+    // Pause an, ADR-015).
+    const over = minigameView('minigame-play', { playMs: 8000, elapsedMs: 9500 });
+    expect(playDeadline({ ...over, paused: true }, 0, 0, true)).toBe('end');
+  });
+
+  it('Anzeige: Restzeit des Minispiels, höchstens die des Servers', () => {
+    expect(shownRemainingMs(8000, play, 1000, 6000)).toBe(3000);
+    expect(shownRemainingMs(2000, play, 1000, 6000)).toBe(2000);
+    expect(shownRemainingMs(4000, play, 1000, 99_000)).toBe(0);
   });
 });
 
