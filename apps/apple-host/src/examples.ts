@@ -138,7 +138,7 @@ const BOARD: BoardState = {
     { id: 7, text: 'Anna bekommt 3 Münzen', slot: 1, tone: 'good' },
   ],
   hud: HUD,
-  camera: { x: 3.9, z: 3.9 },
+  camera: { pos: [3.9, 26.7, -14.3], target: [3.9, 0, 2.4] },
   trophySpaces: ['s05'],
   traps: [{ spaceId: 's02', owner: 1 }],
   sounds: [],

@@ -178,8 +178,16 @@
       "tailwind": null
     },
     "camera": {
-      "x": 3.9,
-      "z": 3.9
+      "pos": [
+        3.9,
+        26.7,
+        -14.3
+      ],
+      "target": [
+        3.9,
+        0,
+        2.4
+      ]
     },
     "trophySpaces": [
       "s05"

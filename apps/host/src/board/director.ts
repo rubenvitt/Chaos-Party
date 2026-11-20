@@ -62,12 +62,37 @@ export interface FramePopup extends PopupSpec {
   readonly progress: number;
 }
 
+/**
+ * Zuletzt gespieltes Ereignis für die Kamera-Regie (CHAOS-194, `camera.ts`): Was gerade
+ * passiert und seit wann. Auch Ereignisse ohne Dauer (`round-started`) stehen hier, damit die
+ * Kamera kurz auf ihnen verweilen kann.
+ */
+export interface FrameCue {
+  readonly event: BoardEvent;
+  readonly style: MoveStyle;
+  /** Nur bei `moved`: Feld vor dem ersten Sprung. */
+  readonly start: string | null;
+  /** Platztausch: das `moved` der anderen Figur und ihr Startfeld. */
+  readonly partner: { readonly event: MovedEvent; readonly start: string } | null;
+  /**
+   * Seit dem Start vergangene Regie-Zeit (ms); läuft nach dem Ende weiter. Beim Aufholen
+   * (dreifach schnell) zählt sie wie die Animation, nicht wie die Uhr.
+   */
+  readonly elapsedMs: number;
+  readonly durationMs: number;
+}
+
 /** Was die Szene je Frame zeichnet. */
 export interface BoardFrame {
   /** Übernommener Stand (oder `null` vor der ersten Nachricht). */
   readonly view: BoardView | null;
   readonly pawns: readonly FramePawn[];
   readonly popups: readonly FramePopup[];
+  /**
+   * Die zuletzt gestarteten Ereignisse, älteste zuerst (höchstens `MAX_CUES`, keins älter als
+   * `CUE_MS`). Leer nach einem Sprung oder `settle()`.
+   */
+  readonly cues: readonly FrameCue[];
 }
 
 export interface HudMessage extends EventText {
@@ -148,6 +173,10 @@ export const MESSAGE_MS = 5000;
 export const NOTICE_MS = 4000;
 /** Höchstens so viele Meldungen gleichzeitig. */
 export const MAX_MESSAGES = 4;
+/** So viele zuletzt gestartete Ereignisse meldet `getFrame().cues`. */
+export const MAX_CUES = 8;
+/** Ältere Ereignisse fallen aus `cues`. */
+export const CUE_MS = 4000;
 export const CATCH_UP_MS = 2500;
 export const JUMP_MS = 8000;
 const CATCH_UP_SPEED = 3;
@@ -156,7 +185,7 @@ function boardLabel(boardId: string, spaceId: string): string | undefined {
   return getBoard(boardId)?.spaces.find((s) => s.id === spaceId)?.label;
 }
 
-type MovedEvent = Extract<BoardEvent, { type: 'moved' }>;
+export type MovedEvent = Extract<BoardEvent, { type: 'moved' }>;
 
 interface EventItem {
   readonly kind: 'event';
@@ -245,6 +274,10 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   const pawnSpaces = new Map<SlotNumber, string>();
   const coinOverride = new Map<SlotNumber, number>();
   let popups: ActivePopup[] = [];
+  /** Zuletzt gestartete Ereignisse (`FrameCue` ohne Alter), älteste zuerst; Start in Regie-Zeit. */
+  let cues: (Omit<FrameCue, 'elapsedMs'> & { readonly startedAt: number })[] = [];
+  /** Gespielte Regie-Zeit (ms): wie `now`, beim Aufholen schneller. Uhr der `cues`. */
+  let playedMs = 0;
   let messages: TimedMessage[] = [];
   let notice: (HudNotice & { readonly createdAt: number }) | null = null;
   let minigame: MinigameSummary | null = null;
@@ -328,7 +361,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     return pawnSpaces.get(event.slot) ?? event.path[0] ?? '';
   }
 
-  function startEvent(item: EventItem) {
+  function startEvent(item: EventItem, at: number) {
     const { event, style, partner } = item;
     announce(event);
     if (partner) announce(partner);
@@ -367,6 +400,15 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       partner: partner ? { event: partner, start: startOf(partner) } : null,
       stepMs: stepMsOf(),
     };
+    cues.push({
+      event,
+      style,
+      start: running.start,
+      partner: running.partner,
+      durationMs: plan.durationMs,
+      startedAt: at,
+    });
+    if (cues.length > MAX_CUES) cues = cues.slice(-MAX_CUES);
     version++;
   }
 
@@ -394,6 +436,8 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   /** Spielt mit `budget` ms Regie-Zeit ab; Übernahmen und Ereignisse ohne Dauer sofort. */
   function pump(budget: number) {
     let left = budget;
+    const base = playedMs;
+    playedMs += budget;
     for (;;) {
       if (!running) {
         const item = queue.shift();
@@ -402,7 +446,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
           commit(item.view, item.receivedAt);
           continue;
         }
-        startEvent(item);
+        startEvent(item, base + (budget - left));
       }
       const current = running;
       if (!current) continue;
@@ -426,6 +470,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       else eventsProcessed += item.partner ? 2 : 1;
     }
     queue = [];
+    cues = [];
     if (lastCommit) commit(lastCommit.view, lastCommit.receivedAt);
     if (popups.length > 0) {
       popups = [];
@@ -434,6 +479,9 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   }
 
   function expire() {
+    if (cues.length > 0 && playedMs - (cues[0]?.startedAt ?? playedMs) >= CUE_MS) {
+      cues = cues.filter((c) => playedMs - c.startedAt < CUE_MS);
+    }
     const keepPopups = popups.filter((p) => now - p.startedAt < POPUP_MS);
     if (keepPopups.length !== popups.length) popups = keepPopups;
     const keepMessages = messages.filter((m) => now - m.createdAt < MESSAGE_MS);
@@ -544,7 +592,12 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       ...spec,
       progress: Math.min(1, Math.max(0, (now - startedAt) / POPUP_MS)),
     }));
-    return { view, pawns, popups: frames };
+    return {
+      view,
+      pawns,
+      popups: frames,
+      cues: cues.map(({ startedAt, ...cue }) => ({ ...cue, elapsedMs: playedMs - startedAt })),
+    };
   }
 
   return {

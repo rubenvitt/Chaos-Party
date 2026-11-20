@@ -1,6 +1,6 @@
 /**
  * Reine Geometrie der Brett-Darstellung (CHAOS-18/19): Figur-Versatz bei mehreren Figuren
- * auf einem Feld, Hüpfbahn, Kameraziel, Brettgrenzen. Ohne Babylon – unit-getestet.
+ * auf einem Feld, Hüpfbahn, Projektion, Brettgrenzen (Kamera-Regie: `camera.ts`). Ohne Babylon – unit-getestet.
  */
 import type { BoardDefinition } from '@chaos-party/game-core';
 
@@ -108,29 +108,6 @@ export function boardBounds(board: BoardDefinition): BoardBounds {
 }
 
 /**
- * Anteil, um den die Kamera von der Brettmitte zum aktiven Spieler rückt – seitlich stärker
- * als in der Tiefe, weil oben und unten HUD-Leisten liegen und das Brett dort knapp ist.
- */
-export const CAMERA_FOLLOW: Readonly<Point2> = { x: 0.12, z: 0.04 };
-
-/**
- * Blickpunkt der Kamera: Brettmitte, sanft zum aktiven Spieler verschoben (`follow` je Achse
- * 0…1). Ohne aktiven Spieler die Mitte. Die Übersicht bleibt erhalten, weil nur ein kleiner
- * Teil des Wegs gefahren wird.
- */
-export function cameraFocus(
-  bounds: BoardBounds,
-  active: Point2 | null,
-  follow: Readonly<Point2> = CAMERA_FOLLOW,
-): Point2 {
-  if (!active) return bounds.center;
-  return {
-    x: bounds.center.x + (active.x - bounds.center.x) * follow.x,
-    z: bounds.center.z + (active.z - bounds.center.z) * follow.z,
-  };
-}
-
-/**
  * Exponentielles Nachziehen: Wert nach `dtMs` Richtung `target`, Halbwertszeit `halfLifeMs`.
  * Bildratenunabhängig; mit festen Schritten (Testmodus) deterministisch.
  */
@@ -216,18 +193,6 @@ export interface Point3 {
 export interface ViewCamera {
   readonly position: Point3;
   readonly target: Point3;
-}
-
-/**
- * Kamera zum Blickpunkt `focus` (siehe `cameraFocus`): `offset` relativ zum Blickpunkt, der
- * um `aimZ` Richtung Kamera vorgezogen ist. Gleiche Rechnung wie die Szene.
- */
-export function boardCamera(focus: Point2, offset: Point3, aimZ: number): ViewCamera {
-  const z = focus.z + aimZ;
-  return {
-    position: { x: focus.x + offset.x, y: offset.y, z: z + offset.z },
-    target: { x: focus.x, y: 0, z },
-  };
 }
 
 /**

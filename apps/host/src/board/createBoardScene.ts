@@ -61,12 +61,17 @@ import { createAdaptiveQuality, QUALITY, qualityLabel } from '../nature/quality.
 import { applyRenderScale, currentLookSettings } from '../nature/settings.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import { POPUP_STACK_HEIGHT, type MoveStyle } from './animation.ts';
+import {
+  BASE_DISTANCE,
+  CAMERA_FOV,
+  cameraPose,
+  cameraShot,
+  createCameraRig,
+  forkShot,
+} from './camera.ts';
 import type { BoardFrame, FramePawn, FramePopup } from './director.ts';
 import {
-  approach,
   boardBounds,
-  boardCamera,
-  cameraFocus,
   easeFlight,
   flightPoint,
   GUST_FLIGHT,
@@ -122,16 +127,8 @@ const STAND_TILT = -0.32;
 /** Halbwertszeit beim Drehen der Figur (ms). */
 const TURN_HALF_LIFE_MS = 90;
 
-/** Kamera relativ zum Blickpunkt: hoch und schräg von vorn (−z), Brett ganz im Bild. */
-const CAMERA_OFFSET = new Vector3(0, 28, -17.5);
-/**
- * Blickpunkt etwas vor der Brettmitte (Richtung Kamera): Das Brett rückt im Bild nach oben,
- * weil unten die Spielerleiste mehr Platz braucht als oben der Titel.
- */
-const CAMERA_AIM_Z = -1.6;
 /** Höhe der Pfeil-Mitte über dem Boden, wenn die Figur auf einem Feld steht. */
 const ARROW_CENTER_Y = SPACE_TOP + PAWN.height + ARROW.above;
-const CAMERA_HALF_LIFE_MS = 700;
 
 const TONE_COLORS: Readonly<Record<MessageTone, { bg: string; fg: string }>> = {
   good: { bg: '#d4f5e6', fg: '#00603f' },
@@ -204,12 +201,12 @@ export function createBoardScene(
   let simMs = 0;
 
   const camera = new FreeCamera('kamera', Vector3.Zero(), scene);
-  camera.fov = 0.72;
+  camera.fov = CAMERA_FOV;
   camera.minZ = 0.5;
   camera.maxZ = 200;
   camera.inputs.clear();
-  const focus = { x: bounds.center.x, z: bounds.center.z };
-  placeCamera();
+  // Kamera-Regie (CHAOS-194): gemeinsame Einstellungen und Feder aus `camera.ts`.
+  const cameraRig = createCameraRig();
 
   // Runde beim Aufbau (BoardStage hat die Regie vorher eingeholt): Stimmung dieser Runde,
   // die der nächsten wird vorab geladen (CHAOS-63).
@@ -254,6 +251,7 @@ export function createBoardScene(
   let characters: CharacterLibrary | null = null;
   let activeRing: Mesh | undefined;
   let activeArrow: Mesh | undefined;
+  updateCamera(0, source.getFrame());
 
   const onResize = (): void => {
     // Erst resize(): Babylon rechnet einen DPR-Wechsel in die Skalierung ein, danach die Grenze.
@@ -292,8 +290,8 @@ export function createBoardScene(
         builtWorld.setTileGlow(fraction);
       },
       // Schärfe auf dem Brett, nur Rand und Horizont werden weich (Lesbarkeit zuerst).
-      focus: { distance: CAMERA_OFFSET.length(), fStop: 11 },
-      viewDistance: CAMERA_OFFSET.length(),
+      focus: { distance: cameraRig.current()?.distance ?? BASE_DISTANCE, fStop: 11 },
+      viewDistance: BASE_DISTANCE,
       lanterns: builtWorld.lanterns,
       terrain: builtWorld.terrain,
       grass: builtWorld.grass,
@@ -302,6 +300,8 @@ export function createBoardScene(
     lighting = lit;
     for (const mesh of casters) lit.addCaster(mesh);
     built = true;
+    // Erstes Bild mit Figuren: Kamera ohne Fahrt auf die passende Einstellung setzen.
+    cameraRig.reset();
     update(0);
     // Shader schrittweise (CHAOS-132, KI-25): Nach jedem Minispiel entsteht das Brett neu.
     if (!(await prepareSceneGradually(scene, { isCancelled: isDisposed }))) {
@@ -494,7 +494,10 @@ export function createBoardScene(
             halfWidth: ARROW.size / 2,
             halfHeight: ARROW.size / 2 + ARROW.bob,
           },
-          boardCamera(cameraFocus(bounds, fork.position), CAMERA_OFFSET, CAMERA_AIM_Z),
+          (() => {
+            const shot = forkShot(board, fork.id);
+            return cameraPose(shot.focus, shot.distance);
+          })(),
         );
         const post = CreateCylinder(
           'wegweiser-pfahl',
@@ -1028,25 +1031,18 @@ export function createBoardScene(
   // Frame
   // ---------------------------------------------------------------------------
 
-  function placeCamera(): void {
-    const { position, target } = boardCamera(focus, CAMERA_OFFSET, CAMERA_AIM_Z);
-    camera.position.set(position.x, position.y, position.z);
-    camera.setTarget(new Vector3(target.x, target.y, target.z));
-  }
-
-  let cameraPlaced = false;
-  function updateCamera(dtMs: number, activeSlot: SlotNumber | null): void {
-    const pawn = activeSlot === null ? undefined : pawns.get(activeSlot);
-    const target = cameraFocus(bounds, pawn ? { x: pawn.position.x, z: pawn.position.z } : null);
-    if (!cameraPlaced) {
-      focus.x = target.x;
-      focus.z = target.z;
-      cameraPlaced = true;
-    } else {
-      focus.x = approach(focus.x, target.x, dtMs, CAMERA_HALF_LIFE_MS);
-      focus.z = approach(focus.z, target.z, dtMs, CAMERA_HALF_LIFE_MS);
-    }
-    placeCamera();
+  /** Kamera nach der gemeinsamen Regie (`camera.ts`): Einstellung wählen, Feder, Pose setzen. */
+  function updateCamera(dtMs: number, frame: BoardFrame): void {
+    const shot = cameraShot({
+      board,
+      view: frame.view,
+      cues: frame.cues,
+      pawns: [...pawns.values()].map((p) => ({ slot: p.slot, x: p.position.x, z: p.position.z })),
+    });
+    const { pose, distance } = cameraRig.advance(dtMs, shot);
+    camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+    camera.setTarget(new Vector3(pose.target.x, pose.target.y, pose.target.z));
+    lighting?.setFocusDistance(distance);
   }
 
   /** Lichtverlauf: Rundenwechsel im übernommenen Stand startet die Überblendung. */
@@ -1072,7 +1068,7 @@ export function createBoardScene(
     syncTraps(view?.traps ?? []);
     syncActive(view?.activeSlot ?? null);
     syncPopups(frame.popups);
-    updateCamera(dtMs, view?.activeSlot ?? null);
+    updateCamera(dtMs, frame);
     syncMood(view);
     lighting?.update(simMs / 1000);
     world?.trees.forEach((tree, i) => {
@@ -1109,6 +1105,9 @@ export function createBoardScene(
     },
     getResourceStats() {
       return resourceStats(scene);
+    },
+    getCamera() {
+      return cameraRig.current();
     },
     getLightMood() {
       if (!lighting) return null;

@@ -78,7 +78,7 @@ interface ChaosHostInstance {
                     "players": [{ "slot": 1, "name": "Anna", "color": "#0072B2", "coins": 12, "trophies": 1,
                                   "items": [{ "id": "shield", "name": "Schild" }], "connected": true, "active": false }],
                     "tailwind": null | { "lead": "…", "rows": [{ "slot": 2, "name": "Ben", "amount": "+4 Münzen" }] } },
-    "camera": { "x": 3.9, "z": 3.9 },                                    // Blickpunkt (cameraFocus), Swift zieht nach
+    "camera": { "pos": [3.9, 26.7, -14.3], "target": [3.9, 0, 2.4] },  // Pose der Kamera-Regie (camera.ts), Swift setzt sie
     "trophySpaces": ["s12"], "traps": [{ "spaceId": "s15", "owner": 2 }],
     "sounds": [{ "id": 3, "name": "dice", "voices": [{ "wave": "noise", "freq": 0, "attack": 0.002, "duration": 0.04, "gain": 0.26,
                                                        "filter": { "type": "bandpass", "freq": 1900, "q": 2 } }] }],

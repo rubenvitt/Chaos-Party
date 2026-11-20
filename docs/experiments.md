@@ -2533,3 +2533,39 @@ Umgesetzt und gemessen wurde **b**. Bei der UV-Abwicklung gab es zwei Schritte:
 **Entscheidung:** **b2 behalten**, vorbehaltlich RealityKit am Mac und Rubens Urteil. Falls RealityKit nur `st` liest: Normalen in eine zweite Atlas-Textur auf `st` backen (1024², ohne Kacheln). Das ist gröber, braucht aber keine zweite UV-Map.
 
 **Subjektive Fragen an Ruben:** Ist die Struktur aus der Nähe schön oder zu viel (Strick vor allem)? Wirkt Wusels Fell wie Fell? Sind die Lackkratzer bei Schraubi passend oder überflüssig?
+
+## EXP-033: Dynamische Brett-Kamera – Figur am Zug statt Vollansicht (2026-11-20, CHAOS-194)
+
+**Hypothese / gewünschtes Spielerlebnis:** Die Kamera bleibt nah an der Figur, die gerade dran ist. Sie schaut beim Laufen voraus, zoomt bei Ereignissen kurz heran und zieht nur auf, wo mehr zählt: an der Gabel beide Wege, beim Klau beide Figuren, zu Rundenbeginn das ganze Brett. Am Fernseher wirkt das lebendig, bleibt aber ruhig, ohne Hektik und ohne Übelkeit. Ruben (2026-11-19): „Ich möchte auf die Figur konzentrieren die dran ist und nicht immer eine vollansicht vom brett. muss dynamischer werden.“
+
+**Varianten:**
+- **A (bisher):** Vollansicht des Bretts, Blickpunkt rückt um 12 % (seitlich) bzw. 4 % (Tiefe) zur Figur am Zug, fester Abstand 33, exponentielles Nachziehen (Halbwertszeit 700 ms). Übersichtlich, aber statisch; auf größeren Brettern (CHAOS-196/198/199) zu klein.
+- **B:** Nur nah folgen (fester Abstand 17), ohne Einpassen. Dynamisch, aber an Gabeln ist ein Weg abgeschnitten, und beim Klau fehlt eine der beiden Figuren.
+- **C (gewählt):** Einstellungen je Moment (`apps/host/src/board/camera.ts`): Würfeln und Warten nah (17), Laufen etwas weiter (19) mit 2,4 Einheiten Vorausblick entlang des Wegs, Ereignis-Zoom (15). Gabel, Klau, Reaktion, Platztausch und Windstoß werden per Projektion eingepasst (mindestens 17). Überblick nur zu Rundenbeginn, beim Trophäen-Wirbel und Münzregen (alle Figuren), wenn eine Trophäe wandert (Start und Ziel), und außerhalb der Züge (Minispiel, Ende). Tempo: kritisch gedämpfte Feder statt Exponentialkurve (weich an, weich aus), 420 ms beim Laufen bis 1000 ms im Überblick. Bei weiten Fahrten (Zugwechsel) hebt sich die Kamera unterwegs um 0,35 je Einheit Fahrweg, höchstens 12.
+
+Feinabstimmung innerhalb von C:
+- Vorhalt: Mit dem alten Vorhalt (1,6 vor dem Ziel, mit dem Abstand skaliert) stand die Figur nah oberhalb der Bildmitte, und das Würfel-Popup ragte in das Banner. Jetzt liegt der Blickpunkt nah 1,2 hinter der Figur und geht bis zum Überblick linear auf −1,6.
+- Sicherer Bildbereich: Erst symmetrisch (oben 0,78, unten 0,84), dabei stand die Figur an der Gabel direkt über der Spielerleiste. Jetzt oben 0,76, unten 0,56 der halben Bildhöhe, und die Punkte werden senkrecht in diesem Bereich mittig gesetzt. Der Überblick des Wackelwalds liegt dadurch etwa 10 % weiter weg als A (36,3 statt 33).
+- Brettrand: Nahe Einstellungen bleiben um 55 % der halben Bildbreite innerhalb der Felder (mit 45 % war an Randfeldern noch ein Drittel des Bilds leer). Die Figur rückt dann aus der Mitte, bleibt aber im Bild. In der Tiefe begrenzt das nichts mehr: Im tvOS-Simulator schob die Begrenzung eine Figur am vorderen Rand unter die Spielerleiste.
+
+**Objektive Messgrößen:** Abstand je Einstellung; ob alle eingepassten Punkte im Bild liegen (Projektion, feste Seeds 1/7/42/2026 mit je 25 Punktwolken); Weg je Bild bei einem Zugwechsel (s07 → s34, höchstens 5 % des Wegs je Bild bei 60 fps); Gleichheit der Posen bei 30/60/144 fps; Determinismus über den Demo-Ablauf.
+
+**Subjektive Playtest-Fragen (für Ruben):** Ist die Nähe richtig, oder fehlt dir der Überblick, wo die anderen stehen? Ist das Tempo ruhig genug am Fernseher (Zugwechsel, Ereignis-Zoom), wird jemandem schwindlig? Reicht der Überblick zu Rundenbeginn, oder soll er öfter oder länger kommen? Ist die Gabel-Ansicht gut lesbar?
+
+**Testumgebung:** MacBook (Apple Silicon), Chromium mit SwiftShader (Playwright, Testmodus 1/60 s), Branch `claude/chaos-194-brett-kamera`. Unit-Tests `apps/host/src/board/camera.test.ts`, E2E `tests/e2e/host-brett.spec.ts` („Kamera-Regie …“).
+
+**Ergebnisse:**
+- Wackelwald: Würfeln/Warten 17, Laufen 19, Ereignis 15, Gabel A (s07) 17,6, Gabel s29 20,0, Überblick 36,3 (A: immer 33).
+- Brett um den Faktor 2,5 gestreckt: Überblick wächst mit (mehr als das Doppelte), Figur am Zug bleibt bei 17, Gabeln passen ins Bild. Es gibt keine festen Brettgrenzen mehr.
+- Zugwechsel s07 → s34: kein Sprung (höchster Weg je Bild unter 5 % der Strecke), unterwegs mehr als 2 Einheiten höher, nach 5 s angekommen.
+- Feder: Posen bei 30, 60 und 144 Schritten je Sekunde gleich (exakte Lösung je Schritt), kein Überschwingen. Demo-Ablauf zweimal gespielt: Posen identisch.
+- Bilder (Testmodus, Sparstufe): [`chaos194-kamera-gabel.jpg`](screenshots/chaos194-kamera-gabel.jpg), [`chaos194-kamera-laufen.jpg`](screenshots/chaos194-kamera-laufen.jpg), [`chaos194-kamera-zugwechsel.jpg`](screenshots/chaos194-kamera-zugwechsel.jpg), [`chaos194-kamera-ereignis.jpg`](screenshots/chaos194-kamera-ereignis.jpg), [`chaos194-kamera-ueberblick.jpg`](screenshots/chaos194-kamera-ueberblick.jpg).
+
+- Apple-Host im tvOS-Simulator (Apple TV 4K, 3. Generation; 4 Bots mit `--bunt`, 2 Runden, `--bild` und `--ereignisbild`): dieselben Einstellungen wie am PC, keine `FEHLER` im Log, beide Minispiel-Ergebnisse angenommen. Bilder: [`chaos194-apple-tv-wuerfeln.jpg`](screenshots/chaos194-apple-tv-wuerfeln.jpg) (Würfel und Falle nah), [`chaos194-apple-tv-klau.jpg`](screenshots/chaos194-apple-tv-klau.jpg) (Klau mit beiden Figuren im Bild).
+
+- Aufholen der Regie (Rückstand über 2,5 s, dreifach schnell): Mit der Uhrzeit als Maß rechnete die Lauf-Einstellung den Sprung zu niedrig und blickte zurück statt voraus. Ereignisse zählen deshalb in gespielter Regie-Zeit (`FrameCue.elapsedMs`); Unit-Test mit 10 Feldern samt Würfel und Münzen.
+- Rechenzeit: `cameraShot` mit Einpassen ≈ 0,08 ms am Mac (Node mit JIT). Die Apple TV rechnet ohne JIT; deshalb merkt sich `fitShot` die Ergebnisse (gleiche Punkte Bild für Bild bei offenem Prompt), danach ≈ 0,002 ms. Ohne JIT nicht gemessen (Node `--jitless` lädt das Projekt nicht, WebAssembly fehlt), offen in der Gerätecheckliste §36.
+
+**Entscheidung:** **C behalten.** B scheitert an Gabel und Klau, A erfüllt Rubens Wunsch nicht und taugt nicht für größere Bretter. Die Zahlen sind ein erster Wurf aus Screenshots, kein Spieltest.
+
+**Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.

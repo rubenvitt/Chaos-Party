@@ -6,22 +6,26 @@
  *
  * Aus `getFrame()`/`getHud()` werden die Felder von `renderState().board` (siehe `contract.ts`):
  * Figuren samt Hüpf- und Flugbahn (`layout.ts`, gleiche Rechnung wie `createBoardScene.ts`),
- * Popups mit der Reaktion der Figur, Ticker, HUD, Kameraziel, Trophäen, Fallen und Klänge.
+ * Popups mit der Reaktion der Figur, Ticker, HUD, Kamera-Pose, Trophäen, Fallen und Klänge.
+ *
+ * Die Kamera führt dieselbe Regie wie im Browser-Host (`camera.ts`, CHAOS-194): Einstellung je
+ * Moment und Feder laufen hier im Takt von `advance`, Swift setzt nur die fertige Pose.
  *
  * Wie `BoardStage` im Browser-Host: Während ein Minispiel zu sehen ist, steht die Regie; beim
  * Zeigen des Bretts holt `settle()` auf, ohne Nachgeholtes zu animieren oder zu vertonen.
  */
 import { DEFAULT_BOARD, getBoard, type BoardDefinition } from '@chaos-party/game-core';
 import { PLAYER_SLOTS, type BoardMessage, type BoardView } from '@chaos-party/protocol';
+import { cameraShot, createCameraRig } from '../../host/src/board/camera.ts';
 import {
   createBoardDirector,
+  type BoardFrame,
   type FramePawn,
   type FramePopup,
   type HudSnapshot,
 } from '../../host/src/board/director.ts';
 import {
   boardBounds,
-  cameraFocus,
   easeFlight,
   flightPoint,
   GUST_FLIGHT,
@@ -59,12 +63,18 @@ export interface BoardDirectionFields {
   readonly popups: Popup[];
   readonly ticker: TickerEntry[];
   readonly hud: Hud | null;
-  readonly camera: { x: number; z: number };
+  /** Kamera-Pose aus der gemeinsamen Regie (Babylon-Koordinaten). */
+  readonly camera: BoardCamera;
   readonly trophySpaces: string[];
   readonly traps: { spaceId: string; owner: 1 | 2 | 3 | 4 }[];
   readonly sounds: SoundCue[];
   /** Lichtstimmung der gezeigten Runde (CHAOS-193, `./lightMood.ts`). */
   readonly light: Light;
+}
+
+export interface BoardCamera {
+  readonly pos: [number, number, number];
+  readonly target: [number, number, number];
 }
 
 export interface BoardDirection {
@@ -172,6 +182,23 @@ export function hudOf(snapshot: HudSnapshot): Hud | null {
   };
 }
 
+/** Figuren eines Regie-Bilds samt Lage (wie `syncPawns` in `createBoardScene.ts`). */
+export function framePawns(frame: BoardFrame, board: BoardDefinition, bounds: BoardBounds): Pawn[] {
+  const spacePos = (id: string): Point2 =>
+    board.spaces.find((space) => space.id === id)?.position ?? bounds.center;
+  const offsets = spreadPawns(frame.pawns.filter((p) => p.hop === null));
+  return frame.pawns.map((fp) => ({
+    slot: fp.slot,
+    spaceId: fp.spaceId,
+    character: fp.character,
+    ...pawnPose(fp, spacePos, offsets.get(fp.slot) ?? { x: 0, z: 0 }),
+    hop: fp.hop ? { from: fp.hop.from, to: fp.hop.to, t: fp.hop.t, style: fp.hop.style } : null,
+    connected: fp.connected,
+  }));
+}
+
+const round3 = (v: number): number => Math.round(v * 1000) / 1000;
+
 export function createBoardDirection(): BoardDirection {
   const director = createBoardDirector();
   let now = 0;
@@ -182,6 +209,21 @@ export function createBoardDirection(): BoardDirection {
   let hudCache: { snapshot: HudSnapshot; hud: Hud | null; ticker: TickerEntry[] } | null = null;
   let boundsCache: { board: BoardDefinition; bounds: BoardBounds } | null = null;
   const light = createBoardLight();
+  const cameraRig = createCameraRig();
+
+  const boardAndBounds = (view: BoardView | null) => {
+    const board = boardOf(view);
+    if (boundsCache?.board !== board) boundsCache = { board, bounds: boardBounds(board) };
+    return boundsCache;
+  };
+
+  /** Kamera einen Schritt nach der gemeinsamen Regie weiterführen. */
+  const advanceCamera = (dtMs: number) => {
+    const frame = director.getFrame();
+    const { board, bounds } = boardAndBounds(frame.view);
+    const pawns = framePawns(frame, board, bounds);
+    cameraRig.advance(dtMs, cameraShot({ board, view: frame.view, cues: frame.cues, pawns }));
+  };
 
   director.onEvent((event) => {
     const cue = boardEventSound(event);
@@ -225,6 +267,7 @@ export function createBoardDirection(): BoardDirection {
           director.settle();
         }
         director.advance(step);
+        advanceCamera(step);
       }
       const shown = director.getFrame().view;
       light.advance(step, shown ? { round: shown.round, rounds: shown.rounds } : null, visible);
@@ -235,22 +278,10 @@ export function createBoardDirection(): BoardDirection {
     fields() {
       const frame = director.getFrame();
       const view = frame.view;
-      const board = boardOf(view);
-      if (boundsCache?.board !== board) boundsCache = { board, bounds: boardBounds(board) };
-      const bounds = boundsCache.bounds;
-      const spacePos = (id: string): Point2 =>
-        board.spaces.find((space) => space.id === id)?.position ?? bounds.center;
-      const offsets = spreadPawns(frame.pawns.filter((p) => p.hop === null));
-      const pawns: Pawn[] = frame.pawns.map((fp) => ({
-        slot: fp.slot,
-        spaceId: fp.spaceId,
-        character: fp.character,
-        ...pawnPose(fp, spacePos, offsets.get(fp.slot) ?? { x: 0, z: 0 }),
-        hop: fp.hop ? { from: fp.hop.from, to: fp.hop.to, t: fp.hop.t, style: fp.hop.style } : null,
-        connected: fp.connected,
-      }));
-      const active =
-        view?.activeSlot == null ? null : pawns.find((p) => p.slot === view.activeSlot);
+      const { board, bounds } = boardAndBounds(view);
+      const pawns = framePawns(frame, board, bounds);
+      if (!cameraRig.current()) advanceCamera(0);
+      const pose = cameraRig.current()?.pose;
       const { hud, ticker } = hudParts();
       return {
         pawns,
@@ -267,7 +298,12 @@ export function createBoardDirection(): BoardDirection {
         })),
         ticker,
         hud,
-        camera: cameraFocus(bounds, active ? { x: active.x, z: active.z } : null),
+        camera: pose
+          ? {
+              pos: [round3(pose.position.x), round3(pose.position.y), round3(pose.position.z)],
+              target: [round3(pose.target.x), round3(pose.target.y), round3(pose.target.z)],
+            }
+          : { pos: [0, 28, -17.5], target: [0, 0, 0] },
         trophySpaces: [...(view?.trophySpaces ?? [])],
         traps: (view?.traps ?? []).map((t) => ({ spaceId: t.spaceId, owner: t.owner })),
         sounds: sounds.map(({ id, name, voices }) => ({ id, name, voices })),

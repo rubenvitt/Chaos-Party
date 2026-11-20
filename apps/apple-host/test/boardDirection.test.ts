@@ -92,8 +92,10 @@ describe('Brett-Regie im JS-Kern (CHAOS-143)', () => {
       Math.atan2(pos('s08').x - pos('s07').x, pos('s08').z - pos('s07').z),
     );
     expect(fields.ticker.map((m) => m.text)).toEqual(['Blau nimmt: Klippenweg']);
-    // Die Kamera folgt der hüpfenden Figur ein Stück.
-    expect(fields.camera.x).not.toBe(0);
+    // Die Kamera ist nah an der hüpfenden Figur (gemeinsame Regie, CHAOS-194), nicht im Überblick.
+    // Blau steht nahe am Brettrand: Der Blickpunkt bleibt etwas innerhalb (`keepOnBoard`).
+    expect(Math.abs(fields.camera.target[0] - (blue?.x ?? 0))).toBeLessThan(6);
+    expect(fields.camera.pos[1]).toBeLessThan(20);
     // Ende des Wegs (3 Felder): Item-Popup über Blau, Klang „pop“.
     run(direction, 3 * 320);
     fields = board(direction);
