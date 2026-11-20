@@ -116,7 +116,7 @@ Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Sp
 - **Rotation:** Bei 200 Spielen kommt in einer Partie (10–20 Runden) fast nie ein Spiel doppelt. Die Auswahl braucht: Ziehen ohne Wiederholung (auch über Partien hinweg), Mischen über die Achsen, Filter nach Spielerzahl und iPad-Zonen, Sperrliste/Favoriten.
 - **Anleitungen:** Bei vielen neuen Spielen ist fast jedes Spiel neu für die Runde. Kurze, klare Anleitung und eine **Probephase** (5 s üben vor dem Start) werden wichtiger als die verkürzte Anleitung bei Wiederholung (CHAOS-66).
 - **Assets:** Viele Spiele brauchen Requisiten (Toaster, Melone, Gießkanne). Weiter mit dem eigenen Blender-Skript-Generator (ADR-013) und CC0-Quellen; je Familie ein **Requisiten-Set**, keine Einzelanfertigung je Spiel.
-- **Ladezeit und Bundle:** 200 Spiele dürfen den Host nicht aufblähen. Minispiel-Module werden **erst bei Bedarf geladen** (dynamischer Import je Spiel).
+- **Ladezeit und Bundle:** 200 Spiele dürfen den Host nicht aufblähen. Minispiel-Module werden **erst bei Bedarf geladen** (dynamischer Import je Spiel). Umgesetzt mit CHAOS-86: neues Spiel zusätzlich in `packages/minigames/src/lazy.ts` eintragen (ADR-004 Nachtrag 2).
 
 ## 7. Entscheidungen (Konzept-Gate `CHAOS-82`, Ruben, 2026-11-16)
 

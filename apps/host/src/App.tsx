@@ -1,4 +1,5 @@
 import { getMinigameInfo } from '@chaos-party/minigames/catalog';
+import { preloadMinigameModule } from '@chaos-party/minigames/lazy';
 import {
   lazy,
   Suspense,
@@ -19,7 +20,12 @@ import type { BoardScene } from './board/types.ts';
 import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
 import { attachPerf, installPerfMonitor } from './debug/perf.ts';
-import { resetSceneLog, sceneLogTransitions, startSceneLog } from './debug/sceneMarks.ts';
+import {
+  markScene,
+  resetSceneLog,
+  sceneLogTransitions,
+  startSceneLog,
+} from './debug/sceneMarks.ts';
 import { createPerfMonitor, type PerfMonitor } from './debug/perfMonitor.ts';
 import { environmentSample } from './debug/renderProbe.ts';
 import { scenePerfReport } from './debug/summary.ts';
@@ -98,6 +104,21 @@ export function App({ config }: AppProps) {
       ? getMinigameInfo(latest.view.minigame.id)
       : undefined;
   const [minigameReady, setMinigameReady] = useState(false);
+  // Modul des Minispiels der Runde (eigener Chunk, CHAOS-86) parallel zum Bühnen-Chunk laden,
+  // sobald der Stand es nennt – nicht erst, wenn die Bühne steht.
+  const minigameId = minigameInfo?.id;
+  useEffect(() => {
+    if (minigameId !== undefined) preloadMinigameModule(minigameId);
+  }, [minigameId]);
+  // Messung (nur `?debug=1`): Brett → Minispiel zählt ab Empfang des Stands, der das Minispiel
+  // nennt – so steckt auch das Laden des Spiel-Chunks in der Wartezeit (CHAOS-86).
+  const requestedKey = useRef<string | null>(null);
+  const receivedAt = latest.receivedAt;
+  useEffect(() => {
+    if (minigameKey === null || requestedKey.current === minigameKey) return;
+    requestedKey.current = minigameKey;
+    markScene('minispiel', 'angefragt', receivedAt);
+  }, [minigameKey, receivedAt]);
   const minigameShown = boardMode && minigameInfo !== undefined && latest.view !== null;
 
   const [physics, setPhysics] = useState<PhysicsStatus>('loading');
