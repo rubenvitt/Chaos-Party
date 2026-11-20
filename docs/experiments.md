@@ -2563,6 +2563,9 @@ Feinabstimmung innerhalb von C:
 
 - Apple-Host im tvOS-Simulator (Apple TV 4K, 3. Generation; 4 Bots mit `--bunt`, 2 Runden, `--bild` und `--ereignisbild`): dieselben Einstellungen wie am PC, keine `FEHLER` im Log, beide Minispiel-Ergebnisse angenommen. Bilder: [`chaos194-apple-tv-wuerfeln.jpg`](screenshots/chaos194-apple-tv-wuerfeln.jpg) (Würfel und Falle nah), [`chaos194-apple-tv-klau.jpg`](screenshots/chaos194-apple-tv-klau.jpg) (Klau mit beiden Figuren im Bild).
 
+- Aufholen der Regie (Rückstand über 2,5 s, dreifach schnell): Mit der Uhrzeit als Maß rechnete die Lauf-Einstellung den Sprung zu niedrig und blickte zurück statt voraus. Ereignisse zählen deshalb in gespielter Regie-Zeit (`FrameCue.elapsedMs`); Unit-Test mit 10 Feldern samt Würfel und Münzen.
+- Rechenzeit: `cameraShot` mit Einpassen ≈ 0,08 ms am Mac (Node mit JIT). Die Apple TV rechnet ohne JIT; deshalb merkt sich `fitShot` die Ergebnisse (gleiche Punkte Bild für Bild bei offenem Prompt), danach ≈ 0,002 ms. Ohne JIT nicht gemessen (Node `--jitless` lädt das Projekt nicht, WebAssembly fehlt), offen in der Gerätecheckliste §36.
+
 **Entscheidung:** **C behalten.** B scheitert an Gabel und Klau, A erfüllt Rubens Wunsch nicht und taugt nicht für größere Bretter. Die Zahlen sind ein erster Wurf aus Screenshots, kein Spieltest.
 
 **Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.

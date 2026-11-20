@@ -198,6 +198,24 @@ export function fitShot(
   min: number = SHOT_DISTANCE.minFit,
 ): { focus: Point2; distance: number } {
   if (ground.length === 0) return { focus: { x: 0, z: 0 }, distance: min };
+  // Dieselben Punkte kommen Bild für Bild wieder (offener Prompt, Gabel): Ergebnis merken.
+  // Auf der Apple TV läuft der JS-Kern ohne JIT, dort kostet die Suche sonst je Takt spürbar.
+  const key = `${min}|${ground.map((p) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`).join(';')}`;
+  const known = fitMemo.get(key);
+  if (known) return known;
+  const result = searchFit(ground, min);
+  if (fitMemo.size >= FIT_MEMO_SIZE) {
+    const oldest = fitMemo.keys().next().value;
+    if (oldest !== undefined) fitMemo.delete(oldest);
+  }
+  fitMemo.set(key, result);
+  return result;
+}
+
+const FIT_MEMO_SIZE = 64;
+const fitMemo = new Map<string, { readonly focus: Point2; readonly distance: number }>();
+
+function searchFit(ground: readonly Point2[], min: number): { focus: Point2; distance: number } {
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
@@ -244,11 +262,10 @@ export function overviewShot(board: BoardDefinition): CameraShot {
  * Wegwahl an einer Gabel: Gabel, die Zielfelder und je ein Feld dahinter, damit beide Wege
  * lesbar sind. Auch für die Lage der Wegweiser (`createBoardScene.ts`).
  */
-export function forkShot(board: BoardDefinition, forkId: string, at?: Point2): CameraShot {
+export function forkShot(board: BoardDefinition, forkId: string): CameraShot {
   const byId = spaceIndex(board);
   const fork = byId.get(forkId);
   const points: Point2[] = [];
-  if (at) points.push(at);
   if (fork) {
     points.push(fork.position);
     for (const id of fork.next) {
@@ -459,7 +476,8 @@ function stateShot(input: ShotInput, pawnAt: (slot: number) => Point2 | undefine
     switch (prompt.kind) {
       case 'path': {
         const player = view.players.find((p) => p.slot === prompt.slot);
-        if (player) return forkShot(board, player.spaceId, pawnAt(prompt.slot));
+        // Ohne die Lage der Figur: genau die Pose, für die die Wegweiser dem Pfeil ausweichen.
+        if (player) return forkShot(board, player.spaceId);
         break;
       }
       case 'target': {

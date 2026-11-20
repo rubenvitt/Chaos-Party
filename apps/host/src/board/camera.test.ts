@@ -1,5 +1,5 @@
 import { createRng, WACKELWALD, type BoardDefinition } from '@chaos-party/game-core';
-import type { BoardEvent, BoardView } from '@chaos-party/protocol';
+import { createMessage, type BoardEvent, type BoardView } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_DISTANCE,
@@ -134,7 +134,7 @@ describe('Kamera-Einstellungen je Phase (CHAOS-194)', () => {
       if (beyond) expect(inFrame(camera, pos(beyond)), beyond).toBe(true);
     }
     // Dieselbe Einstellung nutzt die Szene für die Wegweiser.
-    expect(forkShot(WACKELWALD, 's07', pos('s07'))).toEqual(shot);
+    expect(forkShot(WACKELWALD, 's07')).toEqual(shot);
   });
 
   it('Ereignis: kurzer Zoom auf die Figur, danach zurück zum Stand', () => {
@@ -357,5 +357,72 @@ describe('Kamera-Feder', () => {
     expect(dist(end?.focus ?? { x: 0, z: 0 }, pos('s21'))).toBeLessThan(4);
     expect(end?.distance).toBeLessThan(BASE_DISTANCE * 0.7);
     if (end) expect(inFrame(end.pose, pos('s21'))).toBe(true);
+  });
+});
+
+describe('Kamera beim Aufholen der Regie', () => {
+  it('schaut auch bei dreifachem Tempo in Laufrichtung', () => {
+    const director = createBoardDirector();
+    director.receive(createMessage('board', { view: DEMO_VIEW, events: [], eventSeq: 0 }));
+    // Echter Weg ab Gabel A über den Klippenweg (je erstes Folgefeld), 10 Felder; mit Würfel
+    // und Münzen liegt der Rückstand über CATCH_UP_MS, ein Teil läuft dreifach schnell.
+    const path: string[] = [];
+    let here = 's08';
+    while (path.length < 10) {
+      path.push(here);
+      here = WACKELWALD.spaces.find((s) => s.id === here)?.next[0] ?? here;
+    }
+    const last = path[path.length - 1] ?? 's10';
+    const view: BoardView = {
+      ...DEMO_VIEW,
+      gamePhase: 'turn-end',
+      prompt: null,
+      players: DEMO_VIEW.players.map((p) => (p.slot === 1 ? { ...p, spaceId: last } : p)),
+    };
+    director.receive(
+      createMessage('board', {
+        view,
+        events: [
+          { type: 'dice-rolled', slot: 1, faces: [6, 4], total: path.length },
+          { type: 'moved', slot: 1, path },
+          { type: 'coins-changed', slot: 1, delta: 3, balance: 15, reason: 'space' },
+        ],
+        eventSeq: 0,
+      }),
+    );
+    let checked = 0;
+    for (let i = 0; i < 600 && director.animating; i++) {
+      director.advance(1000 / 60);
+      const frame = director.getFrame();
+      const blue = frame.pawns.find((p) => p.slot === 1);
+      if (!blue?.hop || blue.hop.style !== 'walk' || blue.hop.t >= 0.9) continue;
+      const from = pos(blue.hop.from);
+      const to = pos(blue.hop.to);
+      const at = {
+        x: from.x + (to.x - from.x) * blue.hop.t,
+        z: from.z + (to.z - from.z) * blue.hop.t,
+      };
+      const shot = cameraShot({
+        board: WACKELWALD,
+        view: frame.view,
+        cues: frame.cues,
+        pawns: [{ slot: 1, ...at }],
+      });
+      expect(shot.kind).toBe('walk');
+      // Vorausblick (ohne Randbegrenzung) zeigt in Laufrichtung: Skalarprodukt mit dem Sprung > 0.
+      const moved = frame.cues.find((c) => c.event.type === 'moved');
+      if (moved?.event.type !== 'moved') continue;
+      const ahead = walkShot(
+        at,
+        moved.event.path.map((id) => pos(id)),
+        moved.elapsedMs,
+        moved.durationMs,
+      );
+      const dot =
+        (ahead.focus.x - at.x) * (to.x - from.x) + (ahead.focus.z - at.z) * (to.z - from.z);
+      expect(dot, `Sprung ${blue.hop.from} → ${blue.hop.to}`).toBeGreaterThan(0);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(10);
   });
 });

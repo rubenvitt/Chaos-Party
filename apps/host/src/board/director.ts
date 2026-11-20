@@ -74,7 +74,10 @@ export interface FrameCue {
   readonly start: string | null;
   /** Platztausch: das `moved` der anderen Figur und ihr Startfeld. */
   readonly partner: { readonly event: MovedEvent; readonly start: string } | null;
-  /** Seit dem Start vergangene Regie-Zeit (ms); läuft nach dem Ende weiter. */
+  /**
+   * Seit dem Start vergangene Regie-Zeit (ms); läuft nach dem Ende weiter. Beim Aufholen
+   * (dreifach schnell) zählt sie wie die Animation, nicht wie die Uhr.
+   */
   readonly elapsedMs: number;
   readonly durationMs: number;
 }
@@ -271,8 +274,10 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   const pawnSpaces = new Map<SlotNumber, string>();
   const coinOverride = new Map<SlotNumber, number>();
   let popups: ActivePopup[] = [];
-  /** Zuletzt gestartete Ereignisse (`FrameCue` ohne Alter), älteste zuerst. */
+  /** Zuletzt gestartete Ereignisse (`FrameCue` ohne Alter), älteste zuerst; Start in Regie-Zeit. */
   let cues: (Omit<FrameCue, 'elapsedMs'> & { readonly startedAt: number })[] = [];
+  /** Gespielte Regie-Zeit (ms): wie `now`, beim Aufholen schneller. Uhr der `cues`. */
+  let playedMs = 0;
   let messages: TimedMessage[] = [];
   let notice: (HudNotice & { readonly createdAt: number }) | null = null;
   let minigame: MinigameSummary | null = null;
@@ -356,7 +361,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     return pawnSpaces.get(event.slot) ?? event.path[0] ?? '';
   }
 
-  function startEvent(item: EventItem) {
+  function startEvent(item: EventItem, at: number) {
     const { event, style, partner } = item;
     announce(event);
     if (partner) announce(partner);
@@ -401,7 +406,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       start: running.start,
       partner: running.partner,
       durationMs: plan.durationMs,
-      startedAt: now,
+      startedAt: at,
     });
     if (cues.length > MAX_CUES) cues = cues.slice(-MAX_CUES);
     version++;
@@ -431,6 +436,8 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   /** Spielt mit `budget` ms Regie-Zeit ab; Übernahmen und Ereignisse ohne Dauer sofort. */
   function pump(budget: number) {
     let left = budget;
+    const base = playedMs;
+    playedMs += budget;
     for (;;) {
       if (!running) {
         const item = queue.shift();
@@ -439,7 +446,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
           commit(item.view, item.receivedAt);
           continue;
         }
-        startEvent(item);
+        startEvent(item, base + (budget - left));
       }
       const current = running;
       if (!current) continue;
@@ -472,8 +479,8 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   }
 
   function expire() {
-    if (cues.length > 0 && now - (cues[0]?.startedAt ?? now) >= CUE_MS) {
-      cues = cues.filter((c) => now - c.startedAt < CUE_MS);
+    if (cues.length > 0 && playedMs - (cues[0]?.startedAt ?? playedMs) >= CUE_MS) {
+      cues = cues.filter((c) => playedMs - c.startedAt < CUE_MS);
     }
     const keepPopups = popups.filter((p) => now - p.startedAt < POPUP_MS);
     if (keepPopups.length !== popups.length) popups = keepPopups;
@@ -589,7 +596,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       view,
       pawns,
       popups: frames,
-      cues: cues.map(({ startedAt, ...cue }) => ({ ...cue, elapsedMs: now - startedAt })),
+      cues: cues.map(({ startedAt, ...cue }) => ({ ...cue, elapsedMs: playedMs - startedAt })),
     };
   }
 
