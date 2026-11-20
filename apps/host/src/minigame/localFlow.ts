@@ -16,6 +16,7 @@ import {
   type ItemKindName,
   type SlotNumber,
 } from '@chaos-party/protocol';
+import type { LocalReadiness } from '../config.ts';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
 import type { MinigameStageName } from './plan.ts';
 
@@ -49,9 +50,12 @@ export function localView(
     readonly result?: MinigameResultPayload | null;
     /** Minispiel lief in der Partie schon (CHAOS-66). */
     readonly repeat?: boolean;
+    /** Anleitung wartet auf Bereitschaft (CHAOS-214): bereite und getrennte Slots. */
+    readonly readiness?: LocalReadiness | null;
   },
 ): BoardView {
   const repeat = options.repeat ?? false;
+  const readiness = stage === 'intro' ? (options.readiness ?? null) : null;
   const slots = localSlots(options.players);
   const result = options.result ?? null;
   return {
@@ -73,7 +77,7 @@ export function localView(
       coins: DEFAULT_RULES.economy.startCoins,
       trophies: 0,
       items: [],
-      connected: true,
+      connected: !(readiness?.offline.includes(slot) ?? false),
       character: defaultCharacterFor(slot),
       minigameWins: 0,
       stats: { coinsEarned: 0, coinsLost: 0, spacesMoved: 0, itemsUsed: 0 },
@@ -98,6 +102,10 @@ export function localView(
       seed: options.seed >>> 0,
       playMs: info.durationMs,
       repeat,
+      // Wie der Server: nur Slots der Partie, aufsteigend.
+      ...(readiness
+        ? { ready: readiness.ready.filter((slot) => slots.includes(slot)).sort((x, y) => x - y) }
+        : {}),
       elapsedMs: stage === 'intro' ? null : 0,
       placements:
         stage === 'results' && result ? result.placements.map((entry) => ({ ...entry })) : null,

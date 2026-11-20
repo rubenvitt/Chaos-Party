@@ -137,6 +137,31 @@ function sendMinigame(
   );
 }
 
+/**
+ * Anleitung, die auf „Bereit“ wartet (CHAOS-214), genau wie `Session.boardContextFor`:
+ * `ready` angeboten, bis der Slot gedrückt hat; danach `actions: []` und `minigame.ready`.
+ */
+function sendReadyIntro(fake: FakeSession, slot: SlotNumber, info: Info, ready: boolean) {
+  fake.send(
+    createMessage('context', {
+      slot,
+      phase: 'board',
+      layout: 'board',
+      actions: ready ? [] : ['ready'],
+      board: boardInfo({ gamePhase: 'minigame-intro', activeSlot: null }),
+      minigame: { ...info, stage: 'intro', tied: false, aborted: false, ready },
+    }),
+  );
+}
+
+/** Schonfrist des Bereit-Knopfs (`INTRO_READY_GUARD_MS`) plus Reserve. */
+const PAST_GUARD_MS = 700;
+/**
+ * Bei angehaltener Uhr laufen auch React-Updates nur, wenn der Test sie vorspult: nach jedem
+ * Kontext ein kurzer Schritt (zusammen weit unter der Schonfrist).
+ */
+const TICK_MS = 20;
+
 /** Texte, Glyphen und Zahlen maskiert (ADR-004); Formen, Farben und Lage bleiben geprüft. */
 const screenshotMask = (page: Page) => [
   page.locator('.ui-text, .player-symbol, .control-key, .link-pill'),
@@ -271,6 +296,75 @@ test('Intro bei Wiederholung (CHAOS-66): nur Titel und Bedienlegende, keine Anle
   await expect(intro).toHaveAttribute('data-repeat', 'false');
   await expect(page.getByTestId('minigame-steps').locator('li')).toHaveText(PUMPEN.instructions);
   await expect(page.getByTestId('minigame-kicker')).toHaveText('Minispiel');
+});
+
+test('Intro wartet auf „Bereit“ (CHAOS-214): Schonfrist, Knopf sendet `ready`, dann Warten', async ({
+  page,
+}, testInfo) => {
+  const fake = await attach(page);
+  // Uhr der Seite steuern: Die Schonfrist läuft nur, wenn der Test sie vorspult.
+  await page.clock.install();
+  await join(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+  sendReadyIntro(fake, 1, HUEPFEN, false);
+  await page.clock.runFor(TICK_MS);
+
+  const button = page.getByTestId('minigame-ready-button');
+  await expect(button).toHaveText('Bereit!');
+  await expect(page.getByTestId('minigame-ready')).toHaveCount(0);
+  // Schonfrist: sichtbar gesperrt, ein Tipper (z. B. vom Würfeln) verpufft.
+  await expect(button).toHaveAttribute('aria-disabled', 'true');
+  await expect(button).toHaveAttribute('data-armed', 'false');
+  await button.tap({ force: true });
+  await page.waitForTimeout(150);
+  expect(fake.ofType('ready')).toEqual([]);
+  await expect(button).toBeVisible();
+
+  await page.clock.runFor(PAST_GUARD_MS);
+  await expect(button).toHaveAttribute('aria-disabled', 'false');
+  await expect(button).toHaveAttribute('data-armed', 'true');
+  const intro = page.getByTestId('minigame-intro');
+  await expectInside(intro, viewportBox(page));
+  await expectNoScrollOrZoom(page);
+  if (testInfo.project.name === 'iphone-hoch') await beleg(page, 'controller-intro-bereit');
+  await expectStableWrapping(page.locator('body'));
+  await expect(page).toHaveScreenshot('minispiel-intro-bereit.png', { mask: screenshotMask(page) });
+
+  // Tippen sendet genau ein `ready` für diesen Slot und sperrt sofort.
+  await button.tap();
+  await expect.poll(() => fake.ofType('ready').map((m) => m.slot)).toEqual([1]);
+  const done = page.getByTestId('minigame-ready-done');
+  await expect(done).toHaveText(/Bereit! Warte auf die anderen …/);
+  await expect(button).toHaveCount(0);
+  // Andere melden sich bereit (gleiches Angebot, neuer Kontext): bleibt gesperrt.
+  sendReadyIntro(fake, 1, HUEPFEN, false);
+  await page.clock.runFor(TICK_MS);
+  await page.waitForTimeout(100);
+  await expect(button).toHaveCount(0);
+  // Server bestätigt: weiterhin „Warte auf die anderen“, ganz im Bild.
+  sendReadyIntro(fake, 1, HUEPFEN, true);
+  await page.clock.runFor(TICK_MS);
+  await expect(done).toBeVisible();
+  await expect(button).toHaveCount(0);
+  await expectInside(intro, viewportBox(page));
+  await expectStableWrapping(page.locator('body'));
+  await expect(page).toHaveScreenshot('minispiel-intro-bereit-fertig.png', {
+    mask: screenshotMask(page),
+  });
+  expect(fake.ofType('ready')).toHaveLength(1);
+
+  // Neues Minispiel: Knopf wieder da, erneut erst nach der Schonfrist.
+  sendReadyIntro(fake, 1, PUMPEN, false);
+  await page.clock.runFor(TICK_MS);
+  await expect(button).toHaveAttribute('aria-disabled', 'true');
+  await page.clock.runFor(PAST_GUARD_MS);
+  await expect(button).toHaveAttribute('aria-disabled', 'false');
+  // Spiel beginnt ohne Tippen (Sicherheitsfrist am Server): Knopf verschwindet.
+  sendMinigame(fake, 1, PUMPEN, 'play');
+  await page.clock.runFor(TICK_MS);
+  await expect(slot(page)).toHaveAttribute('data-layout', 'joystick-buttons');
+  await expect(button).toHaveCount(0);
+  expect(fake.ofType('ready')).toHaveLength(1);
 });
 
 test('Spiel: beschriftete Knöpfe, Joystick nach Steckbrief, Eingaben an den Server', async ({
@@ -550,6 +644,98 @@ test('iPad-Zonen: Intro, Spiel mit Beschriftung und Ergebnis je Zone', async ({
     await expect(page).toHaveScreenshot(`${name}-minispiel-ergebnis.png`, {
       mask: screenshotMask(page),
     });
+    await expectNoScrollOrZoom(page);
+  } finally {
+    await context.close();
+  }
+});
+
+test('iPad-Zonen: „Bereit“ in der Anleitung je Zone (CHAOS-214)', async ({
+  browser,
+  chaosServer,
+}, testInfo) => {
+  const landscape = testInfo.project.name === 'iphone-quer';
+  const name = landscape ? 'ipad-quer' : 'ipad-hoch';
+  const { context, page } = await openIpad(browser, chaosServer.base, landscape);
+  try {
+    const fake = await attach(page);
+    const zone = (s: number) => page.getByTestId(`zone-${String(s)}`);
+    const button = (s: number) => zone(s).getByTestId('minigame-ready-button');
+    const slots = [1, 2, 3, 4] as const;
+    await page.clock.install();
+    await page.goto(`/?code=${VALID_CODE}&seats=4`);
+    for (const s of slots) await expect(zone(s)).toHaveAttribute('data-layout', 'lobby');
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+
+    for (const s of slots) sendReadyIntro(fake, s, SCHUBSEN, false);
+    await page.clock.runFor(TICK_MS);
+    for (const s of slots) {
+      await expect(zone(s)).toHaveAttribute('data-minigame-stage', 'intro');
+      await expect(button(s)).toHaveText('Bereit!');
+      await expect(button(s)).toHaveAttribute('aria-disabled', 'true');
+      await expect(zone(s).getByTestId('minigame-ready')).toHaveCount(0);
+    }
+    // Schonfrist: Antippen in Zone 1 verpufft.
+    const touch = await TouchScreen.create(page);
+    await touch.tap(await centerOf(button(1)));
+    await page.waitForTimeout(150);
+    expect(fake.ofType('ready')).toEqual([]);
+
+    await page.clock.runFor(PAST_GUARD_MS);
+    for (const s of slots) {
+      await expect(button(s)).toHaveAttribute('aria-disabled', 'false');
+      const zoneBox = await boxOf(zone(s));
+      await expectInside(zone(s).getByTestId('minigame-intro'), zoneBox);
+      // Knopf unter der Karte, ganz in der Zone.
+      const box = await boxOf(button(s));
+      expect(box.x).toBeGreaterThanOrEqual(zoneBox.x);
+      expect(box.y).toBeGreaterThanOrEqual(zoneBox.y);
+      expect(box.x + box.width).toBeLessThanOrEqual(zoneBox.x + zoneBox.width + 0.5);
+      expect(box.y + box.height).toBeLessThanOrEqual(zoneBox.y + zoneBox.height + 0.5);
+    }
+    await expectStableWrapping(page.locator('body'));
+    await expect(page).toHaveScreenshot(`${name}-minispiel-bereit.png`, {
+      mask: screenshotMask(page),
+    });
+
+    // Zwei Finger in zwei Zonen gleichzeitig: je ein `ready` für den richtigen Slot.
+    await touch.down(1, await centerOf(button(1)));
+    await touch.down(2, await centerOf(button(3)));
+    await touch.upAll();
+    await expect
+      .poll(() =>
+        fake
+          .ofType('ready')
+          .map((m) => m.slot)
+          .sort(),
+      )
+      .toEqual([1, 3]);
+    for (const s of [1, 3]) {
+      await expect(button(s)).toHaveCount(0);
+      await expect(zone(s).getByTestId('minigame-ready-done')).toHaveText(
+        /Bereit! Warte auf die anderen …/,
+      );
+    }
+    for (const s of [2, 4]) await expect(button(s)).toHaveAttribute('aria-disabled', 'false');
+
+    // Server bestätigt 1 und 3; 2 und 4 bekommen einen neuen, gleichen Kontext.
+    sendReadyIntro(fake, 1, SCHUBSEN, true);
+    sendReadyIntro(fake, 3, SCHUBSEN, true);
+    sendReadyIntro(fake, 2, SCHUBSEN, false);
+    sendReadyIntro(fake, 4, SCHUBSEN, false);
+    await page.clock.runFor(TICK_MS);
+    for (const s of [1, 3]) {
+      const done = zone(s).getByTestId('minigame-ready-done');
+      await expect(done).toBeVisible();
+      await expectInside(done, await boxOf(zone(s)));
+    }
+    // Neuer Kontext derselben Anleitung startet keine neue Schonfrist.
+    for (const s of [2, 4]) await expect(button(s)).toHaveAttribute('aria-disabled', 'false');
+    await expectStableWrapping(page.locator('body'));
+    await expect(page).toHaveScreenshot(`${name}-minispiel-bereit-teils.png`, {
+      mask: screenshotMask(page),
+    });
+    expect(fake.ofType('ready')).toHaveLength(2);
     await expectNoScrollOrZoom(page);
   } finally {
     await context.close();

@@ -305,6 +305,22 @@ async function answerPrompt(seat: Seat, touches: ReadonlyMap<Page, TouchScreen>)
   // Layout-Container ohne eigene Box (Playwright hielte ihn für unsichtbar).
   // iPhone: echte `<button>`, nach dem Senden `disabled`. iPad-Zone: Flächen ohne
   // `disabled`; gesperrt zeigt dort `data-locked` am Prompt.
+  // CHAOS-214: In der Minispiel-Anleitung „Bereit!“ tippen (nach der kurzen Tippsperre).
+  const ready = seat.root.locator('[data-testid="minigame-ready-button"][data-armed="true"]');
+  if ((await ready.count()) > 0 && (await ready.isVisible())) {
+    try {
+      if (seat.kind === 'zone') {
+        const touch = touches.get(seat.page);
+        if (!touch) throw new Error(`${seat.label}: kein TouchScreen`);
+        await touch.tap(await centerOf(ready), seat.slot);
+      } else {
+        await ready.tap({ timeout: 2000 });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
   const prompt =
     seat.kind === 'zone'
       ? seat.root.locator('[data-testid="prompt"][data-locked="false"]')
