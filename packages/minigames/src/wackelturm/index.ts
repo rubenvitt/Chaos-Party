@@ -160,10 +160,10 @@ export class Wackelturm implements Minigame {
     await ctx.pace();
     this.buildMasters(scene);
     await ctx.pace();
-    this.buildPile(scene);
+    await this.buildPile(scene);
     for (const player of ctx.players) {
       await ctx.pace();
-      this.buildPlayer(scene, player);
+      await this.buildPlayer(scene, player);
     }
     this.syncViews(0);
   }
@@ -492,7 +492,7 @@ export class Wackelturm implements Minigame {
   }
 
   /** Törtchenberg in der Mitte: Teigberg mit Törtchen obendrauf. */
-  private buildPile(scene: Scene): void {
+  private async buildPile(scene: Scene): Promise<void> {
     const { pileRadius } = WACKELTURM_PARAMS;
     const mound = this.own(
       CreateSphere('wackel-berg', { diameter: pileRadius * 2, segments: 20 }, scene),
@@ -500,6 +500,7 @@ export class Wackelturm implements Minigame {
     mound.scaling.y = 0.42;
     mound.position.y = -0.05;
     mound.material = this.material(scene, '#ffe2a8');
+    await this.ctx?.pace();
     const plate = this.own(
       CreateCylinder(
         'wackel-teller',
@@ -524,7 +525,8 @@ export class Wackelturm implements Minigame {
         return [Math.cos(angle) * radius, y, Math.sin(angle) * radius];
       }),
     );
-    spots.forEach(([x, y, z], index) => {
+    for (const [index, [x, y, z]] of spots.entries()) {
+      if (index % 6 === 0) await this.ctx?.pace();
       const piece = this.createPiece(`wackel-berg-${String(index)}`, null);
       piece.base.position.set(x, y + PIECE_HEIGHT * 0.3, z);
       piece.base.rotation.set(0.15 * Math.sin(index * 2.1), index, 0.15 * Math.cos(index * 1.3));
@@ -534,10 +536,11 @@ export class Wackelturm implements Minigame {
       );
       cherry.parent = piece.base;
       cherry.position.y = PIECE_HEIGHT * 0.78;
-    });
+    }
   }
 
-  private buildPlayer(scene: Scene, player: MinigamePlayer): void {
+  /** In mehreren Schritten, ohne JIT kostete ein Spieler am Stück über 10 ms (CHAOS-209). */
+  private async buildPlayer(scene: Scene, player: MinigamePlayer): Promise<void> {
     const ctx = this.ctx;
     const state = this.state;
     if (!ctx || !state) return;
@@ -585,6 +588,7 @@ export class Wackelturm implements Minigame {
     flag.material = this.material(scene, color);
     const symbol = this.buildSymbol(scene, player);
     symbol.position.set(flag.position.x, flag.position.y, flag.position.z - 0.06);
+    await ctx.pace();
 
     // Punkte-Haufen im Nest (wächst mit den Punkten).
     const heap: InstancedMesh[] = [];
@@ -615,6 +619,7 @@ export class Wackelturm implements Minigame {
     }
 
     // Figur, Ring in Slot-Farbe unter den Füßen, Turm über dem Kopf.
+    await ctx.pace();
     const character = ctx.characters.create(scene, player);
     character.play('idle');
     const ring = this.own(
@@ -633,12 +638,14 @@ export class Wackelturm implements Minigame {
         player.slot,
       ),
     );
+    await ctx.pace();
     const pieces = Array.from({ length: params.maxStack }, (_, index) => {
       const piece = this.createPiece(`wackel-turm-${String(player.slot)}-${String(index)}`, tower);
       piece.base.position.y = index * PIECE_HEIGHT;
       this.showPiece(piece, null, 0);
       return piece;
     });
+    await ctx.pace();
     const crown = this.own(new TransformNode(`wackel-krone-${String(player.slot)}`, scene));
     markVisual(crown, 'krone', player.slot);
     crown.parent = tower;

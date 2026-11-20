@@ -100,3 +100,12 @@ Messung im Swift-Harness, ganze Partie ohne JIT, lokal:
 - Bilder über 16,7 ms gab es schon vorher. Sie stammen von einzelnen Bauschritten zwischen zwei `pace` (Nachtrag 1, dort 19 ms; Folgeaufgabe CHAOS-209).
 
 Der CI-Job „macOS“ spielt die Partie im Harness zusätzlich mit `hz=10`. Ist dabei eine Bühne beim Spielstart nicht fertig, schlägt er fehl.
+
+## Nachtrag 4 (2026-11-20, CHAOS-209): kleine Bauschritte, Reserve bei knapper Bühne
+
+Im Swift-Harness ohne JIT dauerten bei 60 Hz einzelne Bilder der Anleitung länger als 16,7 ms (Nachtrag 3). Ursache waren einzelne Bauschritte zwischen zwei `ctx.pace()`, die allein 7–17 ms kosteten, und das Budget von 8,3 ms bei knapper Bühne.
+
+- **Bauschritte:** Ein Abschnitt zwischen zwei `pace` soll ohne JIT höchstens etwa 5 ms kosten. Teuer sind fast nur Kugeln und Tori, weil Babylon jeden Eckpunkt einzeln rechnet: Kugel mit Standard-Segmenten (32) gut 10 ms, mit 16 gut 3 ms, mit 12 gut 2 ms; Torus mit `tessellation: 64` gut 9 ms, mit 48 gut 4 ms, mit 32 gut 2 ms (Node als reiner Interpreter). Quader, Zylinder, Scheiben und Kapseln kosten unter 1 ms. Die Regel für Minispiele: bei Kugeln immer `segments` angeben, Tori höchstens mit 48, mehrere Kugeln oder Tori durch `pace` trennen. Gemessen wird mit `apps/apple-host/scripts/pace-segments.ts`.
+- **Knappe Bühne:** Das Budget bei knapper Bühne (Nachtrag 3) bleibt die halbe Tick-Dauer, aber höchstens die Tick-Dauer minus `FRAME_RESERVE_MS` (10 ms) für einen überlangen Bauschritt, Session und `renderState`. Bei 60 Hz sind das 6,7 statt 8,3 ms, ab 40 Hz gilt wieder die halbe Tick-Dauer, bei 10 Hz bleibt es bei 20 ms. Bei 60 Hz war die Bühne auch ohne die Regel für knappe Bühnen immer rechtzeitig fertig (Nachtrag 3: 10 von 10).
+
+Ergebnis in der Interpreter-Näherung (Node, ganze Bot-Partie mit 10 Runden, `tick` + `renderState`): Das längste Bild der Anleitung sank von 16,8/18,6 ms auf 12,3–14,4 ms in sechs Läufen. Der längste Bauschritt eines Minispiels sank von 17 auf rund 5 ms. Die Messung im Swift-Harness auf dem Mac (Akzeptanzkriterium: drei Läufe `full` ohne JIT, kein Bild der Anleitung über 16,7 ms) steht noch aus.

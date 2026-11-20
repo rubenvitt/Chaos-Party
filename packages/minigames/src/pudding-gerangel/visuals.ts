@@ -219,7 +219,7 @@ export async function buildPudding(
   const rim = track(
     CreateTorus(
       'pudding-tellerrand',
-      { diameter: TUNING.radius * 2 + 2.1, thickness: 0.22, tessellation: 64 },
+      { diameter: TUNING.radius * 2 + 2.1, thickness: 0.22, tessellation: 48 },
       scene,
     ),
     disposables,

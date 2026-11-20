@@ -84,6 +84,14 @@ interface RunnerView {
   squash: number;
 }
 
+interface ItemBody {
+  readonly kind: ItemKind;
+  readonly root: TransformNode;
+  /** Laufende Nummer für Mesh-Namen. */
+  readonly n: string;
+  readonly role: string;
+}
+
 interface ItemMeshes {
   readonly kind: ItemKind;
   /** Grundgröße (Socken etwas größer als echt, damit man sie im Fernseher sieht). */
@@ -159,7 +167,7 @@ class Sockenregen implements Minigame {
     await this.buildBubbles(scene);
     for (const player of ctx.players) {
       await ctx.pace();
-      this.buildRunner(scene, player);
+      await this.buildRunner(scene, player);
     }
     // Ein paar Socken vorwärmen, damit mitten im Spiel selten neue Meshes entstehen.
     const warm: ItemKind[] = [
@@ -168,8 +176,11 @@ class Sockenregen implements Minigame {
       'gold',
     ];
     for (const kind of warm) {
+      // Körper und Markierungen in getrennten Schritten (CHAOS-209).
       await ctx.pace();
-      this.release(this.createItemMeshes(scene, kind));
+      const body = this.createItemBody(scene, kind);
+      await ctx.pace();
+      this.release(this.createItemMarkers(scene, body));
     }
     this.syncRunners(0);
   }
@@ -561,7 +572,7 @@ class Sockenregen implements Minigame {
       const ring = this.track(
         CreateTorus(
           `socken-matte-streifen-${String(index)}`,
-          { diameter: radius * 2, thickness: 0.5, tessellation: 64 },
+          { diameter: radius * 2, thickness: 0.5, tessellation: 48 },
           scene,
         ),
       );
@@ -573,7 +584,7 @@ class Sockenregen implements Minigame {
     const rim = this.track(
       CreateTorus(
         'socken-rand',
-        { diameter: R * 2 + 0.6, thickness: 0.55, tessellation: 64 },
+        { diameter: R * 2 + 0.6, thickness: 0.55, tessellation: 48 },
         scene,
       ),
     );
@@ -591,8 +602,9 @@ class Sockenregen implements Minigame {
       );
       basket.position.set(side * 9.2, 0.33, 2.5);
       basket.material = this.material(side < 0 ? '#ff8fab' : '#8f9bff', { emissive: 0.08 });
+      await this.pace();
       const pile = this.track(
-        CreateSphere(`socken-korb-haufen-${String(side)}`, { diameter: 2 }, scene),
+        CreateSphere(`socken-korb-haufen-${String(side)}`, { diameter: 2, segments: 16 }, scene),
       );
       pile.scaling.y = 0.45;
       pile.position.set(side * 9.2, 1.0, 2.5);
@@ -655,7 +667,11 @@ class Sockenregen implements Minigame {
     for (const [index, hex] of SOCK_COLORS.slice(0, 4).entries()) {
       await this.pace();
       const blob = this.track(
-        CreateSphere(`socken-wumms-waesche-${String(index)}`, { diameter: 0.75 }, scene),
+        CreateSphere(
+          `socken-wumms-waesche-${String(index)}`,
+          { diameter: 0.75, segments: 12 },
+          scene,
+        ),
       );
       blob.parent = drum;
       const a = (index / 4) * Math.PI * 2;
@@ -675,14 +691,18 @@ class Sockenregen implements Minigame {
     for (const [index, x] of [-0.75, 0.75].entries()) {
       await this.pace();
       const eye = part(
-        CreateSphere(`socken-wumms-auge-${String(index)}`, { diameter: 1.05 }, scene),
+        CreateSphere(`socken-wumms-auge-${String(index)}`, { diameter: 1.05, segments: 16 }, scene),
         PALETTE.white,
         0.35,
       );
       eye.position.set(x, 5.75, -0.6);
       await this.pace();
       const pupil = part(
-        CreateSphere(`socken-wumms-pupille-${String(index)}`, { diameter: 0.45 }, scene),
+        CreateSphere(
+          `socken-wumms-pupille-${String(index)}`,
+          { diameter: 0.45, segments: 12 },
+          scene,
+        ),
         PALETTE.dark,
       );
       pupil.position.set(x, 5.65, -1.05);
@@ -735,19 +755,20 @@ class Sockenregen implements Minigame {
     }
   }
 
-  private buildRunner(scene: Scene, player: MinigamePlayer): void {
+  private async buildRunner(scene: Scene, player: MinigamePlayer): Promise<void> {
     const ctx = this.ctx;
     if (!ctx) return;
     const character = ctx.characters.create(scene, player);
     const ring = this.track(
       CreateTorus(
         `socken-ring-${String(player.slot)}`,
-        { diameter: SOCKENREGEN_RULES.catchRadius * 2, thickness: 0.16, tessellation: 40 },
+        { diameter: SOCKENREGEN_RULES.catchRadius * 2, thickness: 0.16, tessellation: 32 },
         scene,
       ),
     );
     markVisual(ring, 'fangring', player.slot);
     ring.material = this.material(player.color, { emissive: 0.2 });
+    await this.pace();
     const spot = this.track(
       CreateDisc(
         `socken-fleck-${String(player.slot)}`,
@@ -779,6 +800,7 @@ class Sockenregen implements Minigame {
     symbol.material = this.material(player.color, { emissive: 0.5 });
     plate.material.backFaceCulling = false;
     symbol.material.backFaceCulling = false;
+    await this.pace();
     const stars = this.track(new TransformNode(`socken-sterne-${String(player.slot)}`, scene));
     for (let index = 0; index < 3; index++) {
       const star = this.track(
@@ -833,6 +855,11 @@ class Sockenregen implements Minigame {
   }
 
   private createItemMeshes(scene: Scene, kind: ItemKind): ItemMeshes {
+    return this.createItemMarkers(scene, this.createItemBody(scene, kind));
+  }
+
+  /** Socke, Goldsocke oder Bügeleisen unter einer eigenen Wurzel. */
+  private createItemBody(scene: Scene, kind: ItemKind): ItemBody {
     const n = String(this.disposables.length);
     const role = kind === 'iron' ? 'buegeleisen' : kind === 'gold' ? 'goldsocke' : 'socke';
     const root = this.track(markVisual(new TransformNode(`socken-ding-${n}`, scene), role, n));
@@ -883,6 +910,12 @@ class Sockenregen implements Minigame {
           : (SOCK_COLORS[this.sockCount++ % SOCK_COLORS.length] ?? '#fff');
       this.buildSockBody(scene, root, n, hex, kind === 'gold' ? 0.55 : 0.15);
     }
+    return { kind, root, n, role };
+  }
+
+  /** Schatten und Zielring am Boden zu einem Körper aus `createItemBody`. */
+  private createItemMarkers(scene: Scene, body: ItemBody): ItemMeshes {
+    const { kind, root, n, role } = body;
     const iron = kind === 'iron';
     const shadow = this.track(
       CreateDisc(
@@ -902,7 +935,7 @@ class Sockenregen implements Minigame {
         {
           diameter: iron ? SOCKENREGEN_RULES.ironRadius * 2 : 1.3,
           thickness: iron ? 0.16 : 0.1,
-          tessellation: 40,
+          tessellation: 24,
         },
         scene,
       ),

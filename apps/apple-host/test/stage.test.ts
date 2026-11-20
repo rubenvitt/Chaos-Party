@@ -9,6 +9,7 @@ import type { MinigamePlayer, PrepareThrottle } from '@chaos-party/minigame-sdk/
 import { describe, expect, it } from 'vitest';
 import {
   createHeadlessStage,
+  FRAME_RESERVE_MS,
   PREPARE_BUDGET_MAX_MS,
   PREPARE_BUDGET_MS,
   prepareBudgetMs,
@@ -183,8 +184,14 @@ describe('Aufbau-Budget je Tick (CHAOS-205)', () => {
   });
 
   it('gibt bei knapper Bühne die halbe Tick-Dauer, gedeckelt', () => {
-    expect(prepareBudgetMs(1000 / 60, true)).toBeCloseTo(1000 / 120);
-    expect(prepareBudgetMs(0, true)).toBeCloseTo(1000 / 120);
+    expect(prepareBudgetMs(1000 / 30, true)).toBeCloseTo(1000 / 60);
     expect(prepareBudgetMs(100, true)).toBe(PREPARE_BUDGET_MAX_MS);
+  });
+
+  it('lässt bei knapper Bühne FRAME_RESERVE_MS des Bildes frei (CHAOS-209)', () => {
+    expect(prepareBudgetMs(1000 / 60, true)).toBeCloseTo(1000 / 60 - FRAME_RESERVE_MS);
+    expect(prepareBudgetMs(0, true)).toBeCloseTo(1000 / 60 - FRAME_RESERVE_MS);
+    expect(prepareBudgetMs(1000 / 60, true)).toBeGreaterThan(prepareBudgetMs(1000 / 60));
+    expect(prepareBudgetMs(1000 / 40, true)).toBeCloseTo(1000 / 80);
   });
 });
