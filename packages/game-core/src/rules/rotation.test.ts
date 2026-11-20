@@ -1,5 +1,5 @@
 /**
- * Drehende Felder im Regelkern (CHAOS-199, ADR-020): Das Karussell des Rummelplatzes führt
+ * Drehende Felder im Regelkern (CHAOS-199, ADR-021): Das Karussell des Rummelplatzes führt
  * jede Runde zu einem anderen Ausgang. Seeded und mit festen Würfeln, damit jeder Weg bekannt ist.
  */
 import { describe, expect, it } from 'vitest';

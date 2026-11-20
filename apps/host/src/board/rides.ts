@@ -4,7 +4,7 @@
  * .rides`, `apps/apple-host/src/boardDirection.ts`) drehen sich gleich.
  *
  * - **Karussell:** Der Drehteil zeigt mit seiner Ausfahrt (lokal +z) auf den Ausgang, der in der
- *   gezeigten Runde gilt (`rotationExit`, ADR-020). Wechselt die Runde, fährt es in
+ *   gezeigten Runde gilt (`rotationExit`, ADR-021). Wechselt die Runde, fährt es in
  *   {@link CAROUSEL_TURN_MS} eine volle Runde plus den Weg zum neuen Ausgang, immer vorwärts.
  * - **Riesenrad:** dreht sich langsam und gleichmäßig.
  *

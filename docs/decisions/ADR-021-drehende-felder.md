@@ -1,4 +1,4 @@
-# ADR-020: Drehende Felder (Karussell) als feste Runden-Drehung im Regelkern
+# ADR-021: Drehende Felder (Karussell) als feste Runden-Drehung im Regelkern
 
 **Status:** Angenommen
 **Datum:** 2026-11-20

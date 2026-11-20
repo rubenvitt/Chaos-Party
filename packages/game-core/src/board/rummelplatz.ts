@@ -1,6 +1,6 @@
 /**
  * Drittes Brett „Rummelplatz“ (CHAOS-199): Jahrmarkt bei Nacht mit 81 Feldern, drei Gabeln und
- * einem Karussell in der Mitte, dessen Ausgang sich jede Runde weiterdreht (ADR-020). Reine
+ * einem Karussell in der Mitte, dessen Ausgang sich jede Runde weiterdreht (ADR-021). Reine
  * Daten – Kulisse und Lichterketten macht der Host (`apps/host/src/board/fairground.ts`).
  *
  * Lage (Welt-Einheiten, x nach rechts, z nach hinten; Fläche ≈ 44 × 24):

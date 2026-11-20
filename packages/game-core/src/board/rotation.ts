@@ -1,5 +1,5 @@
 /**
- * Drehende Felder (CHAOS-199, ADR-020): Der Ausgang eines Felds wie des Karussells wechselt
+ * Drehende Felder (CHAOS-199, ADR-021): Der Ausgang eines Felds wie des Karussells wechselt
  * jede Runde reihum. Reine Funktionen von Brett und Runde, ohne Zufall: Regelkern, Bots und
  * beide Hosts (Karussell-Stellung) rechnen damit dasselbe aus `BoardView.round`.
  *
