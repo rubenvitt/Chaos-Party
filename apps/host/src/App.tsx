@@ -1,5 +1,4 @@
 import { getMinigameInfo } from '@chaos-party/minigames/catalog';
-import { preloadMinigameModule } from '@chaos-party/minigames/lazy';
 import {
   lazy,
   Suspense,
@@ -33,15 +32,12 @@ import { soundEngine } from './fx/audio.ts';
 import { Hud, type PhysicsStatus } from './Hud.tsx';
 import { createKeyboardInputSource } from './input/keyboardInputSource.ts';
 import { createWebSocketInputSource } from './input/webSocketInputSource.ts';
-import {
-  loadArenaScene,
-  loadBoardStage,
-  loadMinigameScreen,
-  prefetchGameScenes,
-} from './lazyScenes.ts';
+import { loadArenaScene, loadBoardStage, prefetchGameScenes } from './lazyScenes.ts';
 import { LobbyPanel } from './lobby/LobbyPanel.tsx';
 import { PlayerToasts } from './lobby/PlayerToasts.tsx';
 import { stageKeyOf } from './minigame/plan.ts';
+import { useMinigameModuleStatus } from './minigame/useMinigameModule.ts';
+import { useMinigameStage } from './minigame/useMinigameStage.ts';
 import { useHostSession } from './net/useHostSession.ts';
 import { PauseControls } from './pause/PauseControls.tsx';
 import { createLocalPlayers, playersFromLobby, type HostPlayer } from './players.ts';
@@ -76,9 +72,6 @@ const isKnownMinigame = (id: string) => getMinigameInfo(id) !== undefined;
 
 // Brett und Minispiel-Bühne als eigene Chunks (CHAOS-53, `lazyScenes.ts`).
 const BoardStage = lazy(() => loadBoardStage().then((m) => ({ default: m.BoardStage })));
-const MinigameScreenById = lazy(() =>
-  loadMinigameScreen().then((m) => ({ default: m.MinigameScreenById })),
-);
 
 export function App({ config }: AppProps) {
   const { seed, test, local, debug } = config;
@@ -104,12 +97,11 @@ export function App({ config }: AppProps) {
       ? getMinigameInfo(latest.view.minigame.id)
       : undefined;
   const [minigameReady, setMinigameReady] = useState(false);
-  // Modul des Minispiels der Runde (eigener Chunk, CHAOS-86) parallel zum Bühnen-Chunk laden,
-  // sobald der Stand es nennt – nicht erst, wenn die Bühne steht.
-  const minigameId = minigameInfo?.id;
-  useEffect(() => {
-    if (minigameId !== undefined) preloadMinigameModule(minigameId);
-  }, [minigameId]);
+  // Modul des Minispiels der Runde (eigener Chunk, CHAOS-86) laden, sobald der Stand es nennt;
+  // die Bühne hängt erst ein, wenn es da ist (kein Suspense, keine 300-ms-Drossel).
+  const minigameModule = useMinigameModuleStatus(minigameInfo?.id);
+  // Bühnen-Chunk ohne `React.lazy` (keine Suspense-Drossel beim ersten Minispiel, CHAOS-86).
+  const MinigameScreenById = useMinigameStage(!local && boardMode);
   // Messung (nur `?debug=1`): Brett → Minispiel zählt ab Empfang des Stands, der das Minispiel
   // nennt – so steckt auch das Laden des Spiel-Chunks in der Wartezeit (CHAOS-86).
   const requestedKey = useRef<string | null>(null);
@@ -439,9 +431,12 @@ export function App({ config }: AppProps) {
           </>
         )}
       </Suspense>
-      {/* Eigene Grenze: Lädt der Minispiel-Chunk, bleibt das Brett unberührt. */}
+      {/* Eigene Grenze: Wartet die Bühne doch einmal (z. B. nach einem fehlgeschlagenen Import des
+          Spiel-Chunks), bleibt das Brett unberührt. */}
       <Suspense fallback={null}>
-        {minigameShown && (
+        {minigameShown && minigameModule !== 'loading' && MinigameScreenById && (
+          // Stabile Identität: Export des geladenen Chunks, einmal im State (`useMinigameStage`).
+          // eslint-disable-next-line react-hooks/static-components
           <MinigameScreenById
             key={minigameKey}
             minigameId={minigameInfo.id}
