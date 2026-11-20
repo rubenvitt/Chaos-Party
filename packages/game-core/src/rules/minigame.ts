@@ -2,7 +2,8 @@
  * Minispiel-Phasen (M3, CHAOS-26/34, ADR-012).
  *
  * Ablauf: `minigame-intro` (Anleitung, `minigameIntroMs`; lief das Minispiel in der Partie schon,
- * die kurze `minigameRepeatIntroMs`, CHAOS-66) → `minigame-play` (der Host spielt,
+ * die kurze `minigameRepeatIntroMs`, CHAOS-66; mit `minigameReadyTimeoutMs` wartet sie stattdessen,
+ * bis alle verbundenen Spieler „Bereit“ gedrückt haben, CHAOS-214) → `minigame-play` (der Host spielt,
  * Frist = Spielzeit + `minigameResultGraceMs`) → `minigame-results` → `round-end`.
  *
  * Die Regeln kennen von einem Minispiel nur Kennung, Spielzeit und Wertungsart. Das Ergebnis
@@ -12,7 +13,7 @@
  */
 import { checkResult } from '@chaos-party/minigame-sdk';
 import { shuffled } from '../rng.ts';
-import type { ItemKind, MinigamePlacement, MinigameSpec, Pacing } from '../types.ts';
+import type { ItemKind, MinigamePlacement, MinigameSpec, Pacing, Slot } from '../types.ts';
 import { changeCoins } from './economy.ts';
 import { playerOf, schedule, type Ctx } from './internal.ts';
 import { gainRandomItem } from './items.ts';
@@ -54,6 +55,9 @@ export function enterMinigame(ctx: Ctx, t: number): void {
   const played = d.internal.minigamePlayed;
   const repeat = spec !== null && played.includes(id);
   if (spec !== null && !repeat) played.push(id);
+  // CHAOS-214: Anleitung eines echten Minispiels wartet auf „Bereit“ (Platzhalter hat keine).
+  const readyTimeoutMs = ctx.rules.pacing.minigameReadyTimeoutMs ?? 0;
+  const waitForReady = spec !== null && readyTimeoutMs > 0;
   d.activeSlot = null;
   d.minigame = {
     id,
@@ -61,6 +65,7 @@ export function enterMinigame(ctx: Ctx, t: number): void {
     seed: ctx.rng.int(0, 0xffff_ffff),
     playMs: spec?.playMs ?? ctx.rules.pacing.minigamePlayMs,
     repeat,
+    ...(waitForReady ? { ready: [] } : {}),
     playStartedAt: null,
     placements: null,
     highlights: [],
@@ -68,7 +73,74 @@ export function enterMinigame(ctx: Ctx, t: number): void {
     rewards: null,
   };
   ctx.events.push({ type: 'minigame-started', minigame: d.minigame.id });
-  schedule(ctx, 'minigame-intro', t, minigameIntroMs(ctx.rules.pacing, repeat));
+  if (waitForReady) {
+    // Erst die Mindestdauer (`resumeMinigameIntro` öffnet dann das Warten), dann bis zur Frist.
+    d.internal.minigameReadyOpen = false;
+    schedule(ctx, 'minigame-intro', t, Math.min(readyMinMs(ctx), readyTimeoutMs));
+  } else {
+    schedule(ctx, 'minigame-intro', t, minigameIntroMs(ctx.rules.pacing, repeat));
+  }
+}
+
+function readyMinMs(ctx: Ctx): number {
+  return Math.max(0, ctx.rules.pacing.minigameReadyMinMs ?? 0);
+}
+
+/**
+ * Geplanter Zeitpunkt der Anleitung erreicht: feste Anleitung vorbei, Sicherheitsfrist
+ * abgelaufen oder (CHAOS-214) Mindestdauer vorbei – dann wartet sie bis zur Frist weiter,
+ * sofern noch nicht alle bereit sind.
+ */
+export function resumeMinigameIntro(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  if (waitsForReady(ctx) && d.internal.minigameReadyOpen === false) {
+    d.internal.minigameReadyOpen = true;
+    const timeoutMs = ctx.rules.pacing.minigameReadyTimeoutMs ?? 0;
+    d.resumeAt = t + Math.max(0, timeoutMs - readyMinMs(ctx));
+    releaseMinigameIntro(ctx, t);
+    return;
+  }
+  startMinigamePlay(ctx, t);
+}
+
+/** Wartet die laufende Anleitung auf „Bereit“ (CHAOS-214)? */
+function waitsForReady(ctx: Ctx): boolean {
+  return ctx.d.phase === 'minigame-intro' && ctx.d.minigame?.ready !== undefined;
+}
+
+export type MinigameReadyCheck = { ok: true } | { ok: false; message: string };
+
+/** Prüft `minigame-ready` (ohne etwas zu ändern). */
+export function checkMinigameReady(ctx: Ctx): MinigameReadyCheck {
+  if (!waitsForReady(ctx)) {
+    return {
+      ok: false,
+      message: `Keine Anleitung, die auf Bereitschaft wartet (Phase ${ctx.d.phase})`,
+    };
+  }
+  return { ok: true };
+}
+
+/** Slot ist bereit (CHAOS-214); doppelt ändert nichts. Start prüft `releaseMinigameIntro`. */
+export function markMinigameReady(ctx: Ctx, slot: Slot): void {
+  const minigame = ctx.d.minigame;
+  const ready = minigame?.ready;
+  if (!minigame || !ready || ready.includes(slot)) return;
+  ctx.d.minigame = { ...minigame, ready: [...ready, slot].sort((a, b) => a - b) };
+}
+
+/**
+ * Sind alle verbundenen Spieler bereit und ist die Mindestdauer vorbei, endet die Anleitung
+ * sofort (CHAOS-214). Getrennte Spieler zählen als bereit, damit ein verlorenes Handy das Spiel
+ * nicht aufhält; die Sicherheitsfrist (`resumeAt`) fängt Controller ab, die keinen Knopf anbieten.
+ */
+export function releaseMinigameIntro(ctx: Ctx, t: number): void {
+  const { d } = ctx;
+  if (d.paused || !waitsForReady(ctx) || d.internal.minigameReadyOpen !== true) return;
+  const ready = d.minigame?.ready ?? [];
+  if (!d.players.every((p) => !p.connected || ready.includes(p.slot))) return;
+  d.resumeAt = null;
+  startMinigamePlay(ctx, t);
 }
 
 /** Dauer der Anleitung: voll beim ersten Mal, kurz bei Wiederholung (CHAOS-66). */

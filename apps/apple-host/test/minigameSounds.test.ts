@@ -192,4 +192,21 @@ describe('Minispiel-Klänge der Bühne je Minispiel (CHAOS-190)', () => {
       expect(heard.length).toBe(before + 1);
     },
   );
+
+  it('wartende Anleitung (CHAOS-214): je neuem „Bereit“ ein Tick, der letzte höher', () => {
+    const { sounds } = setup();
+    const key = 'sockenregen:1:2';
+    const steps = [
+      { done: 0, total: 3 },
+      { done: 1, total: 3 },
+      { done: 1, total: 3 },
+      { done: 2, total: 3 },
+      { done: 3, total: 3 },
+    ];
+    for (const ready of steps) sounds.observe(key, 'intro', null, ready);
+    const cues = sounds.cues(key);
+    expect(cues.map((cue) => cue.name)).toEqual(['minigame-start', 'tick', 'tick', 'tick']);
+    const freqs = cues.slice(1).map((cue) => cue.voices[0]?.freq ?? 0);
+    expect(freqs).toEqual([740, 740, 740 * 1.25]);
+  });
 });

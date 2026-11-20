@@ -3,21 +3,26 @@
  * eigenes Ergebnis, gemeinsam für iPhone (`SlotController`) und iPad-Zone (`ZoneBoard`,
  * `compact`). Das Spiel-Layout selbst bleibt Joystick + Knöpfe (`PlayPanel`, Zonen).
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ControllerMinigameInfo, Vote } from '@chaos-party/protocol';
 import {
   controlLegend,
   describeResult,
   describeVote,
   INTRO_READY,
+  INTRO_READY_BUTTON,
+  INTRO_READY_DONE_HEAD,
+  INTRO_READY_DONE_HINT,
+  introReadyState,
   REPEAT_KICKER,
   VOTE_QUESTION,
   type ControlLegendItem,
 } from '../minigame/view.ts';
-import type { SlotContext } from '../state/reducer.ts';
 import { ITEM_INFO } from '../board/items.ts';
 import { LOOK_AT_SCREEN } from '../board/status.ts';
+import type { SlotContext } from '../state/reducer.ts';
 import { Icon } from './icons.tsx';
+import { useArmed } from './useReadyGuard.ts';
 
 /** Kleines Abbild eines Bedienelements (Joystick-Ring bzw. Knopf A/B) für die Legende. */
 export function ControlKey({ kind }: { kind: ControlLegendItem['kind'] }) {
@@ -44,13 +49,18 @@ const KEY_NAME: Readonly<Record<ControlLegendItem['kind'], string>> = {
 /**
  * Anleitung vor dem Minispiel: kurz und groß, keine Scroll-Wüste. Lief das Minispiel in der
  * Partie schon (`repeat`, CHAOS-66), nur Titel und Bedienlegende.
+ *
+ * `readyLine` ersetzt die Schlusszeile (CHAOS-214): iPhone den Bereit-Knopf, iPad-Zone `null`
+ * (der Knopf liegt dort an der Zonen-Geometrie unter der Karte). Fehlt = „Gleich geht’s los!“.
  */
 export function MinigameIntro({
   minigame,
   compact = false,
+  readyLine,
 }: {
   minigame: ControllerMinigameInfo;
   compact?: boolean;
+  readyLine?: ReactNode;
 }) {
   const legend = controlLegend(minigame.controls);
   const repeat = minigame.repeat === true;
@@ -101,9 +111,13 @@ export function MinigameIntro({
             ))}
           </ul>
         )}
-        <p className="minigame-ready ui-text" data-testid="minigame-ready">
-          {INTRO_READY}
-        </p>
+        {readyLine === undefined ? (
+          <p className="minigame-ready ui-text" data-testid="minigame-ready">
+            {INTRO_READY}
+          </p>
+        ) : (
+          readyLine
+        )}
       </div>
     </div>
   );
@@ -251,20 +265,86 @@ function VoteButtons({
   );
 }
 
+/** Bestätigung nach „Bereit!“ in der Anleitung (CHAOS-214). */
+export function IntroReadyDone({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className="minigame-ready-done"
+      data-testid="minigame-ready-done"
+      data-compact={compact}
+      role="status"
+    >
+      <span className="ready-check" aria-hidden="true">
+        ✓
+      </span>
+      <span className="minigame-ready-done-text">
+        <b className="ui-text">{INTRO_READY_DONE_HEAD}</b>{' '}
+        <span className="ui-text">{INTRO_READY_DONE_HINT}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * iPhone: „Bereit!“ in der Anleitung (CHAOS-214). Sperrt nach dem Tippen bis zum nächsten
+ * Kontext (`key` setzt der Aufrufer, wie bei `LobbyPanel`); in der Schonfrist nach dem
+ * Erscheinen ist der Knopf sichtbar gesperrt und ignoriert Tipper (`aria-disabled`, kein
+ * `disabled`, damit Tipper wirklich ankommen und verpuffen).
+ */
+export function IntroReadyControl({
+  context,
+  onReady,
+}: {
+  context: Pick<SlotContext, 'actions' | 'minigame'>;
+  onReady: () => void;
+}) {
+  const [sent, setSent] = useState(false);
+  const armed = useArmed();
+  const state = introReadyState(context, { sent, armed });
+  if (state === 'done') return <IntroReadyDone />;
+  if (state === 'timer') {
+    return (
+      <p className="minigame-ready ui-text" data-testid="minigame-ready">
+        {INTRO_READY}
+      </p>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="ready-button minigame-ready-button"
+      data-testid="minigame-ready-button"
+      data-armed={state === 'button'}
+      aria-disabled={state === 'guard'}
+      onClick={() => {
+        if (state !== 'button') return;
+        setSent(true);
+        onReady();
+      }}
+    >
+      <span className="ui-text">{INTRO_READY_BUTTON}</span>
+    </button>
+  );
+}
+
 /** Intro oder Ergebnis je nach Stage (`play` zeigt das Spiel-Layout, nicht diese Karte). */
 export function MinigameCard({
   minigame,
   compact = false,
+  readyLine,
   voting,
 }: {
   minigame: ControllerMinigameInfo;
   compact?: boolean;
+  /** Nur Intro: ersetzt die Schlusszeile (siehe {@link MinigameIntro}). */
+  readyLine?: ReactNode;
+  /** Nur Ergebnis: Daumen-Knöpfe (CHAOS-87). */
   voting?: VotingProps | undefined;
 }) {
   if (minigame.stage === 'results') {
     return <MinigameResult minigame={minigame} compact={compact} voting={voting} />;
   }
-  return <MinigameIntro minigame={minigame} compact={compact} />;
+  return <MinigameIntro minigame={minigame} compact={compact} readyLine={readyLine} />;
 }
 
 /** Kleiner Kopf im Spiel-Layout: Minispiel-Titel. */

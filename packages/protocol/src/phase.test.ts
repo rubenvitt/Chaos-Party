@@ -6,7 +6,7 @@ import type { ClientMessageType, Phase } from './types.ts';
 const MATRIX: Record<ClientMessageType, [lobby: boolean, play: boolean, board: boolean]> = {
   join: [true, false, false],
   reconnect: [true, true, true],
-  ready: [true, false, false],
+  ready: [true, false, true],
   // Brettphase: nur während eines Minispiels angeboten (prüft die Session über den Kontext).
   move: [false, true, true],
   press: [false, true, true],

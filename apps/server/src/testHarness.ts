@@ -42,6 +42,8 @@ export interface BotPolicy {
   /** Setzt Items ein, sobald angeboten (für Sabotage-Abdeckung). */
   readonly useItems: boolean;
   readonly reaction: ReactionPolicy;
+  /** CHAOS-214: In der Minispiel-Anleitung „Bereit“ drücken (Standard ja). */
+  readonly minigameReady?: boolean;
 }
 
 export interface Controller {
@@ -377,8 +379,23 @@ export class Harness {
     return null;
   }
 
+  /** „Bereit“ in der Minispiel-Anleitung für einen Slot (CHAOS-214). */
+  minigameReady(slot: SlotNumber): void {
+    const controller = this.controllerOf(slot);
+    this.send(controller.id, createMessage('ready', { slot, seq: ++controller.seq }));
+  }
+
   /** Bots beantworten offene Prompts nach ihrer Bedenkzeit. */
   answerPrompts(): void {
+    if (this.policy.minigameReady !== false) {
+      for (const [slot, { context, at }] of this.contexts) {
+        if (context.phase !== 'board' || !context.actions.includes('ready')) continue;
+        if (!this.controllerOf(slot).connected || this.clock - at < THINK_MS) continue;
+        // Kontext sofort als erledigt merken; der Server schickt den neuen ohne `ready`.
+        this.contexts.set(slot, { context: { ...context, actions: [] }, at });
+        this.minigameReady(slot);
+      }
+    }
     for (const late of this.lateReactions.filter((entry) => this.clock >= entry.sendAt)) {
       this.lateReactions.splice(this.lateReactions.indexOf(late), 1);
       this.choose(this.controllerOf(late.slot).id, late.slot, late.promptId, 'brace');
@@ -558,6 +575,7 @@ export function setupMinigameGame(
   players: number,
   seed: number,
   rounds = 2,
+  policy: Partial<BotPolicy> = {},
 ): Harness {
   const info = getMinigameInfo(minigameId);
   if (!info) throw new Error(`Unbekanntes Minispiel ${minigameId}`);
@@ -569,7 +587,7 @@ export function setupMinigameGame(
         minigames: [{ id: info.id, playMs: info.durationMs, scoring: info.scoring }],
       },
     },
-    { useItems: false, reaction: 'brace' },
+    { useItems: false, reaction: 'brace', ...policy },
     seed,
   );
   h.host();

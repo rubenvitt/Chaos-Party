@@ -258,10 +258,11 @@ describe('Reconnect in jeder Phase (CHAOS-38)', () => {
     // Intro.
     h.runUntil((x) => x.gamePhase === 'minigame-intro');
     reconnectSlot(h, 2);
+    // CHAOS-214: Nach der Rückkehr wird „Bereit“ weiter angeboten.
     expect(context(h, 2)).toMatchObject({
       layout: 'board',
-      actions: [],
-      minigame: { id, stage: 'intro', aborted: false },
+      actions: ['ready'],
+      minigame: { id, stage: 'intro', aborted: false, ready: false },
     });
 
     // Spiel: getrennt während des Spiels, zurück mit Joystick/Knöpfen; Eingabe kommt an.

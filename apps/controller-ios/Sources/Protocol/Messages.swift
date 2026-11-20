@@ -274,6 +274,10 @@ struct ControllerMinigameInfo: Codable, Equatable, Sendable {
     /// v4 addendum (CHAOS-66, optional): the minigame already ran this match, so the intro
     /// shows title and controls only. Missing = `false` (full instructions).
     var `repeat`: Bool?
+    /// v4 addendum (CHAOS-214, optional): only in `intro` while the intro waits for „Bereit“:
+    /// `true` = this slot already pressed it. Missing = the intro does not wait (fixed timer,
+    /// older servers): no button.
+    var ready: Bool?
 }
 
 /// Element of `ControllerLobbyInfoSchema.takenBy`.

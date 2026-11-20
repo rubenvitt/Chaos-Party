@@ -151,7 +151,9 @@ describe('Host-Verbindungsverlust (CHAOS-38)', () => {
     idle(h, 3_000);
     const playStartedAt = h.session.snapshot().game?.state.minigame?.playStartedAt ?? h.clock;
     const elapsedAtLoss = h.clock - playStartedAt;
-    expect(elapsedAtLoss).toBe(3_000);
+    // CHAOS-214: Das Spiel startet mit dem letzten „Bereit“ zwischen zwei Takten.
+    expect(elapsedAtLoss).toBeGreaterThanOrEqual(3_000);
+    expect(elapsedAtLoss).toBeLessThanOrEqual(3_100);
     h.dropHost();
     // Controller sehen das Minispiel weiter, aber ohne Eingaben; Eingaben werden abgewiesen.
     expect(h.contexts.get(1)?.context).toMatchObject({

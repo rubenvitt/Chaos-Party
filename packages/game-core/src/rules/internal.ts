@@ -65,6 +65,11 @@ export interface Internal {
   minigameLast: string | null;
   /** Schon gestartete Minispiele dieser Partie (CHAOS-66: kurze Anleitung bei Wiederholung). */
   minigamePlayed: string[];
+  /**
+   * CHAOS-214: Mindestdauer der wartenden Anleitung vorbei; ab jetzt startet das letzte
+   * „Bereit“ das Minispiel sofort. Fehlt in Zuständen von vor CHAOS-214 (= `false`).
+   */
+  minigameReadyOpen?: boolean;
 }
 
 export type MutablePlayer = {

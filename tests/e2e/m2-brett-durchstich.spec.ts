@@ -104,6 +104,12 @@ function recordMinigameStages() {
 
 /** Tippt auf dem Handy die bevorzugte Option des offenen Prompts (falls einer offen ist). */
 async function answerPrompt(phone: Page): Promise<string | null> {
+  // CHAOS-214: In der Minispiel-Anleitung „Bereit!“ tippen (nach der kurzen Tippsperre).
+  const ready = phone.locator('[data-testid="minigame-ready-button"][data-armed="true"]');
+  if ((await ready.count()) > 0 && (await ready.isVisible())) {
+    await ready.tap({ timeout: 2000 }).catch(() => undefined);
+    return 'minigame-ready';
+  }
   const prompt = phone.getByTestId('prompt');
   if (!(await prompt.isVisible())) return null;
   const choices = prompt.locator('[data-testid^="choice-"]:enabled');

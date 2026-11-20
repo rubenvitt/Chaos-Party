@@ -36,7 +36,12 @@ const test = base.extend<{ chaosServer: RunningServer }>({
       joinCode: chaosJoinCode,
       game: {
         rules: withRules({
-          pacing: { minigameIntroMs: INTRO_MS, minigameResultsMs: RESULTS_MS },
+          // Die Anleitung wartet auf „Bereit“ (CHAOS-214), frühestens nach INTRO_MS.
+          pacing: {
+            minigameIntroMs: INTRO_MS,
+            minigameReadyMinMs: INTRO_MS,
+            minigameResultsMs: RESULTS_MS,
+          },
         }),
       },
     });
@@ -92,6 +97,10 @@ test.describe('Minispiel-Galerie (CHAOS-87)', () => {
     await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'intro');
     await expect(host.getByTestId('minigame-title')).toHaveText(INFO.title);
     await expect(phone.getByTestId('minigame-intro')).toBeVisible();
+    // Auch die Übungsrunde wartet auf „Bereit“ (CHAOS-214).
+    const ready = phone.getByTestId('minigame-ready-button');
+    await expect(ready).toHaveAttribute('data-armed', 'true');
+    await ready.tap();
 
     // Spiel: Eingabe vom Handy, dann die Spielzeit durchrechnen.
     await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'play', {

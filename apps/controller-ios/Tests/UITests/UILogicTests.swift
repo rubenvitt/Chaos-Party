@@ -137,6 +137,44 @@ import Testing
         #expect(MinigameCardText(minigame).kicker == "Pump-Rennen")
     }
 
+    /// CHAOS-214: the intro offers „Bereit!“ while the action is offered, locks after a tap and
+    /// shows the waiting note once the server confirms; without `ready` the old line stays.
+    @Test func minigameIntroReadyStates() throws {
+        let offered = try #require(ControllerState.minigameIntroReadySample.contexts[1])
+        let minigame = try #require(offered.minigame)
+        #expect(MinigameIntroReady(minigame: minigame, actions: offered.actions, sent: false) == .offer)
+        #expect(MinigameIntroReady(minigame: minigame, actions: offered.actions, sent: true) == .waiting)
+
+        let confirmed = try #require(ControllerState.minigameIntroWaitingSample.contexts[1])
+        let done = try #require(confirmed.minigame)
+        #expect(MinigameIntroReady(minigame: done, actions: confirmed.actions, sent: false) == .waiting)
+
+        let fixed = try #require(ControllerState.minigameIntroSample.contexts[1])
+        let old = try #require(fixed.minigame)
+        #expect(MinigameIntroReady(minigame: old, actions: fixed.actions, sent: false) == .fixed)
+        // Waiting intro but the action is not offered (e.g. right after a pause): no button.
+        #expect(MinigameIntroReady(minigame: minigame, actions: [], sent: false) == .fixed)
+
+        var play = minigame
+        play.stage = .play
+        #expect(MinigameIntroReady(minigame: play, actions: [.ready], sent: false) == .fixed)
+        #expect(MinigameIntroReady.waitingText == "Bereit! Warte auf die anderen …")
+    }
+
+    @Test func minigameIntroIgnoresEarlyTaps() {
+        let shown = ContinuousClock.now
+        #expect(!MinigameIntroReady.acceptsTap(shownAt: shown, now: shown))
+        #expect(!MinigameIntroReady.acceptsTap(shownAt: shown, now: shown + .milliseconds(599)))
+        #expect(MinigameIntroReady.acceptsTap(shownAt: shown, now: shown + .milliseconds(600)))
+    }
+
+    @Test func readyIntroIsAMinigameScreenAndPauseWins() {
+        #expect(ControllerState.minigameIntroReadySample.slotScreen(1) == .minigame)
+        var paused = ControllerState.minigameIntroReadySample
+        paused.contexts[1]?.board?.paused = true
+        #expect(paused.slotScreen(1) == .pause)
+    }
+
     @Test func rollPromptHasDiceMainAndItemExtra() throws {
         let prompt = try #require(ControllerState.rollPromptSample.ownPrompt(1))
         let layout = PromptLayout(prompt.info)
@@ -196,6 +234,19 @@ import Testing
         #expect(session.sent == ["pick-character 1 cactus", "ready 1"])
         #expect(session.state.slotScreen(1) == .lobby)
         #expect(session.state.contexts[1]?.layout == .wait)
+    }
+
+    /// CHAOS-214: „Bereit!“ in the intro sends `ready` for the slot and keeps the intro.
+    @Test func minigameIntroTapSendsReady() throws {
+        let session = FakeControllerSession(.minigameIntroReadySample)
+        session.setReady(slot: 1)
+        #expect(session.sent == ["ready 1"])
+        let context = try #require(session.state.contexts[1])
+        #expect(context.layout == .board && context.actions.isEmpty)
+        #expect(context.minigame?.ready == true)
+        #expect(session.state.slotScreen(1) == .minigame)
+        let minigame = try #require(context.minigame)
+        #expect(MinigameIntroReady(minigame: minigame, actions: context.actions, sent: false) == .waiting)
     }
 
     @Test func choiceIsSentOncePerPrompt() {
