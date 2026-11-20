@@ -2576,7 +2576,7 @@ Feinabstimmung innerhalb von C:
 
 **Varianten:**
 - **A (bisher):** 35 Rezepte aus Oszillator und Rauschen (`apps/host/src/fx/sounds.ts`), Synthese per WebAudio bzw. AVAudioEngine.
-- **B (gewählt):** CC0-Aufnahmen. Kenney-Pakete (Casino: Würfel; Interface: Bestätigen, Fehler, Glas, Pause/Weiter; Impact: Holz, Treffer; RPG: Münzbeutel; Music Jingles: Pizzicato-Läufe für Zugbeginn, Minispiel-Zeit, Münzverlust) und freesound.org für das, was Kenney nicht hat (Boing, Platschen, Wusch, Plopp, Münze, Trillerpfeife, Lotusflöte, Jubel, Fanfaren, „Wah-wah-wah“, Mausefalle). Je häufigem Klang zwei bis drei Varianten reihum, dazu ±2–10 % Tonhöhen-Streuung.
+- **B (gewählt):** CC0-Aufnahmen. Kenney-Pakete (Casino: Würfel; Interface: Bestätigen, Fehler, Glas, Pause/Weiter; Impact: Holz, Treffer; RPG: Münzbeutel; Music Jingles: Pizzicato-Läufe für Zugbeginn, Minispiel-Zeit, Münzverlust, ein Saxofon-Lauf abwärts für die Finte) und freesound.org für das, was Kenney nicht hat (Boing, Platschen, Wusch, Plopp, Münze, Trillerpfeife, Lotusflöte, Jubel, Fanfaren, Mausefalle). Je häufigem Klang zwei bis drei Varianten reihum, dazu ±2–10 % Tonhöhen-Streuung.
 - **Verworfen:** Kenney „Voiceover Pack“ (englische Ansagen „Go!“, „You win“) passt nicht zu deutschen Texten. Kenney „Digital Audio“ und „Sci-Fi Sounds“ klingen nach Weltraum, nicht nach Picknick. Sonniss-, BBC- und Pixabay-Sammlungen sind nicht CC0 und dürfen nicht als Rohdatei in ein öffentliches Repository.
 
 **Auswahl ohne Ohr:** Claude kann nicht hören. Grundlage waren Titel, Beschreibung und Downloadzahl auf freesound.org, die Paketstruktur bei Kenney und eine grobe Tonhöhen-Kontur der Jingles (dominante Frequenz je 50 ms): aufsteigend (+5 bis +9 Halbtöne) für Zugbeginn und Minispiel-Zeit, fallend (−9) für Münzverlust. Das Urteil liegt bei Ruben.
@@ -2587,6 +2587,10 @@ Feinabstimmung innerhalb von C:
 
 **Testumgebung:** MacBook (Apple Silicon), Import mit ffmpeg 8 und libmp3lame (VBR q3, mono 44,1 kHz), Branch `claude/chaos-223-klaenge`. Unit-Tests `apps/host/src/fx/samples.test.ts`, `audio.test.ts`, `apps/apple-host/test/soundCue.test.ts`; Mac-App mit `--selftest` und Bot-Partie.
 
-**Ergebnisse:** Siehe PR zu CHAOS-223. Automatisch geprüft: Jeder Klang-Name hat Dateien, alle Dateien dekodieren im Browser-Host (Vite-Build) und in Swift, Rezepte springen ein, wenn eine Datei fehlt.
+**Ergebnisse:**
+- Mac-App (Release, `--autostart --runden=3`, vier Bots mit `--bunt`): „Klang-Dateien: 40 geladen in 126 ms“ (Hintergrund-Queue). Alle Minispiel-Klänge kamen aus Dateien, keiner wurde verworfen: Sockenregen 114 (whoosh×69, coin×20, bump×17), Kuckucks-Klatsche 223 (pop×46, tick×49, bump×35), Pudding-Gerangel 134 (whoosh×33, splash×31, pop×30).
+- Befund: Kuckucks-Klatsche spielt `lose` bei jeder Finte (8× in einem Spiel). Die erste Wahl, ein 1,9 s langes „Wah-wah-wah“ (freesound 835112), wäre dort nervig gewesen. Ersetzt durch einen Saxofon-Lauf abwärts (Kenney `jingles_SAX01`, 0,84 s), Test-Grenze für `lose` 1,2 s.
+- `--selftest` meldet 40 Klang-Dateien, Browser-Build und Apple-Host-Bündel im Budget (Apple-Host-Bündel enthält nur die Dateinamen, keine Tondaten).
+- Hörprobe alt gegen neu als Seite: https://claude.ai/artifact/WvAV3q58ah5VLnCRWTLMj7
 
 **Entscheidung:** B behalten, vorbehaltlich Rubens Hörprobe am Fernseher (Gerätecheckliste §39). Einzelne Klänge tauscht eine Zeile in `packages/assets/sounds.json`.

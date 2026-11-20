@@ -752,7 +752,7 @@ Automatisch geprüft (Mac): Klang-Dateien im Bündel und dekodierbar (`--selftes
 | --- | ------- | --------- | -------- | -------- |
 | KL1 | Apple TV: App starten, Partie mit iPhones | Log „Klang-Dateien: 40 geladen in … ms“; Würfel klappern, Münzen klimpern, Zugbeginn ist ein kurzer Pizzicato-Lauf | | Log |
 | KL2 | Minispiele der Rotation spielen | Trillerpfeife zum Start, Boing, Platschen, Wusch, Plopp hörbar; nichts kommt verspätet | | |
-| KL3 | Ergebnis und Finale | Jubel, Fanfare, „Wah-wah-wah“ beim Verlieren; nicht zu lang, nicht zu laut | | |
+| KL3 | Ergebnis und Finale, Kuckucks-Klatsche | Jubel und Fanfare nicht zu lang, nicht zu laut; die Finte (kurzer Saxofon-Lauf abwärts, bis zu 8× je Spiel) nervt nicht | | |
 | KL4 | Pause (Play/Pause) und Weiter | Kurzer Klang beim Anhalten und Weiterspielen | | |
 | KL5 | PC: `pnpm play`, eine Runde | Dieselben Klänge wie auf der Apple TV | | |
 | KL6 | Ruben: Urteil | Welche Klänge tauschen, welche lauter oder leiser? | | Kommentar an CHAOS-223 |

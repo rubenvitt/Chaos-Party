@@ -1179,11 +1179,11 @@
       "kind": "sound",
       "source": "imported",
       "path": "packages/assets/sounds/lose-1.mp3",
-      "description": "Verloren: Wah-wah-wah: 1.94 s, mono MP3, Variante 1/1.",
+      "description": "Missgeschick (Finte in Kuckucks-Klatsche, bis zu 8× je Spiel): kurzer Saxofon-Lauf abwärts: 0.84 s, mono MP3, Variante 1/1.",
       "license": "CC0-1.0",
-      "attribution": "freesound.org – YoshikaMiyafuji: „Fail Sound (Wa-Wa-Wah, with Staccato)“ (Nr. 835112) (CC0)",
-      "origin": "https://freesound.org/people/YoshikaMiyafuji/sounds/835112/",
-      "budgetBytes": 32768
+      "attribution": "Kenney „Music Jingles“ (kenney.nl), Datei jingles_SAX01 (CC0)",
+      "origin": "https://kenney.nl/assets/music-jingles",
+      "budgetBytes": 12288
     },
     {
       "id": "klang-dice-1",

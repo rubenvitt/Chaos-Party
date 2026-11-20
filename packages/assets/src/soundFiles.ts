@@ -220,13 +220,13 @@ export const SOUND_FILES: Readonly<Record<string, SoundFileSet>> = {
     ],
   },
   lose: {
-    gain: 0.7,
-    jitter: 0,
+    gain: 0.65,
+    jitter: 0.03,
     files: [
       {
         file: 'lose-1.mp3',
-        duration: 1.936,
-        peakDb: -1,
+        duration: 0.837,
+        peakDb: -8.2,
       },
     ],
   },

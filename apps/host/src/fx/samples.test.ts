@@ -24,6 +24,8 @@ const MAX_SECONDS: Partial<Record<SoundName, number>> = {
   turn: 0.8,
   'coin-gain': 1,
   'coin-loss': 1,
+  // Finte in Kuckucks-Klatsche: bis zu 8× je Spiel.
+  lose: 1.2,
 };
 const LONGEST_SECONDS = 2.2;
 

@@ -95,10 +95,10 @@
       "files": ["freesound:397355", "freesound:397353", "freesound:397354"]
     },
     "lose": {
-      "use": "Verloren: Wah-wah-wah",
-      "gain": 0.7,
-      "jitter": 0,
-      "files": ["freesound:835112"]
+      "use": "Missgeschick (Finte in Kuckucks-Klatsche, bis zu 8× je Spiel): kurzer Saxofon-Lauf abwärts",
+      "gain": 0.65,
+      "jitter": 0.03,
+      "files": ["kenney:music-jingles/jingles_SAX01"]
     },
     "dice": {
       "use": "Würfeln am Brett",
