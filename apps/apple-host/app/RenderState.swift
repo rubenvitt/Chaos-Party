@@ -29,6 +29,21 @@ struct RenderState: Decodable, Equatable {
         var roundPresets: [Int]?
         /// „Mehr Zeit zum Reagieren“ (CHAOS-124): Reaktionsfenster 5 s statt 3 s.
         var moreReactionTime: Bool?
+        /// Brett-Wahl (CHAOS-197): Brett-ID oder „zufall“; ändern über `hostCommand("configure:board=<id>")`.
+        var board: String?
+        /// Knöpfe der Brett-Auswahl in Lobby-Reihenfolge, zuletzt „Zufall“; genau einer ist gewählt.
+        var boards: [BoardChoice]?
+    }
+
+    /// Ein Brett der Lobby-Auswahl (CHAOS-197), fertig beschriftet vom Kern (`boardOptions`).
+    struct BoardChoice: Decodable, Equatable, Hashable {
+        var id: String
+        /// „Wackelwald“, „Zufall“.
+        var name: String
+        /// Zweite Zeile: „43 Felder“, „Überraschung!“.
+        var detail: String
+        var selected: Bool
+        var random: Bool
     }
 
     struct Player: Decodable, Equatable {

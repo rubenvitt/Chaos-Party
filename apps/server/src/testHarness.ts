@@ -236,6 +236,11 @@ export class Harness {
     this.send(HOST, createMessage('configure', { moreReactionTime }));
   }
 
+  /** Brett-Wahl der Lobby (CHAOS-197): Brett-ID oder `zufall`. */
+  configureBoard(board: string): void {
+    this.send(HOST, createMessage('configure', { board }));
+  }
+
   pause(): void {
     this.send(HOST, createMessage('pause', {}));
   }

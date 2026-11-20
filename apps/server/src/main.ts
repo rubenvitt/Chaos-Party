@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { boardChoices, isBoardChoice } from './boardChoice.ts';
 import { generateJoinCode } from './ids.ts';
 import { resolveJoinTarget } from './network.ts';
 import { checkLocalhost } from './selfCheck.ts';
@@ -18,6 +19,8 @@ import { formatStartupLines, renderTerminalQr } from './startup.ts';
  * - `ROUNDS`: Runden des Brettspiels (Standard 10, EXP-011), `SEED`: fester Seed (reproduzierbar)
  * - `RUECKENWIND=1`: Rückenwind-Münzen für Zurückliegende einschalten (CHAOS-125, EXP-022;
  *   Standard aus bis zum Playtest)
+ * - `BRETT`: Brett-Wahl zu Beginn, eine Brett-ID (`wackelwald`) oder `zufall` (CHAOS-197);
+ *   in der Lobby umstellbar
  */
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -43,6 +46,7 @@ const target = resolveJoinTarget({
 const rounds = parseIntegerEnv('ROUNDS', 1, 20);
 const seed = parseIntegerEnv('SEED', 0, 2 ** 31 - 1);
 const tailwind = process.env.RUECKENWIND?.trim() === '1';
+const boardId = parseBoardEnv();
 
 const server = createChaosServer({
   staticDir,
@@ -54,11 +58,12 @@ const server = createChaosServer({
     ...(rounds === undefined ? {} : { rounds }),
     ...(seed === undefined ? {} : { seed }),
     ...(tailwind ? { rules: withTailwind() } : {}),
+    ...(boardId === undefined ? {} : { boardId }),
   },
   onGameStart: (info) => {
     // Seed ausgeben: Mit SEED=<Wert> lässt sich dieselbe Partie nachstellen (M2).
     console.log(
-      `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Seed ${String(info.seed)}${tailwind ? ', Rückenwind an' : ''}`,
+      `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Brett ${info.boardId}, Seed ${String(info.seed)}${tailwind ? ', Rückenwind an' : ''}`,
     );
   },
 });
@@ -93,6 +98,16 @@ function parseIntegerEnv(name: string, min: number, max: number): number | undef
     return undefined;
   }
   return value;
+}
+
+function parseBoardEnv(): string | undefined {
+  const raw = process.env.BRETT?.trim().toLowerCase();
+  if (raw === undefined || raw === '') return undefined;
+  if (!isBoardChoice(raw)) {
+    console.warn(`  ⚠ BRETT=${raw} ignoriert (erlaubt: ${boardChoices().join(', ')}).`);
+    return undefined;
+  }
+  return raw;
 }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

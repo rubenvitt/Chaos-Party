@@ -10,7 +10,24 @@
         16,
         20
       ],
-      "moreReactionTime": false
+      "moreReactionTime": false,
+      "board": "wackelwald",
+      "boards": [
+        {
+          "id": "wackelwald",
+          "name": "Wackelwald",
+          "detail": "43 Felder",
+          "selected": true,
+          "random": false
+        },
+        {
+          "id": "zufall",
+          "name": "Zufall",
+          "detail": "Überraschung!",
+          "selected": false,
+          "random": true
+        }
+      ]
     },
     "players": []
   },

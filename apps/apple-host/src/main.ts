@@ -33,6 +33,7 @@ import {
   type HostConnection,
   type SocketLike,
 } from '../../host/src/net/hostConnection.ts';
+import { boardOptions } from '../../host/src/lobby/lobbyState.ts';
 import { createResultSender } from '../../host/src/net/resultSender.ts';
 import {
   intentToMinigameInput,
@@ -642,6 +643,14 @@ function create(env: HostEnv): ChaosHostInstance {
                 rounds: lobby.settings.rounds,
                 roundPresets: [...lobby.settings.roundPresets],
                 moreReactionTime: lobby.settings.moreReactionTime ?? false,
+                board: lobby.settings.board ?? DEFAULT_BOARD.id,
+                boards: boardOptions(lobby.settings).map((option) => ({
+                  id: option.id,
+                  name: option.name,
+                  detail: option.detail,
+                  selected: option.selected,
+                  random: option.random,
+                })),
               }
             : null,
         },

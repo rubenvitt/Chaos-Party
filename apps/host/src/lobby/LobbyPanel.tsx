@@ -9,7 +9,15 @@ import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import { joinUrlForDevice, type JoinDevice } from './joinLink.ts';
-import { cardCharacter, roundOptions, roundsDuration, startState } from './lobbyState.ts';
+import {
+  boardOptions,
+  cardCharacter,
+  chosenBoardName,
+  nextBoardId,
+  roundOptions,
+  roundsDuration,
+  startState,
+} from './lobbyState.ts';
 import { QrCode } from './QrCode.tsx';
 
 interface LobbyPanelProps {
@@ -22,6 +30,8 @@ interface LobbyPanelProps {
   readonly onRounds: (rounds: number) => void;
   /** „Mehr Zeit zum Reagieren“ umgeschaltet (sendet `configure`, CHAOS-124). */
   readonly onMoreReactionTime: (on: boolean) => void;
+  /** Brett gewählt: Brett-ID oder `zufall` (sendet `configure`, CHAOS-197). */
+  readonly onBoard: (board: string) => void;
 }
 
 const ALL_SLOTS: readonly SlotNumber[] = [1, 2, 3, 4];
@@ -47,7 +57,10 @@ function hostLabel(url: string): string {
  * „iPhone / iPad“ zeigt für das geteilte iPad denselben Link mit `seats=2` (CHAOS-14).
  * Je Spieler eine Karte (CHAOS-36): Porträt und Name der gewählten Figur (`character`, bei
  * `null` „wählt noch …“ mit blassem Vorschlag), Slot-Farbe und -Symbol, Bereit-Status.
- * Dazu die Rundenzahl aus `lobby.settings.roundPresets` (sendet `configure`), der Schalter
+ * Dazu das Brett aus `lobby.settings.boards` plus „Zufall“ als Wechselknopf neben der Rundenwahl
+ * (CHAOS-197, jeder Klick wählt das nächste und sendet `configure`, wie am Apple-Host; ohne
+ * Bretter vom Server keine Auswahl), die Rundenzahl aus `lobby.settings.roundPresets` (sendet
+ * `configure`), der Schalter
  * „Mehr Zeit zum Reagieren“ (Barrierefreiheit, CHAOS-124; zeigt den Server-Stand
  * `lobby.settings.moreReactionTime`) und der Start.
  * Alles per Maus und Tastatur bedienbar (echte Knöpfe, sichtbarer Fokus).
@@ -60,6 +73,7 @@ export function LobbyPanel({
   onStart,
   onRounds,
   onMoreReactionTime,
+  onBoard,
 }: LobbyPanelProps) {
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
@@ -99,6 +113,9 @@ export function LobbyPanel({
   }
 
   const options = roundOptions(lobby.settings);
+  const boards = boardOptions(lobby.settings);
+  const currentBoard = boards.find((option) => option.selected) ?? boards[0];
+  const boardName = chosenBoardName(lobby.settings);
   const moreReactionTime = lobby.settings.moreReactionTime ?? false;
   return (
     <section className="lobby" aria-label="Lobby">
@@ -190,30 +207,64 @@ export function LobbyPanel({
             </ul>
           )}
 
-          <fieldset className="lobby-rounds" data-testid="lobby-rounds">
-            <legend>Runden</legend>
-            <div className="lobby-rounds-options">
-              {options.map((option) => (
+          <div className="lobby-settings-row">
+            {currentBoard !== undefined && (
+              <fieldset className="lobby-rounds lobby-boards" data-testid="lobby-boards">
+                <legend>Brett</legend>
                 <button
-                  key={option.rounds}
                   type="button"
-                  className="lobby-rounds-option"
-                  data-testid={`rounds-${String(option.rounds)}`}
-                  data-custom={option.custom}
-                  aria-pressed={option.selected}
-                  aria-label={`${String(option.rounds)} Runden`}
+                  className="lobby-rounds-option lobby-board-option"
+                  data-testid="board-choice"
+                  data-board={currentBoard.id}
+                  data-random={currentBoard.random}
+                  aria-label={`Brett: ${currentBoard.name}. ${currentBoard.tagline}${
+                    boards.length > 1 ? ' Klicken wählt das nächste Brett.' : ''
+                  }`}
+                  title={currentBoard.tagline}
                   onClick={() => {
-                    onRounds(option.rounds);
+                    onBoard(nextBoardId(boards));
                   }}
                 >
-                  <span className="lobby-rounds-value">{option.rounds}</span>
-                  <span className="lobby-rounds-time">
-                    {roundsDuration(option.rounds, players.length)}
+                  <span className="lobby-board-name">
+                    {currentBoard.random && <span aria-hidden="true">🎲 </span>}
+                    {currentBoard.name}
+                    {boards.length > 1 && (
+                      <span className="lobby-board-next" aria-hidden="true">
+                        {' '}
+                        ›
+                      </span>
+                    )}
                   </span>
+                  <span className="lobby-rounds-time">{currentBoard.detail}</span>
                 </button>
-              ))}
-            </div>
-          </fieldset>
+              </fieldset>
+            )}
+
+            <fieldset className="lobby-rounds" data-testid="lobby-rounds">
+              <legend>Runden</legend>
+              <div className="lobby-rounds-options">
+                {options.map((option) => (
+                  <button
+                    key={option.rounds}
+                    type="button"
+                    className="lobby-rounds-option"
+                    data-testid={`rounds-${String(option.rounds)}`}
+                    data-custom={option.custom}
+                    aria-pressed={option.selected}
+                    aria-label={`${String(option.rounds)} Runden`}
+                    onClick={() => {
+                      onRounds(option.rounds);
+                    }}
+                  >
+                    <span className="lobby-rounds-value">{option.rounds}</span>
+                    <span className="lobby-rounds-time">
+                      {roundsDuration(option.rounds, players.length)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
 
           <button
             type="button"
@@ -248,8 +299,9 @@ export function LobbyPanel({
             }}
           >
             Los geht’s!
-            <span className="start-button-rounds">
+            <span className="start-button-rounds" data-testid="start-button-detail">
               {lobby.settings.rounds === 1 ? '1 Runde' : `${String(lobby.settings.rounds)} Runden`}
+              {boardName === null ? '' : ` · ${boardName}`}
             </span>
           </button>
           <p className="start-hint" data-testid="start-hint">

@@ -712,3 +712,19 @@ Automatisch geprüft: Einstellungen je Phase und Feder (Unit-Tests `apps/host/sr
 | KA6 | Apple TV (TestFlight): KA1–KA5 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps | | Log |
 | KA7 | Mac-App: KA1–KA3 | Wie auf der Apple TV | | |
 | KA8 | Ruben: Urteil | Nähe richtig? Tempo ruhig genug? Überblick oft genug? Fehlt ein Hinweis, wo die anderen stehen (→ CHAOS-210)? | | Kommentar an CHAOS-194 |
+
+## 37. Brett-Auswahl in der Lobby (für CHAOS-197)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-197 · **Entscheidung:** ADR-015 Nachtrag 6
+
+Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Zufall, unbekanntes Brett, Revanche), PC-Lobby per Maus und Tastatur bis aufs Brett (E2E), Kern des Apple-Hosts im Bündel. **Nicht** automatisch geprüft: SwiftUI-Lobby auf Mac und Apple TV (kein Swift in der Cloud), Fokus mit der Siri Remote, Lesbarkeit am Fernseher. Mit nur Wackelwald zeigt der Knopf „Wackelwald“ und „Zufall“; Zufall lost Wackelwald.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| BA1 | PC: `pnpm play`, Lobby | Neben „Runden“ steht „Brett: Wackelwald · 43 Felder“; Klick wechselt auf „🎲 Zufall“ und zurück; Startknopf zeigt „10 Runden · Wackelwald“ bzw. „· Zufallsbrett“ | | |
+| BA2 | iPhone und iPad in der Lobby | Kopfzeile zeigt das gewählte Brett und folgt jeder Änderung am Host; auf dem iPad passt die Kopfzeile in jede Zone | | Foto |
+| BA3 | Mac-App: Lobby, Taste B bzw. Klick auf den Brett-Knopf rechts neben „Chaos Party“ | Wechselt Wackelwald ↔ Zufall; Lobby wird nicht höher, nichts überlappt | | Foto |
+| BA4 | Apple TV: Fokus mit der Fernbedienung auf den Brett-Knopf (von den Einstellungen nach oben), drücken | Fokusrahmen sichtbar, Wechsel wie am Mac; danach erreicht man Runden, Schalter und Start weiterhin | | Foto |
+| BA5 | Partie mit „Zufall“ starten, danach „Nochmal spielen“ | Partie läuft auf Wackelwald; in der Revanche-Lobby steht weiter „Zufall“ | | |
+| BA6 | Mac-App mit `--brett=zufall` starten | Lobby zeigt sofort „Zufall“ | | |
+

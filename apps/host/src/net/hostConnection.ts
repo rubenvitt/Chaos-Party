@@ -37,8 +37,8 @@ import {
 export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
- * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl und „Mehr Zeit zum Reagieren“
- * (CHAOS-124) in der Lobby (`configure`, je Befehl mindestens eines davon),
+ * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl, „Mehr Zeit zum Reagieren“
+ * (CHAOS-124) und Brett (CHAOS-197) in der Lobby (`configure`, je Befehl mindestens eines davon),
  * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
  */
 export type HostCommand =
@@ -46,6 +46,8 @@ export type HostCommand =
       readonly type: 'configure';
       readonly rounds?: number | undefined;
       readonly moreReactionTime?: boolean | undefined;
+      /** Brett-Wahl (CHAOS-197): Brett-ID oder `RANDOM_BOARD`. */
+      readonly board?: string | undefined;
     }
   | { readonly type: 'pause' }
   | { readonly type: 'resume' }
@@ -62,6 +64,7 @@ export function createHostCommandMessage(command: HostCommand) {
         ...(command.moreReactionTime === undefined
           ? {}
           : { moreReactionTime: command.moreReactionTime }),
+        ...(command.board === undefined ? {} : { board: command.board }),
       });
     case 'pause':
       return createMessage('pause', {});

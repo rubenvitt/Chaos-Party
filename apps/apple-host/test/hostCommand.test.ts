@@ -31,6 +31,23 @@ describe('parseHostCommand', () => {
     });
   });
 
+  it('liest configure mit Brett (CHAOS-197)', () => {
+    expect(parseHostCommand('configure:board=wackelwald')).toEqual({
+      type: 'configure',
+      board: 'wackelwald',
+    });
+    expect(parseHostCommand('configure:board=zufall,rounds=16')).toEqual({
+      type: 'configure',
+      board: 'zufall',
+      rounds: 16,
+    });
+    // Form stimmt, Brett unbekannt: geht an den Server, der lehnt es ab.
+    expect(parseHostCommand('configure:board=gibt-es-nicht')).toEqual({
+      type: 'configure',
+      board: 'gibt-es-nicht',
+    });
+  });
+
   it('lehnt Unbekanntes und Ungültiges ab', () => {
     for (const cmd of [
       '',
@@ -55,6 +72,12 @@ describe('parseHostCommand', () => {
       'configure:rounds=12,',
       'configure:__proto__=1',
       'configure:moreReactionTime=constructor',
+      'configure:board=',
+      'configure:board=Wackelwald',
+      'configure:board=wackel wald',
+      'configure:board=../brett',
+      `configure:board=${'a'.repeat(33)}`,
+      'configure:board=wackelwald,board=zufall',
     ]) {
       expect(parseHostCommand(cmd), cmd).toBeNull();
     }

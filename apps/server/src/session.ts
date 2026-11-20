@@ -59,6 +59,7 @@ import {
   type PickCharacterMessage,
 } from '@chaos-party/protocol';
 import { randomInt } from 'node:crypto';
+import { boardChoiceName, isBoardChoice, lobbyBoards, resolveBoardChoice } from './boardChoice.ts';
 import { BoardGame, DEFAULT_GAME_SETTINGS, rulesForGame, type BoardGameSettings } from './game.ts';
 import { generateToken, isValidJoinCode } from './ids.ts';
 import { DEFAULT_RATE_LIMIT, TokenBucket, type RateLimitOptions } from './rate-limit.ts';
@@ -164,6 +165,8 @@ export interface SessionOptions {
 export interface GameStartInfo {
   readonly seed: number;
   readonly rounds: number;
+  /** Gespieltes Brett (bei Zufall das ausgeloste). */
+  readonly boardId: string;
   readonly slots: readonly SlotNumber[];
 }
 
@@ -225,6 +228,8 @@ export interface SessionSnapshot {
   rounds: number;
   /** „Mehr Zeit zum Reagieren“ für die nächste Partie (Lobby-Einstellung, CHAOS-124). */
   moreReactionTime: boolean;
+  /** Brett-Wahl der nächsten Partie: Brett-ID oder `RANDOM_BOARD` (Lobby-Einstellung, CHAOS-197). */
+  board: string;
   /**
    * Wer die laufende Pause ausgelöst hat: `host` (Befehl `pause`), `host-lost` (Auto-Pause,
    * weil der Host die Verbindung verlor, CHAOS-38) oder `null` (keine Pause).
@@ -296,6 +301,11 @@ export class Session {
    * über `rematch` erhalten.
    */
   private moreReactionTime: boolean;
+  /**
+   * Brett-Wahl (CHAOS-197, `configure`): Brett-ID oder `RANDOM_BOARD`. Gilt ab dem nächsten Start
+   * und bleibt über `rematch` erhalten; Zufall würfelt bei jeder Partie neu (Seed der Partie).
+   */
+  private board: string;
   /** Zuletzt gesendeter Kontext je Slot (nur bei Änderung neu senden). */
   private readonly contextKeys = new Map<SlotNumber, string>();
   /** Auslöser der laufenden Pause (`null` = keine). */
@@ -350,6 +360,10 @@ export class Session {
     }
     this.rounds = this.gameSettings.rounds;
     this.moreReactionTime = this.gameSettings.moreReactionTime ?? false;
+    if (!isBoardChoice(this.gameSettings.boardId)) {
+      throw new Error(`Unbekanntes Brett: ${this.gameSettings.boardId}`);
+    }
+    this.board = this.gameSettings.boardId;
     this.randomSeed = options.randomSeed ?? (() => randomInt(0, 2 ** 31));
     this.onGameStart = options.onGameStart;
   }
@@ -466,6 +480,7 @@ export class Session {
       game: this.game ? { seed: this.game.seed, state: this.game.state } : null,
       rounds: this.rounds,
       moreReactionTime: this.moreReactionTime,
+      board: this.board,
       pausedBy: this.game?.paused ? this.pauseCause : null,
       awaitingHostReady: this.hostReadyDeadline !== null,
     };
@@ -576,6 +591,15 @@ export class Session {
           this.moreReactionTime !== message.moreReactionTime
         ) {
           this.moreReactionTime = message.moreReactionTime;
+          this.lobbyDirty = true;
+        }
+        // Brett der nächsten Partie (CHAOS-197): Das Schema prüft die Form, hier das Register.
+        if (message.board !== undefined && this.board !== message.board) {
+          if (!isBoardChoice(message.board)) {
+            this.reject(conn, 'bad-message', `Unbekanntes Brett: ${message.board}`);
+            return;
+          }
+          this.board = message.board;
           this.lobbyDirty = true;
         }
         return;
@@ -927,6 +951,7 @@ export class Session {
     const seed = this.gameSettings.seed ?? this.randomSeed();
     const settings = {
       ...this.gameSettings,
+      boardId: resolveBoardChoice(this.board, seed).id,
       rounds,
       rules: rulesForGame(this.gameSettings.rules, this.moreReactionTime),
     };
@@ -944,7 +969,12 @@ export class Session {
     this.game = game;
     this.phaseValue = 'board';
     this.contextKeys.clear();
-    this.onGameStart?.({ seed, rounds: settings.rounds, slots: players.map((p) => p.slot) });
+    this.onGameStart?.({
+      seed,
+      rounds: settings.rounds,
+      boardId: settings.boardId,
+      slots: players.map((p) => p.slot),
+    });
   }
 
   private choose(conn: Connection, player: Player, message: ChooseMessage, now: number): void {
@@ -1180,6 +1210,7 @@ export class Session {
       takenCharacters: takenBy.map((entry) => entry.character),
       takenBy,
       rounds: this.rounds,
+      board: { id: this.board, name: boardChoiceName(this.board) },
     };
     return player.ready
       ? { layout: 'wait', actions: ['pick-character'], lobby }
@@ -1284,6 +1315,8 @@ export class Session {
         rounds: this.rounds,
         roundPresets: [...this.gameSettings.roundPresets],
         moreReactionTime: this.moreReactionTime,
+        board: this.board,
+        boards: lobbyBoards(),
       },
     });
   }

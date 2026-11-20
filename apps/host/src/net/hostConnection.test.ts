@@ -253,6 +253,7 @@ describe('connectHost', () => {
       { type: 'configure', rounds: 8 },
       { type: 'configure', moreReactionTime: true },
       { type: 'configure', rounds: 10, moreReactionTime: false },
+      { type: 'configure', board: 'zufall' },
       { type: 'pause' },
       { type: 'resume' },
       { type: 'end-game' },
@@ -271,6 +272,9 @@ describe('connectHost', () => {
     expect(
       createHostCommandMessage({ type: 'configure', moreReactionTime: true, rounds: undefined }),
     ).toEqual(createMessage('configure', { moreReactionTime: true }));
+    expect(createHostCommandMessage({ type: 'configure', board: 'wackelwald' })).toEqual(
+      createMessage('configure', { board: 'wackelwald' }),
+    );
     t.last().drop();
     expect(t.connection.sendCommand({ type: 'resume' })).toBe(false);
   });

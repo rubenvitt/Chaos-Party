@@ -169,8 +169,26 @@ export const CountSchema = z.int().nonnegative().max(1_000_000);
 export const MAX_ROUNDS = 20;
 /** Rundenzahl einer Partie (Lobby-Einstellung, `start`, `configure`). */
 export const RoundsSchema = z.int().min(1).max(MAX_ROUNDS);
+/**
+ * Brett-Wahl der Lobby (CHAOS-197): eine Brett-ID (`wackelwald`) oder `RANDOM_BOARD`. Das Schema
+ * prüft nur die Form; ob es das Brett gibt, prüft der Server gegen das Brett-Register.
+ */
+export const BoardChoiceSchema = SpaceIdSchema;
 /** Höchstzahl Vorschläge für die Rundenzahl in `lobby.settings.roundPresets`. */
 export const MAX_ROUND_PRESETS = 6;
+/**
+ * Brett-Wahl „Zufall“ in der Lobby (CHAOS-197): keine Brett-ID, der Server löst sie erst beim
+ * Start auf (`BoardView.boardId` nennt dann das gespielte Brett). Kein Brett darf so heißen.
+ */
+export const RANDOM_BOARD = 'zufall';
+/** Anzeigename der Wahl `RANDOM_BOARD` (Controller, Hosts). */
+export const RANDOM_BOARD_NAME = 'Zufallsbrett';
+/** Höchstzahl Bretter in `lobby.settings.boards`. */
+export const MAX_BOARDS = 16;
+/** Höchstlänge eines Brett-Namens (wie „Wackelwald“). */
+export const MAX_BOARD_NAME_LENGTH = 40;
+/** Höchstlänge der Kurzbeschreibung eines Bretts (gleich `MAX_BOARD_TAGLINE_LENGTH` in game-core). */
+export const MAX_BOARD_TAGLINE_LENGTH = 80;
 /** Höchstzahl Ereignisse in einer `board`-Nachricht. */
 export const MAX_BOARD_EVENTS = 64;
 /** Kennung eines Minispiels (gleich `MINIGAME_ID_PATTERN` im minigame-sdk). */
@@ -459,10 +477,19 @@ export const ConfigureMessageSchema = z
     type: z.literal('configure'),
     rounds: RoundsSchema.optional(),
     moreReactionTime: z.boolean().optional(),
+    /**
+     * v4-Nachtrag (CHAOS-197): Brett der nächsten Partie (Brett-ID oder `RANDOM_BOARD`). Ein
+     * unbekanntes Brett lehnt der Server mit `bad-message` ab.
+     */
+    board: BoardChoiceSchema.optional(),
   })
-  .refine((message) => message.rounds !== undefined || message.moreReactionTime !== undefined, {
-    message: 'configure braucht rounds oder moreReactionTime',
-  });
+  .refine(
+    (message) =>
+      message.rounds !== undefined ||
+      message.moreReactionTime !== undefined ||
+      message.board !== undefined,
+    { message: 'configure braucht rounds, moreReactionTime oder board' },
+  );
 
 /** Partie anhalten (v4, CHAOS-36): Fristen und Spielzeit stehen, bis `resume` kommt. */
 export const PauseMessageSchema = z.strictObject({
@@ -616,6 +643,16 @@ export const ControllerLobbyInfoSchema = z.strictObject({
     .optional(),
   /** Eingestellte Rundenzahl der nächsten Partie. */
   rounds: RoundsSchema,
+  /**
+   * v4-Nachtrag (CHAOS-197, optional): gewähltes Brett der nächsten Partie mit Anzeigename
+   * („Wackelwald“, bei `RANDOM_BOARD` „Zufallsbrett“). Fehlt bei älteren Servern.
+   */
+  board: z
+    .strictObject({
+      id: BoardChoiceSchema,
+      name: z.string().min(1).max(MAX_BOARD_NAME_LENGTH),
+    })
+    .optional(),
 });
 
 export const ContextMessageSchema = z.strictObject({
@@ -684,24 +721,61 @@ function hasUniqueCharacters(players: readonly { character: string | null }[]): 
   return new Set(picked).size === picked.length;
 }
 
-/** Lobby-Einstellungen (v4, CHAOS-36). */
-export const LobbySettingsSchema = z.strictObject({
-  /** Rundenzahl der nächsten Partie. */
-  rounds: RoundsSchema,
-  /**
-   * v4-Nachtrag (CHAOS-124, optional): längeres Reaktionsfenster für die nächste Partie
-   * (Barrierefreiheit). Fehlt = aus.
-   */
-  moreReactionTime: z.boolean().optional(),
-  /** Vorschläge für die Auswahl am PC (aufsteigend, ohne Doppelte). */
-  roundPresets: z
-    .array(RoundsSchema)
-    .min(1)
-    .max(MAX_ROUND_PRESETS)
-    .refine((presets) => presets.every((value, i) => i === 0 || value > (presets[i - 1] ?? 0)), {
-      message: 'Vorschläge aufsteigend ohne Doppelte',
-    }),
+/** Ein wählbares Brett in `lobby.settings.boards` (v4-Nachtrag CHAOS-197). */
+export const LobbyBoardSchema = z.strictObject({
+  id: SpaceIdSchema.refine((id) => id !== RANDOM_BOARD, {
+    message: `${RANDOM_BOARD} ist keine Brett-ID`,
+  }),
+  name: z.string().min(1).max(MAX_BOARD_NAME_LENGTH),
+  /** Ein Satz für die Auswahl. */
+  tagline: z.string().max(MAX_BOARD_TAGLINE_LENGTH),
+  /** Zahl der Felder (Größe des Bretts). */
+  spaces: z.int().min(1).max(999),
+  /** Empfohlene Rundenzahl für dieses Brett. */
+  recommendedRounds: RoundsSchema,
 });
+
+/** Lobby-Einstellungen (v4, CHAOS-36). */
+export const LobbySettingsSchema = z
+  .strictObject({
+    /** Rundenzahl der nächsten Partie. */
+    rounds: RoundsSchema,
+    /**
+     * v4-Nachtrag (CHAOS-124, optional): längeres Reaktionsfenster für die nächste Partie
+     * (Barrierefreiheit). Fehlt = aus.
+     */
+    moreReactionTime: z.boolean().optional(),
+    /** Vorschläge für die Auswahl am PC (aufsteigend, ohne Doppelte). */
+    roundPresets: z
+      .array(RoundsSchema)
+      .min(1)
+      .max(MAX_ROUND_PRESETS)
+      .refine((presets) => presets.every((value, i) => i === 0 || value > (presets[i - 1] ?? 0)), {
+        message: 'Vorschläge aufsteigend ohne Doppelte',
+      }),
+    /**
+     * v4-Nachtrag (CHAOS-197, optional): Brett der nächsten Partie, eine ID aus `boards` oder
+     * `RANDOM_BOARD`. Fehlt = Standardbrett (älterer Server).
+     */
+    board: BoardChoiceSchema.optional(),
+    /** v4-Nachtrag (CHAOS-197, optional): wählbare Bretter in Lobby-Reihenfolge. */
+    boards: z
+      .array(LobbyBoardSchema)
+      .min(1)
+      .max(MAX_BOARDS)
+      .refine((boards) => new Set(boards.map((b) => b.id)).size === boards.length, {
+        message: 'Brett-IDs doppelt',
+      })
+      .optional(),
+  })
+  .refine(
+    (settings) =>
+      settings.board === undefined ||
+      settings.boards === undefined ||
+      settings.board === RANDOM_BOARD ||
+      settings.boards.some((b) => b.id === settings.board),
+    { message: 'board ist keins der boards' },
+  );
 
 /** Join-Link für den QR-Code: nur `http(s)`, begrenzte Länge. */
 export const JoinUrlSchema = z.url({ protocol: /^https?$/ }).max(MAX_JOIN_URL_LENGTH);

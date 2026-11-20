@@ -1,5 +1,5 @@
 /**
- * Lobby mit Charakterwahl (v4, CHAOS-36): Figurenkarten, Rundenzahl, „Bereit!“.
+ * Lobby mit Charakterwahl (v4, CHAOS-36): Figurenkarten, Rundenzahl, Brett (CHAOS-197), „Bereit!“.
  * `CharacterFace` und `LobbyHead` teilen sich iPhone (`CharacterLobby`) und iPad-Zone
  * (`ZoneBoard`, dort absolut an den Rechtecken der Zonen-Geometrie).
  */
@@ -34,7 +34,7 @@ export function CharacterFace({ card }: { card: CharacterCard }) {
   );
 }
 
-/** Titel und Rundenzahl über der Auswahl. */
+/** Titel, Rundenzahl und Brett (CHAOS-197) über der Auswahl. */
 export function LobbyHead({ view }: { view: LobbyView }) {
   return (
     <div className="lobby-head">
@@ -42,6 +42,11 @@ export function LobbyHead({ view }: { view: LobbyView }) {
       <span className="lobby-rounds ui-text" data-testid="lobby-rounds" data-rounds={view.rounds}>
         {view.roundsLabel}
       </span>
+      {view.boardName !== null && (
+        <span className="lobby-rounds lobby-board ui-text" data-testid="lobby-board">
+          {view.boardName}
+        </span>
+      )}
     </div>
   );
 }

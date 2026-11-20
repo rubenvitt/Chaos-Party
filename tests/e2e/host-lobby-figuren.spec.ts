@@ -3,9 +3,9 @@
  *
  * Synthetische Controller (`LobbyBot`) treten bei und wählen Figuren per `pick-character`;
  * der Host zeigt je Spieler Porträt und Namen der gewählten Figur bzw. „wählt noch …“,
- * stellt die Rundenzahl und „Mehr Zeit zum Reagieren“ (CHAOS-124) per `configure` ein (Maus und
- * Tastatur) und startet. Auf dem Brett
- * stehen danach die gewählten Figuren (Testhaken `getPawnCharacters`).
+ * stellt Brett (CHAOS-197), Rundenzahl und „Mehr Zeit zum Reagieren“ (CHAOS-124) per `configure`
+ * ein (Maus und Tastatur) und startet. Auf dem Brett stehen danach die gewählten Figuren
+ * (Testhaken `getPawnCharacters`) auf dem gewählten bzw. ausgelosten Brett.
  */
 import type { Page } from '@playwright/test';
 import type {} from '../../apps/host/src/testHook.ts';
@@ -47,6 +47,7 @@ const lobbyMask = (page: Page) => [
       '.lobby-free-text',
       '.lobby-rounds legend',
       '.lobby-rounds-option',
+      '.lobby-board-name',
       '.lobby-toggle-text',
       '.player-symbol',
       '.lobby-free-symbol',
@@ -108,6 +109,32 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(page.getByTestId('start-hint')).toHaveText(
         'Grün ist noch nicht bereit – starten geht trotzdem.',
       );
+
+      // Brett (CHAOS-197): Standard Wackelwald. Der Wechselknopf wählt per Maus „Zufall“ –
+      // Server, Startknopf und Controller sehen es –, per Tastatur (Enter) wieder Wackelwald.
+      const board = page.getByTestId('board-choice');
+      await expect(page.getByTestId('lobby-boards')).toBeVisible();
+      await expect(board).toHaveAttribute('data-board', 'wackelwald');
+      await expect(board).toContainText('Wackelwald');
+      await expect(board).toContainText('43 Felder');
+      await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Wackelwald');
+      expect(session.snapshot().board).toBe('wackelwald');
+      await board.click();
+      await expect(board).toHaveAttribute('data-board', 'zufall');
+      await expect(board).toContainText('Zufall');
+      expect(session.snapshot().board).toBe('zufall');
+      await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Zufallsbrett');
+      await expect
+        .poll(() => bots[0]?.lastContext?.lobby?.board)
+        .toEqual({ id: 'zufall', name: 'Zufallsbrett' });
+      await board.focus();
+      await page.keyboard.press('Enter');
+      await expect(board).toHaveAttribute('data-board', 'wackelwald');
+      expect(session.snapshot().board).toBe('wackelwald');
+      await expect
+        .poll(() => bots[2]?.lastContext?.lobby?.board)
+        .toEqual({ id: 'wackelwald', name: 'Wackelwald' });
+      await board.blur();
 
       // Rundenzahl per Maus …
       await page.getByTestId('rounds-16').click();
@@ -183,6 +210,9 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
         3: 'raccoon',
       });
       await expect(page.getByTestId('board-round')).toHaveText('Runde 1/20');
+      // Gewähltes Brett kommt an: Spielstand und HUD-Titel.
+      expect(session.snapshot().game?.state.boardId).toBe('wackelwald');
+      await expect(page.locator('.hud-title p')).toContainText('Wackelwald');
     } finally {
       for (const bot of bots) bot.close();
     }
@@ -205,6 +235,19 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(start).toBeEnabled();
       await expect(start).toHaveAttribute('data-highlight', 'false');
       await expect(page.getByTestId('start-hint')).toContainText('ab 2 Spielern');
+
+      // Brett „Zufall“ (CHAOS-197): Der Server lost beim Start ein Brett aus dem Register aus,
+      // die Partie läuft darauf, die Lobby-Wahl bleibt „zufall“.
+      await page.getByTestId('board-choice').click();
+      await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'zufall');
+      await start.click();
+      const main = page.locator('main.host');
+      await expect(main).toHaveAttribute('data-phase', 'board');
+      await page.waitForFunction(() => window.__chaos?.board?.ready === true);
+      const snapshot = chaosServer.server.session.snapshot();
+      expect(snapshot.board).toBe('zufall');
+      expect(snapshot.game?.state.boardId).toBe('wackelwald');
+      await expect(page.locator('.hud-title p')).toContainText('Wackelwald');
     } finally {
       bot.close();
     }

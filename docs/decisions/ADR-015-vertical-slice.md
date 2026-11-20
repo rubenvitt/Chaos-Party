@@ -175,3 +175,15 @@ Für langsamere Reaktionen (Kinder, ältere Mitspielende, motorische Einschränk
 
 Die Protokollversion bleibt 4 (additiv; Host, Server und Controller kommen aus demselben Build).
 
+## Nachtrag 6 (2026-11-20, CHAOS-197): Brett-Auswahl in der Lobby
+
+Voraussetzung für mehrere Themen-Bretter (Epic CHAOS-195). Das Brett ist eine Lobby-Einstellung wie Rundenzahl und „Mehr Zeit zum Reagieren“:
+
+- **Register** in `packages/game-core/src/board/registry.ts`: `BOARD_REGISTRY` mit Brett, Thema (`BoardTheme`, heute nur `wald`), Kurzbeschreibung und empfohlener Rundenzahl. `BOARDS`/`getBoard` leiten sich daraus ab; neue Bretter (CHAOS-198, CHAOS-199) tragen sich nur dort ein.
+- **Protokoll (v4-Nachtrag, additiv):** `configure.board` (Brett-ID oder `RANDOM_BOARD` = `zufall`), `lobby.settings.board` und `lobby.settings.boards` (ID, Name, Kurzbeschreibung, Felder, Empfehlung), `ControllerLobbyInfo.board` (ID und Anzeigename). Das Schema prüft nur die Form (`SpaceIdSchema`, kein Brett darf `zufall` heißen); ob es das Brett gibt, prüft der Server gegen das Register und antwortet sonst mit `bad-message`.
+- **Server:** hält die Wahl in der Session, Startwert aus `BRETT` (Umgebungsvariable) bzw. `game.boardId`. Erst beim Start wird „Zufall“ aufgelöst (`randomBoard(seed)`, eigener Generator aus dem Seed der Partie): `SEED` stellt dieselbe Partie samt Brett nach, die Revanche lost neu, die Lobby-Wahl bleibt `zufall`. `BoardView.boardId` nennt das gespielte Brett.
+- **Hosts:** PC-Lobby und Apple-Lobby zeigen die Wahl als **Wechselknopf** (jeder Klick bzw. Druck auf der Fernbedienung wählt das nächste Brett, zuletzt Zufall; Mac: Taste B). Eine Knopfreihe je Brett passte nicht mehr in die 720p-Lobby am PC und nicht in die 1080p-Lobby am Fernseher; der Wechselknopf bleibt auch mit vier Brettern gleich groß. Der Startknopf am PC nennt das Brett („10 Runden · Wackelwald“), die Controller zeigen es in der Lobby-Kopfzeile.
+- **Kulisse je Brett:** Der PC-Host baut die Kulisse schon aus der `BoardDefinition` des gespielten Bretts (`BoardStage` nach `boardId`), die Lichtstimmung kommt aus `BOARD_MOODS`. Der Apple-Host lädt noch genau eine USDZ-Kulisse; Export und Laden je Brett folgen mit CHAOS-212, bevor das zweite Brett (CHAOS-198) kommt.
+
+Die Protokollversion bleibt 4 (additiv; Host, Server und Controller kommen aus demselben Build).
+

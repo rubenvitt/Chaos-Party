@@ -36,8 +36,22 @@ describe('describeLobby', () => {
       canReady: true,
       rounds: 5,
       roundsLabel: '5 Runden',
+      boardName: null,
       hint: HINT_PICK,
     });
+  });
+
+  it('zeigt das gewählte Brett, wenn der Server es nennt (CHAOS-197)', () => {
+    const wald = describeLobby(
+      lobby({ board: { id: 'wackelwald', name: 'Wackelwald' } }),
+      undefined,
+    );
+    expect(wald?.boardName).toBe('Wackelwald');
+    const zufall = describeLobby(
+      lobby({ board: { id: 'zufall', name: 'Zufallsbrett' } }),
+      undefined,
+    );
+    expect(zufall?.boardName).toBe('Zufallsbrett');
   });
 
   it('eigene Wahl hervorgehoben (nicht wählbar), vergebene ausgegraut', () => {

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { cardCharacter, roundOptions, roundsDuration, startState } from './lobbyState.ts';
+import {
+  boardOptions,
+  cardCharacter,
+  chosenBoardName,
+  nextBoardId,
+  roundOptions,
+  roundsDuration,
+  startState,
+} from './lobbyState.ts';
 
 function at<T>(list: readonly T[], index: number): T {
   const item = list[index];
@@ -112,5 +120,53 @@ describe('cardCharacter', () => {
     const four = cardCharacter(at(players, 2), players).character;
     expect(one).toBe('cactus');
     expect(four).toBe('sock');
+  });
+});
+
+describe('boardOptions (CHAOS-197)', () => {
+  const wald = {
+    id: 'wackelwald',
+    name: 'Wackelwald',
+    tagline: 'Rundkurs',
+    spaces: 43,
+    recommendedRounds: 10,
+  };
+  const gipfel = { ...wald, id: 'frostgipfel', name: 'Frostgipfel', spaces: 80 };
+  const base = { rounds: 10, roundPresets: [10] };
+
+  it('ohne Bretter vom Server keine Auswahl (älterer Server)', () => {
+    expect(boardOptions(base)).toEqual([]);
+    expect(chosenBoardName(base)).toBeNull();
+  });
+
+  it('listet die Bretter in Server-Reihenfolge, dahinter Zufall, und markiert die Wahl', () => {
+    const options = boardOptions({ ...base, board: 'frostgipfel', boards: [wald, gipfel] });
+    expect(options.map((o) => [o.id, o.selected, o.random])).toEqual([
+      ['wackelwald', false, false],
+      ['frostgipfel', true, false],
+      ['zufall', false, true],
+    ]);
+    expect(at(options, 0).detail).toBe('43 Felder');
+    expect(chosenBoardName({ ...base, board: 'frostgipfel', boards: [wald, gipfel] })).toBe(
+      'Frostgipfel',
+    );
+  });
+
+  it('Zufall gewählt; ohne board gilt das erste Brett', () => {
+    const random = boardOptions({ ...base, board: 'zufall', boards: [wald] });
+    expect(random.filter((o) => o.selected).map((o) => o.id)).toEqual(['zufall']);
+    expect(chosenBoardName({ ...base, board: 'zufall', boards: [wald] })).toBe('Zufallsbrett');
+    expect(boardOptions({ ...base, boards: [wald] }).find((o) => o.selected)?.id).toBe(
+      'wackelwald',
+    );
+    expect(chosenBoardName({ ...base, boards: [wald] })).toBe('Wackelwald');
+  });
+
+  it('Wechselknopf: nächstes Brett, nach Zufall wieder das erste', () => {
+    const settings = (board: string) => ({ ...base, board, boards: [wald, gipfel] });
+    expect(nextBoardId(boardOptions(settings('wackelwald')))).toBe('frostgipfel');
+    expect(nextBoardId(boardOptions(settings('frostgipfel')))).toBe('zufall');
+    expect(nextBoardId(boardOptions(settings('zufall')))).toBe('wackelwald');
+    expect(() => nextBoardId([])).toThrow();
   });
 });

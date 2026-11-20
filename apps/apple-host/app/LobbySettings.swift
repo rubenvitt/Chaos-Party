@@ -95,6 +95,57 @@ struct LobbySettingsView: View {
     }
 }
 
+/// Brett-Wahl in der Lobby (CHAOS-197), wie die Brett-Knöpfe im Babylon-Host (`LobbyPanel.tsx`), aber als ein
+/// Wechselknopf neben dem Titel, damit die Lobby auf 1080p nicht höher wird: jeder Druck wählt das nächste Brett
+/// (zuletzt „Zufall“, dann wieder von vorn). Zeigt nur den Server-Stand aus `renderState.lobby.settings`; die Wahl
+/// geht als `configure:board=<id>` an den Kern.
+///
+/// - macOS: Maus oder Taste B.
+/// - tvOS: Fokus mit der Fernbedienung (hoch aus den Einstellungen), Auswahl drückt.
+struct BoardChoiceView: View {
+    let settings: RenderState.LobbySettings?
+    let command: (String) -> Void
+
+    var body: some View {
+        if let boards = settings?.boards, !boards.isEmpty {
+            let current = boards.first { $0.selected } ?? boards[0]
+            Button { command("configure:board=\(Self.next(after: current, in: boards).id)") } label: {
+                HStack(spacing: 16) {
+                    Text(current.random ? "🎲" : "🗺️").font(.system(size: 40))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Self.keys ? "Brett  (B)" : "Brett")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded)).opacity(0.8)
+                        Text(current.name).font(.system(size: 30, weight: .heavy, design: .rounded))
+                        Text(current.detail).font(.system(size: 17, weight: .semibold, design: .rounded)).opacity(0.85)
+                    }
+                    if boards.count > 1 {
+                        Image(systemName: "chevron.right").font(.system(size: 26, weight: .heavy)).opacity(0.7)
+                    }
+                }
+                .padding(.horizontal, 22).frame(minWidth: 300, minHeight: 96, alignment: .leading)
+            }
+            .buttonStyle(LobbyChoiceStyle(selected: false))
+            .accessibilityLabel("Brett")
+            .accessibilityValue(current.name)
+            #if os(macOS)
+            .keyboardShortcut("b", modifiers: [])
+            #endif
+        }
+    }
+
+    /// Nächstes Brett nach dem gewählten, am Ende wieder das erste.
+    static func next(after current: RenderState.BoardChoice, in boards: [RenderState.BoardChoice]) -> RenderState.BoardChoice {
+        guard let index = boards.firstIndex(of: current) else { return boards[0] }
+        return boards[(index + 1) % boards.count]
+    }
+
+    #if os(macOS)
+    private static let keys = true
+    #else
+    private static let keys = false
+    #endif
+}
+
 /// Wahlknopf der Lobby: gewählt orange, sonst dunkel; Fokus (tvOS) als weißer Rand und leichte Vergrößerung.
 struct LobbyChoiceStyle: ButtonStyle {
     let selected: Bool
@@ -125,14 +176,15 @@ struct LobbyChoiceStyle: ButtonStyle {
     }
 }
 
-/// `--runden=<n>` und `--mehrzeit` (bzw. `--mehrzeit=0|1`): Lobby-Einstellungen gleich nach dem Start
-/// (CHAOS-166), etwa für Bot-Partien mit `--autostart`. Ungültige Werte meldet der Kern im Log.
+/// `--runden=<n>`, `--mehrzeit` (bzw. `--mehrzeit=0|1`) und `--brett=<id|zufall>` (CHAOS-197): Lobby-Einstellungen
+/// gleich nach dem Start (CHAOS-166), etwa für Bot-Partien mit `--autostart`. Ungültige Werte meldet der Kern im Log.
 func launchConfigureCommand(_ arguments: [String]) -> String? {
     var parts: [String] = []
     for arg in arguments {
         if arg.hasPrefix("--runden=") { parts.append("rounds=\(arg.dropFirst(9))") }
         else if arg == "--mehrzeit" { parts.append("moreReactionTime=1") }
         else if arg.hasPrefix("--mehrzeit=") { parts.append("moreReactionTime=\(arg.dropFirst(11))") }
+        else if arg.hasPrefix("--brett=") { parts.append("board=\(arg.dropFirst(8))") }
     }
     return parts.isEmpty ? nil : "configure:" + parts.joined(separator: ",")
 }

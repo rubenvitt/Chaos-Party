@@ -22,11 +22,22 @@ import { LIGHT_MOODS } from '../../host/src/lighting/moods.ts';
 import { lightStateOf, mixLightStates } from '../../host/src/lighting/transition.ts';
 import { lightOf, moodLight } from './lightMood.ts';
 
-/** Server-Standard: 10 Runden, Vorschläge 10/16/20, „Mehr Zeit zum Reagieren“ aus (CHAOS-166). */
+/** Brett-Knöpfe der Lobby (CHAOS-197): Wackelwald (gewählt) und Zufall. */
+const BOARD_CHOICES: LobbySettingsState['boards'] = [
+  { id: 'wackelwald', name: 'Wackelwald', detail: '43 Felder', selected: true, random: false },
+  { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
+];
+
+/**
+ * Server-Standard: 10 Runden, Vorschläge 10/16/20, „Mehr Zeit zum Reagieren“ aus (CHAOS-166),
+ * Brett Wackelwald (CHAOS-197).
+ */
 const SETTINGS: LobbySettingsState = {
   rounds: 10,
   roundPresets: [10, 16, 20],
   moreReactionTime: false,
+  board: 'wackelwald',
+  boards: BOARD_CHOICES,
 };
 
 const JOIN = {
@@ -663,12 +674,19 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
     minigame: null,
   },
   // CHAOS-166: 12 ist kein Vorschlag (die Lobby zeigt sie zusätzlich), der Schalter ist an.
+  // CHAOS-197: Brett „Zufall“ gewählt.
   'lobby-settings': {
     phase: 'lobby',
     lobby: {
       ...JOIN,
       players: [ANNA, { ...BEN, ready: true, character: 'sock' }],
-      settings: { ...SETTINGS, rounds: 12, moreReactionTime: true },
+      settings: {
+        ...SETTINGS,
+        rounds: 12,
+        moreReactionTime: true,
+        board: 'zufall',
+        boards: BOARD_CHOICES.map((choice) => ({ ...choice, selected: choice.random })),
+      },
     },
     board: null,
     minigame: null,

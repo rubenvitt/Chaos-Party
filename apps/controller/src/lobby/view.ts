@@ -42,6 +42,11 @@ export interface LobbyView {
   readonly rounds: number;
   /** „5 Runden“ */
   readonly roundsLabel: string;
+  /**
+   * Gewähltes Brett der nächsten Partie („Wackelwald“, „Zufallsbrett“, CHAOS-197) oder `null`
+   * (älterer Server ohne `lobby.board`).
+   */
+  readonly boardName: string | null;
   /** Kurzer Hinweis unter der Auswahl. */
   readonly hint: string;
 }
@@ -103,6 +108,7 @@ export function describeLobby(
     canReady: context.actions.includes('ready'),
     rounds: lobby.rounds,
     roundsLabel: roundsLabel(lobby.rounds),
+    boardName: lobby.board?.name ?? null,
     hint: ready ? HINT_READY : mine === null ? HINT_PICK : HINT_PICKED,
   };
 }
