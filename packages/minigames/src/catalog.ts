@@ -3,10 +3,12 @@
  * Konfiguration und Controller nutzen ihn; der Host holt die Module aus `./index.ts`.
  *
  * Neues Minispiel: Ordner `src/<id>/` mit `info.ts` (rein) und `index.ts` (Modul), hier in
- * `MINIGAME_INFOS` und – wenn es in Partien vorkommen soll – in `ROTATION` eintragen, und in
- * `index.ts` das Modul registrieren.
+ * `MINIGAME_INFOS` und – wenn es in Partien vorkommen soll – in `ROTATION` eintragen, in
+ * `index.ts` das Modul registrieren und in `steckbriefe.ts` den Vielfalts-Steckbrief anlegen.
+ * Bausteine dafür im Baukasten `@chaos-party/minigame-kit` (ADR-021); Muster: `hallo-baukasten/`.
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
+import { HALLO_BAUKASTEN_INFO } from './hallo-baukasten/info.ts';
 import { KRUEMEL_KEHRAUS_INFO } from './kruemel-kehraus/info.ts';
 import { KUCKUCKS_KLATSCHE_INFO } from './kuckucks-klatsche/info.ts';
 import { PUDDING_GERANGEL_INFO } from './pudding-gerangel/info.ts';
@@ -21,6 +23,7 @@ export const MINIGAME_INFOS: readonly MinigameInfo[] = [
   WACKELTURM_INFO,
   KUCKUCKS_KLATSCHE_INFO,
   KRUEMEL_KEHRAUS_INFO,
+  HALLO_BAUKASTEN_INFO,
 ];
 
 /**

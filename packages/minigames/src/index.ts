@@ -2,6 +2,7 @@
  * Babylon-Module aller Minispiele für den Host. Reihenfolge wie `MINIGAME_INFOS`.
  */
 import type { MinigameModule } from '@chaos-party/minigame-sdk/babylon';
+import { halloBaukasten } from './hallo-baukasten/index.ts';
 import { kruemelKehraus } from './kruemel-kehraus/index.ts';
 import { kuckucksKlatsche } from './kuckucks-klatsche/index.ts';
 import { puddingGerangel } from './pudding-gerangel/index.ts';
@@ -18,6 +19,7 @@ export const MINIGAME_MODULES: readonly MinigameModule[] = [
   wackelturm,
   kuckucksKlatsche,
   kruemelKehraus,
+  halloBaukasten,
 ];
 
 export function getMinigameModule(id: string): MinigameModule | undefined {
