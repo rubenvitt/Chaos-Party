@@ -2,7 +2,8 @@
  * Natur-Welt eines Bretts (CHAOS-62, Look „Stilisierte Natur“, EXP-009): Insel aus den
  * Brettgrenzen, Felder als Baumscheiben mit lackierter Farbeinlage (Form je Feldtyp) und
  * Symbol, Wegpfeile und Trittsteine, Bäume, Teich, Pilze am Pilzpfad, Felsen am Klippenweg,
- * Bretter der Wackelbrücke, Laternen, Blumen und Gras. Die Brett-Szene
+ * Bretter der Wackelbrücke und des Baumkronenwegs, Laternen, Blumen und Gras; im Wackelwald
+ * dazu Bach und Lichtung (`wackelwaldScenery.ts`, CHAOS-196). Die Brett-Szene
  * (`createBoardScene.ts`) baut darauf Figuren, Texte und Kamera.
  *
  * Deko hängt an Brett-ID und Feldern (z. B. Pilze neben dem Feld mit Wegweiser „Pilzpfad“),
@@ -37,8 +38,18 @@ import {
 } from '../nature/geometry.ts';
 import type { NatureMaterials, PlainOptions } from '../nature/materials.ts';
 import { seeded } from '../nature/noise.ts';
-import { createTerrain, type Hollow, type Terrain } from '../nature/terrain.ts';
+import { createTerrain, type Terrain } from '../nature/terrain.ts';
 import { boardBounds, type Point2 } from './layout.ts';
+import {
+  buildFairyRing,
+  buildStream,
+  nearStream,
+  segmentDistance,
+  streamGround,
+  wackelwaldScenery,
+  wackelwaldTreeSpots,
+  type WackelwaldScenery,
+} from './wackelwaldScenery.ts';
 
 /** Oberkante der Baumscheiben (die Figuren stehen hier). */
 export const TILE_TOP = 0.3;
@@ -94,14 +105,6 @@ export interface NatureBoardOptions {
   readonly grassCount?: number;
 }
 
-function segmentDistance(p: Point2, a: Point2, b: Point2): number {
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const len2 = dx * dx + dz * dz;
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2));
-  return Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
-}
-
 /**
  * Insel-Umriss für ein Brett: Brettgrenzen plus Rand für Deko und Abhang. Der Rand wächst mit
  * dem Brett (CHAOS-196), weil der Wellenrand der Insel relativ ist: Auf großen Brettern lägen
@@ -131,29 +134,29 @@ export function boardEdges(board: BoardDefinition): [Point2, Point2][] {
   return edges;
 }
 
-/** Teich je Brett (Wackelwald: zwischen Sumpfabkürzung und Waldmitte). */
-function pondFor(board: BoardDefinition): Hollow | null {
-  if (board.id !== 'wackelwald') return null;
-  return { x: 8, z: -0.6, rx: 1.9, rz: 2.6, depth: 0.42 };
+/**
+ * Gelände eines Bretts: Insel, ebene Stellflächen für Felder und Wege, Mulden für Teich und Bach.
+ * Im Wackelwald (CHAOS-196) kommen Teich, Bach und Lichtung aus den Wegen (`wackelwaldScenery.ts`).
+ */
+export function boardTerrain(board: BoardDefinition): {
+  terrain: Terrain;
+  scenery: WackelwaldScenery | null;
+} {
+  const edges = boardEdges(board);
+  const scenery = board.id === 'wackelwald' ? wackelwaldScenery(board) : null;
+  const stream = scenery ? streamGround(scenery.stream) : { flats: [], hollows: [] };
+  const terrain = createTerrain({
+    shape: boardIsland(board),
+    flats: [
+      ...board.spaces.map((s) => ({ x: s.position.x, z: s.position.z, radius: 0.95 })),
+      ...edges.map(([a, b]) => ({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, radius: 0.5 })),
+      ...stream.flats,
+    ],
+    hollows: [...(scenery ? [scenery.pond] : []), ...stream.hollows],
+    relief: 0.4,
+  });
+  return { terrain, scenery };
 }
-
-/** Bäume in der Brettmitte (feste Lage wie in M2, `t` = Tanne). */
-const WACKELWALD_TREES: readonly { x: number; z: number; s: number; t: boolean }[] = [
-  { x: -6.5, z: 4.2, s: 0.8, t: false },
-  { x: -3.2, z: 5.1, s: 0.75, t: true },
-  { x: 0.4, z: 4.4, s: 0.9, t: false },
-  { x: 3.8, z: 5.2, s: 0.8, t: true },
-  { x: -7.4, z: 0.6, s: 0.85, t: true },
-  { x: -4.3, z: 1.7, s: 0.9, t: false },
-  { x: -1.2, z: 1.2, s: 0.75, t: true },
-  { x: 2.2, z: 1.8, s: 0.85, t: false },
-  { x: -5.6, z: -2.6, s: 0.75, t: true },
-  { x: -2.4, z: -2.1, s: 0.85, t: false },
-  { x: 1.1, z: -2.8, s: 0.8, t: true },
-  { x: 4.4, z: -1.6, s: 0.85, t: false },
-  { x: -7.8, z: -5.4, s: 0.65, t: true },
-  { x: 6.2, z: 3.3, s: 0.7, t: true },
-];
 
 export function buildNatureBoard(
   scene: Scene,
@@ -164,17 +167,9 @@ export function buildNatureBoard(
   const rnd = seeded(62);
   const spaces = new Map(board.spaces.map((s) => [s.id, s]));
   const edges = boardEdges(board);
-  const pond = pondFor(board);
-  const shape = boardIsland(board);
-  const terrain = createTerrain({
-    shape,
-    flats: [
-      ...board.spaces.map((s) => ({ x: s.position.x, z: s.position.z, radius: 0.95 })),
-      ...edges.map(([a, b]) => ({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, radius: 0.5 })),
-    ],
-    hollows: pond ? [pond] : [],
-    relief: 0.4,
-  });
+  const { terrain, scenery } = boardTerrain(board);
+  const pond = scenery?.pond ?? null;
+  const shape = terrain.shape;
   const casters: Mesh[] = [];
   casters.push(...buildIsland(scene, mats, terrain).slice(1));
 
@@ -209,13 +204,16 @@ export function buildNatureBoard(
     const node = isPine ? pine(scene, mats, at, s, rnd) : tree(scene, mats, at, s, rnd);
     trees.push(node);
   };
-  if (board.id === 'wackelwald') {
-    for (const t of WACKELWALD_TREES) plant(t.x, t.z, t.s, t.t);
+  if (scenery) {
+    for (const t of wackelwaldTreeSpots(board, scenery, terrain, rnd))
+      plant(t.x, t.z, t.scale, t.pine);
   }
   // Rand: hinten (von der Kamera weg) und an den Seiten, nie vorn (verdeckt die untere Reihe).
   const margin = 1.4;
-  for (let i = 0; i < 26; i++) {
-    const a = (i / 26) * Math.PI * 2 + rnd() * 0.15;
+  // Anzahl wächst mit dem Umfang (26 beim alten 43-Felder-Wackelwald).
+  const rimTrees = Math.round((shape.halfX + shape.halfZ) * 0.8);
+  for (let i = 0; i < rimTrees; i++) {
+    const a = (i / rimTrees) * Math.PI * 2 + rnd() * 0.15;
     const sinA = Math.sin(a);
     if (sinA < -0.35) continue;
     const r = terrain.rim(a) - margin - rnd() * 0.8;
@@ -282,6 +280,12 @@ export function buildNatureBoard(
     }
   }
 
+  // Bach zwischen Uferweg und Baumkronenweg, Hexenring auf der Lichtung (CHAOS-196).
+  if (scenery) {
+    buildStream(scene, mats, terrain, scenery.stream, rnd, statics);
+    buildFairyRing(scene, mats, terrain, scenery.clearing, rnd, statics);
+  }
+
   // Deko an beschrifteten Wegen: Pilze am Pilzpfad, Felsen am Klippenweg, Bretter der Brücke.
   for (const space of board.spaces) {
     if (!space.label) continue;
@@ -320,7 +324,7 @@ export function buildNatureBoard(
           statics,
         );
       }
-    } else if (/brücke|bruecke/i.test(space.label)) {
+    } else if (/brücke|bruecke|baumkrone/i.test(space.label)) {
       const planks = mats.textured('brown_planks_05', { u: 0.6, v: 0.3, tint: '#d8b894' });
       const chain = [space, ...route];
       for (let i = 0; i + 1 < chain.length; i++) {
@@ -350,7 +354,8 @@ export function buildNatureBoard(
 
   // Laternen außen am Weg, je zwischen zwei Feldern (nachts Lichtquellen).
   const lanterns: { light: Vector3; glass: Mesh }[] = [];
-  const lanternEdges = edges.filter((_, i) => i % 7 === 3).slice(0, 6);
+  const lanternStep = Math.max(1, Math.floor(edges.length / 6));
+  const lanternEdges = edges.filter((_, i) => i % lanternStep === 3).slice(0, 6);
   for (const [a, b] of lanternEdges) {
     const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
     const dx = mid.x - shape.centerX;
@@ -370,11 +375,14 @@ export function buildNatureBoard(
       (s) => Math.hypot(s.position.x - x, s.position.z - z) < TILE_DIAMETER / 2 + 0.2,
     ) ||
     edges.some(([a, b]) => segmentDistance({ x, z }, a, b) < 0.3) ||
-    (pond !== null && Math.hypot((x - pond.x) / pond.rx, (z - pond.z) / pond.rz) < 0.95);
+    (pond !== null && Math.hypot((x - pond.x) / pond.rx, (z - pond.z) / pond.rz) < 0.95) ||
+    nearStream(scenery?.stream ?? [], { x, z }, 0.6);
 
   // Blumen in kleinen Gruppen.
   const flowerSpots: Vector3[] = [];
-  for (let group = 0; group < 22; group++) {
+  // Anzahl wächst mit der Fläche (22 beim alten 43-Felder-Wackelwald).
+  const flowerGroups = Math.round(shape.halfX * shape.halfZ * 0.09);
+  for (let group = 0; group < flowerGroups; group++) {
     const cx = shape.centerX + (rnd() * 2 - 1) * shape.halfX * 0.85;
     const cz = shape.centerZ + (rnd() * 2 - 1) * shape.halfZ * 0.85;
     for (let k = 0; k < 7; k++) {

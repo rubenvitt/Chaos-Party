@@ -386,8 +386,8 @@ describe('Minispiele über die Session (M3, CHAOS-34)', () => {
     const pacing = DEFAULT_RULES.pacing;
     expect(intros.get(1)?.repeat).toBe(false);
     // Die Anleitung beginnt zwischen zwei Takten des Harness: Restzeit höchstens einen Takt kürzer.
-    const shortBy = (round: number, full: number): number =>
-      full - (intros.get(round)?.remainingMs ?? 0);
+    const shortBy = (round: number, full: number | undefined): number =>
+      (full ?? NaN) - (intros.get(round)?.remainingMs ?? NaN);
     expect(shortBy(1, pacing.minigameIntroMs)).toBeGreaterThanOrEqual(0);
     expect(shortBy(1, pacing.minigameIntroMs)).toBeLessThan(TICK_MS);
     expect(intros.get(2)?.repeat).toBe(true);
