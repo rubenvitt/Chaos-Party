@@ -175,8 +175,8 @@ export function rememberMinigame(history: readonly string[], id: string): string
  * Strafpunkten gegenüber `history` (zuletzt gespielte, neuestes zuerst). Hart: gleiche Familie
  * oder gleiches Kernverb direkt nach dem letzten Spiel. Weich: gleiche Kategorie, Bedienung
  * oder Team-Form wie das letzte (das vorletzte zählt halb), Familie kürzlich schon dran;
- * Gewichte (Favorit, geheime Wahl am iPad) verschieben die Punkte. Verletzt jeder Kandidat im Vorausblick eine harte Regel, wird der Rest des Beutels
- * nach einem Ausweg durchsucht. Ohne Geschichte oder Achsen ist es immer 0.
+ * Gewichte (Favorit, geheime Wahl am iPad) verschieben die Punkte. Verletzt jeder Kandidat im
+ * Vorausblick eine harte Regel, wird der Rest des Beutels nach einem Ausweg durchsucht. Ohne Geschichte oder Achsen ist es immer 0.
  */
 export function pickMinigameIndex(
   bag: readonly string[],
@@ -191,11 +191,12 @@ export function pickMinigameIndex(
   const [last, previous] = before;
   if (!last || bag.length <= 1) return 0;
   // Familien reihum: Wie viele gibt es im Vorrat (Beutel + schon gespielt)?
-  const families = new Set(
-    [...bag.flatMap((id) => byId.get(id) ?? []), ...before].flatMap((spec) =>
-      spec.family === undefined ? [] : [spec.family],
-    ),
-  );
+  const families = new Set<string>();
+  for (const spec of before) if (spec.family !== undefined) families.add(spec.family);
+  for (const id of bag) {
+    const family = byId.get(id)?.family;
+    if (family !== undefined) families.add(family);
+  }
   const recentFamilies = new Set(
     before
       .slice(1, Math.max(1, families.size - 1))

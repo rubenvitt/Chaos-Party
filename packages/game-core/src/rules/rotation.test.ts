@@ -104,6 +104,17 @@ function simulate(
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
 
+/** Partie mit 4 Spielern ohne Optionen; zwischengespeichert, weil viele Tests sie brauchen. */
+const plainRuns = new Map<number, string[]>();
+function plain(seed: number): string[] {
+  let drawn = plainRuns.get(seed);
+  if (!drawn) {
+    drawn = simulate(seed, 20);
+    plainRuns.set(seed, drawn);
+  }
+  return drawn;
+}
+
 /** Anteil je Wert einer Achse. */
 function shares(ids: readonly string[], axis: (spec: MinigameSpec) => string) {
   const counts = new Map<string, number>();
@@ -127,7 +138,7 @@ describe('Rotation mit 200 Dummy-Steckbriefen (CHAOS-85)', () => {
 
   it('nie dieselbe Familie oder dasselbe Kernverb direkt hintereinander', () => {
     for (const seed of SEEDS) {
-      const drawn = simulate(seed, 20).map(specOf);
+      const drawn = plain(seed).map(specOf);
       for (let i = 1; i < drawn.length; i++) {
         expect(drawn[i]?.family).not.toBe(drawn[i - 1]?.family);
         expect(drawn[i]?.verb).not.toBe(drawn[i - 1]?.verb);
@@ -136,7 +147,7 @@ describe('Rotation mit 200 Dummy-Steckbriefen (CHAOS-85)', () => {
   });
 
   it('verteilt Kategorie, Bedienung, Familie und Spielform gleichmäßig', () => {
-    const all = SEEDS.flatMap((seed) => simulate(seed, 20));
+    const all = SEEDS.flatMap((seed) => plain(seed));
     const pool = eligibleMinigames(CATALOG, 4).map((spec) => spec.id);
     const axes: [string, (spec: MinigameSpec) => string][] = [
       ['Kategorie', (spec) => spec.category ?? ''],
@@ -158,7 +169,7 @@ describe('Rotation mit 200 Dummy-Steckbriefen (CHAOS-85)', () => {
     let rotation = 0;
     let random = 0;
     for (const seed of SEEDS) {
-      const families = distinct(simulate(seed, 20).map(specOf));
+      const families = distinct(plain(seed).map(specOf));
       expect(families).toBeGreaterThanOrEqual(17);
       rotation += families;
       random += distinct(shuffled(createRng(seed), eligibleMinigames(CATALOG, 4)).slice(0, 20));
@@ -175,7 +186,7 @@ describe('Rotation mit 200 Dummy-Steckbriefen (CHAOS-85)', () => {
     let randomControls = 0;
     let pairs = 0;
     for (const seed of SEEDS) {
-      const drawn = simulate(seed, 20).map(specOf);
+      const drawn = plain(seed).map(specOf);
       const random = shuffled(createRng(seed + 10_000), eligibleMinigames(CATALOG, 4)).slice(0, 20);
       for (let i = 1; i < 20; i++) {
         pairs += 1;
@@ -226,10 +237,10 @@ describe('Rotation mit 200 Dummy-Steckbriefen (CHAOS-85)', () => {
       expect(drawn.some((id) => blocked.includes(id))).toBe(false);
       const withFavorites = simulate(seed, 20, 4, { favorites });
       favoriteDraws += withFavorites.filter((id) => favorites.includes(id)).length;
-      plainDraws += simulate(seed, 20).filter((id) => favorites.includes(id)).length;
+      plainDraws += plain(seed).filter((id) => favorites.includes(id)).length;
       // Die Spiele der letzten Partie kommen in der nächsten nicht vor (Vorrat reicht).
-      const next = simulate(seed + 1, 20, 4, { recent: simulate(seed, 20) });
-      expect(next.some((id) => simulate(seed, 20).includes(id))).toBe(false);
+      const next = simulate(seed + 1, 20, 4, { recent: plain(seed) });
+      expect(next.some((id) => plain(seed).includes(id))).toBe(false);
     }
     expect(favoriteDraws).toBeGreaterThan(plainDraws * 1.5);
   });
