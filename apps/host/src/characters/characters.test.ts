@@ -144,6 +144,51 @@ describe('Figuren-Bibliothek', () => {
     },
   );
 
+  it.each([
+    ['sock', 'strick', 'sheen'],
+    ['raccoon', 'fell', 'sheen'],
+    ['sock', 'knopf', 'clearcoat'],
+    ['raccoon', 'glanz', 'clearcoat'],
+    ['robot', 'lack', 'clearcoat'],
+  ] as const)(
+    '%s: glTF-Erweiterung am Material „%s“ aktiv (%s, CHAOS-207)',
+    async (id, materialName, extension) => {
+      const level = Logger.LogLevels;
+      Logger.LogLevels = Logger.ErrorLogLevel;
+      engine = new NullEngine();
+      Logger.LogLevels = level;
+      scene = new Scene(engine);
+      new FreeCamera('kamera', new Vector3(0, 1, 5), scene);
+      library = await loadCharacters(scene, { sources, keepPbr: true });
+      const handle = library.create(scene, player(1, id));
+      const mat = handle.meshes
+        .map((m) => m.material)
+        .find((m) => m?.name.split('#')[0] === materialName);
+      expect(mat).toBeInstanceOf(PBRMaterial);
+      const pbr = mat as PBRMaterial;
+      if (extension === 'sheen') expect(pbr.sheen.isEnabled).toBe(true);
+      else expect(pbr.clearCoat.isEnabled).toBe(true);
+      handle.dispose();
+    },
+  );
+
+  it('robot: Leuchtstärke verstärkt das Leuchten (KHR_materials_emissive_strength, CHAOS-207)', async () => {
+    const level = Logger.LogLevels;
+    Logger.LogLevels = Logger.ErrorLogLevel;
+    engine = new NullEngine();
+    Logger.LogLevels = level;
+    scene = new Scene(engine);
+    new FreeCamera('kamera', new Vector3(0, 1, 5), scene);
+    library = await loadCharacters(scene, { sources, keepPbr: true });
+    const handle = library.create(scene, player(1, 'robot'));
+    const glow = handle.meshes
+      .map((m) => m.material)
+      .find((m) => m?.name.split('#')[0] === 'leuchten');
+    expect(glow).toBeInstanceOf(PBRMaterial);
+    expect((glow as PBRMaterial).emissiveIntensity).toBe(2);
+    handle.dispose();
+  });
+
   it('Standard-Materialien behalten die Normal-Textur (Vitrine, CHAOS-172)', async () => {
     const { scene: s, library: lib } = await setup();
     const handle = lib.create(s, player(4, 'sock'));
