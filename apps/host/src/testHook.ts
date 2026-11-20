@@ -33,6 +33,14 @@ export interface ChaosBoardTestHook {
    * Kamera-Regie (CHAOS-194): aktuelle Einstellung (`kind`), Blickpunkt und Abstand der
    * nachgezogenen Kamera, dazu Ziel-Blickpunkt und -Abstand der Einstellung.
    */
+  /** Randmarker für Figuren außerhalb des Bilds (CHAOS-210), Stand des letzten Takts. */
+  getEdgeMarkers(): {
+    slot: number;
+    x: number;
+    y: number;
+    angle: number;
+    opacity: number;
+  }[];
   getCamera(): {
     kind: string;
     focus: { x: number; z: number };

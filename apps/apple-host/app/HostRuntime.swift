@@ -45,6 +45,8 @@ struct Overlay: Equatable {
 /// One JSContext on a serial queue; the network runs on the same queue. Frames come from the main thread.
 final class HostRuntime: ObservableObject {
     @Published private(set) var overlay = Overlay()
+    /// Randmarker (CHAOS-210) getrennt vom übrigen HUD: Sie ändern sich bei jeder Kamerafahrt.
+    let markers = EdgeMarkerModel()
 
     private let queue = DispatchQueue(label: "dev.rubeen.chaosparty.host.js")
     private let context = JSContext()!
@@ -225,6 +227,8 @@ final class HostRuntime: ObservableObject {
         o.pause = PauseScreen(s.pause)
         o.finale = s.phase == "final" ? s.final.map(FinaleScreen.init) : nil
         if o != overlay { overlay = o }
+        let marks = o.board == nil ? [] : (s.board?.markers ?? [])
+        if marks != markers.markers { markers.markers = marks }
         let players = s.lobby?.players ?? []
         if autostart, overlay.sceneLoaded, s.phase == "lobby", !players.isEmpty, players.allSatisfy({ $0.ready == true }) {
             command("start")

@@ -55,6 +55,8 @@ struct RenderState: Decodable, Equatable {
         var hud: Hud?
         /// Camera pose from the shared direction (`camera.ts`, CHAOS-194), already eased; Babylon coordinates (flip x).
         var camera: Camera?
+        /// Edge markers for pawns outside the picture (CHAOS-210, `edgeMarkers.ts`): only visible ones, by slot.
+        var markers: [EdgeMarker]?
         var trophySpaces: [String]?
         var traps: [Trap]?
         /// Sound cues of the last 1.5 s; play every id once.
@@ -306,6 +308,16 @@ struct RenderState: Decodable, Equatable {
     }
 
     /// Babylon coordinates (flip z); `fov` in radians on `fovAxis` (vertical, horizontal).
+    /// Edge marker (CHAOS-210): centre as a fraction of the 16:9 picture from the top left, `angle` towards the pawn in
+    /// screen space (radians, 0 = right, clockwise), `opacity` already faded by the shared direction.
+    struct EdgeMarker: Decodable, Equatable {
+        var slot: Int
+        var x: Double
+        var y: Double
+        var angle: Double
+        var opacity: Double
+    }
+
     struct Camera: Decodable, Equatable {
         var pos: [Float]
         var target: [Float]

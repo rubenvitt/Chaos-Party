@@ -5,7 +5,7 @@
  */
 import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { parseServerToHostMessage } from '@chaos-party/protocol';
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine.js';
 import type { FinaleSpeed, GpuBackend } from '../config.ts';
 import { attachPerf } from '../debug/perf.ts';
@@ -19,6 +19,7 @@ import type { ChaosBoardTestHook, ChaosTestHook } from '../testHook.ts';
 import { BoardHud } from './BoardHud.tsx';
 import { createBoardScene } from './createBoardScene.ts';
 import { createDemoMessages } from './demo.ts';
+import { EdgeMarkers } from './EdgeMarkers.tsx';
 import type { BoardDirector } from './director.ts';
 import type { BoardScene } from './types.ts';
 
@@ -73,6 +74,8 @@ export function BoardStage({
   const finaleShown = hud.view?.gamePhase === 'game-results' && Boolean(hud.view.ranking);
   const finaleRef = useRef(finaleShown);
   const sceneRef = useRef<BoardScene | null>(null);
+  /** Szene für die Randmarker (CHAOS-210); `null` bis zum Aufbau. */
+  const [markerScene, setMarkerScene] = useState<BoardScene | null>(null);
   /** Messung des Bretts an- bzw. abmelden (beim Zeigen auch die Marke `erstes-bild`). */
   const perfRef = useRef<((on: boolean) => void) | null>(null);
   useEffect(() => {
@@ -138,6 +141,7 @@ export function BoardStage({
         ...(engine ? { engine } : {}),
       });
       sceneRef.current = scene;
+      setMarkerScene(scene);
       scene.setRenderPaused(finaleRef.current);
       scene.setHidden(hiddenRef.current);
       onSceneRef.current(scene);
@@ -167,6 +171,7 @@ export function BoardStage({
             getPawnSpaces: () => director.getPawnSpaces(),
             getPawnCharacters: () => scene.getPawnCharacters(),
             getLightMood: () => scene.getLightMood(),
+            getEdgeMarkers: () => scene.getEdgeMarkers().map((m) => ({ ...m })),
             getCamera: () => {
               const camera = scene.getCamera();
               return camera
@@ -253,6 +258,7 @@ export function BoardStage({
         perfRef.current = null;
         scene.dispose();
         if (sceneRef.current === scene) sceneRef.current = null;
+        setMarkerScene((current) => (current === scene ? null : current));
         onSceneRef.current(null);
         onReadyRef.current(false);
         if (hook && window.__chaos === hook) delete window.__chaos;
@@ -295,6 +301,8 @@ export function BoardStage({
       <div className="stage" ref={stageRef} />
       {/* Ausgeblendet ohne HUD: keine doppelten Test-IDs und Live-Regionen neben dem Minispiel. */}
       {!hidden && <BoardHud hud={hud} boardName={board.name} connection={connection} />}
+      {/* Über dem HUD: Am oberen Rand läge ein Marker sonst unter dem Ereignis-Ticker. */}
+      {!hidden && <EdgeMarkers scene={markerScene} />}
       {hud.view?.gamePhase === 'game-results' && hud.view.ranking && (
         <Finale
           view={hud.view}
