@@ -53,8 +53,13 @@ const test = base.extend<{ chaosServer: RunningServer }>({
       game: {
         minigames: [{ id: INFO.id, playMs: PLAY_MS, scoring: INFO.scoring }],
         // Runde 2 wiederholt das Minispiel (CHAOS-66): kurze Anleitung, hier gleich lang für Ruhe.
+        // Die Anleitung wartet auf „Bereit“ (CHAOS-214), frühestens nach INTRO_MS.
         rules: withRules({
-          pacing: { minigameIntroMs: INTRO_MS, minigameRepeatIntroMs: INTRO_MS },
+          pacing: {
+            minigameIntroMs: INTRO_MS,
+            minigameRepeatIntroMs: INTRO_MS,
+            minigameReadyMinMs: INTRO_MS,
+          },
         }),
       },
     });
@@ -81,6 +86,13 @@ async function answerPrompt(phone: Page): Promise<boolean> {
   }
   await choices.first().tap();
   return true;
+}
+
+/** Tippt „Bereit!“ in der Minispiel-Anleitung, sobald die Tippsperre vorbei ist (CHAOS-214). */
+async function tapMinigameReady(phone: Page) {
+  const button = phone.getByTestId('minigame-ready-button');
+  await expect(button).toHaveAttribute('data-armed', 'true');
+  await button.tap();
 }
 
 async function minigameStage(host: Page): Promise<string | null> {
@@ -151,13 +163,25 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     if (INFO.controls.a !== null) {
       await expect(intro.locator('[data-control="a"]')).toContainText(INFO.controls.a);
     }
-    await expect(host.getByTestId('minigame-countdown')).toBeVisible();
+    // CHAOS-214: kein Countdown, sondern Bereit-Stand je Spieler; Start erst nach beiden.
+    await expect(intro).toHaveAttribute('data-waits-ready', 'true');
+    await expect(host.getByTestId('minigame-countdown')).toHaveCount(0);
+    await expect(host.getByTestId('minigame-ready-1')).toHaveAttribute('data-state', 'waiting');
+    await expect(host.getByTestId('minigame-ready-2')).toHaveAttribute('data-state', 'waiting');
     // Brett bleibt eingehängt, aber unsichtbar (CHAOS-152): zwei Leinwände, kein Brett-HUD.
     await expect(host.locator('.board-layer')).toHaveAttribute('data-hidden', 'true');
     await expect(host.getByTestId('board-hud')).toHaveCount(0);
     await expect(host.locator('canvas')).toHaveCount(2);
     await expect(intro).toContainText('Schraubi');
     await expect(intro).toContainText('Kalle Kaktus');
+
+    // „Bereit!“ am ersten Handy: Host zeigt es, Anleitung bleibt; dann das zweite → Spiel.
+    await tapMinigameReady(phone1);
+    await expect(phone1.getByTestId('minigame-ready-done')).toBeVisible();
+    await expect(host.getByTestId('minigame-ready-1')).toHaveAttribute('data-state', 'ready');
+    await expect(host.getByTestId('minigame-ready-2')).toHaveAttribute('data-state', 'waiting');
+    expect(chaosServer.server.session.snapshot().game?.state.phase).toBe('minigame-intro');
+    await tapMinigameReady(phone2);
 
     // Spiel: Bühne startet, ein iPhone tippt A – die Eingabe kommt im Minispiel an.
     await expect(host.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'play', {
@@ -234,7 +258,7 @@ test.describe('M3-Durchstich: Minispiel mit echten Seiten', () => {
     await expect(host.getByTestId('minigame-instructions')).toHaveCount(0);
     await expect(intro).not.toContainText(INFO.tagline);
     await expect(host.getByTestId('minigame-controls')).toBeVisible();
-    await expect(host.getByTestId('minigame-countdown')).toBeVisible();
+    await expect(host.getByTestId('minigame-countdown')).toHaveCount(0);
     const phoneIntro = phone1.getByTestId('minigame-intro');
     await expect(phoneIntro).toHaveAttribute('data-repeat', 'true');
     await expect(phone1.getByTestId('minigame-steps')).toHaveCount(0);
