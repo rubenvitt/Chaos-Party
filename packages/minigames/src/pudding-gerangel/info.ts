@@ -21,7 +21,5 @@ export const PUDDING_GERANGEL_INFO: MinigameInfo = {
   scoring: 'higher',
   scoreUnit: 'Punkte',
   family: 'rempeln-schubsen',
-  verb: 'rempeln',
-  form: 'ffa',
   ipadZone: true,
 };

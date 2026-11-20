@@ -21,7 +21,5 @@ export const KUCKUCKS_KLATSCHE_INFO: MinigameInfo = {
   scoring: 'higher',
   scoreUnit: 'Punkte',
   family: 'reflex-reaktion',
-  verb: 'reagieren',
-  form: 'ffa',
   ipadZone: true,
 };

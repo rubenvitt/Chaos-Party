@@ -22,7 +22,5 @@ export const KRUEMEL_KEHRAUS_INFO: MinigameInfo = {
   scoring: 'higher',
   scoreUnit: 'Krümel',
   family: 'fangen-sammeln',
-  verb: 'schieben',
-  form: 'ffa',
   ipadZone: true,
 };

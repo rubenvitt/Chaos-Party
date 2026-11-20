@@ -25,8 +25,8 @@ import {
   type RuleSet,
   type Slot,
 } from '@chaos-party/game-core';
-import { controlSchemeOf, type MinigameInfo } from '@chaos-party/minigame-sdk';
-import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
+import type { MinigameInfo } from '@chaos-party/minigame-sdk';
+import { getMinigameInfo, getSteckbrief, rotationInfos } from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
   type BoardEvent,
@@ -111,17 +111,27 @@ export const DEFAULT_ROUNDS = 10;
  */
 export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
 
-/** Regel-Steckbrief eines Minispiels: Kennung, Zeit, Wertung und Achsen der Rotation (CHAOS-85). */
+/**
+ * Regel-Steckbrief eines Minispiels: Kennung, Zeit, Wertung und Achsen der Rotation (CHAOS-85).
+ * Kernverb, Spielform und Bedienung kommen aus dem Vielfalts-Steckbrief (ADR-021), Familie und
+ * Tauglichkeit aus `MinigameInfo`.
+ */
 export function minigameSpecOf(info: MinigameInfo): MinigameSpec {
+  const steckbrief = getSteckbrief(info.id);
+  const controls =
+    steckbrief?.bedienung ??
+    `${info.controls.joystick === null ? '' : 'S'}${info.controls.a === null ? '' : 'A'}${
+      info.controls.b === null ? '' : 'B'
+    }`;
   return {
     id: info.id,
     playMs: info.durationMs,
     scoring: info.scoring,
     category: info.category,
-    controls: controlSchemeOf(info.controls),
-    form: info.form ?? 'ffa',
+    controls,
+    form: steckbrief?.spielform.toLowerCase() ?? 'ffa',
+    ...(steckbrief === undefined ? {} : { verb: steckbrief.kernverb }),
     ...(info.family === undefined ? {} : { family: info.family }),
-    ...(info.verb === undefined ? {} : { verb: info.verb }),
     ...(info.minPlayers === undefined ? {} : { minPlayers: info.minPlayers }),
     ...(info.maxPlayers === undefined ? {} : { maxPlayers: info.maxPlayers }),
     ...(info.ipadZone === undefined ? {} : { ipadZone: info.ipadZone }),
@@ -308,6 +318,7 @@ export class BoardGame {
             seed: state.minigame.seed,
             playMs: state.minigame.playMs,
             repeat: state.minigame.repeat,
+            ...(state.minigame.ready ? { ready: [...state.minigame.ready] } : {}),
             elapsedMs:
               state.minigame.playStartedAt === null
                 ? null
@@ -374,7 +385,24 @@ export class BoardGame {
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
       // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
       repeat: minigame.repeat,
+      // CHAOS-214: Anleitung wartet auf „Bereit“ – eigener Stand.
+      ...(stage === 'intro' && minigame.ready ? { ready: minigame.ready.includes(slot) } : {}),
     };
+  }
+
+  /**
+   * Wartet die Anleitung noch auf „Bereit“ dieses Slots (CHAOS-214)? Nicht in der Pause; dann
+   * bietet der Controller den Knopf nicht an.
+   */
+  awaitsReady(slot: Slot): boolean {
+    const state = this.stateValue;
+    const ready = state.minigame?.ready;
+    return (
+      state.phase === 'minigame-intro' &&
+      !state.paused &&
+      ready !== undefined &&
+      !ready.includes(slot)
+    );
   }
 
   /** Eingaben, die gerade (Minispiel läuft) angeboten werden; sonst leer. */

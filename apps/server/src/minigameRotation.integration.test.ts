@@ -4,7 +4,7 @@
  * Minispiele der letzten Partie als „nicht gleich wieder“.
  */
 import type { GameState, MinigameSpec } from '@chaos-party/game-core';
-import { rotationInfos } from '@chaos-party/minigames/catalog';
+import { getSteckbrief, rotationInfos } from '@chaos-party/minigames/catalog';
 import { describe, expect, it } from 'vitest';
 import { catalogMinigames, minigameSpecOf } from './game.ts';
 import { Harness, HOST } from './testHarness.ts';
@@ -37,14 +37,15 @@ function configure(
 }
 
 describe('Minispiel-Rotation in der Session (CHAOS-85)', () => {
-  it('Katalog-Steckbriefe tragen die Achsen der Rotation', () => {
+  it('Katalog-Steckbriefe tragen die Achsen der Rotation (Vielfalts-Steckbrief, ADR-021)', () => {
     for (const info of rotationInfos()) {
       const spec = minigameSpecOf(info);
+      const steckbrief = getSteckbrief(info.id);
       expect(spec.family).toBeDefined();
-      expect(spec.verb).toBeDefined();
+      expect(spec.verb).toBe(steckbrief?.kernverb);
       expect(spec.form).toBe('ffa');
+      expect(spec.controls).toBe(steckbrief?.bedienung);
       expect(spec.category).toBe(info.category);
-      expect(spec.controls).toMatch(/^S?A?B?$/);
     }
   });
 

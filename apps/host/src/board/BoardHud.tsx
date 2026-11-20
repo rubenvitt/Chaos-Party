@@ -13,6 +13,7 @@ import {
   type SlotNumber,
 } from '@chaos-party/protocol';
 import type { CSSProperties } from 'react';
+import { waitsForReady } from '../minigame/readiness.ts';
 import { lookMood } from '../nature/settings.ts';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HudMessage, HudSnapshot, MinigameSummary } from './director.ts';
@@ -167,7 +168,10 @@ function MinigameOverlay({
           <p className="board-overlay-kicker">Minispiel</p>
           <h2>{text.title}</h2>
           <p className="board-overlay-lead">{text.lead}</p>
-          {seconds !== null && <p className="board-overlay-timer">noch {seconds} s</p>}
+          {/* CHAOS-214: Wartet die Anleitung auf „Bereit“, ist die Restzeit kein Countdown. */}
+          {seconds !== null && !waitsForReady(view) && (
+            <p className="board-overlay-timer">noch {seconds} s</p>
+          )}
         </div>
       </div>
     );

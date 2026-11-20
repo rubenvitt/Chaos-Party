@@ -1693,6 +1693,135 @@ body,
   opacity: 0.7;
 }
 
+/* Bereitschaft in der Anleitung (CHAOS-214): je Spieler ein Chip, bereit = grün mit Häkchen.
+ * Kompakt (zwei Zeilen), damit auch die längste Anleitung bei 1280×720 in die Karte passt. */
+.minigame-ready {
+  padding: 10px 0 0;
+  border-top: 3px dashed rgb(27 21 48 / 25%);
+}
+
+.minigame-ready-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.minigame-ready-count {
+  padding: 0 10px;
+  border: 3px solid #1b1530;
+  border-radius: 12px;
+  background: #ffd23f;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minigame-ready-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minigame-ready-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 4px solid var(--player-color);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.minigame-ready-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.minigame-ready-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.minigame-ready-name {
+  flex: none;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.minigame-ready-character {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  opacity: 0.7;
+}
+
+.minigame-ready-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #ece8f5;
+  font-size: 17px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.minigame-ready-chip[data-state='waiting'] .minigame-ready-state {
+  animation: minigame-ready-pulse 1.4s ease-in-out infinite;
+}
+
+.minigame-ready-chip[data-state='ready'] {
+  border-color: #1f9d55;
+  background: #eafbf0;
+}
+
+.minigame-ready-chip[data-state='ready'] .minigame-ready-state {
+  background: #1f9d55;
+  color: #fff;
+}
+
+.minigame-ready-chip[data-state='disconnected'] {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.minigame-ready-check {
+  font-size: 18px;
+  line-height: 1;
+}
+
+@keyframes minigame-ready-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minigame-ready-chip[data-state='waiting'] .minigame-ready-state {
+    animation: none;
+  }
+}
+
 /* Spiel-HUD: oben Titel und Zeit, unten Punkte je Spieler (Szene bleibt frei). */
 .minigame-hud {
   position: absolute;

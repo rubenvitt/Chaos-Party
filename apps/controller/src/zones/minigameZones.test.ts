@@ -5,7 +5,12 @@ import {
   HIT_SLOP,
   inflate,
   MAX_BIG_BUTTON,
+  MAX_INTRO_READY_WIDTH,
+  MINIGAME_FOOT_GAP,
+  minigameFootHeight,
+  minigameZoneFrames,
   rectCenter,
+  ZONE_PADDING,
   toScreen,
   type ControlKind,
   type Point,
@@ -13,7 +18,7 @@ import {
   type Size,
   type ZoneGeometry,
 } from './geometry.ts';
-import { zoneControlsInput } from './zoneInput.ts';
+import { contextKey, zoneControlsInput } from './zoneInput.ts';
 import { createZoneTracker } from './zoneTracker.ts';
 import type { SlotContext } from '../state/reducer.ts';
 
@@ -169,5 +174,112 @@ describe('Wechsel Spiel → Ergebnis im Zonen-Tracker', () => {
     expect(tracker.end(1)).toEqual([]);
     expect(tracker.view(1).pressed).toEqual([]);
     expect(tracker.view(3).stick).toBeNull();
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * „Bereit“ in der Anleitung (CHAOS-214)
+ * ------------------------------------------------------------------------- */
+
+function introContext(ready: boolean | undefined, actions: Action[]): SlotContext {
+  return {
+    phase: 'board',
+    layout: 'board',
+    actions,
+    minigame: { ...minigame('intro', ALL), ...(ready !== undefined && { ready }) },
+  };
+}
+
+function introZones(
+  viewport: Size,
+  context: SlotContext,
+  options: { armed?: boolean; sentIn?: string } = {},
+  slots: SlotNumber[] = [1, 2, 3, 4],
+): ZoneGeometry[] {
+  return buildZones(slots, viewport, (slot) =>
+    zoneControlsInput(context, options.sentIn, slot, undefined, {
+      introArmed: options.armed ?? true,
+    }),
+  );
+}
+
+describe('Bereit-Knopf der Anleitung in Zonen (CHAOS-214)', () => {
+  const waiting = introContext(false, ['ready']);
+
+  it('Fußzeile unter der Karte: Knopf ganz in der Zone, mittig, ohne Überlappung der Karte', () => {
+    for (const viewport of [LANDSCAPE, PORTRAIT, MINI_LANDSCAPE]) {
+      for (const seats of [1, 2, 3, 4] as const) {
+        const slots = ([1, 2, 3, 4] as const).slice(0, seats);
+        for (const zone of introZones(viewport, waiting, {}, slots)) {
+          expect(kinds(zone)).toEqual(['ready']);
+          const [ready] = zone.controls;
+          if (!ready) throw new Error('Bereit fehlt');
+          const frames = minigameZoneFrames(zone.local, true);
+          expect(ready.inert).toBeUndefined();
+          expect(inside(ready.rect, zone.local)).toBe(true);
+          expect(ready.rect.height).toBeGreaterThanOrEqual(64);
+          expect(ready.rect.width).toBeLessThanOrEqual(MAX_INTRO_READY_WIDTH);
+          expect(Math.abs(rectCenter(ready.rect).x - zone.local.width / 2)).toBeLessThan(1);
+          expect(ready.rect.y).toBe(frames.foot.y);
+          expect(overlaps(ready.rect, frames.card)).toBe(false);
+          expect(frames.card.y + frames.card.height + MINIGAME_FOOT_GAP).toBe(frames.foot.y);
+          // Die Karte behält genug Platz für Titel und Anleitung.
+          expect(frames.card.height).toBeGreaterThan(180);
+        }
+      }
+    }
+  });
+
+  it('ohne Fußzeile füllt die Karte die ganze Fläche unter der Plakette', () => {
+    const local = { width: 560, height: 400 };
+    const { card, foot } = minigameZoneFrames(local, false);
+    expect(foot.height).toBe(0);
+    expect(card.y + card.height).toBe(local.height - ZONE_PADDING);
+    expect(minigameFootHeight({ width: 400, height: 300 })).toBe(64);
+    expect(minigameFootHeight({ width: 400, height: 1200 })).toBe(96);
+  });
+
+  it('Schonfrist: Knopf sichtbar, aber inert – Tippen löst nichts aus', () => {
+    const guarded = introZones(LANDSCAPE, waiting, { armed: false });
+    const [ready] = guarded[0]?.controls ?? [];
+    expect(ready?.kind).toBe('ready');
+    expect(ready?.inert).toBe(true);
+    const tracker = createZoneTracker(guarded);
+    const point = at(guarded, 1, 'ready');
+    expect(tracker.start(1, point)).toEqual([]);
+    expect(tracker.end(1)).toEqual([]);
+    // Nach der Schonfrist löst dasselbe Antippen `ready` beim Abheben aus.
+    tracker.setZones(introZones(LANDSCAPE, waiting, { armed: true }));
+    expect(tracker.start(2, point)).toEqual([]);
+    expect(tracker.end(2)).toEqual([{ type: 'ready', slot: 1 }]);
+  });
+
+  it('Finger aus der Schonfrist bleibt wirkungslos, auch wenn der Knopf danach scharf wird', () => {
+    const tracker = createZoneTracker(introZones(LANDSCAPE, waiting, { armed: false }));
+    const point = at(introZones(LANDSCAPE, waiting), 1, 'ready');
+    tracker.start(1, point);
+    tracker.setZones(introZones(LANDSCAPE, waiting, { armed: true }));
+    expect(tracker.end(1)).toEqual([]);
+  });
+
+  it('gesendet oder vom Server bestätigt: kein Bedienelement, Zustand `done`', () => {
+    const sent = zoneControlsInput(waiting, contextKey(waiting), 1, undefined, {
+      introArmed: true,
+    });
+    expect(sent.introReady).toBe('done');
+    expect(introZones(LANDSCAPE, waiting, { sentIn: contextKey(waiting) })[0]?.controls).toEqual(
+      [],
+    );
+    const confirmed = introContext(true, []);
+    expect(zoneControlsInput(confirmed, undefined, 1).introReady).toBe('done');
+    expect(introZones(LANDSCAPE, confirmed)[0]?.controls).toEqual([]);
+  });
+
+  it('feste Anleitungszeit (älterer Server): keine Fußzeile, kein Knopf', () => {
+    const legacy = introContext(undefined, []);
+    expect(zoneControlsInput(legacy, undefined, 1).introReady).toBeUndefined();
+    expect(introZones(LANDSCAPE, legacy)[0]?.controls).toEqual([]);
+    // Ergebnis bietet nie „Bereit“ an.
+    expect(zoneControlsInput(resultsContext(ALL), undefined, 1).introReady).toBeUndefined();
   });
 });

@@ -26,6 +26,16 @@ describe('parseHostConfig', () => {
     expect(parseHostConfig('?volume=laut').volume).toBe(70);
   });
 
+  it('liest ready/offline für die Bereitschaft im lokalen Ablauf (CHAOS-214)', () => {
+    expect(parseHostConfig('?local=1&flow=1&ready=3,1,x,1&offline=4').ready).toEqual({
+      ready: [1, 3],
+      offline: [4],
+    });
+    expect(parseHostConfig('?ready=').ready).toEqual({ ready: [], offline: [] });
+    expect(parseHostConfig('?local=1').ready).toBeNull();
+    expect(DEFAULT_CONFIG.ready).toBeNull();
+  });
+
   it('liest repeat für die kurze Anleitung im lokalen Ablauf (CHAOS-66)', () => {
     expect(parseHostConfig('?local=1&minigame=pump-parade&flow=1&repeat=1').repeat).toBe(true);
     expect(DEFAULT_CONFIG.repeat).toBe(false);
@@ -46,6 +56,7 @@ describe('parseHostConfig', () => {
       minigame: null,
       flow: false,
       repeat: false,
+      ready: null,
       mute: false,
       volume: 70,
       finale: null,

@@ -295,6 +295,12 @@ export const ControllerMinigameInfoSchema = z.strictObject({
    * Titel und Bedienlegende. Fehlt = `false` (volle Anleitung).
    */
   repeat: z.boolean().optional(),
+  /**
+   * v4-Nachtrag (CHAOS-214, optional): Nur in `intro`, wenn die Anleitung auf Bereitschaft
+   * wartet: `true` = dieser Slot hat schon „Bereit“ gedrückt. Fehlt = Anleitung wartet nicht
+   * (feste Anleitungszeit, ältere Server).
+   */
+  ready: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -932,6 +938,11 @@ export const BoardViewSchema = z.strictObject({
        * am PC. Fehlt = `false`.
        */
       repeat: z.boolean().optional(),
+      /**
+       * v4-Nachtrag (CHAOS-214, optional): Slots, die in der Anleitung schon „Bereit“ gedrückt
+       * haben. Fehlt = die Anleitung wartet nicht auf Bereitschaft (feste Anleitungszeit).
+       */
+      ready: z.array(SlotSchema).max(MAX_PLAYERS).optional(),
       /** Seit Beginn von `minigame-play` vergangen (ms) oder `null` davor. */
       elapsedMs: z.int().nonnegative().nullable(),
       placements: z.array(MinigamePlacementSchema).max(MAX_PLAYERS).nullable(),

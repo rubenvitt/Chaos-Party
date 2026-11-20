@@ -306,7 +306,7 @@ private struct PadButton: View {
 
 /// Texts of the minigame card (port of `MinigameIntro`). If the minigame already ran this match
 /// (`repeat`, CHAOS-66/CHAOS-128), the intro is short: kicker „Nochmal!“, title and controls,
-/// no tagline and no steps (the intro lasts only 3 s then).
+/// no tagline and no steps (players already know the game).
 struct MinigameCardText: Equatable {
     static let repeatKicker = "Nochmal!"
 
@@ -322,8 +322,52 @@ struct MinigameCardText: Equatable {
     }
 }
 
+/// „Bereit“ in the minigame intro (CHAOS-214). The server offers the action `ready` until the
+/// slot pressed it and then reports `minigame.ready == true`; without `ready` in the info
+/// (older server, fixed intro timer) the intro keeps its old closing line.
+enum MinigameIntroReady: Equatable {
+    /// Intro does not wait (or no intro): „Gleich geht’s los!“.
+    case fixed
+    /// Big „Bereit!“ button.
+    case offer
+    /// Pressed (locally sent or confirmed by the server): wait for the others.
+    case waiting
+
+    static let buttonTitle = "Bereit!"
+    static let offerHint = "Alles klar? Dann tippe „Bereit!“."
+    static let waitingText = "Bereit! Warte auf die anderen …"
+    static let fixedText = "Gleich geht’s los!"
+    /// Taps right after the intro appears are ignored (fingers still on the board screen).
+    static let tapGuard: Duration = .milliseconds(600)
+
+    /// `sent`: tapped locally since the current context arrived.
+    init(minigame: ControllerMinigameInfo, actions: [Action], sent: Bool) {
+        guard minigame.stage == .intro else {
+            self = .fixed
+            return
+        }
+        if minigame.ready == true {
+            self = .waiting
+        } else if actions.contains(.ready) {
+            self = sent ? .waiting : .offer
+        } else {
+            self = .fixed
+        }
+    }
+
+    /// Whether a tap at `now` counts, given when the button appeared.
+    static func acceptsTap(shownAt: ContinuousClock.Instant, now: ContinuousClock.Instant) -> Bool {
+        now - shownAt >= tapGuard
+    }
+}
+
 struct MinigameCard: View {
     let minigame: ControllerMinigameInfo
+    let actions: [Action]
+    let tint: Tint
+    /// `SlotContext.key`: a new context releases the local „sent“ lock.
+    let contextKey: String
+    let onReady: () -> Void
 
     var body: some View {
         ScrollView {
@@ -390,7 +434,8 @@ struct MinigameCard: View {
                 }
             }
         }
-        Text("Gleich geht’s los!").font(.title3.bold())
+        IntroReadyFooter(minigame: minigame, actions: actions, tint: tint, onReady: onReady)
+            .id(contextKey)
     }
 
     @ViewBuilder private var result: some View {
@@ -433,6 +478,54 @@ struct MinigameCard: View {
     }
 
     private static let cheers = [1: "Gewonnen!", 2: "Stark gespielt!", 3: "Gut gemacht!", 4: "Nächstes Mal!"]
+}
+
+/// Closing line of the intro: fixed text, „Bereit!“ button or waiting note (CHAOS-214).
+private struct IntroReadyFooter: View {
+    let minigame: ControllerMinigameInfo
+    let actions: [Action]
+    let tint: Tint
+    let onReady: () -> Void
+    @State private var sent = false
+    @State private var shownAt = ContinuousClock.now
+    /// Grace period over: the button looks (and is) tappable.
+    @State private var armed = false
+
+    var body: some View {
+        switch MinigameIntroReady(minigame: minigame, actions: actions, sent: sent) {
+        case .fixed:
+            Text(MinigameIntroReady.fixedText).font(.title3.bold())
+        case .offer:
+            VStack(spacing: 12) {
+                Text(MinigameIntroReady.offerHint)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Palette.dim)
+                    .multilineTextAlignment(.center)
+                PrimaryButton(title: MinigameIntroReady.buttonTitle, color: tint.color, onColor: tint.on) {
+                    guard !sent, MinigameIntroReady.acceptsTap(shownAt: shownAt, now: .now) else { return }
+                    sent = true
+                    onReady()
+                }
+                .disabled(!armed)
+                .opacity(armed ? 1 : 0.5)
+                .animation(.easeOut(duration: 0.2), value: armed)
+                .accessibilityLabel("Bereit")
+                .accessibilityHint("Das Minispiel startet, sobald alle bereit sind.")
+            }
+            .task {
+                shownAt = .now
+                armed = false
+                guard (try? await Task.sleep(for: MinigameIntroReady.tapGuard)) != nil else { return }
+                armed = true
+            }
+        case .waiting:
+            Label(MinigameIntroReady.waitingText, systemImage: "checkmark.circle.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Palette.mint)
+                .multilineTextAlignment(.center)
+                .accessibilityLabel("Bereit. Warte auf die anderen.")
+        }
+    }
 }
 
 extension ControllerMinigameInfo {

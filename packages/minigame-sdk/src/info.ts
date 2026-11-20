@@ -61,18 +61,12 @@ export interface MinigameInfo {
   /** Einheit der Punkte für die Anzeige („Punkte“, „Sekunden“, „Meter“). */
   readonly scoreUnit: string;
 
-  // --- Vielfalts-Steckbrief für die Rotation (CHAOS-85, docs/minigames/README.md §3, §5.5) ---
-  // Alle optional (additiv): Ohne Angabe mischt die Rotation nur per Seed wie bisher.
+  // --- Tauglichkeit und Familie für die Rotation (CHAOS-85, docs/minigames/README.md §3–§6) ---
+  // Alle optional (additiv). Kernverb, Spielform und Bedienung stehen im Vielfalts-Steckbrief
+  // (`packages/minigames/src/steckbriefe.ts`, ADR-021); die Rotation liest beides.
 
   /** Mechanik-Familie (README §4); nie zwei Spiele derselben Familie hintereinander. */
   readonly family?: MinigameFamily;
-  /**
-   * Kernverb in Kleinbuchstaben („fangen“, „rempeln“, „stapeln“ …, README §5.5); nie zwei
-   * Spiele mit demselben Kernverb hintereinander.
-   */
-  readonly verb?: string;
-  /** Spielform; fehlt = `ffa` (jeder gegen jeden). */
-  readonly form?: MinigameForm;
   /** Kleinste/größte Spielerzahl, für die das Spiel taugt; fehlt = 1 bzw. 4. */
   readonly minPlayers?: number;
   readonly maxPlayers?: number;
@@ -87,9 +81,6 @@ export interface MinigameInfo {
    */
   readonly secretChoice?: boolean;
 }
-
-/** Spielformen (README §3). `mikro` gehört zur Schnellfeuer-Runde, nicht zur Rotation. */
-export type MinigameForm = 'ffa' | '1v3' | '2v2' | 'koop' | 'mikro';
 
 /** Die 20 Mechanik-Familien aus README §4 (Kennung für Steckbrief und Rotation). */
 export const MINIGAME_FAMILIES = [
@@ -116,18 +107,6 @@ export const MINIGAME_FAMILIES = [
 ] as const;
 
 export type MinigameFamily = (typeof MINIGAME_FAMILIES)[number];
-
-/** Bedienung als Kürzel wie im Katalog (README §3): `A`, `AB`, `S`, `SA`, `SAB`, `SB`, `B`. */
-export type MinigameControlScheme = 'A' | 'AB' | 'B' | 'S' | 'SA' | 'SB' | 'SAB' | '-';
-
-/** Bedienungs-Kürzel aus den angebotenen Eingaben (`-` = gar keine, nur Zuschauen). */
-export function controlSchemeOf(controls: MinigameControls): MinigameControlScheme {
-  const code =
-    (controls.joystick === null ? '' : 'S') +
-    (controls.a === null ? '' : 'A') +
-    (controls.b === null ? '' : 'B');
-  return code === '' ? '-' : (code as MinigameControlScheme);
-}
 
 /** Eingabe eines Slots, wie die Laufzeit sie an das Minispiel gibt (ohne `seq`/Umschlag). */
 export type MinigameInput =
