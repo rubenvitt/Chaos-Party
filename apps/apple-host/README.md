@@ -41,7 +41,7 @@ node scripts/export-apple-host-fixtures.mjs        # Beispielnachrichten für Sw
 - Havok: ESM-Build, synchron über `instantiateWasm` mit `new WebAssembly.Instance` (der asynchrone Weg löst in JSC nie auf). Swift übergibt `havokWasm` als `Uint8Array` ohne Umweg über `NSNumber`-Arrays (2 MB wären langsam).
 - Ohne Rendern zählt Babylon die Render-ID nicht hoch, und `computeWorldMatrix()` liefert die Matrix aus dem ersten Aufruf. `advance()` erhöht die Render-ID darum wie ein gerendertes Bild. Die Lage eines Meshes wird nur neu gerechnet, wenn sich seine Weltmatrix ändert (`updateFlag`).
 - Promises in JSC: Mikrotasks laufen nach jedem Aufruf aus Swift leer. Abgelehnte Promises meldet JSC nicht, darum hat jeder Promise-Weg ein `catch` → `env.log`. Der Node-Test bildet das nach (`settle()` nach jedem Aufruf).
-- Der Aufbau einer Minispiel-Bühne lief synchron in einem `tick` (EXP-024: bis 98 ms auf der Apple TV). Seit CHAOS-141 rufen die Minispiele in `prepare` zwischen ihren Bauschritten `ctx.pace()`; der Kern gibt nach 2 ms (`PREPARE_BUDGET_MS`, echte Uhr `Date.now()`) ab und baut im nächsten `tick` weiter (Zeitgeber der virtuellen Uhr). Danach werden die Grundformen bestimmt, ebenfalls verteilt; bis dahin liefert `bodies()` nichts und das Minispiel startet nicht. Neue Minispiele brauchen dasselbe: kein großer Bauschritt ohne `await ctx.pace()` (eine Kugel mit Standard-Segmenten kostet ohne JIT schon gut 10 ms). Messung im EXP-024-Nachtrag.
+- Der Aufbau einer Minispiel-Bühne lief synchron in einem `tick` (EXP-024: bis 98 ms auf der Apple TV). Seit CHAOS-141 rufen die Minispiele in `prepare` zwischen ihren Bauschritten `ctx.pace()`; der Kern gibt nach 2 ms (`PREPARE_BUDGET_MS`, echte Uhr `Date.now()`) ab und baut im nächsten `tick` weiter (Zeitgeber der virtuellen Uhr). Danach werden die Grundformen bestimmt, ebenfalls verteilt; bis dahin liefert `bodies()` nichts und das Minispiel startet nicht. Neue Minispiele brauchen dasselbe: kein großer Bauschritt ohne `await ctx.pace()` (eine Kugel mit Standard-Segmenten kostet ohne JIT schon gut 10 ms, ein Torus mit `tessellation: 64` gut 9 ms). Ein Schritt zwischen zwei `pace` soll ohne JIT höchstens etwa 5 ms kosten (ADR-012 Nachtrag 4, CHAOS-209). Messung im EXP-024-Nachtrag; die Schritte je Minispiel misst `scripts/pace-segments.ts` (Abschnitt „Bauschritte messen“).
 
 ### Uhr und Koordinaten
 
@@ -194,6 +194,15 @@ apps/apple-host/harness/run.sh full   # ganze Partie, alle Minispiele der Rotati
 ```
 
 `run.sh` baut `main.swift` zusammen mit `app/RenderState.swift` (`swiftc`). Der Harness dekodiert zuerst alle Beispielnachrichten, lädt dann das Bündel in ein `JSContext`, spielt mit zwei Controllern über echte Protokoll-Nachrichten, stellt die Lobby per `hostCommand('configure:…')` ein (CHAOS-166: erst 16 Runden mit mehr Zeit zum Reagieren, dann 12 bzw. mit `full` 10 Runden; die Partie muss genau so viele haben, `configure` im Brett muss ins Leere gehen), startet per `hostCommand('start')` und dekodiert unterwegs `renderState` mit dem Typ der App. Er scheitert bei jeder JS-Ausnahme, jeder Problemzeile im Log, jedem Server-Fehler an einen Controller, fehlenden Minispielen der Rotation oder abgelehnten Ergebnissen. Die Uhr ist virtuell (60 Ticks je Spielsekunde ohne Warten), gemessen wird CPU-Zeit des Threads.
+
+### Bauschritte messen (CHAOS-209)
+
+```sh
+node --experimental-transform-types --no-warnings --no-opt --no-sparkplug --no-maglev \
+  apps/apple-host/scripts/pace-segments.ts --runs 3 --over 4
+```
+
+Baut jedes Minispiel der Rotation in einer Headless-Bühne mit Budget 0, sodass jedes Bild genau ein Bauschritt ist. Ausgegeben werden je Minispiel die längsten Abschnitte zwischen zwei `ctx.pace()` (Stelle von → bis, aus dem Stack), dazu das Kodieren der Geometrie. Die drei `--no-…`-Flags machen Node zum reinen Interpreter, als Näherung an JavaScriptCore ohne JIT. Der erste Lauf ist durch Laden und Kompilieren langsamer; maßgeblich sind die folgenden. `--top N` zeigt die N längsten Abschnitte, `--over N` alle über N ms, `--only <id>` nur ein Minispiel.
 
 **JIT:** JSC läuft im Harness auf macOS faktisch ohne JIT (EXP-024: Zählschleife 2,6 s, `node --jitless` 3,0 s, node mit JIT 0,5 s). Die CI setzt zusätzlich `JSC_useJIT=false`. Ein Apple-TV-Kern ist langsamer; die Zeiten sind eine Untergrenze für tvOS.
 
