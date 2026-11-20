@@ -20,7 +20,8 @@ Chaos Party is a chaotic, funny, competitive 3D party board game for **2–4 peo
 
 ## Players, platform and controllers
 
-- **Players:** 2–4 locally, on one PC screen; multiplayer is local, not online matchmaking.
+- **Players:** 2–4 locally, on one host screen; multiplayer is local, not online matchmaking.
+- **Computer players (2026-11-19):** each of the up to four seats is either a human or a computer player (KI); at least one human. Solo play (1 human + 1–3 KI) is allowed. KI seats are managed at the host or by the first controller, have a selectable strength (easy/medium/hard/dynamic) and a randomly assigned play style, and cannot be taken over mid-game. Decision: Ruben („1 allein gegen KI ist ok. jeder Slot entweder Mensch oder KI“); details in ADR-020.
 - **Host:** a PC running the game. Browser-based desktop host is the initial delivery vehicle; native packaging may follow only if justified.
 - **Apple hosts (2026-11-17):** a Mac or an Apple TV may host via a native RealityKit app, and the Apple TV must be able to host on its own without a computer (Ruben: „AppleTV muss HOST sein können“). iPhones and iPads remain controllers only. Decision: Ruben, „Ja, Apple TV als Host“ and „Nativer Host (RealityKit)“; details in ADR-019.
 - **Controller option 1:** one iPhone per player, joining through a QR code and local network.

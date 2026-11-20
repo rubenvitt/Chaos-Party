@@ -16,6 +16,8 @@ export const ASSET_KINDS = [
   'hdri',
   'font',
   'procedural-geometry',
+  /** Statisches Requisit eines Minispiels als GLB (CHAOS-88, Katalog `props.ts`). */
+  'prop',
 ] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
@@ -80,7 +82,7 @@ export const AssetEntrySchema = z
     origin: z.url({ protocol: /^https$/ }).optional(),
     /** Höchstgröße der Datei in Bytes (Pflicht für Dateien unter `packages/assets`). */
     budgetBytes: z.number().int().positive().optional(),
-    /** Nur Modelle: erwartete Animationsnamen und Höhe in Metern (Ruhepose). */
+    /** Nur Modelle: erwartete Animationsnamen; Modelle und Requisiten: Höhe in Metern (Ruhepose). */
     animations: z.array(z.string().min(1)).min(1).optional(),
     height: z.number().positive().optional(),
   })
@@ -124,6 +126,29 @@ export const ModelBudgetSchema = z
   })
   .strict();
 
+/** Budget je Requisit (CHAOS-88): klein, ohne Texturen. */
+export const PropBudgetSchema = z
+  .object({
+    maxBytes: z.number().int().positive(),
+    maxMeshes: z.number().int().positive(),
+    maxMaterials: z.number().int().positive(),
+    maxTriangles: z.number().int().positive(),
+  })
+  .strict();
+
+/**
+ * Budget je Minispiel (CHAOS-88): Summe über alle Requisiten seiner Sets. `maxBytes` ist das
+ * Maß für die Ladezeit (Download + glTF-Parsen wachsen mit der Dateigröße), `maxTriangles` für
+ * die GPU, `maxProps` für Draw-Calls und Aufbauzeit.
+ */
+export const MinigameBudgetSchema = z
+  .object({
+    maxBytes: z.number().int().positive(),
+    maxTriangles: z.number().int().positive(),
+    maxProps: z.number().int().positive(),
+  })
+  .strict();
+
 export const ManifestSchema = z
   .object({
     $comment: z.string().optional(),
@@ -134,6 +159,8 @@ export const ManifestSchema = z
         texture: z.object({ maxBytes: z.number().int().positive() }).strict(),
         hdri: z.object({ maxBytes: z.number().int().positive() }).strict(),
         sound: z.object({ maxBytes: z.number().int().positive() }).strict(),
+        prop: PropBudgetSchema,
+        minigame: MinigameBudgetSchema,
       })
       .strict(),
     assets: z.array(AssetEntrySchema),

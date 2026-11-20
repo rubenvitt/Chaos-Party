@@ -2,21 +2,23 @@
   "name": "@chaos-party/assets",
   "version": "0.0.0",
   "private": true,
-  "description": "Assets mit Manifest (Herkunft, Lizenz, Budget): Figuren (GLB) und Porträts (WebP) aus Blender-Skripten, Prüfskript.",
+  "description": "Assets mit Manifest (Herkunft, Lizenz, Budget): Figuren (GLB), Porträts (WebP) und Minispiel-Requisiten (GLB) aus Blender-Skripten, Prüfskript.",
   "license": "GPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./manifest.json": "./manifest.json",
     "./models/*": "./models/*",
-    "./textures/*": "./textures/*"
+    "./textures/*": "./textures/*",
+    "./props": "./src/props.ts"
   },
   "scripts": {
-    "generate": "blender/build-all.sh && blender/portraits-all.sh",
+    "generate": "blender/build-all.sh && blender/portraits-all.sh && blender/props-all.sh",
     "generate:portraits": "blender/portraits-all.sh",
     "import:polyhaven": "node src/import/polyhaven.ts",
     "check": "node src/check/cli.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "generate:props": "blender/props-all.sh"
   },
   "dependencies": {
     "zod": "^4.6.7"
