@@ -110,8 +110,9 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
         'Grün ist noch nicht bereit – starten geht trotzdem.',
       );
 
-      // Brett (CHAOS-197): Standard Wackelwald. Der Wechselknopf wählt per Maus „Zufall“ –
-      // Server, Startknopf und Controller sehen es –, per Tastatur (Enter) wieder Wackelwald.
+      // Brett (CHAOS-197): Standard Wackelwald. Der Wechselknopf wählt per Maus den Rummelplatz
+      // (CHAOS-199), dann „Zufall“ – Server, Startknopf und Controller sehen es –, per Tastatur
+      // (Enter) wieder Wackelwald.
       const board = page.getByTestId('board-choice');
       await expect(page.getByTestId('lobby-boards')).toBeVisible();
       await expect(board).toHaveAttribute('data-board', 'wackelwald');
@@ -119,6 +120,11 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(board).toContainText('43 Felder');
       await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Wackelwald');
       expect(session.snapshot().board).toBe('wackelwald');
+      await board.click();
+      await expect(board).toHaveAttribute('data-board', 'rummelplatz');
+      await expect(board).toContainText('81 Felder');
+      await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Rummelplatz');
+      expect(session.snapshot().board).toBe('rummelplatz');
       await board.click();
       await expect(board).toHaveAttribute('data-board', 'zufall');
       await expect(board).toContainText('Zufall');
@@ -239,6 +245,8 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       // Brett „Zufall“ (CHAOS-197): Der Server lost beim Start ein Brett aus dem Register aus,
       // die Partie läuft darauf, die Lobby-Wahl bleibt „zufall“.
       await page.getByTestId('board-choice').click();
+      await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'rummelplatz');
+      await page.getByTestId('board-choice').click();
       await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'zufall');
       await start.click();
       const main = page.locator('main.host');
@@ -246,8 +254,11 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await page.waitForFunction(() => window.__chaos?.board?.ready === true);
       const snapshot = chaosServer.server.session.snapshot();
       expect(snapshot.board).toBe('zufall');
-      expect(snapshot.game?.state.boardId).toBe('wackelwald');
-      await expect(page.locator('.hud-title p')).toContainText('Wackelwald');
+      const played = snapshot.game?.state.boardId;
+      expect(['wackelwald', 'rummelplatz']).toContain(played);
+      await expect(page.locator('.hud-title p')).toContainText(
+        played === 'rummelplatz' ? 'Rummelplatz' : 'Wackelwald',
+      );
     } finally {
       bot.close();
     }

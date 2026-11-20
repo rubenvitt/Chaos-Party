@@ -121,7 +121,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
     round: minigame?.round ?? view.round,
     lightRound:
       (props.lightByRound ?? true) && view.rounds > 0
-        ? { round: minigame?.round ?? view.round, rounds: view.rounds }
+        ? { round: minigame?.round ?? view.round, rounds: view.rounds, boardId: view.boardId }
         : null,
     plan: planPlay(view, receivedAt, performance.now()),
   }));

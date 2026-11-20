@@ -554,7 +554,7 @@ function create(env: HostEnv): ChaosHostInstance {
         ) ?? [],
       geometryTotal: headless?.geometryTotal ?? 0,
       sounds: sounds.cues(stageKeyOf(current, isKnownMinigame)),
-      light: minigameLight(minigame.round, current.rounds),
+      light: minigameLight(minigame.round, current.rounds, current.boardId),
     };
   };
 

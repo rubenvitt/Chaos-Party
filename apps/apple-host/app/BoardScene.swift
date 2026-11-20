@@ -61,6 +61,9 @@ final class BoardScene {
     private let flightFx = BoardFlightFx()
     /// Grashalme des Bretts als Vorlage für die Minispiel-Kulisse (CHAOS-193).
     let grass: [GrassTemplate]
+    /// Fahrgeschäfte der Kulisse nach USD-Name (CHAOS-199: `karussell_dreh`, `riesenrad_rad`) mit ihrer Weltdrehung im
+    /// Export (dort in Ruhe, `boardExport.ts`), sonst leer.
+    private var rides: [String: (entity: Entity, rest: simd_quatf)] = [:]
 
     // Lobby-Übersicht wie `BASE_OFFSET` in `apps/host/src/board/camera.ts`; im Spiel kommt die Pose aus der Regie.
     private static let cameraOffset = SIMD3<Float>(0, 28, -17.5)
@@ -138,6 +141,9 @@ final class BoardScene {
             }
         }
         lanterns = LanternRig(glass: glass)
+        for name in ["karussell_dreh", "riesenrad_rad"] {
+            if let entity = board.findEntity(named: name) { rides[name] = (entity, entity.orientation(relativeTo: nil)) }
+        }
         root.addChild(board)
         root.addChild(popups.root)
         root.addChild(flightFx.root)
@@ -153,6 +159,16 @@ final class BoardScene {
         camera.camera.far = meta.camera.far
         root.addChild(camera)
         placeCamera(dt: 0, target: center)
+    }
+
+    /// Fahrgeschäfte drehen (CHAOS-199): Der Knoten steht im Export in Ruhe, `angle` gilt in Babylon-Koordinaten (Achse in
+    /// Welt-y bzw. -z). Der Export spiegelt x, darum dreht die Weltlage um `-angle` (um y und z gleichermaßen).
+    private func turn(rides list: [RenderState.Ride]) {
+        for ride in list {
+            guard let (entity, rest) = rides[ride.node] else { continue }
+            let axis: SIMD3<Float> = ride.axis == "z" ? [0, 0, 1] : [0, 1, 0]
+            entity.setOrientation(simd_quatf(angle: -ride.angle, axis: axis) * rest, relativeTo: nil)
+        }
     }
 
     /// Nimmt alle Knoten `<prefix><feld>` aus dem Brett; liefert den ersten als Vorlage, Lage relativ zu seinem Feld-Anker.
@@ -284,6 +300,7 @@ final class BoardScene {
         sounds.play(board.sounds ?? [])
         sceneLight.apply(board.light)
         lanterns.apply(board.light)
+        turn(rides: board.rides ?? [])
         flightFx.update(board.pawns ?? [], colors: colors, anchors: anchors, surfaceY: surfaceY) { [pawns] slot in pawns[slot]?.root }
         announce(board, popups: popupList)
     }

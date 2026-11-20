@@ -417,6 +417,13 @@ export const BoardStateSchema = z.strictObject({
   sounds: z.array(SoundCueSchema),
   /** Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193). */
   light: LightSchema,
+  /**
+   * Fahrgeschäfte der Kulisse (CHAOS-199, `apps/host/src/board/rides.ts`): Knoten im USDZ
+   * (`karussell_dreh`, `riesenrad_rad`), Drehachse und Winkel in Babylon-Koordinaten (rad). Der
+   * Knoten steht in Ruhe ohne Drehung; Swift setzt seine Weltdrehung auf `-angle` um `axis`
+   * (der Export spiegelt x). Leer auf Brettern ohne Fahrgeschäfte.
+   */
+  rides: z.array(z.strictObject({ node: z.string(), axis: z.enum(['y', 'z']), angle: z.number() })),
 });
 
 /** Oberflächen aus `look.material` (`LookFinish` im minigame-sdk, CHAOS-62). */

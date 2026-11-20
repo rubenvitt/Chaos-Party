@@ -66,7 +66,12 @@ export interface MinigameStageOptions {
    * Runde und Rundenzahl der Partie (Lichtverlauf, CHAOS-63): Das Minispiel erbt die Stimmung
    * der Runde. `null`/fehlend: feste Brett-Stimmung (lokaler Ablauf, Vorschau).
    */
-  readonly lightRound?: { readonly round: number; readonly rounds: number } | null;
+  readonly lightRound?: {
+    readonly round: number;
+    readonly rounds: number;
+    /** Brett der Partie (CHAOS-199: eigener Stimmungsverlauf je Brett). */
+    readonly boardId?: string;
+  } | null;
   readonly testMode: boolean;
   readonly sound: SoundEngine;
   /** Genau einmal, sobald das Minispiel ein (geprüftes) Ergebnis hat. */
@@ -145,7 +150,7 @@ export function createMinigameStage(options: MinigameStageOptions): MinigameStag
   // Stimmung der Runde (Lichtverlauf, CHAOS-63); ohne Runde wie das Brett.
   const settings = currentLookSettings(
     testMode,
-    'wackelwald',
+    options.lightRound?.boardId ?? 'wackelwald',
     engine.getGlInfo().renderer,
     options.lightRound ?? null,
   );

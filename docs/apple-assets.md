@@ -28,7 +28,7 @@ Voraussetzungen: `pnpm install`, Playwright-Chromium (`pnpm exec playwright inst
 |---|---|
 | `figuren/<id>.usdz` | Figur direkt aus dem bpy-Skript (`packages/assets/blender/build.py <id> <ziel.usdz>`), ≈ 0,5–1 MB |
 | `figuren/<id>.clips.json` | Lage der sieben Clips auf der Zeitleiste |
-| `bretter/<brett-id>/brett.usdz` | Kulisse eines Bretts aus dem Web-Host (Grafikstufe `hoch`), über Blender nach USDZ, ≈ 25 MB (Wackelwald) |
+| `bretter/<brett-id>/brett.usdz` | Kulisse eines Bretts aus dem Web-Host (Grafikstufe `hoch`), über Blender nach USDZ, ≈ 25 MB (Wackelwald) bzw. 23 MB (Rummelplatz, mit den Drehteilen `karussell_dreh` und `riesenrad_rad`, CHAOS-199) |
 | `bretter/<brett-id>/brett.szene.json` | Brett-ID (`board`), Kamera, Sonne, Himmel, Figurenorte, **Felder** (`fields`), Instanz-Gruppen |
 | `bretter/<brett-id>/brett.instanzen.json` | Matrizen für Gras und Blumen (Wackelwald: 64 246 Instanzen) |
 | `herkunft.json` | Lizenzen, Namensnennungen und Herkunft je Artefakt, Größe und SHA-256 |

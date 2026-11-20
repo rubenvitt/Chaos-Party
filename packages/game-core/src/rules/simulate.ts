@@ -178,6 +178,8 @@ export interface SimulationResult {
   readonly trophySpacesBought: Readonly<Record<string, number>>;
   /** Gewählte Wege je Ziel-Feld an Gabeln (`path-chosen`, auch automatisch gewählte). */
   readonly pathsChosen: Readonly<Record<string, number>>;
+  /** Jede Wegwahl in Reihenfolge, mit Spieler (Wegwahl gegen Platzierung, CHAOS-199). */
+  readonly pathChoices: readonly { readonly slot: Slot; readonly spaceId: string }[];
   /** Durchfahrten drehender Felder je Ausgang (Karussell, CHAOS-199). */
   readonly rotationExits: Readonly<Record<string, number>>;
   readonly coinSteals: number;
@@ -341,6 +343,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   let trophiesBought = 0;
   const trophySpacesBought: Record<string, number> = {};
   const pathsChosen: Record<string, number> = {};
+  const pathChoices: { slot: Slot; spaceId: string }[] = [];
   const rotationExits: Record<string, number> = {};
   const rotating = new Map((options.board.rotations ?? []).map((r) => [r.space, r.exits]));
   const positions = new Map<Slot, string>(slots.map((slot) => [slot, options.board.start]));
@@ -396,6 +399,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       }
       case 'path-chosen':
         bump(pathsChosen, event.spaceId);
+        pathChoices.push({ slot: event.slot, spaceId: event.spaceId });
         break;
       case 'board-event':
         countingMoves = false;
@@ -591,6 +595,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     trophiesBought,
     trophySpacesBought,
     pathsChosen,
+    pathChoices,
     rotationExits,
     coinSteals,
     coinsStolen,

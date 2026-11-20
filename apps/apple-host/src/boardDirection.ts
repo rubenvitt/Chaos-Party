@@ -48,7 +48,14 @@ import {
 } from '../../host/src/board/texts.ts';
 import { boardEventSound } from '../../host/src/fx/boardSounds.ts';
 import { SOUNDS, shapeRecipe } from '../../host/src/fx/sounds.ts';
-import type { Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
+import {
+  CAROUSEL_NODE,
+  createRideMotion,
+  WHEEL_NODE,
+  type RideMotion,
+  type RideState,
+} from '../../host/src/board/rides.ts';
+import type { BoardState, Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
 import { createBoardLight } from './lightMood.ts';
 
 /** Größter Regie-Schritt je `tick` (wie `MAX_STEP_MS` in `createBoardScene.ts`). */
@@ -70,6 +77,8 @@ export interface BoardDirectionFields {
   readonly sounds: SoundCue[];
   /** Lichtstimmung der gezeigten Runde (CHAOS-193, `./lightMood.ts`). */
   readonly light: Light;
+  /** Fahrgeschäfte der Kulisse (CHAOS-199): Karussell und Riesenrad. */
+  readonly rides: BoardState['rides'];
 }
 
 export interface BoardCamera {
@@ -199,6 +208,18 @@ export function framePawns(frame: BoardFrame, board: BoardDefinition, bounds: Bo
 
 const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 
+/** USD-Name eines Babylon-Knotens (`-` → `_`, wie der Export). */
+const usdName = (name: string): string => name.replace(/-/g, '_');
+
+/** Fahrgeschäfte für `renderState().board.rides` (CHAOS-199); ohne Karussell leer. */
+export function rideList(state: RideState): BoardState['rides'] {
+  if (state.carousel === null) return [];
+  return [
+    { node: usdName(CAROUSEL_NODE), axis: 'y', angle: round3(state.carousel) },
+    { node: usdName(WHEEL_NODE), axis: 'z', angle: round3(state.wheel % (Math.PI * 2)) },
+  ];
+}
+
 export function createBoardDirection(): BoardDirection {
   const director = createBoardDirector();
   let now = 0;
@@ -209,6 +230,13 @@ export function createBoardDirection(): BoardDirection {
   let hudCache: { snapshot: HudSnapshot; hud: Hud | null; ticker: TickerEntry[] } | null = null;
   let boundsCache: { board: BoardDefinition; bounds: BoardBounds } | null = null;
   const light = createBoardLight();
+  /** Fahrgeschäfte des gezeigten Bretts (CHAOS-199), neu bei einem anderen Brett. */
+  let rides: { board: BoardDefinition; motion: RideMotion } | null = null;
+  const ridesOf = (view: BoardView | null): RideMotion => {
+    const board = boardOf(view);
+    if (rides?.board !== board) rides = { board, motion: createRideMotion(board) };
+    return rides.motion;
+  };
   const cameraRig = createCameraRig();
 
   const boardAndBounds = (view: BoardView | null) => {
@@ -265,12 +293,20 @@ export function createBoardDirection(): BoardDirection {
         if (hidden) {
           hidden = false;
           director.settle();
+          const settled = director.getFrame().view;
+          ridesOf(settled).settle(settled ? settled.round : null);
         }
         director.advance(step);
         advanceCamera(step);
+        const view = director.getFrame().view;
+        ridesOf(view).advance(step, view ? view.round : null);
       }
       const shown = director.getFrame().view;
-      light.advance(step, shown ? { round: shown.round, rounds: shown.rounds } : null, visible);
+      light.advance(
+        step,
+        shown ? { round: shown.round, rounds: shown.rounds, boardId: shown.boardId } : null,
+        visible,
+      );
       if (sounds.length > 0 && now - (sounds[0]?.at ?? now) >= SOUND_WINDOW_MS) {
         sounds = sounds.filter((cue) => now - cue.at < SOUND_WINDOW_MS);
       }
@@ -307,8 +343,11 @@ export function createBoardDirection(): BoardDirection {
         trophySpaces: [...(view?.trophySpaces ?? [])],
         traps: (view?.traps ?? []).map((t) => ({ spaceId: t.spaceId, owner: t.owner })),
         sounds: sounds.map(({ id, name, voices }) => ({ id, name, voices })),
+        rides: rideList(ridesOf(view).state),
         light: light.current(
-          view ? { round: view.round, rounds: view.rounds } : { round: 1, rounds: 1 },
+          view
+            ? { round: view.round, rounds: view.rounds, boardId: view.boardId }
+            : { round: 1, rounds: 1 },
         ),
       };
     },

@@ -741,3 +741,19 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-020 · **Experiment:** EXP-034
+
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App mit vier Bots über drei Runden bis zum Siegerbild, Zufall mit Revanchen (Wechsel der Kulisse ohne Neustart). **Nicht** geprüft: Apple TV (Ladezeit der zweiten Kulisse, Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RP1 | PC und Apple TV: Lobby, Brett „Rummelplatz“ wählen | Lobby zeigt „Rummelplatz · 81 Felder“; Apple TV wechselt den Hintergrund auf den nächtlichen Jahrmarkt | | Foto |
+| RP2 | Partie starten, erste Runde | Dämmerung, Lichterketten leuchten, das goldene Tor des Karussells zeigt nach links (Spiegelkabinett) | | Foto |
+| RP3 | Rundenwechsel | Karussell dreht eine Runde weiter und zeigt nach vorn (Startplatz), dann rechts (Geisterbahn); ab etwa Runde 4 von 12 Nacht | | Video |
+| RP4 | An Gabel B (oben Mitte) wählen | Controller zeigt „Karussell“ mit Zusatz „Karussell → …“ passend zum Tor; die Figur fährt ohne Nachfrage über das Karussell zum angesagten Ausgang | | Foto |
+| RP5 | Geisterbahn und Losbudengasse ansehen | Portale, Gespenster, Losbuden erkennbar, kein Feld verdeckt | | Foto |
+| RP6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett rummelplatz geladen … in … ms“ notieren | | Log |
+| RP7 | Spieltest-Frage | Ist die Ost-Ausfahrt (Ehrenrunde zurück in die Geisterbahn) lustig oder ärgerlich? Ist klar, wohin das Karussell gerade fährt? | | Notiz |
