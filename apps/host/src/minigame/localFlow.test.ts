@@ -58,4 +58,21 @@ describe('lokaler Minispiel-Ablauf', () => {
     expect(localSlots(9)).toEqual([1, 2, 3, 4]);
     expect(localSlots(0)).toEqual([1]);
   });
+
+  it('Bereitschaft wie beim Server nur in der Anleitung (`&ready=`, CHAOS-214)', () => {
+    const readiness = { ready: [3, 1] as const, offline: [2] as const };
+    const intro = localView(PUMP_PARADE_INFO, 'intro', { players: 3, seed: 7, readiness });
+    expect(BoardViewSchema.safeParse(intro).success).toBe(true);
+    // Wie beim Server aufsteigend; Slots über der Spielerzahl fallen weg.
+    expect(intro.minigame?.ready).toEqual([1, 3]);
+    expect(intro.players.map((p) => p.connected)).toEqual([true, false, true]);
+    const two = localView(PUMP_PARADE_INFO, 'intro', { players: 2, seed: 7, readiness });
+    expect(two.minigame?.ready).toEqual([1]);
+    const play = localView(PUMP_PARADE_INFO, 'play', { players: 3, seed: 7, readiness });
+    expect(play.minigame?.ready).toBeUndefined();
+    expect(play.players.every((p) => p.connected)).toBe(true);
+    expect(
+      localView(PUMP_PARADE_INFO, 'intro', { players: 3, seed: 7 }).minigame,
+    ).not.toHaveProperty('ready');
+  });
 });

@@ -32,6 +32,11 @@
  * `lobby.settings.board` (Brett-ID oder `RANDOM_BOARD` „zufall“) und `lobby.settings.boards`
  * (wählbare Bretter), `configure.board` und `ControllerLobbyInfo.board` (alle optional). Ein
  * unbekanntes Brett in `configure` lehnt der Server mit `bad-message` ab.
+ * v4-Nachtrag (CHAOS-214, additiv, ohne Versionssprung): „Bereit“ in der Minispiel-Anleitung –
+ * `ready` ist auch in der Brettphase erlaubt, wenn der Kontext die Aktion `ready` anbietet
+ * (`minigame-intro`); `ControllerMinigameInfo.ready` (eigener Stand) und
+ * `BoardView.minigame.ready` (bereite Slots), beide optional. Ältere Controller ohne Knopf
+ * halten nichts auf: Nach der Sicherheitsfrist startet das Minispiel trotzdem.
  */
 export const PROTOCOL_VERSION = 4;
 
