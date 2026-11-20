@@ -58,6 +58,9 @@ nie aus Ekel oder Gewalt.
   Tiefenunschärfe. Alles aus einer `LightMood` (`lighting/moods.ts`).
 - Figuren behalten ihre glTF-PBR-Materialien (`loadCharacters(scene, { keepPbr: true })`);
   die Umwandlung in `StandardMaterial` gibt es nur noch für die M1-Arena und die Lobby-Vitrine.
+- **Feinstruktur der Figuren (CHAOS-172, EXP-032):** je Figur eine kleine kachelbare
+  Normal-Textur (Strick, Fell, Lack, Kaktushaut), prozedural aus `packages/assets/blender/struktur.py`.
+  Sie soll aus der Nähe lesbar sein und im Brettblick verschwinden; Farben bleiben Vertexfarben.
 - Signale (Popups, Wegweiser-Schilder, Pfeil „am Zug“) bleiben unbeleuchtete Billboards.
 
 ## Bewegung

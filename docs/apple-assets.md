@@ -50,13 +50,14 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
 
 **Slot-Farbe und Abzeichen:** wie im Babylon-Host. Das Material `akzent` färbt der Host in die Slot-Farbe. Der leere Knoten `abzeichen` (Brust, bewegt sich mit) trägt das Slot-Symbol.
 
-**Materialien:** `UsdPreviewSurface` je Material mit Rauheit, Clearcoat, Metall und Leuchten. Die Vertexfarben der Figuren sind in eine Farbtextur je Figur gebacken (1024², `textures/<rig>_farbe.png` im USDZ), weil RealityKit Vertexfarben im Material ignoriert (EXP-017). **Sheen** (Fell, Strick) und **Subsurface** kennt UsdPreviewSurface nicht; sie fehlen gegenüber Babylon. In der Kulisse verlieren nur die Gras-Grundmeshes `gras_0…2` ihr Material (Vertexfarbe ohne Material, wie im Spike).
+**Materialien:** `UsdPreviewSurface` je Material mit Rauheit, Clearcoat, Metall und Leuchten. Die Vertexfarben der Figuren sind in eine Farbtextur je Figur gebacken (1024², `textures/<rig>_farbe.png` im USDZ, UV-Map `farbatlas` → Primvar `st`), weil RealityKit Vertexfarben im Material ignoriert (EXP-017). **Feinstruktur (CHAOS-172, EXP-032):** Strick, Fell, Lack und Kaktushaut sind eine kachelbare Normal-Textur (256², `textures/struktur_<muster>.png`) am Eingang `normal`, gelesen über die zweite UV-Map, Primvar `struktur` (Würfelprojektion in Weltmaß, `packages/assets/blender/struktur.py`). Die Stärke steckt in der Textur selbst, weil UsdPreviewSurface keine Stärke kennt. **Sheen** (Fell, Strick) und **Subsurface** kennt UsdPreviewSurface nicht; sie fehlen gegenüber Babylon. In der Kulisse verlieren nur die Gras-Grundmeshes `gras_0…2` ihr Material (Vertexfarbe ohne Material, wie im Spike).
 
 ## Prüfungen
 
 - **Ohne Mac** (Linux-CI, Job „Apple-Assets (USDZ)“): `packages/assets/usd/check_usdz.py` mit usd-core.
   - alle Validatoren von usd-core
   - Figuren: Clip-Tabelle passt zu Zeitleiste und Manifest, jedes Mesh hat ein Material, keine Vertexfarbe im Shader, `akzent` gebunden, `abzeichen` vorne, mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest (±0,1 m)
+  - Figuren, Feinstruktur (CHAOS-172): jede UV-Primvar, die ein Material liest (`st`, `struktur`), liegt am Mesh; mindestens eine Normal-Textur, gelesen als `raw` mit `scale 2`/`bias -1`
   - Figuren, Auflage (CHAOS-161): aufgesetzte Teile schweben nicht über ihrem Träger (`AUFLAGE` in `check_usdz.py`: Socken-Bündchen auf dem Schaft, Kaktus-Blüte auf dem Kaktus, Kaktus im Topf). Gemessen wird der Median des Abstands der Unterseite (unterste 2 cm) zur Trägeroberfläche, Punkte im Träger zählen 0, erlaubt sind 3 cm; in der Ruhepose und am Anfang und in der Mitte jedes Clips, mit gebackenem Skinning. Bounds allein fanden den Fehler nicht.
   - Brett: alle Feld-Anker genau einmal und auf 1 mm am Ort aus `fields`, alle Instanz-Grundmeshes, eingebettete Texturen
 - **Herkunft:** Jede Textur im Brett-Export muss aus einem Manifest-Asset kommen, das das Artefakt in `from` nennt, oder eine Beschriftung (Wegweiser, „Am Zug“-Pfeil, gezeichnet mit Nunito) sein (`scripts/lib/board-images.mjs`). `pnpm check:assets` prüft die Einträge unter `builds` im Manifest und, wenn gebaut, die Budgets.
@@ -70,6 +71,9 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
 
 - **Nahbilder ohne Mac (CHAOS-162):** `packages/assets/blender/nahbild.py <id> <ziel.png>` rendert eine Figur in Cycles aus drei Blickwinkeln (Dreiviertel, Profil, von oben). Die Babylon-Vitrine zeigt eine Figur aus der Nähe mit `preview.html?nah=<Slot 1–4>`. RealityKit-Nahbilder (`--nah`) gibt es weiter nur am Mac.
 - **Farbatlas packen (CHAOS-162):** Smart UV Project allein legte bei fein unterteilten Figuren Inseln übereinander (Knopffarbe auf der Sockenspitze). `bake_vertex_colors` packt die Inseln danach neu (`pack_islands`, ohne Überlappung).
+
+- **Feinstruktur und Nähte (CHAOS-172):** Die Würfelprojektion der UV-Map `struktur` trennt Punkte an den Nähten. Die Hysterese (`STICKY` in `struktur.py`) hält das bei +17 % (Socke) bis +53 % (Schraubi, gefaste Kästen) Eckpunkten. Ob RealityKit die zweite UV-Map liest, ist nur am Mac prüfbar (Gerätecheckliste §35). Falls nicht: Normalen auf `st` in eine Atlas-Textur backen (EXP-032).
+- Im **Babylon-Host** fehlen Sheen, Clearcoat und Leuchtstärke der Figuren schon länger (keine glTF-Materialerweiterung registriert, EXP-032 Nebenbefund). Die GLBs enthalten sie; der Vergleich RealityKit ↔ Babylon ist in diesem Punkt also schief.
 
 - **Nicht bitgleich:** Zwei Läufe erzeugen gleichwertige, aber nicht bitgleiche Dateien. Blender packt die UV-Inseln über mehrere Objekte nicht immer gleich, und die Reihenfolge der Prims im USD schwankt. Das galt schon für die GLB-Figuren. Prims, Materialien, Clips und Anker sind gleich; die Prüfungen laufen auf den Inhalt.
 - Die Kulisse ist eine Momentaufnahme: Beispiel-Spielstand, Tageslicht-Stimmung, ohne Wasseranimation, Laternen, Glühwürmchen, Lichtstimmungen und Nachbearbeitung (SSAO, Tiefenschärfe). Der native Host zeigt die Kulisse so (CHAOS-142); Lichtstimmungen und Effekte folgen mit CHAOS-148.
