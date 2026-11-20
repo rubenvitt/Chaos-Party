@@ -8,6 +8,8 @@ Kürzel: Kategorie `Ar` Arcade, `Ph` Physik, `Hy` Hybrid · Bedienung `A`, `AB`,
 
 Schon vorhanden (nicht im Katalog gezählt): Sockenregen, Pudding-Gerangel, Wackelturm, Kuckucks-Klatsche (Rotation), Pump-Parade (Rückfall). Seit CHAOS-79 auch Krümel-Kehraus (Rotation, EXP-023). Kandidaten aus M3: Aufzieh-Takt (Abgleich mit MG-090 in CHAOS-102), Geysir-Gier (Abgleich in CHAOS-104). Hinweis für MG-008 „Laubbläser-Liga“: gleiche Grundform wie Krümel-Kehraus (Dinge in die eigene Ecke befördern) – bei der Umsetzung den Unterschied schärfen oder die Skizze ersetzen (§5.5).
 
+**Gemeinsame Prüfungen (CHAOS-84):** Bot-Fairness, Vielfalts-Steckbrief und Screenshots je Spiel der Rotation, Regeln in [`pruefungen.md`](pruefungen.md), Messwerte in [`pruefbericht.md`](pruefbericht.md). Begründete Ausnahmen der vorhandenen Spiele: **Wackelturm** – Neuling gewinnt gegen drei Normale 32 % (Grenze 25 %), Profi 17 % (Grenze ≥ 25 %); schon in EXP-007 lag die Außenseiter-Quote über fair, Ruben hat das Spiel in M3 abgenommen, Klärung Bot oder Spiel in `CHAOS-215`.
+
 **Pilotwelle** (von Ruben freigegeben, 2026-11-16): MG-001, MG-011, MG-023, MG-033, MG-045, MG-101, MG-111, MG-121 – im Katalog mit ★ markiert.
 
 ---
