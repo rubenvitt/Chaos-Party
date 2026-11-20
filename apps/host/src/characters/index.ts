@@ -31,6 +31,12 @@ import type { Scene } from '@babylonjs/core/scene.js';
 import '@babylonjs/loaders/glTF/2.0/glTFLoader.js';
 // Normal-Texturen der Feinstruktur liegen als WebP im GLB (CHAOS-172, `extensionsRequired`).
 import '@babylonjs/loaders/glTF/2.0/Extensions/EXT_texture_webp.js';
+// Optionale Materialerweiterungen der Figuren (CHAOS-207): ohne Registrierung ignoriert der Lader
+// sie still. Sheen an Fell/Strick, Clearcoat an Knöpfen/Augen/Lack, Leuchtstärke an Schraubis
+// Augen und Glühbirne. Wirkt nur mit `keepPbr` (Brett, Minispiele, Podest).
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_materials_clearcoat.js';
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_materials_emissive_strength.js';
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_materials_sheen.js';
 import { GLTFLoaderAnimationStartMode } from '@babylonjs/loaders/glTF/glTFFileLoader.js';
 import cactusUrl from '@chaos-party/assets/models/characters/cactus.glb?url';
 import raccoonUrl from '@chaos-party/assets/models/characters/raccoon.glb?url';

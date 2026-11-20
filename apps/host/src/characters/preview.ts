@@ -6,7 +6,8 @@
  *
  * Parameter: `anim` (Animation für alle), `test=1` (keine Render-Schleife, feste Schritte über
  * `window.__vitrine.step(n)`), `names=0` (ohne Namensschilder), `view=top` (Brett-Blickwinkel),
- * `nah=<Slot 1–4>` (eine Figur aus der Nähe, CHAOS-162).
+ * `nah=<Slot 1–4>` (eine Figur aus der Nähe, CHAOS-162), `pbr=1` (glTF-PBR-Materialien wie auf
+ * Brett, Minispiel und Podest statt `StandardMaterial`, CHAOS-207).
  */
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import { Engine } from '@babylonjs/core/Engines/engine.js';
@@ -84,7 +85,7 @@ ground.position.y = -0.15;
 ground.material = grass;
 ground.receiveShadows = true;
 
-const library = await loadCharacters(scene);
+const library = await loadCharacters(scene, { keepPbr: params.get('pbr') === '1' });
 const handles: HostCharacterHandle[] = [];
 const names = document.getElementById('names');
 ([1, 2, 3, 4] as const).forEach((slot: Slot, i) => {
