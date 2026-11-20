@@ -2576,7 +2576,7 @@ Feinabstimmung innerhalb von C:
 
 **Varianten:**
 - **A (verworfen, nicht gebaut):** Lage als Text in der Spielerleiste („3 Felder voraus“). Braucht Lesen statt Hinsehen und sagt nichts über die Richtung im Bild.
-- **B:** Marker unter dem HUD. Im PC-Host lag der Marker von Orange oben rechts unter dem Ereignis-Ticker und war nicht zu sehen (Playwright-Bild, Demo-Ablauf nach dem Zugwechsel zu Grün).
+- **B:** Marker unter dem HUD. Im PC-Host lag der Marker von Orange oben rechts unter dem Ereignis-Ticker und war nicht zu sehen (Playwright-Bild, Demo-Ablauf nach dem Zugwechsel zu Grün). Ein erster Simulator-Lauf mit B zeigte unten liegende Marker richtig, oben hätte dasselbe gedroht.
 - **C (gewählt):** Marker über dem HUD (`apps/host/src/board/edgeMarkers.ts`): Projektion der Figurenmitte (1,2 über dem Boden) mit der nachgezogenen Pose. Außerhalb des sicheren Bildbereichs aus EXP-033 (oben Titel und Banner, unten die Spielerleiste) sitzt der Marker dort, wo der Strahl von der Mitte des sicheren Bereichs zur Figur den um 0,1 halbe Bildhöhen eingerückten Rand trifft. Tropfen in Slot-Farbe mit Symbol, die Spitze zeigt zur Figur. Mehrere Marker am selben Rand halten 0,17 halbe Bildhöhen Abstand. Erscheinen erst nach 350 ms draußen, Schwelle ±0,04 gegen Flackern, Ein- und Ausblenden in 300 ms, beim Ausblenden bleibt der Marker stehen. Keine Marker im Überblick, außerhalb der Züge, für die Figur am Zug und für Figuren im Flug (Windstoß, Platztausch: Marker bleibt, wie er war).
 
 **Objektive Messgrößen:** Rand und Richtung je Lage (vier Ränder, unter der Spielerleiste, hinter der Kamera); Abstand gleichzeitiger Marker; Verzögerung und Deckkraft bei festen Schritten; Gleichheit bei 20 und 60 Schritten je Sekunde; Determinismus über den Demo-Ablauf; Marker im PC-Host oberhalb der Spielerleiste und von nichts verdeckt.
@@ -2589,7 +2589,7 @@ Feinabstimmung innerhalb von C:
 - Unit-Tests: alle vier Ränder mit passender Richtung, Figur unter der Spielerleiste zählt als außerhalb, hinter der Kamera endlich und am Rand, drei Figuren rechts außerhalb ohne Überdeckung. Kurz draußen (280 ms, fünfmal hintereinander) kein Marker; Wackeln um die Kante (±0,15 Einheiten) lässt den Marker stehen.
 - Demo-Ablauf mit Regie und Kamera: zweimal gespielt identisch; Marker nur für andere Figuren (ein Marker der neuen Figur am Zug blendet nach dem Zugwechsel nur noch aus), immer im sicheren Bereich.
 - PC-Host: [`chaos210-randmarker.jpg`](screenshots/chaos210-randmarker.jpg) (Grün am Zug am linken Brettrand, Blau rechts, Orange oben rechts). Zu Rundenbeginn (Überblick) nach 40 Bildern keine Marker mehr.
-- Apple-Host im tvOS-Simulator: keine `FEHLER` im Log, Marker wie am PC: [`chaos210-apple-tv-windboe.jpg`](screenshots/chaos210-apple-tv-windboe.jpg) (Orange und Rosa unter der Spielerleiste, Marker unten), [`chaos210-apple-tv-trophaee.jpg`](screenshots/chaos210-apple-tv-trophaee.jpg) (Orange rechts, Rosa unten).
+- Apple-Host im tvOS-Simulator (Marker über dem HUD, 4 Bots, 3 Minispiele): keine `FEHLER` im Log, Marker wie am PC. [`chaos210-apple-tv-platztausch.jpg`](screenshots/chaos210-apple-tv-platztausch.jpg): Anna am Zug, Rosa, Orange und Grün stehen vorn unter der Spielerleiste, drei Marker nebeneinander am unteren Rand.
 - Grenze: Der Apple-Host rechnet für 16:9 (Fernseher). Ein Mac-Fenster schmaler als 16:9 zeigt das HUD verkleinert, die Marker stehen dort etwas zu weit innen.
 
 **Entscheidung:** **C behalten.** B verdeckt Marker am oberen Rand. Die Zahlen sind ein erster Wurf aus Bildern, kein Spieltest.
