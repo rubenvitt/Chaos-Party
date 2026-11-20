@@ -127,7 +127,7 @@ describe('Seilbahn', () => {
       expect.objectContaining({ slot, delta: -8, balance: 12, reason: 'event' }),
     );
     // Von f04 noch zwei Schritte: Bergstation g06, dann g07 (Trophäenfeld, ohne Trophäe dort).
-    expect(ofType(r.events, 'moved').filter((e) => e.slot === slot)[0]?.path).toEqual([
+    expect(ofType(r.events, 'moved').find((e) => e.slot === slot)?.path).toEqual([
       MOUNTAIN_STATION,
       'g07',
     ]);
@@ -138,7 +138,7 @@ describe('Seilbahn', () => {
     const slot = activeSlot(s);
     const r = roll(s);
     expect(ofType(r.events, 'path-chosen')).toEqual([]);
-    expect(ofType(r.events, 'moved').filter((e) => e.slot === slot)[0]?.path).toEqual([
+    expect(ofType(r.events, 'moved').find((e) => e.slot === slot)?.path).toEqual([
       VALLEY_STATION,
       'f05',
       'f06',
@@ -251,7 +251,13 @@ describe('Ganze Partien auf dem Frostgipfel', () => {
   });
 
   it('ist mit gleichem Seed gleich (deterministisch)', () => {
-    const options = { board: FROSTGIPFEL, rules: DEFAULT_RULES, seed: 7, players: 3, rounds: 6 };
+    const options = {
+      board: FROSTGIPFEL,
+      rules: DEFAULT_RULES,
+      seed: 7,
+      players: 3 as const,
+      rounds: 6,
+    };
     expect(simulateGame(options)).toEqual(simulateGame(options));
   });
 });
