@@ -741,3 +741,18 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. Echte Klänge am Fernseher und am PC (für CHAOS-223)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-223 · **Entscheidung:** ADR-019 Nachtrag 6, EXP-034
+
+Automatisch geprüft (Mac): Klang-Dateien im Bündel und dekodierbar (`--selftest`), Wahl und Rückfall in Unit-Tests, Bot-Partie am Mac ohne Fehlerzeilen. **Nicht** automatisch prüfbar: wie es klingt, Lautstärke im Verhältnis, Lautsprecher der Apple TV bzw. des Fernsehers.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| KL1 | Apple TV: App starten, Partie mit iPhones | Log „Klang-Dateien: 40 geladen in … ms“; Würfel klappern, Münzen klimpern, Zugbeginn ist ein kurzer Pizzicato-Lauf | | Log |
+| KL2 | Minispiele der Rotation spielen | Trillerpfeife zum Start, Boing, Platschen, Wusch, Plopp hörbar; nichts kommt verspätet | | |
+| KL3 | Ergebnis und Finale | Jubel, Fanfare, „Wah-wah-wah“ beim Verlieren; nicht zu lang, nicht zu laut | | |
+| KL4 | Pause (Play/Pause) und Weiter | Kurzer Klang beim Anhalten und Weiterspielen | | |
+| KL5 | PC: `pnpm play`, eine Runde | Dieselben Klänge wie auf der Apple TV | | |
+| KL6 | Ruben: Urteil | Welche Klänge tauschen, welche lauter oder leiser? | | Kommentar an CHAOS-223 |

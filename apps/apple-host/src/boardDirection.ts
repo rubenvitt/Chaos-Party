@@ -47,8 +47,8 @@ import {
   tailwindRows,
 } from '../../host/src/board/texts.ts';
 import { boardEventSound } from '../../host/src/fx/boardSounds.ts';
-import { SOUNDS, shapeRecipe } from '../../host/src/fx/sounds.ts';
 import type { Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
+import { soundCue, toCue } from './soundCue.ts';
 import { createBoardLight } from './lightMood.ts';
 
 /** Größter Regie-Schritt je `tick` (wie `MAX_STEP_MS` in `createBoardScene.ts`). */
@@ -228,11 +228,7 @@ export function createBoardDirection(): BoardDirection {
   director.onEvent((event) => {
     const cue = boardEventSound(event);
     if (!cue) return;
-    // JSON-Kopie: `shapeRecipe` lässt fehlende Felder als `undefined` stehen.
-    const voices = JSON.parse(
-      JSON.stringify(shapeRecipe(SOUNDS[cue.name].recipe, cue.options)),
-    ) as SoundCue['voices'];
-    sounds.push({ id: nextSoundId++, name: cue.name, voices, at: now });
+    sounds.push({ ...soundCue(nextSoundId++, cue.name, cue.options), at: now });
   });
 
   const hudParts = () => {
@@ -306,7 +302,7 @@ export function createBoardDirection(): BoardDirection {
           : { pos: [0, 28, -17.5], target: [0, 0, 0] },
         trophySpaces: [...(view?.trophySpaces ?? [])],
         traps: (view?.traps ?? []).map((t) => ({ spaceId: t.spaceId, owner: t.owner })),
-        sounds: sounds.map(({ id, name, voices }) => ({ id, name, voices })),
+        sounds: sounds.map(toCue),
         light: light.current(
           view ? { round: view.round, rounds: view.rounds } : { round: 1, rounds: 1 },
         ),

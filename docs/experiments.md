@@ -2569,3 +2569,24 @@ Feinabstimmung innerhalb von C:
 **Entscheidung:** **C behalten.** B scheitert an Gabel und Klau, A erfüllt Rubens Wunsch nicht und taugt nicht für größere Bretter. Die Zahlen sind ein erster Wurf aus Screenshots, kein Spieltest.
 
 **Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.
+
+## EXP-034: Echte Klänge statt Synthese (2026-11-20, CHAOS-223)
+
+**Hypothese / gewünschtes Spielerlebnis:** Echte Aufnahmen (Würfelklappern, Boing, Platschen, Fanfare, Jubel) machen die Partie am Fernseher lebendig und cartoonig. Die prozeduralen Rezepte (CHAOS-33) klangen nach Piepsen. Ruben nach einer Partie auf der Apple TV (2026-11-20): „Wir brauchen dringend VIEL BESSERE Töne. Das ist ja grauenhaft so.“
+
+**Varianten:**
+- **A (bisher):** 35 Rezepte aus Oszillator und Rauschen (`apps/host/src/fx/sounds.ts`), Synthese per WebAudio bzw. AVAudioEngine.
+- **B (gewählt):** CC0-Aufnahmen. Kenney-Pakete (Casino: Würfel; Interface: Bestätigen, Fehler, Glas, Pause/Weiter; Impact: Holz, Treffer; RPG: Münzbeutel; Music Jingles: Pizzicato-Läufe für Zugbeginn, Minispiel-Zeit, Münzverlust) und freesound.org für das, was Kenney nicht hat (Boing, Platschen, Wusch, Plopp, Münze, Trillerpfeife, Lotusflöte, Jubel, Fanfaren, „Wah-wah-wah“, Mausefalle). Je häufigem Klang zwei bis drei Varianten reihum, dazu ±2–10 % Tonhöhen-Streuung.
+- **Verworfen:** Kenney „Voiceover Pack“ (englische Ansagen „Go!“, „You win“) passt nicht zu deutschen Texten. Kenney „Digital Audio“ und „Sci-Fi Sounds“ klingen nach Weltraum, nicht nach Picknick. Sonniss-, BBC- und Pixabay-Sammlungen sind nicht CC0 und dürfen nicht als Rohdatei in ein öffentliches Repository.
+
+**Auswahl ohne Ohr:** Claude kann nicht hören. Grundlage waren Titel, Beschreibung und Downloadzahl auf freesound.org, die Paketstruktur bei Kenney und eine grobe Tonhöhen-Kontur der Jingles (dominante Frequenz je 50 ms): aufsteigend (+5 bis +9 Halbtöne) für Zugbeginn und Minispiel-Zeit, fallend (−9) für Münzverlust. Das Urteil liegt bei Ruben.
+
+**Objektive Messgrößen:** Dauer je Datei (häufige Klänge ≤ 0,3–0,6 s, längste 1,9 s), Spitzenpegel ≤ −0,1 dBFS, Effektivpegel nach dem Import (Ziel −18 dBFS, Würfel und Münzbeutel wegen Pausen zwischen den Anschlägen −21 bis −30 dBFS), Größe (40 Dateien, rund 310 KiB), verworfene Klänge je Minispiel (Logzeile „Minispiel-Klänge …: n gespielt, m verworfen“), Ladezeit der Dateien in Swift (Log „Klang-Dateien: n geladen in … ms“).
+
+**Subjektive Playtest-Fragen (für Ruben):** Klingt es jetzt nach Partyspiel? Welche Klänge nerven nach zehn Runden (Zugbeginn, Münzen, Würfel)? Ist etwas zu laut oder zu leise im Verhältnis? Passt die Trillerpfeife zum Minispiel-Start? Sind Jubel und Fanfare zu lang?
+
+**Testumgebung:** MacBook (Apple Silicon), Import mit ffmpeg 8 und libmp3lame (VBR q3, mono 44,1 kHz), Branch `claude/chaos-223-klaenge`. Unit-Tests `apps/host/src/fx/samples.test.ts`, `audio.test.ts`, `apps/apple-host/test/soundCue.test.ts`; Mac-App mit `--selftest` und Bot-Partie.
+
+**Ergebnisse:** Siehe PR zu CHAOS-223. Automatisch geprüft: Jeder Klang-Name hat Dateien, alle Dateien dekodieren im Browser-Host (Vite-Build) und in Swift, Rezepte springen ein, wenn eine Datei fehlt.
+
+**Entscheidung:** B behalten, vorbehaltlich Rubens Hörprobe am Fernseher (Gerätecheckliste §39). Einzelne Klänge tauscht eine Zeile in `packages/assets/sounds.json`.

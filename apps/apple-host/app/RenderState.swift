@@ -199,11 +199,22 @@ struct RenderState: Decodable, Equatable {
         }
     }
 
-    /// Procedural sound (`apps/host/src/fx/sounds.ts`), volume and pitch already applied.
+    /// Sound cue: procedural recipe (`apps/host/src/fx/sounds.ts`, volume and pitch already applied) as fallback, and since
+    /// CHAOS-223 the recorded file to play (`payload/sounds/<file>`), chosen by the JS core like the browser host does.
     struct SoundCue: Decodable, Equatable {
         var id: Int
         var name: String
         var voices: [Voice]
+        var sample: Sample?
+    }
+
+    struct Sample: Decodable, Equatable {
+        /// File name under `payload/sounds/`, e.g. `coin-2.mp3`.
+        var file: String
+        /// Playback rate (pitch incl. variation), like WebAudio `playbackRate`.
+        var rate: Double
+        /// Volume 0…2 before the master volume.
+        var gain: Double
     }
 
     struct Voice: Decodable, Equatable {

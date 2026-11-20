@@ -327,8 +327,14 @@ export const SoundCueSchema = z.strictObject({
   id: z.number().int(),
   /** `SoundName` aus `apps/host/src/fx/sounds.ts`. */
   name: z.string(),
-  /** Rezept mit Lautstärke und Tonhöhe schon angewandt (`shapeRecipe`). */
+  /** Rezept mit Lautstärke und Tonhöhe schon angewandt (`shapeRecipe`); Rückfall ohne Datei. */
   voices: z.array(SoundVoiceSchema),
+  /**
+   * Klang-Datei (CHAOS-223, `apps/host/src/fx/samples.ts`): Name unter `payload/sounds/`,
+   * Abspiel-Rate (Tonhöhe samt Streuung) und Lautstärke 0…2. Fehlt sie oder liegt die Datei
+   * nicht im Bündel, spielt Swift das Rezept.
+   */
+  sample: z.strictObject({ file: z.string(), rate: z.number(), gain: z.number() }).optional(),
 });
 
 export const NoticeSchema = z.strictObject({
