@@ -7,6 +7,7 @@
  * (Dauer, Abstände, Sabotage-Häufigkeit) für den Vergleich von Regelvarianten.
  */
 import { rankByScore } from '@chaos-party/minigame-sdk';
+import { avalancheAt, isCableEdge, isIce } from '../board/hazards.ts';
 import { activeNext } from '../board/rotation.ts';
 import { createRng, pickOne, type Rng } from '../rng.ts';
 import type {
@@ -182,6 +183,14 @@ export interface SimulationResult {
   readonly pathChoices: readonly { readonly slot: Slot; readonly spaceId: string }[];
   /** Durchfahrten drehender Felder je Ausgang (Karussell, CHAOS-199). */
   readonly rotationExits: Readonly<Record<string, number>>;
+  /** Rutschpartien auf Eis (CHAOS-198) und dabei gerutschte Felder. */
+  readonly iceSlides: number;
+  readonly iceSlideSpaces: number;
+  /** Seilbahnfahrten (CHAOS-198). */
+  readonly cableRides: number;
+  /** Abgegangene Lawinen und getroffene Figuren (CHAOS-198). */
+  readonly avalanches: number;
+  readonly avalancheHits: number;
   readonly coinSteals: number;
   readonly coinsStolen: number;
   readonly trapsPlaced: number;
@@ -347,6 +356,15 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   const rotationExits: Record<string, number> = {};
   const rotating = new Map((options.board.rotations ?? []).map((r) => [r.space, r.exits]));
   const positions = new Map<Slot, string>(slots.map((slot) => [slot, options.board.start]));
+  let iceSlides = 0;
+  let iceSlideSpaces = 0;
+  let cableRides = 0;
+  let avalanches = 0;
+  let avalancheHits = 0;
+  /** Zwischen `round-started` mit Lawine und dem ersten Zug: Verluste sind Lawinentreffer. */
+  let inAvalanche = false;
+  /** Letztes Ereignis war ein `moved` dieses Slots (Rutschpartie folgt direkt dem Laufen). */
+  let lastMoved: Slot | null = null;
   const bump = (record: Record<string, number>, key: string): void => {
     record[key] = (record[key] ?? 0) + 1;
   };
@@ -376,8 +394,15 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       trapsBlocked += 1;
       sabotageLosses.pop();
     }
+    const afterMove = lastMoved;
+    lastMoved = event.type === 'moved' ? event.slot : null;
     switch (event.type) {
+      case 'round-started':
+        inAvalanche = avalancheAt(options.board, event.round) !== undefined;
+        if (inAvalanche) avalanches += 1;
+        break;
       case 'turn-started':
+        inAvalanche = false;
         round = event.round;
         turnStart = at;
         turnSpaces = 0;
@@ -389,6 +414,10 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       case 'moved': {
         if (countingMoves) turnSpaces += event.path.length;
         let from = positions.get(event.slot);
+        if (afterMove === event.slot && from !== undefined && isIce(options.board, from)) {
+          iceSlides += 1;
+          iceSlideSpaces += event.path.length;
+        }
         for (const to of event.path) {
           // Nur echte Ausfahrten, kein Platztausch vom Karussell weg.
           if (from !== undefined && rotating.get(from)?.includes(to)) bump(rotationExits, to);
@@ -397,10 +426,13 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
         if (from !== undefined) positions.set(event.slot, from);
         break;
       }
-      case 'path-chosen':
+      case 'path-chosen': {
+        const at = positions.get(event.slot);
+        if (at !== undefined && isCableEdge(options.board, at, event.spaceId)) cableRides += 1;
         bump(pathsChosen, event.spaceId);
         pathChoices.push({ slot: event.slot, spaceId: event.spaceId });
         break;
+      }
       case 'board-event':
         countingMoves = false;
         boardEvents[event.event] += 1;
@@ -422,6 +454,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
         if (event.item === 'coin-steal') coinSteals += 1;
         break;
       case 'coins-changed':
+        if (inAvalanche && event.delta < 0) avalancheHits += 1;
         coins.set(event.slot, event.balance);
         break;
       case 'coins-stolen':
@@ -597,6 +630,11 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     pathsChosen,
     pathChoices,
     rotationExits,
+    iceSlides,
+    iceSlideSpaces,
+    cableRides,
+    avalanches,
+    avalancheHits,
     coinSteals,
     coinsStolen,
     trapsPlaced,

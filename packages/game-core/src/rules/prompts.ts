@@ -4,8 +4,9 @@
  */
 import type { GamePhase, ItemKind, PromptKind, PromptOption, Slot } from '../types.ts';
 import { sabotageAmount } from './economy.ts';
+import { cableCarAt } from '../board/hazards.ts';
 import { rotationAt, rotationExit } from '../board/rotation.ts';
-import { activePlayer, nextOf, playerOf, spaceOf, type Ctx } from './internal.ts';
+import { activePlayer, pathOptions, playerOf, spaceOf, type Ctx } from './internal.ts';
 import { trophyPrice } from './economy.ts';
 import {
   coinsText,
@@ -175,10 +176,13 @@ function rotationDetail(ctx: Ctx, id: string): string | undefined {
 
 export function openPathPrompt(ctx: Ctx, t: number): void {
   const player = activePlayer(ctx);
-  const next = nextOf(ctx, player.spaceId);
+  const next = pathOptions(ctx, player.spaceId, player.slot);
+  const board = ctx.d.internal.board;
   const options: PromptOption[] = next.map((id, index) => {
     const label = pathLabel(spaceOf(ctx, id).label, index);
-    const detail = rotationDetail(ctx, id);
+    // Seilbahn (CHAOS-198): Fahrpreis als Zusatz.
+    const price = cableCarAt(board, player.spaceId, id)?.price;
+    const detail = price === undefined ? rotationDetail(ctx, id) : coinsText(price);
     return detail === undefined ? { id, label } : { id, label, detail };
   });
   openPrompt(
