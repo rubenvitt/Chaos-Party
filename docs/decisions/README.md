@@ -34,3 +34,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-019](ADR-019-nativer-apple-host.md) | Nativer Apple-Host mit RealityKit, Apple TV hostet allein (TS-Kern in JavaScriptCore), Babylon bleibt am PC | Angenommen (2026-11-17; Überprüfung nach Spike) | CHAOS-135 |
 | [ADR-020](ADR-020-ki-spieler.md) | KI-Spieler: jeder Platz Mensch oder KI (Solo erlaubt), Brett-KI im Server, Minispiel-KI im Host, Stärke leicht/mittel/schwer/dynamisch, Persönlichkeit per Seed | Angenommen (Rubens Entscheidungen 2026-11-19) | CHAOS-178 |
 | [ADR-021](ADR-021-drehende-felder.md) | Drehende Felder (Karussell): Ausgang als feste Funktion der Runde, keine Wegwahl, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-199 |
+| [ADR-022](ADR-022-eis-seilbahn-lawine.md) | Eis, Seilbahn und Lawine (Frostgipfel) als optionale Brett-Daten, Lawine als Funktion der Runde, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-198 |

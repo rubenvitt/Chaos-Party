@@ -757,3 +757,19 @@ Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests,
 | RP5 | Geisterbahn und Losbudengasse ansehen | Portale, Gespenster, Losbuden erkennbar, kein Feld verdeckt | | Foto |
 | RP6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett rummelplatz geladen … in … ms“ notieren | | Log |
 | RP7 | Spieltest-Frage | Ist die Ost-Ausfahrt (Ehrenrunde zurück in die Geisterbahn) lustig oder ärgerlich? Ist klar, wohin das Karussell gerade fährt? | | Notiz |
+
+## 40. Frostgipfel: Eis, Seilbahn, Lawinen und Winterkulisse (für CHAOS-198)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-198 · **Entscheidung:** ADR-022 · **Experiment:** EXP-036
+
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host in Chrome mit Metal (Bilder unter `docs/screenshots/chaos198-*`), E2E Lobby-Wahl und Brett-Szene. **Nicht** geprüft: echte Apple TV (Ladezeit und Bildrate der Winterkulisse), Lesbarkeit und Spielspaß am Fernseher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| FG1 | PC und Apple TV: Lobby, Brett „Frostgipfel“ wählen | Lobby zeigt „Frostgipfel · 75 Felder“; Partie startet im Schnee mit Gipfel in der Mitte | | Foto |
+| FG2 | An der Talstation (unten rechts vom Start) mit mindestens 8 Münzen ankommen | Controller bietet „Talweg“ und „Seilbahn · 8 Münzen“; mit weniger als 8 Münzen läuft die Figur ohne Frage den Talweg | | Foto |
+| FG3 | Seilbahn wählen | 8 Münzen weg, die Figur springt zur Bergstation vor dem Gipfel und läuft dort weiter | | Video |
+| FG4 | Auf einem Eisfeld (hellblau mit Schneeflocke) landen | Figur rutscht weiter, Popup „Rutsch!“; auf der Rodelbahn bis zum ersten festen Feld; erst dort gilt das Feld | | Video |
+| FG5 | Runde 3 beginnt | Einblendung „Lawinengefahr am Gletscherpfad!“; zu Beginn von Runde 4 „Lawine am Gletscherpfad!“, Kamera zeigt den Hang, Figuren dort verlieren 5 Münzen | | Video |
+| FG6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett frostgipfel geladen … in … ms“ notieren | | Log |
+| FG7 | Spieltest-Frage | Ist die Lawinen-Warnung verständlich? Lohnt sich die Seilbahn gezielt? Fühlt sich das Rutschen lustig oder zufällig an? | | Notiz |
