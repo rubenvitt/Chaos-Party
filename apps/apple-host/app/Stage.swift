@@ -44,16 +44,18 @@ final class Stage {
         renderer.cameraSettings.colorBackground = .color(CGColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
     }
 
-    /// Lädt Kulisse und Figuren. Ohne Assets bleibt es bei Grundkörpern (Entwicklung, CI ohne `build:apple-assets`).
+    /// Lädt Figuren und Kulisse. Ohne Assets bleibt es bei Grundkörpern (Entwicklung, CI ohne `build:apple-assets`).
     func load(assets override: String?) async {
         defer { loaded = true }
         guard let folder = BoardScene.assetFolder(override: override) else {
             hostLog("FEHLER Brett-Assets fehlen (payload/szene) – Grundkörper statt echter Grafik")
-            await loadMinigame(folder: nil)
+            loadMinigame(models: [:])
             return
         }
+        // Jede Figur einmal laden; Brett, Minispiel und Podest klonen daraus (CHAOS-191).
+        let models = await FigureModel.loadAll(folder: folder)
         do {
-            let scene = try await BoardScene.load(from: folder)
+            let scene = try await BoardScene.load(from: folder, figures: models)
             scene.onEvent = { [weak self] in self?.onBoardEvent?($0) }
             board = scene
             renderer.entities.append(scene.root)
@@ -62,13 +64,12 @@ final class Stage {
         } catch {
             hostLog("FEHLER Brett laden: \(error)")
         }
-        await loadMinigame(folder: folder)
+        loadMinigame(models: models)
         await warmUp()
     }
 
-    /// Minispiel-Bühne (CHAOS-144): Figuren vorab laden, damit der Wechsel Brett → Minispiel nicht ruckelt.
-    private func loadMinigame(folder: URL?) async {
-        let models = await MinigameScene.loadModels(folder: folder)
+    /// Minispiel-Bühne (CHAOS-144) und Podest mit den schon geladenen Figuren, damit der Wechsel Brett → Minispiel nicht ruckelt.
+    private func loadMinigame(models: [String: FigureModel]) {
         let scene = MinigameScene(models: models, grass: board?.grass ?? [], sky: board?.sky, skyExponent: board?.skyExponent ?? 0,
                                   clearColor: board?.clearColor ?? CGColor(red: 0.83, green: 0.9, blue: 0.96, alpha: 1))
         scene.root.isEnabled = false
