@@ -21,6 +21,7 @@ on:
       - 'packages/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/testflight-tv.yml'
+      - 'scripts/asc-certificates*.mjs'
       - '!**/*.md'
       - '!**/*.test.ts'
       - '!**/test/**'
@@ -95,12 +96,29 @@ jobs:
           (umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$key")
           echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
 
+      # Apple erlaubt nur wenige Entwicklerzertifikate. Xcode legt beim Archivieren über den API-Key (Rolle Admin)
+      # jedes Mal ein neues an; ohne Aufräumen scheitert der Lauf irgendwann an „maximum number of certificates“.
+      # Darum vorher alle Entwicklerzertifikate widerrufen, die älter als zwei Stunden sind (jüngere könnten einem
+      # parallelen Lauf gehören), und nach dem Lauf das neue (scripts/asc-certificates.mjs).
+      - name: Alte Entwicklerzertifikate widerrufen
+        env:
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+        run: node scripts/asc-certificates.mjs cleanup --snapshot "$RUNNER_TEMP/dev-certs.json"
+
       - name: Archivieren und hochladen
         env:
           ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
           ASC_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           SKIP_PREPARE: '1'
         run: apps/apple-host/scripts/testflight.sh
+
+      - name: Entwicklerzertifikat dieses Laufs widerrufen
+        if: always() && env.ASC_KEY_PATH != ''
+        env:
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+        run: node scripts/asc-certificates.mjs revoke-new --snapshot "$RUNNER_TEMP/dev-certs.json"
 
       - name: API-Key löschen
         if: always()
