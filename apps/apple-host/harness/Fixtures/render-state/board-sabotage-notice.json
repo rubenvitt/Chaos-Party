@@ -49,6 +49,7 @@
     ]
   },
   "board": {
+    "boardId": "wackelwald",
     "round": 6,
     "rounds": 10,
     "activeSlot": 1,

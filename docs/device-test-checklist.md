@@ -728,3 +728,16 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 | BA5 | Partie mit „Zufall“ starten, danach „Nochmal spielen“ | Partie läuft auf Wackelwald; in der Revanche-Lobby steht weiter „Zufall“ | | |
 | BA6 | Mac-App mit `--brett=zufall` starten | Lobby zeigt sofort „Zufall“ | | |
 
+
+## 38. Kulisse je Brett im nativen Host (für CHAOS-212)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-212
+
+Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. **Nicht** prüfbar, solange es nur Wackelwald gibt: Wechsel zwischen zwei Bretter-Kulissen; das folgt mit CHAOS-199 (Rummelplatz) bzw. CHAOS-198.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| KB1 | Mac und Apple TV: App starten, Lobby | Wackelwald im Hintergrund wie bisher; „Partie starten“ erst nach dem Laden | | Foto |
+| KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
+| KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
+| KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |

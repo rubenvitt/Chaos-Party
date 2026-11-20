@@ -7,7 +7,10 @@
  * und `node scripts/spike-export-board.mjs` (Bevy-Spike). Beide steuern die Seite über
  * `scripts/lib/board-export.mjs`.
  *
- *   http://localhost:5173/host/src/export/boardExport.html?qualitaet=hoch
+ *   http://localhost:5173/host/src/export/boardExport.html?qualitaet=hoch&brett=wackelwald
+ *
+ * `brett` wählt das Brett aus dem Register (CHAOS-212, Standard: `DEFAULT_BOARD`); der
+ * Beispiel-Spielstand passt sich an (`demoStartMessage`).
  */
 import { Camera } from '@babylonjs/core/Cameras/camera.js';
 import type { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
@@ -18,9 +21,9 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Node } from '@babylonjs/core/node.js';
 import { GLTF2Export } from '@babylonjs/serializers/glTF/2.0/glTFSerializer.js';
-import { DEFAULT_BOARD } from '@chaos-party/game-core';
+import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
 import { createBoardScene } from '../board/createBoardScene.ts';
-import { createDemoMessages } from '../board/demo.ts';
+import { demoStartMessage } from '../board/demo.ts';
 import { createBoardDirector } from '../board/director.ts';
 import { TILE_TOP } from '../board/natureBoard.ts';
 import { FIELD_ANCHOR_GROUP, fieldAnchors } from './anchors.ts';
@@ -48,13 +51,15 @@ const rh = (v: { x: number; y: number; z: number }): [number, number, number] =>
 
 async function run(): Promise<void> {
   const canvas = document.getElementById('brett') as HTMLCanvasElement;
+  const boardId = new URLSearchParams(window.location.search).get('brett') ?? DEFAULT_BOARD.id;
+  const definition = getBoard(boardId);
+  if (!definition) throw new Error(`Brett „${boardId}“ ist nicht im Register`);
   const director = createBoardDirector();
-  const first = createDemoMessages()[0];
-  if (first) director.receive(first);
+  director.receive(demoStartMessage(definition));
   // Kein Testmodus (der erzwingt die Sparstufe); `?qualitaet=hoch` in der URL wählt die Stufe,
   // die ein echter PC zuerst bekommt (Grasdichte, Schatten, Materialdetail).
-  const board = createBoardScene(canvas, { board: DEFAULT_BOARD, source: director });
-  console.log('Export: Szene angelegt, warte auf Aufbau …');
+  const board = createBoardScene(canvas, { board: definition, source: director });
+  console.log(`Export: Szene ${definition.id} angelegt, warte auf Aufbau …`);
   await board.ready;
   console.log('Export: Brett steht');
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -97,7 +102,7 @@ async function run(): Promise<void> {
 
   // Feld-Anker (CHAOS-140): leere Knoten `feld_<id>` auf der Feldoberfläche, damit der native
   // Host die Felder in `brett.usdz` findet. Dieselben Orte stehen in `meta.fields`.
-  const fields = fieldAnchors(DEFAULT_BOARD, TILE_TOP);
+  const fields = fieldAnchors(definition, TILE_TOP);
   const group = new TransformNode(FIELD_ANCHOR_GROUP, scene);
   for (const field of fields) {
     const node = new TransformNode(field.anchor, scene);
@@ -142,7 +147,7 @@ async function run(): Promise<void> {
       $comment:
         'CHAOS-75/CHAOS-140: erzeugt von apps/host/src/export/boardExport.ts aus dem Beispiel-Spielstand; rechtshändig (glTF), Meter, Y oben.',
       version: 2,
-      board: DEFAULT_BOARD.id,
+      board: definition.id,
       camera: {
         position: rh(camera.position),
         target: rh(camera.getTarget()),

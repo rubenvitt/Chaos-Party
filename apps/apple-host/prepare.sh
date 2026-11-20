@@ -24,11 +24,19 @@ cp -R "$root/apps/controller/dist" "$out/controller"
 # Porträts für die Spielerkarten der Lobby (CHAOS-36/142), aus dem Repo.
 mkdir -p "$out/portraits"
 cp "$root"/packages/assets/textures/portraits/*.webp "$out/portraits/"
-# Brett-Kulisse und Figuren als USDZ (CHAOS-140, docs/apple-assets.md), dazu Herkunft und Lizenzen.
+# Brett-Kulissen je Brett (CHAOS-212: bretter/<brett-id>/) und Figuren als USDZ (CHAOS-140, docs/apple-assets.md),
+# dazu Herkunft und Lizenzen. Wackelwald (Standardbrett) muss da sein, die App fällt bei fehlenden Brettern darauf zurück.
 assets="${APPLE_ASSETS:-$root/build/apple-assets}"
-if [ -f "$assets/brett.usdz" ] && [ -f "$assets/brett.szene.json" ] && [ -f "$assets/figuren/robot.usdz" ]; then
-  mkdir -p "$out/szene/figuren"
-  cp "$assets/brett.usdz" "$assets/brett.szene.json" "$assets/brett.instanzen.json" "$assets/herkunft.json" "$out/szene/"
+if [ -f "$assets/bretter/wackelwald/brett.usdz" ] && [ -f "$assets/bretter/wackelwald/brett.szene.json" ] \
+  && [ -f "$assets/figuren/robot.usdz" ]; then
+  mkdir -p "$out/szene/figuren" "$out/szene/bretter"
+  cp "$assets/herkunft.json" "$out/szene/"
+  for board in "$assets"/bretter/*/; do
+    id=$(basename "$board")
+    [ -f "$board/brett.usdz" ] || continue
+    mkdir -p "$out/szene/bretter/$id"
+    cp "$board/brett.usdz" "$board/brett.szene.json" "$board/brett.instanzen.json" "$out/szene/bretter/$id/"
+  done
   cp "$assets"/figuren/*.usdz "$assets"/figuren/*.clips.json "$out/szene/figuren/"
 elif [ "${OHNE_ASSETS:-0}" = 1 ]; then
   echo "prepare.sh: keine USDZ-Assets in $assets – OHNE_ASSETS=1, die App zeichnet Grundkörper" >&2

@@ -571,8 +571,8 @@
       "generator": "scripts/build-apple-assets.mjs",
       "artifacts": [
         {
-          "id": "apple-brett",
-          "path": "brett.usdz",
+          "id": "apple-brett-wackelwald",
+          "path": "bretter/wackelwald/brett.usdz",
           "description": "Brett-Kulisse Wackelwald (Grafikstufe hoch) als USDZ: Gelände, Felder, Natur, Wegweiser, Feld-Anker feld_<id>; ohne Figuren und Instanzen (die liegen als Matrizen in brett.instanzen.json).",
           "license": "GPL-3.0-only",
           "from": [

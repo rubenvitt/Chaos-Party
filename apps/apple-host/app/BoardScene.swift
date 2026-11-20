@@ -7,7 +7,8 @@ import RealityKit
 /// Figuren als USDZ auf Sockeln, Sonne und Himmelslicht wie im Babylon-Host. Was sich bewegt, liefert die Regie des
 /// Browser-Hosts im JS-Kern (`renderState().board`): Hüpfen und Fliegen der Figuren, Popups, Kameraziel, Trophäen,
 /// Fallen und Klänge. Hier wird nur gezeichnet, nachgebaut aus `apps/host/src/board/createBoardScene.ts`.
-/// Assets aus `pnpm build:apple-assets` (CHAOS-140, `docs/apple-assets.md`), von `prepare.sh` nach `payload/szene/`.
+/// Assets aus `pnpm build:apple-assets` (CHAOS-140, `docs/apple-assets.md`), von `prepare.sh` nach `payload/szene/`; je Brett
+/// eine Kulisse unter `bretter/<brett-id>/` (CHAOS-212), welche gerade gilt, entscheidet `Stage`.
 ///
 /// Koordinaten: `brett.usdz` ist rechtshändig wie RealityKit und entsteht aus Babylon mit `(x, y, z) → (-x, y, z)`
 /// (`apps/host/src/export/boardExport.ts`). Die Figuren stehen darum auf den Feld-Ankern `feld_<id>` des Bretts;
@@ -17,6 +18,8 @@ import RealityKit
 /// werden beim Laden abgenommen und dienen als Vorlagen: Pokale und Fallen entstehen je nach `trophySpaces`/`traps`.
 @MainActor
 final class BoardScene {
+    /// Brett-ID aus `brett.szene.json` (`board`), gleich dem Ordnernamen unter `bretter/`.
+    let boardId: String
     let root = Entity()
     let camera = PerspectiveCamera()
     let sky: EnvironmentResource?
@@ -92,6 +95,7 @@ final class BoardScene {
 
     private init(root board: Entity, meta: SceneMeta, anchors: [String: SIMD3<Float>], figures: [String: FigureModel],
                  sky: EnvironmentResource?, instances: Int, grass: [GrassTemplate]) {
+        boardId = meta.board ?? Stage.defaultBoardId
         self.anchors = anchors
         self.grass = grass
         self.figures = figures
@@ -173,14 +177,23 @@ final class BoardScene {
         return template
     }
 
-    /// Ordner mit `brett.usdz`, `brett.szene.json`, `brett.instanzen.json` und `figuren/`.
+    /// Asset-Ordner mit `figuren/` und `bretter/<brett-id>/` (CHAOS-212); gilt, wenn das Standardbrett darin liegt.
     static func assetFolder(override: String?) -> URL? {
         let candidates = [override.map { URL(fileURLWithPath: $0) },
                           Bundle.main.url(forResource: "payload", withExtension: nil)?.appending(path: "szene")].compactMap { $0 }
-        return candidates.first { FileManager.default.fileExists(atPath: $0.appending(path: "brett.szene.json").path) }
+        return candidates.first { boardFolder(in: $0, id: Stage.defaultBoardId) != nil }
     }
 
-    /// `figures`: die Figurenbibliothek (`FigureModel.loadAll`), einmal geladen für alle Szenen (CHAOS-191).
+    /// Ordner der Kulisse eines Bretts (`brett.usdz`, `brett.szene.json`, `brett.instanzen.json`) oder `nil`, wenn sie fehlt.
+    static func boardFolder(in root: URL, id: String) -> URL? {
+        // Brett-IDs sind `[a-z0-9-]` (game-core `validateBoard`); alles andere nie als Pfad benutzen.
+        guard !id.isEmpty, id.allSatisfy({ $0.isLowercase || $0.isNumber || $0 == "-" }), id.allSatisfy(\.isASCII) else { return nil }
+        let folder = root.appending(path: "bretter").appending(path: id)
+        return FileManager.default.fileExists(atPath: folder.appending(path: "brett.szene.json").path) ? folder : nil
+    }
+
+    /// `folder`: Kulisse eines Bretts (`boardFolder`). `figures`: die Figurenbibliothek (`FigureModel.loadAll`), einmal geladen
+    /// für alle Szenen (CHAOS-191).
     static func load(from folder: URL, figures: [String: FigureModel]) async throws -> BoardScene {
         let t0 = CACurrentMediaTime()
         let meta = try JSONDecoder().decode(SceneMeta.self, from: Data(contentsOf: folder.appending(path: "brett.szene.json")))
@@ -204,7 +217,7 @@ final class BoardScene {
         let sky = try? await EnvironmentResource(equirectangular: hemisphereImage(
             sky: meta.sky?.color ?? [0.83, 0.9, 0.96], ground: meta.sky?.ground ?? meta.sky?.color ?? [0.49, 0.54, 0.32]))
         let scene = BoardScene(root: board, meta: meta, anchors: anchors, figures: figures, sky: sky, instances: instances, grass: grass)
-        hostLog(String(format: "Brett geladen: %d Felder, %d Figuren, %d Instanzen in %.0f ms",
+        hostLog(String(format: "Brett %@ geladen: %d Felder, %d Figuren, %d Instanzen in %.0f ms", scene.boardId,
                        anchors.count, figures.count, instances, (CACurrentMediaTime() - t0) * 1000))
         return scene
     }
@@ -552,6 +565,8 @@ struct SceneMeta: Decodable {
     let sky: Sky?
     let clearColor: [Float]
     let fields: [Field]
+    /// Brett-ID (CHAOS-212); fehlt in Exporten vor `version` 2.
+    let board: String?
 }
 
 /// `brett.instanzen.json`: Grundmesh und Weltmatrizen (spaltenweise, 16 Werte).
