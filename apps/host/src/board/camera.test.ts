@@ -394,13 +394,13 @@ describe('Kamera beim Aufholen der Regie', () => {
     for (let i = 0; i < 600 && director.animating; i++) {
       director.advance(1000 / 60);
       const frame = director.getFrame();
-      const blue = frame.pawns.find((p) => p.slot === 1);
-      if (!blue?.hop || blue.hop.style !== 'walk' || blue.hop.t >= 0.9) continue;
-      const from = pos(blue.hop.from);
-      const to = pos(blue.hop.to);
+      const hop = frame.pawns.find((p) => p.slot === 1)?.hop;
+      if (hop?.style !== 'walk' || hop.t >= 0.9) continue;
+      const from = pos(hop.from);
+      const to = pos(hop.to);
       const at = {
-        x: from.x + (to.x - from.x) * blue.hop.t,
-        z: from.z + (to.z - from.z) * blue.hop.t,
+        x: from.x + (to.x - from.x) * hop.t,
+        z: from.z + (to.z - from.z) * hop.t,
       };
       const shot = cameraShot({
         board: WACKELWALD,
@@ -420,7 +420,7 @@ describe('Kamera beim Aufholen der Regie', () => {
       );
       const dot =
         (ahead.focus.x - at.x) * (to.x - from.x) + (ahead.focus.z - at.z) * (to.z - from.z);
-      expect(dot, `Sprung ${blue.hop.from} → ${blue.hop.to}`).toBeGreaterThan(0);
+      expect(dot, `Sprung ${hop.from} → ${hop.to}`).toBeGreaterThan(0);
       checked++;
     }
     expect(checked).toBeGreaterThan(10);
