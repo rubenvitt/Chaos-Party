@@ -151,7 +151,9 @@ describe('Host-Verbindungsverlust (CHAOS-38)', () => {
     idle(h, 3_000);
     const playStartedAt = h.session.snapshot().game?.state.minigame?.playStartedAt ?? h.clock;
     const elapsedAtLoss = h.clock - playStartedAt;
-    expect(elapsedAtLoss).toBe(3_000);
+    // Die Spielzeit beginnt zwischen zwei Takten des Harness: höchstens einen Takt mehr.
+    expect(elapsedAtLoss).toBeGreaterThanOrEqual(3_000);
+    expect(elapsedAtLoss).toBeLessThan(3_000 + TICK_MS);
     h.dropHost();
     // Controller sehen das Minispiel weiter, aber ohne Eingaben; Eingaben werden abgewiesen.
     expect(h.contexts.get(1)?.context).toMatchObject({

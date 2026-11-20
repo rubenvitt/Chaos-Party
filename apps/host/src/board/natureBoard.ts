@@ -102,14 +102,18 @@ function segmentDistance(p: Point2, a: Point2, b: Point2): number {
   return Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
 }
 
-/** Insel-Umriss für ein Brett: Brettgrenzen plus Rand für Deko und Abhang. */
+/**
+ * Insel-Umriss für ein Brett: Brettgrenzen plus Rand für Deko und Abhang. Der Rand wächst mit
+ * dem Brett (CHAOS-196), weil der Wellenrand der Insel relativ ist: Auf großen Brettern lägen
+ * Randfelder sonst schon im Abhang.
+ */
 export function boardIsland(board: BoardDefinition) {
   const bounds = boardBounds(board);
   return {
     centerX: bounds.center.x,
     centerZ: bounds.center.z,
-    halfX: (bounds.maxX - bounds.minX) / 2 + 3.8,
-    halfZ: (bounds.maxZ - bounds.minZ) / 2 + 3.6,
+    halfX: ((bounds.maxX - bounds.minX) / 2) * 1.1 + 2.6,
+    halfZ: ((bounds.maxZ - bounds.minZ) / 2) * 1.1 + 2.6,
     squareness: 4.5,
   };
 }

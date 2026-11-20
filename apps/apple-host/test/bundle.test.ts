@@ -22,7 +22,7 @@ beforeAll(async () => {
 
 /** Brett-Knöpfe der Lobby mit nur Wackelwald im Register (CHAOS-197). */
 const BOARD_CHOICES = [
-  { id: 'wackelwald', name: 'Wackelwald', detail: '43 Felder', selected: true, random: false },
+  { id: 'wackelwald', name: 'Wackelwald', detail: '74 Felder', selected: true, random: false },
   { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
 ];
 

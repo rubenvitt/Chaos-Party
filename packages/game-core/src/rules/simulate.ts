@@ -80,6 +80,12 @@ export interface BotPolicy {
    */
   readonly avoidTrapChance: number;
   /**
+   * Feste Wegwahl je Slot (CHAOS-196, EXP-034: Ist die Wegwahl fair?): `short` nimmt an jeder
+   * Gabel den Weg mit der kürzesten Strecke zurück zum Start, `long` den längsten. Geht vor
+   * Fallen und Trophäe und zieht keine Zufallszahl; Slots ohne Eintrag wählen wie bisher.
+   */
+  readonly routes: Readonly<Partial<Record<Slot, 'short' | 'long'>>>;
+  /**
    * Echte Minispiele (M3/M4): So lange nach Ende der Spielzeit meldet der „Host“ das Ergebnis
    * (Abschlussbild, Netz). Nur mit `SimulationOptions.minigames`.
    */
@@ -102,6 +108,7 @@ export const DEFAULT_BOT_POLICY: BotPolicy = {
   decisionMs: [800, 2500],
   trophyPathChance: 0,
   avoidTrapChance: 0,
+  routes: {},
   minigameResultDelayMs: 500,
   // Gleichstand auf Platz 1 bei 4 Spielern ≈ 4 %, wie die echten Minispiele (EXP-005 … 007).
   minigameScoreSpread: 40,
@@ -173,6 +180,10 @@ export interface SimulationResult {
   /** Trophäen Platz 1 minus Platz 2 (`null` bei einem Spieler). */
   readonly trophyGap: number | null;
   readonly trophiesBought: number;
+  /** Gekaufte Trophäen je Feld (CHAOS-196: Sind alle Trophäen-Kandidaten erreichbar?). */
+  readonly trophySpacesBought: Readonly<Record<string, number>>;
+  /** Gewählte Wege je Ziel-Feld an Gabeln (`path-chosen`, auch automatisch gewählte). */
+  readonly pathsChosen: Readonly<Record<string, number>>;
   readonly coinSteals: number;
   readonly coinsStolen: number;
   readonly trapsPlaced: number;
@@ -249,6 +260,12 @@ function choosePath(
   policy: BotPolicy,
   rng: Rng,
 ): string {
+  const route = state.prompt ? policy.routes[state.prompt.slot] : undefined;
+  if (route) {
+    const lengths = candidates.map((id) => distanceTo(board, id, [board.start]));
+    const pick = route === 'short' ? Math.min(...lengths) : Math.max(...lengths);
+    return candidates[lengths.indexOf(pick)] ?? pickOne(rng, candidates);
+  }
   let ids = candidates;
   if (policy.avoidTrapChance > 0 && rng.next() < policy.avoidTrapChance) {
     const slot = state.prompt?.slot;
@@ -323,6 +340,11 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   let round = 0;
   let countingMoves = false;
   let trophiesBought = 0;
+  const trophySpacesBought: Record<string, number> = {};
+  const pathsChosen: Record<string, number> = {};
+  const bump = (record: Record<string, number>, key: string): void => {
+    record[key] = (record[key] ?? 0) + 1;
+  };
   let coinSteals = 0;
   let coinsStolen = 0;
   let trapsPlaced = 0;
@@ -362,6 +384,9 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       case 'moved':
         if (countingMoves) turnSpaces += event.path.length;
         break;
+      case 'path-chosen':
+        bump(pathsChosen, event.spaceId);
+        break;
       case 'board-event':
         countingMoves = false;
         boardEvents[event.event] += 1;
@@ -373,6 +398,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
         break;
       case 'trophy-bought':
         trophiesBought += 1;
+        bump(trophySpacesBought, event.spaceId);
         break;
       case 'item-gained':
         itemsGained[event.item] += 1;
@@ -553,6 +579,8 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     minigameSharedWins,
     trophyGap: first && second ? first.trophies - second.trophies : null,
     trophiesBought,
+    trophySpacesBought,
+    pathsChosen,
     coinSteals,
     coinsStolen,
     trapsPlaced,

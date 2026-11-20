@@ -24,7 +24,7 @@ import { lightOf, moodLight } from './lightMood.ts';
 
 /** Brett-Knöpfe der Lobby (CHAOS-197): Wackelwald (gewählt) und Zufall. */
 const BOARD_CHOICES: LobbySettingsState['boards'] = [
-  { id: 'wackelwald', name: 'Wackelwald', detail: '43 Felder', selected: true, random: false },
+  { id: 'wackelwald', name: 'Wackelwald', detail: '74 Felder', selected: true, random: false },
   { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
 ];
 
