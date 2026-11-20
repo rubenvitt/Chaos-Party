@@ -8,7 +8,7 @@ Bei rund 200 Minispielen kann nicht jedes Spiel seine Rahmen-Tests selbst mitbri
 |---|---|---|---|
 | Vertragstest | `packages/minigames/src/catalog.test.ts` | jedes Spiel in `MINIGAME_INFOS` | `pnpm test` (CI) |
 | Bot-Fairness | `packages/minigames/src/checks/` (`fairness.ts`, `harnesses.ts`) | jedes Spiel in `ROTATION` | `pnpm test` (Stichprobe), Bericht mit `PRUEFBERICHT=1` |
-| Vielfalt | `packages/minigames/src/checks/` (`variety.ts`, `variety-profiles.ts`) | jedes Spiel in `ROTATION` | `pnpm test` (CI) |
+| Vielfalt | `packages/minigames/src/checks/variety.ts` mit den Steckbriefen aus `packages/minigames/src/steckbriefe.ts` (Baukasten, ADR-021) | jedes Spiel in `ROTATION` | `pnpm test` (CI) |
 | Screenshots | `tests/e2e/m3-minispiele-bild.spec.ts` | jedes Spiel in `ROTATION` | `pnpm test:e2e` (CI) |
 
 ## 1. Vertragstest
@@ -83,23 +83,11 @@ Die Bots sind Annahmen über Couch-Spieler, nicht gemessen. Die Prüfung findet 
 
 ## 3. Vielfalt (Auflage aus dem Konzept-Gate)
 
-Jedes Spiel der Rotation hat einen Steckbrief aus sieben Merkmalen (README §5.5). Die Bedienung wird aus `info.controls` abgeleitet, die übrigen sechs stehen in `variety-profiles.ts`. Werte nur aus festen Listen in `variety.ts`:
+Jedes Spiel hat einen Vielfalts-Steckbrief aus dem Baukasten (`CHAOS-83`, ADR-021): Typ `Steckbrief` und Wertelisten in `packages/minigame-kit/src/steckbrief.ts`, Daten in `packages/minigames/src/steckbriefe.ts`. Sieben Merkmale zählen (`STECKBRIEF_MERKMALE`): Kernverb, Ziel, Arena, Kamera, Bedienung, Spielform, Tempo. Der Ort zählt nicht, weil Optik allein kein neues Spiel macht. Dass jedes Spiel einen Steckbrief hat und die Bedienung zu `info.controls` passt, prüft `steckbriefe.test.ts`.
 
-| Merkmal | Werte |
-|---|---|
-| Kernverb | fangen, ausweichen, rempeln, schieben, reagieren, takten, pumpen, zielen, stapeln, rennen, merken, zocken, wählen, malen, fahren, schätzen, liefern |
-| Ziel | sammeln, überleben, zuerst, genau, Mehrheit, halten, treffen, einlochen, abliefern, höchster |
-| Arena | rund, rechteckig, Bahnen, Insel mit Kante, Eigenbereiche, Wand, Strecke |
-| Kamera | Draufsicht, schräg fest, Seite, frontal, Verfolger |
-| Bedienung | A, AB, S, SA, SAB |
-| Spielform | FFA, 1v3, 2v2, Koop, Mikro |
-| Tempo | ruhig, wechselnd, hektisch |
+**Regel** (`checks/variety.ts`): Ein Spiel muss sich von **jedem** anderen Spiel der Rotation in mindestens `MIN_DIFFERENCES` = 3 Merkmalen unterscheiden. Geprüft wird jedes Paar und nicht nur das ähnlichste Spiel; sonst könnte eine Ausnahme für ein Paar ein zweites, ebenso nahes Spiel verdecken. Bei einem Verstoß nennt der Test das zu ähnliche Spiel und die gleichen Merkmale. Ausnahmen stehen in `VARIETY_EXCEPTIONS` (Spiel, ähnliches Spiel, Begründung) und brauchen einen Satz im Katalog-Eintrag, warum sich die Spiele trotzdem verschieden anfühlen. Spiele außerhalb der Rotation (Pump-Parade, das Muster „Hallo Baukasten“) prüft die Regel nicht.
 
-**Regel:** Ein Spiel muss sich von **jedem** anderen Spiel der Rotation in mindestens 3 Merkmalen unterscheiden. Der Test nennt bei einem Verstoß das zu ähnliche Spiel und die gleichen Merkmale. Ausnahmen (`VARIETY_EXCEPTIONS`: Spiel, ähnliches Spiel, Begründung) nur mit Satz im Katalog-Eintrag, warum sich die Spiele trotzdem verschieden anfühlen. Heute ist der kleinste Abstand 3 (Sockenregen ↔ Krümel-Kehraus: gleiche Kamera, Bedienung, Spielform, Tempo).
-
-Auffällig: Vier von fünf Spielen nutzen dieselbe Kamera (schräg fest von oben) und dieselbe Spielform. Neue Spiele sollten hier abweichen, sonst wird der Mindestabstand eng.
-
-Der Baukasten (`CHAOS-83`) legt den Steckbrief später am Spiel selbst ab. Dann liest die Prüfung ihn dort, Regel und Listen bleiben.
+Heute liegt der kleinste Abstand bei 3, und zwar dreimal: zwischen Sockenregen, Pudding-Gerangel und Krümel-Kehraus. Alle fünf Spiele haben dasselbe Ziel („meiste“) und dieselbe Spielform (FFA), drei davon dieselbe Bedienung (SA). Neue Spiele sollten deshalb bei Ziel, Spielform oder Bedienung abweichen, sonst wird der Mindestabstand eng.
 
 ## 4. Screenshots
 

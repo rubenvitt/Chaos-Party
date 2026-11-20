@@ -87,7 +87,7 @@ function playSockenregen(seats: readonly FairnessSeat[], seed: number): Fairness
   const lead = new LeadCounter();
   while (!game.finished) {
     bots.forEach((bot, index) => {
-      const action = bot.act(game);
+      const action = bot.decide(game);
       if (action) {
         game.setStick(bot.slot, action.x, action.y);
         if (action.dash) game.dash(bot.slot);

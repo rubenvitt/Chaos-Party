@@ -40,7 +40,7 @@ Für jedes Minispiel ohne eigenen Testcode (Details: [`minigames/pruefungen.md`]
 
 - **Vertragstest** `packages/minigames/src/catalog.test.ts`: Steckbrief, 2/3/4 Spieler, gültiges Ergebnis (`checkResult`), Ende am Zeitlimit, Leerlauf, Dauerdrücken, Verbindungsabbruch, leere Szene nach `dispose()` (≈ 3 s für alle).
 - **Bot-Fairness** `packages/minigames/src/checks/checks.test.ts`: feste Tische (4× Normal, Neuling bzw. Profi gegen 3× Normal, Eindringling gegen 2× Normal) mit festen Schwellen; CI-Stichprobe 0,3–9 s je Spiel. Voller Bericht: `PRUEFBERICHT=1 pnpm exec vitest run packages/minigames/src/checks --silent=false` → `docs/minigames/pruefbericht.md`.
-- **Vielfalt** im selben Test: jedes Spiel der Rotation unterscheidet sich von jedem anderen in ≥ 3 von 7 Steckbrief-Merkmalen.
+- **Vielfalt** im selben Test: jedes Spiel der Rotation unterscheidet sich von jedem anderen in ≥ 3 von 7 Steckbrief-Merkmalen (Steckbriefe aus `packages/minigames/src/steckbriefe.ts`, Baukasten ADR-021).
 
 ## E2E-Aufbau
 

@@ -1,7 +1,8 @@
 /**
  * Gemeinsame Prüfungen der Rotation (CHAOS-84, README §5.2/§5.5):
  *
- * - **Vielfalt:** Jedes Spiel unterscheidet sich vom ähnlichsten in ≥ 3 von 7 Merkmalen.
+ * - **Vielfalt:** Jedes Spiel unterscheidet sich von jedem anderen in ≥ 3 von 7 Merkmalen
+ *   (Steckbriefe aus `../steckbriefe.ts`, Baukasten ADR-021).
  * - **Bot-Fairness:** feste Tische und Schwellen aus `fairness.ts`, CI-Stichprobe je Spiel.
  *
  * Ein neues Spiel in `ROTATION` ohne Steckbrief oder Fairness-Harness lässt diesen Test
@@ -32,36 +33,27 @@ import {
   type FairnessReport,
 } from './fairness.ts';
 import { FAIRNESS_HARNESSES } from './harnesses.ts';
-import {
-  checkVariety,
-  controlsOf,
-  differingKeys,
-  nearestGame,
-  varietyTable,
-  VARIETY_KEYS,
-  type VarietyProfile,
-} from './variety.ts';
-import { VARIETY_ENTRIES, VARIETY_EXCEPTIONS } from './variety-profiles.ts';
+import type { Steckbrief } from '@chaos-party/minigame-kit';
+import { getSteckbrief } from '../steckbriefe.ts';
+import { checkVariety, nearestGame, varietyTable, VARIETY_EXCEPTIONS } from './variety.ts';
 
-/** Steckbriefe der Rotation: Einträge plus Bedienung aus dem Katalog. */
-function rotationProfiles(): Map<string, VarietyProfile> {
-  const profiles = new Map<string, VarietyProfile>();
+/** Steckbriefe der Rotation aus `steckbriefe.ts` (Baukasten, ADR-021). */
+function rotationProfiles(): Map<string, Steckbrief> {
+  const profiles = new Map<string, Steckbrief>();
   for (const id of ROTATION) {
-    const entry = VARIETY_ENTRIES[id];
-    const info = getMinigameInfo(id);
-    if (!entry || !info) continue;
-    profiles.set(id, { ...entry, bedienung: controlsOf(info) });
+    const steckbrief = getSteckbrief(id);
+    if (steckbrief) profiles.set(id, steckbrief);
   }
   return profiles;
 }
 
 describe('Vielfalt der Rotation (README §5.5)', () => {
-  it('jedes Spiel der Rotation hat einen Vielfalts-Steckbrief und umgekehrt', () => {
-    expect(Object.keys(VARIETY_ENTRIES).sort()).toEqual([...ROTATION].sort());
+  it('jedes Spiel der Rotation hat einen Steckbrief', () => {
+    expect(ROTATION.filter((id) => !getSteckbrief(id))).toEqual([]);
   });
 
-  it('jedes Spiel unterscheidet sich vom ähnlichsten in mindestens 3 Merkmalen', () => {
-    const violations = checkVariety(rotationProfiles(), VARIETY_EXCEPTIONS);
+  it('jedes Spiel unterscheidet sich von jedem anderen in mindestens 3 Merkmalen', () => {
+    const violations = checkVariety(rotationProfiles());
     const text = violations.map(
       ({ id, nearest }) =>
         `${id} ≈ ${nearest.id}: nur ${nearest.distance} Unterschiede, gleich: ${nearest.shared.join(', ')}`,
@@ -77,22 +69,22 @@ describe('Vielfalt der Rotation (README §5.5)', () => {
     }
   });
 
-  it('nennt das ähnlichste Spiel und erkennt zu ähnliche Paare', () => {
-    const base: VarietyProfile = {
+  it('nennt das ähnlichste Spiel und erkennt jedes zu ähnliche Paar', () => {
+    const base: Steckbrief = {
       kernverb: 'fangen',
-      ziel: 'sammeln',
+      ziel: 'meiste',
       arena: 'rund',
-      kamera: 'schraeg-fest',
+      kamera: 'schraeg',
       bedienung: 'SA',
       spielform: 'FFA',
       tempo: 'hektisch',
     };
-    const profiles = new Map<string, VarietyProfile>([
+    const profiles = new Map<string, Steckbrief>([
       ['alt', base],
-      ['nah', { ...base, ziel: 'ueberleben', tempo: 'ruhig' }],
-      ['fern', { ...base, kernverb: 'zielen', ziel: 'genau', arena: 'wand', kamera: 'frontal' }],
+      ['nah', { ...base, ziel: 'ueberleben', tempo: 'ruhig', ort: 'teich' }],
+      ['fern', { ...base, kernverb: 'zielen', ziel: 'genau', arena: 'buehne', kamera: 'fest' }],
     ]);
-    expect(differingKeys(base, base)).toEqual([]);
+    // Der Ort zählt nicht zum Abstand.
     expect(nearestGame('nah', profiles)).toEqual({
       id: 'alt',
       distance: 2,
@@ -103,15 +95,14 @@ describe('Vielfalt der Rotation (README §5.5)', () => {
       ['nah', 'alt'],
     ]);
     expect(checkVariety(profiles, [{ id: 'nah', with: 'alt', reason: 'x' }])).toEqual([]);
+    // Ein drittes, ebenso nahes Spiel bleibt trotz Ausnahme für das erste Paar sichtbar.
+    profiles.set('zwilling', { ...base, kernverb: 'ausweichen', tempo: 'ruhig' });
+    expect(
+      checkVariety(profiles, [{ id: 'nah', with: 'alt', reason: 'x' }]).some(
+        (v) => v.id === 'zwilling',
+      ),
+    ).toBe(true);
     expect(varietyTable(profiles)).toContain('| nah |');
-  });
-
-  it('leitet die Bedienung aus den Controller-Texten ab', () => {
-    expect(controlsOf({ controls: { joystick: null, a: 'Klatschen', b: null } })).toBe('A');
-    expect(controlsOf({ controls: { joystick: 'Laufen', a: 'A', b: 'B' } })).toBe('SAB');
-    expect(controlsOf({ controls: { joystick: 'Laufen', a: null, b: null } })).toBe('S');
-    expect(() => controlsOf({ controls: { joystick: 'Laufen', a: null, b: 'B' } })).toThrow();
-    expect(VARIETY_KEYS).toHaveLength(7);
   });
 });
 
