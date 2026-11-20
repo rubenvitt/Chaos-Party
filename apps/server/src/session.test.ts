@@ -6,6 +6,7 @@ import {
   type ServerMessage,
 } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
+import { lobbyBoards } from './boardChoice.ts';
 import {
   CLOSE_CODES,
   DEFAULT_TIMEOUTS,
@@ -142,7 +143,13 @@ describe('Session: Beitreten', () => {
         phase: 'lobby',
         layout: 'lobby',
         actions: ['ready', 'pick-character'],
-        lobby: { character: null, takenCharacters: [], takenBy: [], rounds: 10 },
+        lobby: {
+          character: null,
+          takenCharacters: [],
+          takenBy: [],
+          rounds: 10,
+          board: { id: 'wackelwald', name: 'Wackelwald' },
+        },
       },
     ]);
   });
@@ -255,7 +262,13 @@ describe('Session: Host', () => {
       joinCode: CODE,
       phase: 'lobby',
       players: [],
-      settings: { rounds: 10, roundPresets: [10, 16, 20], moreReactionTime: false },
+      settings: {
+        rounds: 10,
+        roundPresets: [10, 16, 20],
+        moreReactionTime: false,
+        board: 'wackelwald',
+        boards: lobbyBoards(),
+      },
     });
     expect(lastLobby(t.join(1)).players).toEqual([
       { slot: 1, color: '#0072B2', label: 'Blau', connected: true, ready: false, character: null },
@@ -330,7 +343,13 @@ describe('Session: Eingaben', () => {
         phase: 'lobby',
         layout: 'wait',
         actions: ['pick-character'],
-        lobby: { character: null, takenCharacters: [], takenBy: [], rounds: 10 },
+        lobby: {
+          character: null,
+          takenCharacters: [],
+          takenBy: [],
+          rounds: 10,
+          board: { id: 'wackelwald', name: 'Wackelwald' },
+        },
       },
     ]);
     expect(lastLobby(out).players[0]?.ready).toBe(true);

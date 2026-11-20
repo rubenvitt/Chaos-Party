@@ -161,7 +161,7 @@ struct OverlayView: View {
 struct LobbyView: View {
     let overlay: Overlay
     let start: () -> Void
-    /// `hostCommand` für Rundenwahl und Schalter (`LobbySettingsView`, CHAOS-166).
+    /// `hostCommand` für Rundenwahl und Schalter (`LobbySettingsView`, CHAOS-166) und Brett (`BoardChoiceView`, CHAOS-197).
     var command: (String) -> Void = { _ in }
     #if os(tvOS)
     @Namespace private var focus
@@ -202,8 +202,13 @@ struct LobbyView: View {
             .background(.black.opacity(0.62), in: .rect(cornerRadius: 36))
 
             VStack(alignment: .leading, spacing: 28) {
-                Text("Chaos Party").font(.system(size: 84, weight: .black, design: .rounded))
-                    .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+                HStack(alignment: .center, spacing: 28) {
+                    Text("Chaos Party").font(.system(size: 84, weight: .black, design: .rounded))
+                        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+                    Spacer(minLength: 0)
+                    BoardChoiceView(settings: overlay.settings, command: command)
+                }
+                .frame(width: 1068)
                 LazyVGrid(columns: [GridItem(.fixed(520), spacing: 28), GridItem(.fixed(520))], spacing: 28) {
                     ForEach(1...4, id: \.self) { slot in
                         PlayerCard(slot: slot, player: players.first { $0.slot == slot })

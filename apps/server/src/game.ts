@@ -43,6 +43,10 @@ export interface BoardGameSettings {
   /** Fester Seed (reproduzierbare Partien) oder `undefined` = zufällig je Partie. */
   readonly seed?: number | undefined;
   readonly rules: RuleSet;
+  /**
+   * Brett: in der Session die Lobby-Wahl zu Beginn (Brett-ID oder `RANDOM_BOARD`, CHAOS-197;
+   * `configure` ändert sie), in `BoardGame` das aufgelöste Brett der Partie.
+   */
   readonly boardId: string;
   /**
    * Minispiele der Partie (M3, ADR-012). Standard: die Rotation aus dem Katalog

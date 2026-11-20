@@ -4,13 +4,15 @@
  *
  * - `start`, `pause`, `resume`, `end-game`, `rematch` (`HOST_COMMANDS`)
  * - `skip-finale` (`LOCAL_HOST_COMMANDS`, CHAOS-145): wirkt nur im Kern, geht nie an den Server
- * - `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`), beides
- *   mit Komma verbunden: `configure:rounds=12,moreReactionTime=1` (Lobby-Einstellungen, CHAOS-166)
+ * - `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`),
+ *   `configure:board=wackelwald` (Brett-ID oder `zufall`, CHAOS-197), mehreres mit Komma
+ *   verbunden: `configure:rounds=12,moreReactionTime=1` (Lobby-Einstellungen, CHAOS-166)
  *
  * Alles andere ist ungültig (`null`): unbekannte oder doppelte Schlüssel, Runden außerhalb
- * 1–`MAX_ROUNDS`, leeres `configure:`.
+ * 1–`MAX_ROUNDS`, Brett-IDs außerhalb von `BoardChoiceSchema`, leeres `configure:`. Ob es das
+ * Brett gibt, prüft der Server (`bad-message`).
  */
-import { MAX_ROUNDS } from '@chaos-party/protocol';
+import { BoardChoiceSchema, MAX_ROUNDS } from '@chaos-party/protocol';
 import type { HostCommand } from '../../host/src/net/hostConnection.ts';
 import {
   CONFIGURE_PREFIX,
@@ -35,6 +37,7 @@ const BOOLEANS: Readonly<Record<string, boolean>> = {
 function parseConfigure(spec: string): ConfigureCommand | null {
   let rounds: number | undefined;
   let moreReactionTime: boolean | undefined;
+  let board: string | undefined;
   for (const pair of spec.split(',')) {
     const [key, value, ...rest] = pair.split('=');
     if (value === undefined || rest.length > 0) return null;
@@ -45,6 +48,9 @@ function parseConfigure(spec: string): ConfigureCommand | null {
     } else if (key === 'moreReactionTime' && moreReactionTime === undefined) {
       if (!Object.hasOwn(BOOLEANS, value)) return null;
       moreReactionTime = BOOLEANS[value];
+    } else if (key === 'board' && board === undefined) {
+      if (!BoardChoiceSchema.safeParse(value).success) return null;
+      board = value;
     } else {
       return null;
     }
@@ -53,6 +59,7 @@ function parseConfigure(spec: string): ConfigureCommand | null {
     type: 'configure',
     ...(rounds === undefined ? {} : { rounds }),
     ...(moreReactionTime === undefined ? {} : { moreReactionTime }),
+    ...(board === undefined ? {} : { board }),
   };
 }
 

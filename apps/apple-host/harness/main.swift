@@ -51,10 +51,11 @@ if let file = fixtureFiles.first(where: { $0.lastPathComponent == "board-sabotag
   let state = try RenderState.decode(String(contentsOf: file, encoding: .utf8))
   if state.board?.notice?.title != "Sabotage wird stärker!" { fail("board-sabotage-notice.json: Einblendung fehlt") }
 } else { fail("board-sabotage-notice.json fehlt") }
-// CHAOS-166: Lobby-Einstellungen, 12 ist kein Vorschlag.
+// CHAOS-166: Lobby-Einstellungen, 12 ist kein Vorschlag. CHAOS-197: Brett „Zufall“ gewählt.
 if let file = fixtureFiles.first(where: { $0.lastPathComponent == "lobby-settings.json" }) {
   let settings = try RenderState.decode(String(contentsOf: file, encoding: .utf8)).lobby?.settings
-  if settings != RenderState.LobbySettings(rounds: 12, roundPresets: [10, 16, 20], moreReactionTime: true) {
+  if settings?.rounds != 12 || settings?.roundPresets != [10, 16, 20] || settings?.moreReactionTime != true
+    || settings?.board != "zufall" || settings?.boards?.filter({ $0.selected }).map({ $0.id }) != ["zufall"] {
     fail("lobby-settings.json: Einstellungen \(String(describing: settings))")
   }
 } else { fail("lobby-settings.json fehlt") }

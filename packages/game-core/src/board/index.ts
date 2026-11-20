@@ -1,8 +1,11 @@
 /**
- * Brett-Topologie als Daten und ihre Validierung (CHAOS-18, ADR-011).
- * Exporte: `DEFAULT_BOARD`, `BOARDS`, `getBoard`, `validateBoard`.
+ * Brett-Topologie als Daten und ihre Validierung (CHAOS-18, ADR-011), dazu das Brett-Register
+ * für die Lobby-Auswahl (CHAOS-197).
+ * Exporte: `DEFAULT_BOARD`, `BOARDS`, `getBoard`, `validateBoard`, `BOARD_REGISTRY`,
+ * `getBoardInfo`, `randomBoard`.
  */
 import type { BoardDefinition } from '../types.ts';
+import { BOARD_REGISTRY } from './registry.ts';
 import { WACKELWALD } from './wackelwald.ts';
 
 export {
@@ -11,15 +14,23 @@ export {
   validateBoard,
   type BoardValidation,
 } from './validate.ts';
+export {
+  BOARD_REGISTRY,
+  getBoardInfo,
+  MAX_BOARD_TAGLINE_LENGTH,
+  randomBoard,
+  type BoardInfo,
+  type BoardTheme,
+} from './registry.ts';
 export { WACKELWALD } from './wackelwald.ts';
 
 /** Standardbrett jeder Partie. */
 export const DEFAULT_BOARD: BoardDefinition = WACKELWALD;
 
-/** Alle bekannten Bretter nach ID. */
-export const BOARDS: Readonly<Record<string, BoardDefinition>> = {
-  [WACKELWALD.id]: WACKELWALD,
-};
+/** Alle bekannten Bretter nach ID (aus dem Register). */
+export const BOARDS: Readonly<Record<string, BoardDefinition>> = Object.fromEntries(
+  BOARD_REGISTRY.map((info) => [info.id, info.board]),
+);
 
 /** Brett zu einer ID (z. B. aus `BoardView.boardId`) oder `undefined`. */
 export function getBoard(id: string): BoardDefinition | undefined {

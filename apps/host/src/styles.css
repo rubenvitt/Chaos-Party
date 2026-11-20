@@ -543,6 +543,41 @@ body,
   opacity: 0.7;
 }
 
+/* Brett-Auswahl (CHAOS-197): Wechselknopf neben der Rundenwahl, gleiche Optik, Name statt Zahl. */
+.lobby-settings-row {
+  display: flex;
+  gap: 10px;
+}
+
+.lobby-settings-row > .lobby-boards {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby-settings-row > .lobby-rounds:not(.lobby-boards) {
+  flex: 1.6 1 0;
+  min-width: 0;
+}
+
+.lobby-board-option {
+  flex: 1;
+  width: 100%;
+  justify-content: center;
+}
+
+.lobby-board-name {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.lobby-board-next {
+  opacity: 0.6;
+}
+
 /* Schalter „Mehr Zeit zum Reagieren“ (CHAOS-124). */
 .lobby-toggle {
   display: flex;

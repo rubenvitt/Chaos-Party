@@ -8,6 +8,7 @@ import { rankByScore } from '@chaos-party/minigame-sdk';
 import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
 import { DEFAULT_RULES, withRules, withTailwind } from '@chaos-party/game-core';
 import { describe, expect, it } from 'vitest';
+import { lobbyBoards } from './boardChoice.ts';
 import { Harness, HOST, INTEGRATION_SEEDS, setupMinigameGame, TICK_MS } from './testHarness.ts';
 
 function lobbyHarness(players: number, options: ConstructorParameters<typeof Harness>[0] = {}) {
@@ -45,12 +46,14 @@ describe('Figurenwahl (CHAOS-36)', () => {
       takenCharacters: [],
       takenBy: [],
       rounds: 2,
+      board: { id: 'wackelwald', name: 'Wackelwald' },
     });
     expect(context(h, 2).lobby).toEqual({
       character: null,
       takenCharacters: ['sock'],
       takenBy: [{ character: 'sock', slot: 1 }],
       rounds: 2,
+      board: { id: 'wackelwald', name: 'Wackelwald' },
     });
     expect(h.errors).toEqual([]);
   });
@@ -172,6 +175,8 @@ describe('Rundenzahl (CHAOS-36)', () => {
       rounds: 2,
       roundPresets: [10, 16, 20],
       moreReactionTime: false,
+      board: 'wackelwald',
+      boards: lobbyBoards(),
     });
     h.configure(8);
     expect(h.lobby?.settings.rounds).toBe(8);

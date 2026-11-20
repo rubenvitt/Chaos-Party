@@ -20,6 +20,12 @@ beforeAll(async () => {
   wasm = readFileSync(HAVOK_WASM_SOURCE);
 }, 60_000);
 
+/** Brett-Knöpfe der Lobby mit nur Wackelwald im Register (CHAOS-197). */
+const BOARD_CHOICES = [
+  { id: 'wackelwald', name: 'Wackelwald', detail: '43 Felder', selected: true, random: false },
+  { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
+];
+
 describe('Bündel', () => {
   it('lädt im nackten Kontext und setzt nur ChaosHost, ChaosHostInternals und Polyfills', () => {
     const { api, internals } = loadBundle(code);
@@ -53,7 +59,13 @@ describe('Bündel', () => {
       joinCode: 'WXYZ',
       players: [],
       // Die Host-Rolle hat die erste `lobby` schon in `create` (Verbindung im Prozess).
-      settings: { rounds: 10, roundPresets: [10, 16, 20], moreReactionTime: false },
+      settings: {
+        rounds: 10,
+        roundPresets: [10, 16, 20],
+        moreReactionTime: false,
+        board: 'wackelwald',
+        boards: BOARD_CHOICES,
+      },
     });
     expect(logs).toContain('Havok geladen');
     host.hostCommand('gibt-es-nicht');
@@ -102,15 +114,49 @@ describe('Bündel', () => {
 
     host.hostCommand('configure:rounds=12');
     await settle();
-    expect(settings()).toEqual({ rounds: 12, roundPresets: [10, 16, 20], moreReactionTime: false });
+    expect(settings()).toMatchObject({
+      rounds: 12,
+      roundPresets: [10, 16, 20],
+      moreReactionTime: false,
+    });
 
     host.hostCommand('configure:moreReactionTime=1');
     await settle();
-    expect(settings()).toEqual({ rounds: 12, roundPresets: [10, 16, 20], moreReactionTime: true });
+    expect(settings()).toMatchObject({
+      rounds: 12,
+      roundPresets: [10, 16, 20],
+      moreReactionTime: true,
+    });
 
     host.hostCommand('configure:rounds=3,moreReactionTime=0');
     await settle();
-    expect(settings()).toEqual({ rounds: 3, roundPresets: [10, 16, 20], moreReactionTime: false });
+    expect(settings()).toMatchObject({
+      rounds: 3,
+      roundPresets: [10, 16, 20],
+      moreReactionTime: false,
+    });
+
+    // Brett (CHAOS-197): Zufall wählen, zurück auf Wackelwald; unbekanntes Brett lehnt der Server ab.
+    host.hostCommand('configure:board=zufall');
+    await settle();
+    expect(settings()?.board).toBe('zufall');
+    expect(
+      settings()
+        ?.boards.filter((b) => b.selected)
+        .map((b) => b.id),
+    ).toEqual(['zufall']);
+    host.hostCommand('configure:board=gibt-es-nicht');
+    await settle();
+    expect(settings()?.board).toBe('zufall');
+    host.hostCommand('configure:board=wackelwald');
+    await settle();
+    expect(settings()).toEqual({
+      rounds: 3,
+      roundPresets: [10, 16, 20],
+      moreReactionTime: false,
+      board: 'wackelwald',
+      boards: BOARD_CHOICES,
+    });
 
     host.hostCommand('configure:rounds=21');
     host.hostCommand('configure:moreReactionTime=ja');
@@ -118,7 +164,10 @@ describe('Bündel', () => {
     expect(settings()?.rounds).toBe(3);
     expect(logs).toContain('Ungültiger Host-Befehl: configure:rounds=21');
     expect(logs).toContain('Ungültiger Host-Befehl: configure:moreReactionTime=ja');
-    expect(logs.filter((line) => PROBLEM_MARKERS.some((m) => line.includes(m)))).toEqual([]);
+    // Nur das unbekannte Brett meldet der Server (die Lobby bietet es nie an, nur `--brett=`).
+    expect(logs.filter((line) => PROBLEM_MARKERS.some((m) => line.includes(m)))).toEqual([
+      'Server-Fehler an Host: bad-message Unbekanntes Brett: gibt-es-nicht',
+    ]);
   });
 
   it('spielt mit den Lobby-Einstellungen aus configure; danach geht configure ins Leere', async () => {
@@ -147,6 +196,8 @@ describe('Bündel', () => {
       rounds: 12,
       roundPresets: [10, 16, 20],
       moreReactionTime: true,
+      board: 'wackelwald',
+      boards: BOARD_CHOICES,
     });
     expect(lines).toContain('  js: Host-Befehl configure:rounds=4 ignoriert: nur in der Lobby');
   }, 60_000);

@@ -357,6 +357,14 @@
   padding: 2px 12px;
 }
 
+/* Brett-Name (CHAOS-197) darf in der schmalen Zone kürzen, Titel und Runden bleiben ganz. */
+.zone-lobby-head .lobby-board {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .zone .zone-character {
   padding: 8px 6px;
   gap: 4px;

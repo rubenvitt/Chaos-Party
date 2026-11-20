@@ -336,6 +336,13 @@ export function App({ config }: AppProps) {
     },
     [command],
   );
+  // Brett (CHAOS-197): Die Auswahl zeigt die Server-Einstellung (`lobby.settings.board`).
+  const onBoard = useCallback(
+    (board: string) => {
+      command({ type: 'configure', board });
+    },
+    [command],
+  );
   const onStart = useCallback(() => {
     // Der Klick auf „Los geht’s!“ ist die Nutzer-Geste, die den Ton freischaltet (CHAOS-33).
     soundEngine().unlock();
@@ -448,6 +455,7 @@ export function App({ config }: AppProps) {
           onStart={onStart}
           onRounds={onRounds}
           onMoreReactionTime={onMoreReactionTime}
+          onBoard={onBoard}
         />
       )}
     </main>

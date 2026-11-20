@@ -13,6 +13,7 @@ import type {
   ControllerLobbyInfoSchema,
   EndGameMessageSchema,
   LobbySettingsSchema,
+  LobbyBoardSchema,
   MinigameResultAckMessageSchema,
   MinigameRewardSchema,
   PauseMessageSchema,
@@ -132,6 +133,8 @@ export type ServerToControllerMessage = z.infer<typeof ServerToControllerMessage
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
 export type LobbyMessage = z.infer<typeof LobbyMessageSchema>;
 export type LobbySettings = z.infer<typeof LobbySettingsSchema>;
+/** Wählbares Brett in `lobby.settings.boards` (CHAOS-197). */
+export type LobbyBoard = z.infer<typeof LobbyBoardSchema>;
 export type InputIntent = z.infer<typeof InputIntentSchema>;
 export type InputIntentType = InputIntent['type'];
 export type InputMessage = z.infer<typeof InputMessageSchema>;

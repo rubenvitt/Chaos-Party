@@ -297,6 +297,8 @@ export class FakeSession {
         return owner === undefined ? [] : [{ character, slot: owner }];
       }),
       rounds: this.rounds,
+      // Gewähltes Brett wie beim echten Server (CHAOS-197).
+      board: { id: 'wackelwald', name: 'Wackelwald' },
     };
   }
 

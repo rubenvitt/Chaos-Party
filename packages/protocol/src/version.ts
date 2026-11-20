@@ -28,6 +28,10 @@
  * v4-Nachtrag (CHAOS-125, additiv, ohne Versionssprung): Münz-Grund `tailwind` (Rückenwind),
  * `BoardView.minigame.tailwind` und `ControllerBoardInfo.tailwind` (beide optional, ab
  * `round-end`).
+ * v4-Nachtrag (CHAOS-197, additiv, ohne Versionssprung): Brett-Auswahl in der Lobby –
+ * `lobby.settings.board` (Brett-ID oder `RANDOM_BOARD` „zufall“) und `lobby.settings.boards`
+ * (wählbare Bretter), `configure.board` und `ControllerLobbyInfo.board` (alle optional). Ein
+ * unbekanntes Brett in `configure` lehnt der Server mit `bad-message` ab.
  */
 export const PROTOCOL_VERSION = 4;
 

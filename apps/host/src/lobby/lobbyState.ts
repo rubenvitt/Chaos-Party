@@ -1,10 +1,12 @@
 /**
  * Reine Entscheidungen der PC-Lobby (CHAOS-36): Start-Bedingung mit Hinweistext,
- * Rundenauswahl und Figur je Spielerkarte. Ohne React, unit-getestet.
+ * Rundenauswahl, Brett-Auswahl (CHAOS-197) und Figur je Spielerkarte. Ohne React, unit-getestet.
  */
 import {
   CHARACTER_NAMES,
   pickFreeCharacter,
+  RANDOM_BOARD,
+  RANDOM_BOARD_NAME,
   type CharacterId,
   type LobbySettings,
 } from '@chaos-party/protocol';
@@ -97,6 +99,66 @@ export function roundOptions(settings: LobbySettings): RoundOption[] {
       selected: rounds === settings.rounds,
       custom: !settings.roundPresets.includes(rounds),
     }));
+}
+
+export interface BoardOption {
+  /** Brett-ID oder `RANDOM_BOARD`. */
+  readonly id: string;
+  readonly name: string;
+  /** Zweite Zeile: Größe bzw. „Überraschung!“. */
+  readonly detail: string;
+  /** Kurzbeschreibung (Tooltip, Vorlesen). */
+  readonly tagline: string;
+  readonly selected: boolean;
+  readonly random: boolean;
+}
+
+/**
+ * Knöpfe der Brett-Auswahl (CHAOS-197): die Bretter des Servers in seiner Reihenfolge, dahinter
+ * „Zufall“. Leer, wenn der Server keine Bretter nennt (älterer Server, dann keine Auswahl).
+ * Ohne `board` gilt das erste Brett als gewählt.
+ */
+export function boardOptions(settings: LobbySettings): BoardOption[] {
+  const boards = settings.boards ?? [];
+  if (boards.length === 0) return [];
+  const chosen = settings.board ?? boards[0]?.id;
+  return [
+    ...boards.map((board) => ({
+      id: board.id,
+      name: board.name,
+      detail: `${String(board.spaces)} Felder`,
+      tagline: board.tagline,
+      selected: board.id === chosen,
+      random: false,
+    })),
+    {
+      id: RANDOM_BOARD,
+      name: 'Zufall',
+      detail: 'Überraschung!',
+      tagline: 'Der Server lost beim Start ein Brett aus.',
+      selected: chosen === RANDOM_BOARD,
+      random: true,
+    },
+  ];
+}
+
+/**
+ * Nächste Wahl des Wechselknopfs (CHAOS-197): das Brett nach dem gewählten, nach „Zufall“ wieder
+ * das erste. Gleiche Reihenfolge wie `BoardChoiceView.next` im Apple-Host.
+ */
+export function nextBoardId(options: readonly BoardOption[]): string {
+  const index = options.findIndex((option) => option.selected);
+  const next = options[(index + 1) % options.length];
+  if (next === undefined) throw new Error('Keine Bretter zur Auswahl');
+  return next.id;
+}
+
+/** Name des gewählten Bretts für den Startknopf („Wackelwald“, „Zufallsbrett“) oder `null`. */
+export function chosenBoardName(settings: LobbySettings): string | null {
+  const choice = settings.board ?? settings.boards?.[0]?.id;
+  if (choice === undefined) return null;
+  if (choice === RANDOM_BOARD) return RANDOM_BOARD_NAME;
+  return settings.boards?.find((board) => board.id === choice)?.name ?? null;
 }
 
 /**

@@ -11,7 +11,9 @@
  * RealityKit (rechtshändig) spiegelt z und die x/y-Anteile der Quaternion.
  */
 import {
+  BoardChoiceSchema,
   CHARACTER_IDS,
+  MAX_BOARDS,
   MAX_ROUND_PRESETS,
   MINIGAME_STAGES,
   RoundsSchema,
@@ -66,8 +68,9 @@ export type LocalHostCommandName = (typeof LOCAL_HOST_COMMANDS)[number];
 
 /**
  * Lobby-Einstellungen über `hostCommand` (CHAOS-166), wie Rundenwahl und Schalter am PC-Host:
- * `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`) oder beides
- * mit Komma: `configure:rounds=12,moreReactionTime=1`. Runden 1–`MAX_ROUNDS`. Nur in der Lobby;
+ * `configure:rounds=12`, `configure:moreReactionTime=1` (`0`/`1`/`true`/`false`),
+ * `configure:board=wackelwald` (Brett-ID oder `zufall`, CHAOS-197) oder mehreres mit Komma:
+ * `configure:rounds=12,moreReactionTime=1`. Runden 1–`MAX_ROUNDS`. Nur in der Lobby;
  * sonst und bei ungültigem Text loggt der Kern und sendet nichts. Ergebnis in
  * `renderState().lobby.settings`. Parser: `./hostCommand.ts`.
  */
@@ -138,7 +141,8 @@ export const LobbyPlayerSchema = z.strictObject({
 });
 
 /**
- * Lobby-Einstellungen der nächsten Partie (CHAOS-166), der Server-Stand aus `lobby.settings`;
+ * Lobby-Einstellungen der nächsten Partie (CHAOS-166, Brett CHAOS-197), der Server-Stand aus
+ * `lobby.settings`;
  * ändern über `hostCommand('configure:…')`.
  */
 export const LobbySettingsStateSchema = z.strictObject({
@@ -148,6 +152,25 @@ export const LobbySettingsStateSchema = z.strictObject({
   roundPresets: z.array(RoundsSchema).min(1).max(MAX_ROUND_PRESETS),
   /** „Mehr Zeit zum Reagieren“ (CHAOS-124): Reaktionsfenster 5 s statt 3 s. */
   moreReactionTime: z.boolean(),
+  /** Brett-Wahl (CHAOS-197): Brett-ID oder `zufall`; ändern über `configure:board=<id>`. */
+  board: BoardChoiceSchema,
+  /**
+   * Knöpfe der Brett-Auswahl in Lobby-Reihenfolge, zuletzt „Zufall“ (`boardOptions` aus
+   * `apps/host/src/lobby/lobbyState.ts`); genau einer ist gewählt.
+   */
+  boards: z
+    .array(
+      z.strictObject({
+        id: BoardChoiceSchema,
+        /** „Wackelwald“, „Zufall“. */
+        name: z.string(),
+        /** Zweite Zeile: „43 Felder“, „Überraschung!“. */
+        detail: z.string(),
+        selected: z.boolean(),
+        random: z.boolean(),
+      }),
+    )
+    .max(MAX_BOARDS + 1),
 });
 
 export const BoardSpaceSchema = z.strictObject({
