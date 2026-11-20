@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@babylonjs/core": "^9.35.0",
+    "@chaos-party/minigame-kit": "workspace:*",
     "@chaos-party/minigame-sdk": "workspace:*"
   },
   "devDependencies": {

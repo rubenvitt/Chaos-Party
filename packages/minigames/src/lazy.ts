@@ -16,6 +16,7 @@
  * weiter das synchrone Register aus `./index.ts`.
  */
 import type { MinigameModule } from '@chaos-party/minigame-sdk/babylon';
+import { HALLO_BAUKASTEN_INFO } from './hallo-baukasten/info.ts';
 import { KRUEMEL_KEHRAUS_INFO } from './kruemel-kehraus/info.ts';
 import { KUCKUCKS_KLATSCHE_INFO } from './kuckucks-klatsche/info.ts';
 import { PUDDING_GERANGEL_INFO } from './pudding-gerangel/info.ts';
@@ -46,6 +47,10 @@ export const MINIGAME_LOADERS: ReadonlyMap<string, MinigameLoader> = new Map<
   [
     KRUEMEL_KEHRAUS_INFO.id,
     () => import('./kruemel-kehraus/index.ts').then((m) => m.kruemelKehraus),
+  ],
+  [
+    HALLO_BAUKASTEN_INFO.id,
+    () => import('./hallo-baukasten/index.ts').then((m) => m.halloBaukasten),
   ],
 ]);
 
