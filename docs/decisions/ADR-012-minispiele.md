@@ -80,3 +80,16 @@ Die Spielzeit eines Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`). I
 Verworfen: Das Spiel schon 1 s nach dem Ende der Spielzeit beim Server zu beenden. Das ließ in der CI unter Software-Rendering ein 8-s-Minispiel nie starten, dessen Bühne 5 s zu spät fertig war (`m2-brett-durchstich`, 60 s Kulanz). Vorher wurde es innerhalb der Kulanz angenommen.
 
 Nachstellen: `HostEnv.debugStageDelayMs` verzögert im Apple-Host jede Bühne künstlich. Zwei Bündel-Tests prüfen das. Bei 5 s Verspätung wird mit voller Spielzeit angenommen. Bei 20 s Verspätung wird vor der Frist gewertet und angenommen; ohne die Ausrichtung meldete der Kern dort „nicht mehr gebraucht“.
+
+## Nachtrag 3 (2026-11-20, CHAOS-205): Aufbau-Budget folgt der Tick-Dauer
+
+Im Apple-Host bekam der Minispiel-Aufbau fest 2 ms je `tick` (Nachtrag 1). Tickt die App langsamer, etwa im Ersatztakt eines gedrosselten Macs (CHAOS-203) oder wenn Ticks ausfallen, kommt der Aufbau je Sekunde entsprechend weniger weit. Im Swift-Harness ohne JIT mit 10 Hz war die Bühne nur in 6 von 10 Runden vor dem Countdown-Ende fertig, vor allem bei der kurzen Anleitung (3 s) einer Wiederholung.
+
+Jetzt bekommt jeder `tick` denselben Anteil seiner Dauer wie bei 60 Hz (2 von 16,7 ms, also 12 %), mindestens 2 ms und höchstens 20 ms (`prepareBudgetMs` in `apps/apple-host/src/stage.ts`). Das gilt für `ctx.pace()` und für das Kodieren der Geometrie in `renderState`. Bei 60 Hz und schneller bleibt alles wie bisher. Ein einzelner Hänger gibt nur dem nächsten Tick mehr Budget, gedeckelt.
+
+Messung im Swift-Harness, ganze Partie ohne JIT:
+- 10 Hz: Die Bühne war in 10 von 10 Runden vor dem Countdown-Ende fertig, vorher in 6 von 10. Der längste Tick der Anleitung dauerte 34 ms, bei einem Tick-Abstand von 100 ms.
+- 60 Hz: 10 von 10 wie vorher. Das längste Bild der Anleitung (`tick` + `renderState`) lag in je drei Läufen bei 14,5/15,4/18,1 ms vorher und 18,2/16,4/21,8 ms nachher. Bei 60 Hz ist der Code-Pfad gleich, die Spitzen streuen.
+- Bilder über 16,7 ms gab es schon vorher. Sie stammen von einzelnen Bauschritten zwischen zwei `pace` (Nachtrag 1, dort 19 ms) und nicht vom Budget.
+
+Der CI-Job „macOS“ spielt die Partie im Harness zusätzlich mit `hz=10`. Ist dabei eine Bühne beim Spielstart nicht fertig, schlägt er fehl.

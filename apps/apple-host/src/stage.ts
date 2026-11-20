@@ -88,11 +88,31 @@ export interface HeadlessStageOptions {
 }
 
 /**
- * So viele ms rechnet der Aufbau einer Bühne höchstens je `tick`, dann geht es im nächsten weiter
- * (CHAOS-141). Klein gegen das Bildbudget von 16,7 ms: Dazu kommen Session, `renderState` und ein
- * Bauschritt, der das Budget überschreitet, bevor `pace` wieder fragt.
+ * So viele ms rechnet der Aufbau einer Bühne bei 60 Hz höchstens je `tick`, dann geht es im
+ * nächsten weiter (CHAOS-141). Klein gegen das Bildbudget von 16,7 ms: Dazu kommen Session,
+ * `renderState` und ein Bauschritt, der das Budget überschreitet, bevor `pace` wieder fragt.
  */
 export const PREPARE_BUDGET_MS = 2;
+
+/** Höchstes Aufbau-Budget je `tick` bei langsamem Takt (CHAOS-205). */
+export const PREPARE_BUDGET_MAX_MS = 20;
+
+/** Abstand zweier `tick` bei 60 Hz (ms). */
+const FRAME_MS = 1000 / 60;
+
+/**
+ * Aufbau-Budget (ms) für einen `tick`, der `tickIntervalMs` nach dem vorigen kommt (CHAOS-205):
+ * derselbe Anteil der Tick-Dauer wie `PREPARE_BUDGET_MS` bei 60 Hz (12 %), mindestens
+ * `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS`. So kommt der Aufbau je Sekunde gleich
+ * weit, ob die App mit 60 Hz tickt oder gedrosselt mit 10 Hz (vorher bei 8 Hz oft erst nach dem
+ * Countdown fertig, CHAOS-203); bei 60 Hz bleibt alles wie in CHAOS-141. Ein einzelner langer
+ * Tick (Hänger) gibt dem nächsten mehr Budget, gedeckelt.
+ */
+export function prepareBudgetMs(tickIntervalMs: number): number {
+  if (!(tickIntervalMs > FRAME_MS)) return PREPARE_BUDGET_MS;
+  const share = (tickIntervalMs / FRAME_MS) * PREPARE_BUDGET_MS;
+  return Math.min(PREPARE_BUDGET_MAX_MS, share);
+}
 
 export interface HeadlessStage {
   readonly runner: MinigameRunner;
