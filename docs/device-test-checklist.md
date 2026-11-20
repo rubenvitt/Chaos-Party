@@ -712,3 +712,18 @@ Automatisch geprüft: Einstellungen je Phase und Feder (Unit-Tests `apps/host/sr
 | KA6 | Apple TV (TestFlight): KA1–KA5 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps | | Log |
 | KA7 | Mac-App: KA1–KA3 | Wie auf der Apple TV | | |
 | KA8 | Ruben: Urteil | Nähe richtig? Tempo ruhig genug? Überblick oft genug? Fehlt ein Hinweis, wo die anderen stehen (→ CHAOS-210)? | | Kommentar an CHAOS-194 |
+
+## 37. Randmarker für Figuren außerhalb des Bilds (für CHAOS-210)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-210 · **Experiment:** [EXP-034](experiments.md)
+
+Automatisch geprüft: Lage, Richtung, Abstand, Verzögerung und Ein-/Ausblenden (Unit-Tests `apps/host/src/board/edgeMarkers.test.ts`, `apps/apple-host/test/boardDirection.test.ts`), Marker im PC-Host über dem HUD und oberhalb der Spielerleiste (Playwright, SwiftShader), eine Bot-Partie im tvOS-Simulator (1080p) mit `--ereignisbild`. **Nicht** automatisch prüfbar: ob die Marker vom Sofa aus lesbar sind und helfen oder stören, der Mac-Host in einem Fenster schmaler als 16:9.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RM1 | PC am Fernseher: Partie mit 3–4 Spielern, zwei Runden | Steht eine andere Figur außerhalb des Bilds, zeigt ein Tropfen in ihrer Farbe mit Symbol am Bildrand zu ihr; nicht für die Figur am Zug | | Foto |
+| RM2 | Rundenbeginn, Minispiel, Überblick | Keine Marker | | |
+| RM3 | Zugwechsel quer übers Brett | Marker erscheinen erst nach der Fahrt, kein Aufblitzen | | Video |
+| RM4 | Apple TV (TestFlight): RM1–RM3 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps | | Log |
+| RM5 | Mac-App im Vollbild und in einem schmalen Fenster | Vollbild wie Apple TV; schmales Fenster: Marker stehen etwas zu weit innen (bekannte Grenze) | | |
+| RM6 | Ruben: Urteil | Helfen die Marker, wo die anderen stehen, oder stören sie? Größe richtig? Stört die Überlagerung mit dem Ereignis-Ticker oben rechts? | | Kommentar an CHAOS-210 |

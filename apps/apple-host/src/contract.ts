@@ -357,6 +357,19 @@ export const LightSchema = z.strictObject({
   grassTip: hexColor,
 });
 
+/**
+ * Randmarker (CHAOS-210): Mitte als Anteil des 16:9-Bilds ab oben links, `angle` = Richtung zur
+ * Figur im Bild (Bogenmaß, 0 = rechts, positiv im Uhrzeigersinn), `opacity` beim Ein- und
+ * Ausblenden (die Regie blendet selbst, Swift setzt nur).
+ */
+export const EdgeMarkerSchema = z.strictObject({
+  slot,
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  angle: z.number(),
+  opacity: z.number().gt(0).max(1),
+});
+
 export const BoardStateSchema = z.strictObject({
   round: z.number().int().min(1),
   rounds: z.number().int().min(1),
@@ -381,6 +394,11 @@ export const BoardStateSchema = z.strictObject({
    * Standort und Blickpunkt in Babylon-Koordinaten, schon nachgezogen. Swift setzt sie nur.
    */
   camera: z.strictObject({ pos: vec3, target: vec3 }),
+  /**
+   * Randmarker für Figuren außerhalb des Bilds (CHAOS-210, `apps/host/src/board/edgeMarkers.ts`):
+   * nur sichtbare, nach Slot sortiert. Swift zeichnet sie im 1920×1080-HUD.
+   */
+  markers: z.array(EdgeMarkerSchema),
   /** Felder mit Trophäe (Pokal sichtbar). */
   trophySpaces: z.array(z.string()),
   /** Versteckte Fallen samt Besitzer (Mitte in Besitzerfarbe). */
@@ -748,6 +766,7 @@ export type TickerEntry = z.infer<typeof TickerEntrySchema>;
 export type Hud = z.infer<typeof HudSchema>;
 export type SoundCue = z.infer<typeof SoundCueSchema>;
 export type BoardState = z.infer<typeof BoardStateSchema>;
+export type EdgeMarker = z.infer<typeof EdgeMarkerSchema>;
 export type Light = z.infer<typeof LightSchema>;
 export type Body = z.infer<typeof BodySchema>;
 export type MinigameState = z.infer<typeof MinigameStateSchema>;

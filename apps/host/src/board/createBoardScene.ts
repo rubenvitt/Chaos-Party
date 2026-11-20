@@ -70,6 +70,7 @@ import {
   forkShot,
 } from './camera.ts';
 import type { BoardFrame, FramePawn, FramePopup } from './director.ts';
+import { createEdgeMarkers, markersWanted, type EdgeMarker } from './edgeMarkers.ts';
 import {
   boardBounds,
   easeFlight,
@@ -207,6 +208,9 @@ export function createBoardScene(
   camera.inputs.clear();
   // Kamera-Regie (CHAOS-194): gemeinsame Einstellungen und Feder aus `camera.ts`.
   const cameraRig = createCameraRig();
+  // Randmarker für Figuren außerhalb des Bilds (CHAOS-210), gleiche Regie wie der Apple-Host.
+  const edgeMarkers = createEdgeMarkers();
+  const markerListeners = new Set<(markers: readonly EdgeMarker[]) => void>();
 
   // Runde beim Aufbau (BoardStage hat die Regie vorher eingeholt): Stimmung dieser Runde,
   // die der nächsten wird vorab geladen (CHAOS-63).
@@ -302,6 +306,7 @@ export function createBoardScene(
     built = true;
     // Erstes Bild mit Figuren: Kamera ohne Fahrt auf die passende Einstellung setzen.
     cameraRig.reset();
+    edgeMarkers.reset();
     update(0);
     // Shader schrittweise (CHAOS-132, KI-25): Nach jedem Minispiel entsteht das Brett neu.
     if (!(await prepareSceneGradually(scene, { isCancelled: isDisposed }))) {
@@ -1043,6 +1048,22 @@ export function createBoardScene(
     camera.position.set(pose.position.x, pose.position.y, pose.position.z);
     camera.setTarget(new Vector3(pose.target.x, pose.target.y, pose.target.z));
     lighting?.setFocusDistance(distance);
+    const markers = edgeMarkers.advance(dtMs, {
+      pose,
+      aspect: engine.getAspectRatio(camera),
+      pawns: frame.pawns.map((fp) => {
+        const pawn = pawns.get(fp.slot);
+        return {
+          slot: fp.slot,
+          x: pawn?.position.x ?? 0,
+          z: pawn?.position.z ?? 0,
+          flying: fp.hop !== null && fp.hop.style !== 'walk',
+        };
+      }),
+      show: markersWanted(frame.view, shot.kind),
+      activeSlot: frame.view?.activeSlot ?? null,
+    });
+    for (const listener of markerListeners) listener(markers);
   }
 
   /** Lichtverlauf: Rundenwechsel im übernommenen Stand startet die Überblendung. */
@@ -1105,6 +1126,16 @@ export function createBoardScene(
     },
     getResourceStats() {
       return resourceStats(scene);
+    },
+    getEdgeMarkers() {
+      return edgeMarkers.current();
+    },
+    onEdgeMarkers(listener) {
+      markerListeners.add(listener);
+      listener(edgeMarkers.current());
+      return () => {
+        markerListeners.delete(listener);
+      };
     },
     getCamera() {
       return cameraRig.current();

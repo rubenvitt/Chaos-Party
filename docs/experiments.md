@@ -2569,3 +2569,29 @@ Feinabstimmung innerhalb von C:
 **Entscheidung:** **C behalten.** B scheitert an Gabel und Klau, A erfüllt Rubens Wunsch nicht und taugt nicht für größere Bretter. Die Zahlen sind ein erster Wurf aus Screenshots, kein Spieltest.
 
 **Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.
+
+## EXP-034: Randmarker für Figuren außerhalb des Bilds (2026-11-20, CHAOS-210)
+
+**Hypothese / gewünschtes Spielerlebnis:** Seit EXP-033 bleibt die Kamera nah an der Figur am Zug, die anderen stehen oft außerhalb. Ein kleiner Marker am Bildrand in ihrer Farbe zeigt, in welcher Richtung sie stehen. So weiß man, wo die anderen sind, ohne den Überblick zurückzuholen. Der Marker soll ruhig sein: kein Aufblitzen bei Kamerafahrten, kein Flackern am Rand.
+
+**Varianten:**
+- **A (verworfen, nicht gebaut):** Lage als Text in der Spielerleiste („3 Felder voraus“). Braucht Lesen statt Hinsehen und sagt nichts über die Richtung im Bild.
+- **B:** Marker unter dem HUD. Im PC-Host lag der Marker von Orange oben rechts unter dem Ereignis-Ticker und war nicht zu sehen (Playwright-Bild, Demo-Ablauf nach dem Zugwechsel zu Grün).
+- **C (gewählt):** Marker über dem HUD (`apps/host/src/board/edgeMarkers.ts`): Projektion der Figurenmitte (1,2 über dem Boden) mit der nachgezogenen Pose. Außerhalb des sicheren Bildbereichs aus EXP-033 (oben Titel und Banner, unten die Spielerleiste) sitzt der Marker dort, wo der Strahl von der Mitte des sicheren Bereichs zur Figur den um 0,1 halbe Bildhöhen eingerückten Rand trifft. Tropfen in Slot-Farbe mit Symbol, die Spitze zeigt zur Figur. Mehrere Marker am selben Rand halten 0,17 halbe Bildhöhen Abstand. Erscheinen erst nach 350 ms draußen, Schwelle ±0,04 gegen Flackern, Ein- und Ausblenden in 300 ms, beim Ausblenden bleibt der Marker stehen. Keine Marker im Überblick, außerhalb der Züge, für die Figur am Zug und für Figuren im Flug (Windstoß, Platztausch: Marker bleibt, wie er war).
+
+**Objektive Messgrößen:** Rand und Richtung je Lage (vier Ränder, unter der Spielerleiste, hinter der Kamera); Abstand gleichzeitiger Marker; Verzögerung und Deckkraft bei festen Schritten; Gleichheit bei 20 und 60 Schritten je Sekunde; Determinismus über den Demo-Ablauf; Marker im PC-Host oberhalb der Spielerleiste und von nichts verdeckt.
+
+**Subjektive Playtest-Fragen (für Ruben):** Helfen die Marker, oder lenken sie ab? Sind sie am Fernseher groß genug (6,4 % der Bildhöhe)? Kommen sie zu spät oder zu früh? Stört es, wenn ein Marker oben rechts über dem Ticker liegt?
+
+**Testumgebung:** MacBook (Apple Silicon); Chromium mit SwiftShader (Playwright, Testmodus 1/60 s); tvOS-Simulator Apple TV 4K (3. Generation, 1080p), 4 Bots mit `--bunt`, `--ereignisbild`. Branch `claude/chaos-210-randmarker` auf `claude/chaos-194-brett-kamera`.
+
+**Ergebnisse:**
+- Unit-Tests: alle vier Ränder mit passender Richtung, Figur unter der Spielerleiste zählt als außerhalb, hinter der Kamera endlich und am Rand, drei Figuren rechts außerhalb ohne Überdeckung. Kurz draußen (280 ms, fünfmal hintereinander) kein Marker; Wackeln um die Kante (±0,15 Einheiten) lässt den Marker stehen.
+- Demo-Ablauf mit Regie und Kamera: zweimal gespielt identisch; Marker nur für andere Figuren (ein Marker der neuen Figur am Zug blendet nach dem Zugwechsel nur noch aus), immer im sicheren Bereich.
+- PC-Host: [`chaos210-randmarker.jpg`](screenshots/chaos210-randmarker.jpg) (Grün am Zug am linken Brettrand, Blau rechts, Orange oben rechts). Zu Rundenbeginn (Überblick) nach 40 Bildern keine Marker mehr.
+- Apple-Host im tvOS-Simulator: keine `FEHLER` im Log, Marker wie am PC: [`chaos210-apple-tv-windboe.jpg`](screenshots/chaos210-apple-tv-windboe.jpg) (Orange und Rosa unter der Spielerleiste, Marker unten), [`chaos210-apple-tv-trophaee.jpg`](screenshots/chaos210-apple-tv-trophaee.jpg) (Orange rechts, Rosa unten).
+- Grenze: Der Apple-Host rechnet für 16:9 (Fernseher). Ein Mac-Fenster schmaler als 16:9 zeigt das HUD verkleinert, die Marker stehen dort etwas zu weit innen.
+
+**Entscheidung:** **C behalten.** B verdeckt Marker am oberen Rand. Die Zahlen sind ein erster Wurf aus Bildern, kein Spieltest.
+
+**Offen für Playtest:** Spieltest am Fernseher (Gerätecheckliste §37): Helfen die Marker oder stören sie?

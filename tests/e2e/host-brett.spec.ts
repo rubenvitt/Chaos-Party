@@ -115,6 +115,7 @@ const hudMask = (page: Page) => [
       '.board-status',
       '.board-messages',
       '.player-symbol',
+      '.edge-marker-symbol',
     ].join(', '),
   ),
 ];
@@ -550,6 +551,81 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     // Danach wieder die Figur am Zug.
     await stepFrames(page, 60);
     expect((await camera())?.kind).toBe('follow');
+    expectNoProblems(problems);
+  });
+
+  test('Randmarker zeigen Figuren außerhalb des Bilds, nicht im Überblick (CHAOS-210)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    const markers = () => page.evaluate(() => window.__chaos?.board?.getEdgeMarkers() ?? []);
+    await openBoard(page);
+    await feedDemo(page, 1);
+    await playUntilIdle(page);
+
+    // Zugwechsel zu Grün (s34, Brettrand): Kamera nah bei Grün, die anderen stehen draußen.
+    await feedDemo(page, 2);
+    await stepFrames(page, 200);
+    const shown = await markers();
+    expect(shown.length).toBeGreaterThan(0);
+    for (const marker of shown) {
+      expect(marker.slot).not.toBe(3);
+      expect(marker.opacity).toBe(1);
+      const element = page.getByTestId(`edge-marker-${marker.slot}`);
+      await expect(element).toHaveAttribute('data-visible', 'true');
+      // Marker im Bild, oberhalb der Spielerleiste.
+      const box = await element.boundingBox();
+      const bar = await page.getByTestId('board-player-1').boundingBox();
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(bar?.y ?? 0);
+      // Nichts verdeckt ihn (Ticker, Banner): kurz klickbar machen und nachsehen, was oben liegt.
+      const onTop = await page.evaluate(
+        ([x, y, id]) => {
+          const layer = document.querySelector<HTMLElement>('.edge-markers');
+          if (!layer) return false;
+          layer.style.pointerEvents = 'auto';
+          const hit = document.elementFromPoint(x, y)?.closest(`[data-testid="${id}"]`) ?? null;
+          layer.style.pointerEvents = '';
+          return hit !== null;
+        },
+        [
+          (box?.x ?? 0) + (box?.width ?? 0) / 2,
+          (box?.y ?? 0) + (box?.height ?? 0) / 2,
+          `edge-marker-${marker.slot}`,
+        ] as const,
+      );
+      expect(onTop, `Marker ${marker.slot} sichtbar`).toBe(true);
+    }
+    await expect(page.getByTestId('edge-marker-3')).toHaveAttribute('data-visible', 'false');
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos210-randmarker.jpg' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-randmarker.png', { mask: hudMask(page) });
+
+    // Rundenbeginn: Überblick, alle Figuren im Bild, Marker blenden aus.
+    await page.evaluate(() => {
+      const board = window.__chaos?.board;
+      const last = board?.demoMessages?.[2] as {
+        view: Record<string, unknown>;
+        events: unknown[];
+        eventSeq: number;
+      };
+      board?.receive?.({
+        ...last,
+        view: { ...last.view, round: 3, gamePhase: 'turn-start', prompt: null },
+        events: [{ type: 'round-started', round: 3 }],
+        eventSeq: last.eventSeq + last.events.length,
+      });
+    });
+    await stepFrames(page, 40);
+    expect(await markers()).toEqual([]);
+    for (const slot of [1, 2, 3, 4]) {
+      await expect(page.getByTestId(`edge-marker-${slot}`)).toHaveAttribute(
+        'data-visible',
+        'false',
+      );
+    }
     expectNoProblems(problems);
   });
 

@@ -41,6 +41,48 @@ body,
   visibility: hidden;
 }
 
+/* Randmarker (CHAOS-210): Lage und Deckkraft setzt `EdgeMarkers.tsx` aus der Regie. */
+.edge-markers {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.edge-marker {
+  --marker-size: clamp(44px, 6.4vh, 96px);
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: var(--marker-size);
+  height: var(--marker-size);
+  margin: calc(var(--marker-size) / -2) 0 0 calc(var(--marker-size) / -2);
+  opacity: 0;
+}
+
+.edge-marker-pointer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  transform: rotate(var(--marker-angle, 0rad));
+  filter: drop-shadow(0 3px 0 rgb(27 21 48 / 55%));
+}
+
+.edge-marker-pointer path {
+  fill: var(--player-color);
+  stroke: #1b1530;
+  stroke-width: 6;
+  stroke-linejoin: round;
+}
+
+.edge-marker-symbol {
+  position: relative;
+  font-size: calc(var(--marker-size) * 0.3);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+}
+
 .game-canvas {
   display: block;
   width: 100%;

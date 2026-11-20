@@ -103,7 +103,7 @@ const FIT_HEIGHT = 2.8;
  * liegt damit etwa 10 % weiter weg als die bisherige Vollansicht, die vorderste Feldreihe aber
  * nicht mehr knapp an der Spielerleiste.
  */
-const SAFE = { x: 0.92, top: 0.76, bottom: 0.56 } as const;
+export const SAFE = { x: 0.92, top: 0.76, bottom: 0.56 } as const;
 
 export type ShotKind = 'overview' | 'follow' | 'walk' | 'event' | 'fit';
 
@@ -457,14 +457,10 @@ function cueShot(
   }
 }
 
-const OVERVIEW_PHASES = new Set<BoardView['gamePhase']>([
-  'setup',
-  'minigame-intro',
-  'minigame-play',
-  'minigame-results',
-  'round-end',
-  'game-results',
-]);
+/** Phasen ohne Zug auf dem Brett: Die Kamera zeigt den Überblick. */
+export const OVERVIEW_PHASES: ReadonlySet<BoardView['gamePhase']> = new Set<BoardView['gamePhase']>(
+  ['setup', 'minigame-intro', 'minigame-play', 'minigame-results', 'round-end', 'game-results'],
+);
 
 /** Einstellung aus dem gezeigten Stand, wenn kein Ereignis die Kamera hält. */
 function stateShot(input: ShotInput, pawnAt: (slot: number) => Point2 | undefined): CameraShot {

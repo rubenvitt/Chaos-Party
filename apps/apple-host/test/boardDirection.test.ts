@@ -202,4 +202,27 @@ describe('Brett-Regie im JS-Kern (CHAOS-143)', () => {
     expect(reactionFor({ kind: 'coins', tone: 'gold' })).toBeNull();
     expect(reactionFor({ kind: 'dice', tone: 'neutral' })).toBeNull();
   });
+
+  it('liefert Randmarker für Figuren außerhalb des Bilds (CHAOS-210)', () => {
+    const direction = createBoardDirection();
+    const seen = new Set<number>();
+    for (const message of createDemoMessages()) {
+      direction.receive(message);
+      for (let t = 0; t < 2000; t += STEP) {
+        direction.advance(STEP, true);
+        const fields = board(direction);
+        for (const marker of fields.markers) {
+          seen.add(marker.slot);
+          expect(marker.x).toBeGreaterThan(0);
+          expect(marker.x).toBeLessThan(1);
+        }
+      }
+    }
+    // Nah an der Figur am Zug stehen andere zeitweise außerhalb.
+    expect(seen.size).toBeGreaterThan(0);
+    // Während des Minispiels steht die Regie: Marker bleiben, wie sie waren.
+    const before = direction.fields().markers;
+    run(direction, 1000, false);
+    expect(direction.fields().markers).toEqual(before);
+  });
 });

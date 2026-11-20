@@ -16,7 +16,7 @@
  */
 import { DEFAULT_BOARD, getBoard, type BoardDefinition } from '@chaos-party/game-core';
 import { PLAYER_SLOTS, type BoardMessage, type BoardView } from '@chaos-party/protocol';
-import { cameraShot, createCameraRig } from '../../host/src/board/camera.ts';
+import { CAMERA_ASPECT, cameraShot, createCameraRig } from '../../host/src/board/camera.ts';
 import {
   createBoardDirector,
   type BoardFrame,
@@ -24,6 +24,7 @@ import {
   type FramePopup,
   type HudSnapshot,
 } from '../../host/src/board/director.ts';
+import { createEdgeMarkers, markersWanted } from '../../host/src/board/edgeMarkers.ts';
 import {
   boardBounds,
   easeFlight,
@@ -48,7 +49,7 @@ import {
 } from '../../host/src/board/texts.ts';
 import { boardEventSound } from '../../host/src/fx/boardSounds.ts';
 import { SOUNDS, shapeRecipe } from '../../host/src/fx/sounds.ts';
-import type { Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
+import type { EdgeMarker, Hud, Light, Pawn, Popup, SoundCue, TickerEntry } from './contract.ts';
 import { createBoardLight } from './lightMood.ts';
 
 /** Größter Regie-Schritt je `tick` (wie `MAX_STEP_MS` in `createBoardScene.ts`). */
@@ -65,6 +66,8 @@ export interface BoardDirectionFields {
   readonly hud: Hud | null;
   /** Kamera-Pose aus der gemeinsamen Regie (Babylon-Koordinaten). */
   readonly camera: BoardCamera;
+  /** Randmarker für Figuren außerhalb des Bilds (CHAOS-210), für 16:9 gerechnet. */
+  readonly markers: EdgeMarker[];
   readonly trophySpaces: string[];
   readonly traps: { spaceId: string; owner: 1 | 2 | 3 | 4 }[];
   readonly sounds: SoundCue[];
@@ -210,6 +213,7 @@ export function createBoardDirection(): BoardDirection {
   let boundsCache: { board: BoardDefinition; bounds: BoardBounds } | null = null;
   const light = createBoardLight();
   const cameraRig = createCameraRig();
+  const edgeMarkers = createEdgeMarkers();
 
   const boardAndBounds = (view: BoardView | null) => {
     const board = boardOf(view);
@@ -222,7 +226,23 @@ export function createBoardDirection(): BoardDirection {
     const frame = director.getFrame();
     const { board, bounds } = boardAndBounds(frame.view);
     const pawns = framePawns(frame, board, bounds);
-    cameraRig.advance(dtMs, cameraShot({ board, view: frame.view, cues: frame.cues, pawns }));
+    const { pose, shot } = cameraRig.advance(
+      dtMs,
+      cameraShot({ board, view: frame.view, cues: frame.cues, pawns }),
+    );
+    // Fernseher: immer 16:9; das HUD (1920×1080) zeichnet die Marker an diese Stellen.
+    edgeMarkers.advance(dtMs, {
+      pose,
+      aspect: CAMERA_ASPECT,
+      pawns: frame.pawns.map((fp, i) => ({
+        slot: fp.slot,
+        x: pawns[i]?.x ?? 0,
+        z: pawns[i]?.z ?? 0,
+        flying: fp.hop !== null && fp.hop.style !== 'walk',
+      })),
+      show: markersWanted(frame.view, shot.kind),
+      activeSlot: frame.view?.activeSlot ?? null,
+    });
   };
 
   director.onEvent((event) => {
@@ -304,6 +324,7 @@ export function createBoardDirection(): BoardDirection {
               target: [round3(pose.target.x), round3(pose.target.y), round3(pose.target.z)],
             }
           : { pos: [0, 28, -17.5], target: [0, 0, 0] },
+        markers: edgeMarkers.current().map((m) => ({ ...m })),
         trophySpaces: [...(view?.trophySpaces ?? [])],
         traps: (view?.traps ?? []).map((t) => ({ spaceId: t.spaceId, owner: t.owner })),
         sounds: sounds.map(({ id, name, voices }) => ({ id, name, voices })),

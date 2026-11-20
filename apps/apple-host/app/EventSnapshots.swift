@@ -30,7 +30,7 @@ enum EventSnapshots {
                 loop?.capture { image in
                     DispatchQueue.main.async {
                         let hud = runtime?.overlay.board
-                        writePNG(compose(image, hud: hud) ?? image, to: file)
+                        writePNG(compose(image, hud: hud, markers: runtime?.markers.markers ?? []) ?? image, to: file)
                     }
                 }
             }
@@ -38,9 +38,12 @@ enum EventSnapshots {
     }
 
     /// 3D-Bild mit dem HUD darüber: gerendert in 1920×1080 und wie in der App eingepasst (mittig, ohne Verzerren).
-    static func compose(_ image: CGImage, hud: BoardOverlay?) -> CGImage? {
+    static func compose(_ image: CGImage, hud: BoardOverlay?, markers: [RenderState.EdgeMarker] = []) -> CGImage? {
         guard let hud else { return image }
-        let renderer = ImageRenderer(content: BoardHudView(board: hud).foregroundStyle(.white))
+        let renderer = ImageRenderer(content: ZStack {
+            BoardHudView(board: hud)
+            EdgeMarkersView(markers: markers, hud: hud.hud)
+        }.frame(width: 1920, height: 1080).foregroundStyle(.white))
         let scale = min(CGFloat(image.width) / 1920, CGFloat(image.height) / 1080)
         renderer.scale = scale
         guard let overlay = renderer.cgImage,

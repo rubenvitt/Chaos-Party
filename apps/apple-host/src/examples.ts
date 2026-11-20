@@ -128,6 +128,8 @@ const BOARD: BoardState = {
   ],
   hud: HUD,
   camera: { pos: [3.9, 26.7, -14.3], target: [3.9, 0, 2.4] },
+  // Orange steht rechts außerhalb des Bilds (CHAOS-210), der Marker ist halb eingeblendet.
+  markers: [{ slot: 2, x: 0.9126, y: 0.4185, angle: 0.214, opacity: 0.5 }],
   trophySpaces: ['s05'],
   traps: [{ spaceId: 's02', owner: 1 }],
   sounds: [],

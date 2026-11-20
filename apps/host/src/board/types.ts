@@ -10,6 +10,7 @@ import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { LightMoodId } from '../lighting/moods.ts';
 import type { CameraState } from './camera.ts';
 import type { BoardFrame } from './director.ts';
+import type { EdgeMarker } from './edgeMarkers.ts';
 
 export interface LightMoodStatus {
   readonly from: LightMoodId;
@@ -61,6 +62,13 @@ export interface BoardScene {
   getLightMood(): LightMoodStatus | null;
   /** Kamera-Regie (CHAOS-194): Einstellung und nachgezogene Pose, `null` vor dem ersten Bild. */
   getCamera(): CameraState | null;
+  /** Randmarker für Figuren außerhalb des Bilds (CHAOS-210), Stand des letzten Takts. */
+  getEdgeMarkers(): readonly EdgeMarker[];
+  /**
+   * Meldet die Randmarker nach jedem Takt der Szene (sofort einmal mit dem Stand). Für das
+   * HUD, das sie ohne React-Rendern je Bild setzt. Liefert die Abmeldung.
+   */
+  onEdgeMarkers(listener: (markers: readonly EdgeMarker[]) => void): () => void;
   /**
    * Brett verdeckt (Finale, CHAOS-39): `true` hält das Rendern an – die Leinwand behält das
    * letzte Bild, die Regie läuft weiter (Stand und HUD bleiben aktuell); `false` rendert wieder.

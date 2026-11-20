@@ -91,6 +91,75 @@ struct BoardHudView: View {
     }
 }
 
+/// Randmarker (CHAOS-210) wie `apps/host/src/board/EdgeMarkers.tsx`: Tropfen in Slot-Farbe mit Symbol, die Spitze zeigt
+/// zur Figur außerhalb des Bilds. Lage, Richtung und Deckkraft kommen fertig aus dem JS-Kern (`board.markers`).
+/// Eigene Ebene über dem HUD (sonst verdeckt der Ticker Marker am oberen Rand), gestaltet für 1920×1080.
+final class EdgeMarkerModel: ObservableObject {
+    @Published var markers: [RenderState.EdgeMarker] = []
+}
+
+/// Beobachtet nur die Marker: Sie ändern sich bei jeder Kamerafahrt, das übrige HUD nicht.
+struct EdgeMarkersLayer: View {
+    @ObservedObject var model: EdgeMarkerModel
+    let hud: RenderState.Hud
+
+    var body: some View { EdgeMarkersView(markers: model.markers, hud: hud) }
+}
+
+struct EdgeMarkersView: View {
+    let markers: [RenderState.EdgeMarker]
+    let hud: RenderState.Hud
+    /// Wie `--marker-size` im PC-HUD bei 1080 Bildhöhe (6,4 %).
+    static let size: CGFloat = 69
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(markers, id: \.slot) { marker in
+                EdgeMarkerShape(color: slotColor(hud, marker.slot), slot: marker.slot, angle: marker.angle)
+                    .frame(width: Self.size, height: Self.size)
+                    .position(x: marker.x * 1920, y: marker.y * 1080)
+                    .opacity(marker.opacity)
+            }
+        }
+        .frame(width: 1920, height: 1080, alignment: .topLeading)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Tropfen mit Spitze nach rechts, gedreht um `angle` (Bild-Koordinaten, im Uhrzeigersinn), wie `MARKER_PATH`.
+private struct EdgeMarkerShape: View {
+    let color: Color
+    let slot: Int
+    let angle: Double
+
+    private struct Drop: Shape {
+        func path(in rect: CGRect) -> Path {
+            let k = rect.width / 100
+            var p = Path()
+            p.move(to: CGPoint(x: 96 * k, y: 50 * k))
+            p.addLine(to: CGPoint(x: 75.2 * k, y: 27.1 * k))
+            p.addArc(center: CGPoint(x: 50 * k, y: 50 * k), radius: 34 * k, startAngle: .radians(atan2(-22.9, 25.2)),
+                     endAngle: .radians(atan2(22.9, 25.2)), clockwise: true)
+            p.closeSubpath()
+            return p
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Schatten nach unten (nicht mitgedreht) wie `drop-shadow` im PC-HUD.
+            Drop().fill(ink.opacity(0.55)).rotationEffect(.radians(angle)).offset(y: 4)
+            ZStack {
+                Drop().fill(color)
+                Drop().stroke(ink, style: StrokeStyle(lineWidth: 4, lineJoin: .round))
+            }
+            .rotationEffect(.radians(angle))
+            Text(["●", "▲", "■", "★"][(slot - 1) & 3]).font(.system(size: EdgeMarkersView.size * 0.3, weight: .black))
+                .foregroundStyle(.white)
+        }
+    }
+}
+
 private struct PlayerDot: View {
     let color: Color
     let slot: Int

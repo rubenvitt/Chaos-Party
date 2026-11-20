@@ -30,7 +30,8 @@ struct ChaosHostApp: App {
         WindowGroup("Chaos Party") {
             ZStack(alignment: .topLeading) {
                 StageView(runtime: runtime).ignoresSafeArea()
-                OverlayView(overlay: runtime.overlay, start: { runtime.command("start") }, command: runtime.command, pause: pause)
+                OverlayView(overlay: runtime.overlay, start: { runtime.command("start") }, command: runtime.command, pause: pause,
+                            markers: runtime.markers)
             }
             #if os(tvOS)
             // Play/Pause und Menü (CHAOS-145); Menü nur in der Partie, in der Lobby führt es zum Home-Bildschirm.
@@ -85,6 +86,8 @@ struct OverlayView: View {
     var command: (String) -> Void = { _ in }
     /// Pause-Bedienung (CHAOS-145); `nil` in Tests und Bildern.
     var pause: PauseControl?
+    /// Randmarker der Brettphase (CHAOS-210); `nil` in Tests und Bildern.
+    var markers: EdgeMarkerModel?
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -132,11 +135,16 @@ struct OverlayView: View {
                 }
             } else if let board = overlay.board {
                 // HUD der Brettphase (CHAOS-143), gestaltet für 1920×1080 wie die Lobby.
+                // Randmarker (CHAOS-210) darüber, gleiche Einpassung: oben läge ein Marker sonst unter dem Ticker.
                 GeometryReader { geo in
                     let scale = min(geo.size.width / 1920, geo.size.height / 1080)
-                    BoardHudView(board: board)
-                        .scaleEffect(scale)
-                        .frame(width: geo.size.width, height: geo.size.height)
+                    ZStack {
+                        BoardHudView(board: board)
+                        if let markers { EdgeMarkersLayer(model: markers, hud: board.hud) }
+                    }
+                    .frame(width: 1920, height: 1080)
+                    .scaleEffect(scale)
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
