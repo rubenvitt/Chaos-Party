@@ -78,6 +78,8 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 
 ### 5.2 Gemeinsame Prüfungen
 
+Umgesetzt in `CHAOS-84`; Regeln, Tische, Schwellen mit Begründung und Ausnahmen in [`pruefungen.md`](pruefungen.md), Messwerte in [`pruefbericht.md`](pruefbericht.md).
+
 - **Vertragstest für alle Spiele:** Ein Test läuft automatisch über `MINIGAME_INFOS` und prüft Textlängen, Dauer, Ende spätestens nach `durationMs`, Ergebnis mit allen Slots, 2/3/4 Spieler, Disconnect mitten im Spiel, Aufräumen der Szene.
 - **Bot-Fairness je Spiel:** gleiche Kennzahlen wie EXP-005/EXP-016 (Gleichstand, Abstand Platz 1–2, Siegquote Neuling, Eindringling-Test gegen Dauerdrücken). Schwellen gelten für alle, Ausnahmen werden begründet.
 - **Screenshot je Spiel** (Intro + Spielszene) für die visuelle Regression.
