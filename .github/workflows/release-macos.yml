@@ -83,8 +83,9 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
-      # Vorabversion, solange Minispiele im nativen Host Grundkörper zeichnen (CHAOS-144); danach auf 'false'.
-      PRERELEASE: 'true'
+      # Vollwertiges Release: Brett, Minispiele und Finale zeichnen echte Grafik (CHAOS-144, M5). 'true' markiert
+      # Release und Sparkle-Eintrag als Vorabversion.
+      PRERELEASE: 'false'
       VERSION: ${{ needs.version.outputs.version }}
       SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
       SPARKLE_FEED_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/macos-appcast/appcast.xml
