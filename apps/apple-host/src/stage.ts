@@ -100,6 +100,14 @@ export const PREPARE_BUDGET_MS = 2;
 /** Höchstes Aufbau-Budget je `tick` bei langsamem Takt (CHAOS-205). */
 export const PREPARE_BUDGET_MAX_MS = 20;
 
+/**
+ * Höchstes Aufbau-Budget je `tick` bei knapper Bühne (CHAOS-227). Seit CHAOS-214 endet die
+ * Anleitung schon nach 3 s, wenn alle bereit sind; bei 10 Hz reichten 20 ms je Takt (600 ms in
+ * 3 s) nicht immer. 50 ms sind bei 10 Hz die halbe Tick-Dauer; ein einzelner Hänger bleibt
+ * gedeckelt.
+ */
+export const PREPARE_URGENT_MAX_MS = 50;
+
 /** Abstand zweier `tick` bei 60 Hz (ms). */
 const FRAME_MS = 1000 / 60;
 
@@ -148,7 +156,8 @@ export function stageUrgentFor(view: BoardView, receivedAt: number, nowMs: numbe
  * - `urgent` (Anleitung fast vorbei oder Spiel schon gestartet, Bühne nicht fertig): die halbe
  *   Tick-Dauer, aber höchstens so viel, dass `FRAME_RESERVE_MS` frei bleiben (CHAOS-209). Bei
  *   60 Hz sind das 6,7 ms statt 8,3 ms, ab 40 Hz wieder die halbe Tick-Dauer.
- * - Immer mindestens `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS`. Ein einzelner langer
+ * - Immer mindestens `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS` (knapp:
+ *   `PREPARE_URGENT_MAX_MS`, CHAOS-227, bei 10 Hz die halbe Tick-Dauer). Ein einzelner langer
  *   Tick (Hänger) gibt dem nächsten mehr Budget, gedeckelt.
  */
 export function prepareBudgetMs(tickIntervalMs: number, urgent = false): number {
@@ -156,7 +165,8 @@ export function prepareBudgetMs(tickIntervalMs: number, urgent = false): number 
   const budget = urgent
     ? Math.min(interval * URGENT_SHARE, interval - FRAME_RESERVE_MS)
     : interval * PREPARE_SHARE;
-  return Math.min(PREPARE_BUDGET_MAX_MS, Math.max(PREPARE_BUDGET_MS, budget));
+  const max = urgent ? PREPARE_URGENT_MAX_MS : PREPARE_BUDGET_MAX_MS;
+  return Math.min(max, Math.max(PREPARE_BUDGET_MS, budget));
 }
 
 export interface HeadlessStage {
