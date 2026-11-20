@@ -30,6 +30,7 @@ import {
   type LobbyMessage,
   type MinigameResultAckMessage,
   type MinigameResultMessage,
+  type RatingsMessage,
   type StartMessage,
 } from '@chaos-party/protocol';
 
@@ -137,6 +138,8 @@ export interface HostConnectionHandlers {
   onServerError?(error: ErrorMessage): void;
   /** Antwort auf ein gesendetes Minispiel-Ergebnis (v4, CHAOS-55). */
   onResultAck?(ack: MinigameResultAckMessage): void;
+  /** Daumen-Übersicht für die Minispiel-Galerie (CHAOS-87). */
+  onRatings?(ratings: RatingsMessage): void;
 }
 
 export interface HostConnectionOptions {
@@ -159,6 +162,8 @@ export interface HostConnectionOptions {
 export interface StartOptions {
   readonly mode?: GameMode;
   readonly rounds?: number;
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87): Kennung des Minispiels. */
+  readonly practice?: string;
 }
 
 /** Baut die `start`-Nachricht; fehlende Optionen bleiben weg (Server-Standard). */
@@ -166,6 +171,7 @@ export function createStartMessage(options: StartOptions = {}): StartMessage {
   return createMessage('start', {
     ...(options.mode === undefined ? {} : { mode: options.mode }),
     ...(options.rounds === undefined ? {} : { rounds: options.rounds }),
+    ...(options.practice === undefined ? {} : { practice: options.practice }),
   });
 }
 
@@ -357,6 +363,9 @@ export function connectHost(
           break;
         case 'minigame-result-ack':
           handlers.onResultAck?.(message);
+          break;
+        case 'ratings':
+          handlers.onRatings?.(message);
           break;
         case 'heartbeat-ack':
           break;

@@ -47,7 +47,7 @@ import {
   shownRemainingMs,
   type MinigameStageName,
 } from './plan.ts';
-import { resultPayload, resultsDisplay } from './results.ts';
+import { PRACTICE_NOTE, resultPayload, resultsDisplay } from './results.ts';
 import { createMinigameStage, type MinigameStage, type StageStatus } from './stage.ts';
 import type { ChaosMinigameTestHook } from './testHook.ts';
 
@@ -613,7 +613,12 @@ function ResultsCard({
   readonly display: ReturnType<typeof resultsDisplay>;
 }) {
   return (
-    <div className="minigame-overlay" data-testid="minigame-results" data-aborted={display.aborted}>
+    <div
+      className="minigame-overlay"
+      data-testid="minigame-results"
+      data-aborted={display.aborted}
+      data-practice={display.practice}
+    >
       <section className="minigame-card minigame-card--results" aria-label="Ergebnis">
         <p className="minigame-kicker">Ergebnis · {title}</p>
         <h2 className="minigame-title minigame-headline" data-testid="minigame-headline">
@@ -677,6 +682,11 @@ function ResultsCard({
               <li key={line}>★ {line}</li>
             ))}
           </ul>
+        )}
+        {display.practice && (
+          <p className="minigame-tagline" data-testid="minigame-practice-note">
+            {PRACTICE_NOTE}
+          </p>
         )}
       </section>
     </div>

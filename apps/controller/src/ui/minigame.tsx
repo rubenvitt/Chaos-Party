@@ -3,15 +3,18 @@
  * eigenes Ergebnis, gemeinsam für iPhone (`SlotController`) und iPad-Zone (`ZoneBoard`,
  * `compact`). Das Spiel-Layout selbst bleibt Joystick + Knöpfe (`PlayPanel`, Zonen).
  */
-import type { ControllerMinigameInfo } from '@chaos-party/protocol';
+import { useState } from 'react';
+import type { ControllerMinigameInfo, Vote } from '@chaos-party/protocol';
 import {
   controlLegend,
   describeResult,
+  describeVote,
   INTRO_READY,
   REPEAT_KICKER,
-  RESULTS_LEAD,
+  VOTE_QUESTION,
   type ControlLegendItem,
 } from '../minigame/view.ts';
+import type { SlotContext } from '../state/reducer.ts';
 import { ITEM_INFO } from '../board/items.ts';
 import { LOOK_AT_SCREEN } from '../board/status.ts';
 import { Icon } from './icons.tsx';
@@ -113,9 +116,12 @@ export function MinigameIntro({
 export function MinigameResult({
   minigame,
   compact = false,
+  voting,
 }: {
   minigame: ControllerMinigameInfo;
   compact?: boolean;
+  /** Daumen-Knöpfe (CHAOS-87), nur am iPhone; fehlt = keine Knöpfe. */
+  voting?: VotingProps | undefined;
 }) {
   const view = describeResult(minigame);
   return (
@@ -172,7 +178,9 @@ export function MinigameResult({
               </b>
             </p>
           )}
-          <p className="minigame-lead ui-text">{RESULTS_LEAD}</p>
+          <p className="minigame-lead ui-text" data-testid="minigame-lead">
+            {view.lead}
+          </p>
         </>
       ) : (
         <>
@@ -182,7 +190,61 @@ export function MinigameResult({
           <p className="minigame-lead ui-text">{view.lead}</p>
         </>
       )}
-      {!compact && <p className="minigame-look ui-text">{LOOK_AT_SCREEN}</p>}
+      {voting && <VoteButtons minigame={minigame} {...voting} />}
+      {!compact && !voting && <p className="minigame-look ui-text">{LOOK_AT_SCREEN}</p>}
+    </div>
+  );
+}
+
+export interface VotingProps {
+  readonly context: Pick<SlotContext, 'actions' | 'minigame'>;
+  readonly onVote: (vote: Vote) => void;
+}
+
+const VOTE_LABELS: Readonly<Record<Vote, string>> = {
+  up: 'Daumen hoch',
+  down: 'Daumen runter',
+};
+
+/**
+ * Daumen hoch/runter nach dem Minispiel (CHAOS-87): freiwillig, nichts wartet darauf. Die Wahl
+ * leuchtet sofort (gesendet), die Bestätigung kommt mit dem nächsten Kontext (`minigame.vote`).
+ * Umentscheiden geht, solange die Ergebnisanzeige läuft.
+ */
+function VoteButtons({
+  minigame,
+  context,
+  onVote,
+}: VotingProps & { readonly minigame: ControllerMinigameInfo }) {
+  const [pending, setPending] = useState<Vote | null>(null);
+  const view = describeVote(context, pending);
+  if (!view.open) return null;
+  return (
+    <div
+      className="minigame-vote"
+      data-testid="minigame-vote"
+      data-minigame={minigame.id}
+      data-selected={view.selected ?? ''}
+    >
+      <p className="minigame-vote-question ui-text">{VOTE_QUESTION}</p>
+      <div className="minigame-vote-buttons">
+        {(['up', 'down'] as const).map((vote) => (
+          <button
+            key={vote}
+            type="button"
+            className={`vote-button vote-${vote}`}
+            data-testid={`vote-${vote}`}
+            aria-label={VOTE_LABELS[vote]}
+            aria-pressed={view.selected === vote}
+            onClick={() => {
+              setPending(vote);
+              onVote(vote);
+            }}
+          >
+            <span aria-hidden="true">{vote === 'up' ? '👍' : '👎'}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -191,11 +253,15 @@ export function MinigameResult({
 export function MinigameCard({
   minigame,
   compact = false,
+  voting,
 }: {
   minigame: ControllerMinigameInfo;
   compact?: boolean;
+  voting?: VotingProps | undefined;
 }) {
-  if (minigame.stage === 'results') return <MinigameResult minigame={minigame} compact={compact} />;
+  if (minigame.stage === 'results') {
+    return <MinigameResult minigame={minigame} compact={compact} voting={voting} />;
+  }
   return <MinigameIntro minigame={minigame} compact={compact} />;
 }
 

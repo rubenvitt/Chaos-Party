@@ -170,6 +170,18 @@ export function finishMinigame(
     placements: sorted,
     aborted: false,
   });
+  if (d.config.practice === true) {
+    // Übungsmodus (CHAOS-87): nur Plätze und Punkte, keine Münzen, Siege oder Items.
+    d.minigame = {
+      ...minigame,
+      placements: sorted,
+      highlights: [...highlights],
+      aborted: false,
+      rewards: sorted.map((entry) => ({ slot: entry.slot, coins: 0 })),
+    };
+    schedule(ctx, 'minigame-results', t, ctx.rules.pacing.minigameResultsMs);
+    return;
+  }
   const finale = ctx.rules.catchUp?.finale;
   const factor = finale && d.round > d.rounds - finale.rounds ? finale.factor : 1;
   const rewards = sorted.map((entry) => {

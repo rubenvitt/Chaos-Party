@@ -63,6 +63,11 @@ export interface BoardGameSettings {
    * Fehlt = aus.
    */
   readonly moreReactionTime?: boolean | undefined;
+  /**
+   * Übungsrunde der Minispiel-Galerie (CHAOS-87): `minigames` enthält genau das eine Spiel,
+   * `rounds` ist 1. Nur in `BoardGame`, die Session setzt es beim Start mit `start.practice`.
+   */
+  readonly practice?: boolean | undefined;
 }
 
 /**
@@ -102,6 +107,12 @@ export const DEFAULT_ROUNDS = 10;
  * 20 ≈ 27–31 min. 40 Minuten bräuchten 26–30 Runden, mehr als `MAX_ROUNDS` (20).
  */
 export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
+
+/** Spezifikation eines Minispiels aus dem Katalog (Übungsrunde, CHAOS-87) oder `undefined`. */
+export function catalogMinigame(id: string): MinigameSpec | undefined {
+  const info = getMinigameInfo(id);
+  return info ? { id: info.id, playMs: info.durationMs, scoring: info.scoring } : undefined;
+}
 
 /** Spezifikationen der Katalog-Rotation für game-core. */
 export function catalogMinigames(): MinigameSpec[] {
@@ -173,7 +184,13 @@ export class BoardGame {
       seed,
       players: players.map((player) => ({ slot: player.slot, name: player.name })),
       minigames: settings.minigames,
+      ...(settings.practice === true ? { practice: true } : {}),
     });
+  }
+
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87). */
+  get practice(): boolean {
+    return this.stateValue.config.practice === true;
   }
 
   get state(): GameState {
@@ -301,6 +318,7 @@ export class BoardGame {
         : null,
       paused: state.paused,
       endedEarly: state.endedEarly,
+      ...(this.practice ? { practice: true } : {}),
     };
   }
 
@@ -344,6 +362,7 @@ export class BoardGame {
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
       // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
       repeat: minigame.repeat,
+      ...(this.practice ? { practice: true } : {}),
     };
   }
 

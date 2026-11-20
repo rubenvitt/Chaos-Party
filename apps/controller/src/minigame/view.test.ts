@@ -6,7 +6,10 @@ import {
   DEFAULT_STICK_HINT,
   describePlay,
   describeResult,
+  describeVote,
   formatScore,
+  PRACTICE_LEAD,
+  RESULTS_LEAD,
   minigameIn,
   offeredActions,
   rewardText,
@@ -125,6 +128,7 @@ describe('describeResult', () => {
       score: '42 Sekunden',
       reward: null,
       prizes: [],
+      lead: RESULTS_LEAD,
     });
     const fourth = describeResult(info({ stage: 'results', place: 4, score: 0 }));
     expect(fourth).toMatchObject({ headline: 'Platz 4!', score: '0 Sekunden' });
@@ -184,5 +188,34 @@ describe('formatScore', () => {
     expect(formatScore(1234, 'Pumpstöße')).toBe('1.234 Pumpstöße');
     expect(formatScore(-3, 'Punkte')).toBe('-3 Punkte');
     expect(formatScore(1_000_000, 'Meter')).toBe('1.000.000 Meter');
+  });
+});
+
+describe('Übungsrunde und Daumen (CHAOS-87)', () => {
+  it('zeigt in der Übungsrunde keine Münzzeile und den Weg zurück in die Lobby', () => {
+    const view = describeResult(info({ stage: 'results', place: 2, reward: 0, practice: true }));
+    expect(view).toMatchObject({ kind: 'placed', reward: null, lead: PRACTICE_LEAD });
+    const game = describeResult(info({ stage: 'results', place: 2, reward: 0 }));
+    expect(game).toMatchObject({ reward: 'Keine Münzen', lead: RESULTS_LEAD });
+  });
+
+  it('bietet Daumen nur an, wenn der Server rate in der Ergebnisanzeige anbietet', () => {
+    const results = info({ stage: 'results', place: 1 });
+    expect(describeVote({ actions: ['rate'], minigame: results })).toEqual({
+      open: true,
+      selected: null,
+    });
+    expect(describeVote({ actions: [], minigame: results }).open).toBe(false);
+    expect(describeVote({ actions: ['rate'], minigame: info({ stage: 'intro' }) }).open).toBe(
+      false,
+    );
+    expect(describeVote({ actions: ['rate'], minigame: { ...results, vote: 'down' } })).toEqual({
+      open: true,
+      selected: 'down',
+    });
+    // Gerade gesendet: die eigene Wahl leuchtet schon vor der Bestätigung.
+    expect(
+      describeVote({ actions: ['rate'], minigame: { ...results, vote: 'down' } }, 'up').selected,
+    ).toBe('up');
   });
 });

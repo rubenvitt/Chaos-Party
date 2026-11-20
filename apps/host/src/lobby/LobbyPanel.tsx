@@ -2,9 +2,10 @@ import {
   MAX_PLAYERS,
   PLAYER_SLOTS,
   type LobbyMessage,
+  type MinigameRating,
   type SlotNumber,
 } from '@chaos-party/protocol';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
@@ -18,7 +19,11 @@ import {
   roundsDuration,
   startState,
 } from './lobbyState.ts';
+import { MinigameGallery } from './MinigameGallery.tsx';
 import { QrCode } from './QrCode.tsx';
+
+/** Export der Daumen-Stimmen am Server (CHAOS-87, `RATINGS_PATH` in `apps/server`). */
+const RATINGS_EXPORT_HREF = '/ratings.json';
 
 interface LobbyPanelProps {
   readonly lobby: LobbyMessage | null;
@@ -32,6 +37,10 @@ interface LobbyPanelProps {
   readonly onMoreReactionTime: (on: boolean) => void;
   /** Brett gewählt: Brett-ID oder `zufall` (sendet `configure`, CHAOS-197). */
   readonly onBoard: (board: string) => void;
+  /** Daumen je Minispiel vom Server (CHAOS-87). */
+  readonly ratings: readonly MinigameRating[];
+  /** Übungsrunde aus der Galerie starten (sendet `start.practice`, CHAOS-87). */
+  readonly onPractice: (minigameId: string) => boolean;
 }
 
 const ALL_SLOTS: readonly SlotNumber[] = [1, 2, 3, 4];
@@ -74,7 +83,13 @@ export function LobbyPanel({
   onRounds,
   onMoreReactionTime,
   onBoard,
+  ratings,
+  onPractice,
 }: LobbyPanelProps) {
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const closeGallery = useCallback(() => {
+    setGalleryOpen(false);
+  }, []);
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
   const baseUrl = chosenUrl !== null && urls.includes(chosenUrl) ? chosenUrl : urls[0];
@@ -308,6 +323,17 @@ export function LobbyPanel({
             {start.hint}
           </p>
 
+          <button
+            type="button"
+            className="lobby-gallery-button"
+            data-testid="gallery-button"
+            onClick={() => {
+              setGalleryOpen(true);
+            }}
+          >
+            Minispiel-Galerie
+          </button>
+
           {showJoinHelp && (
             <div className="join-help" role="note" data-testid="join-help">
               <strong>Noch kein Handy verbunden? Firewall/WLAN prüfen:</strong>
@@ -332,6 +358,18 @@ export function LobbyPanel({
           )}
         </div>
       </div>
+      {galleryOpen && (
+        <MinigameGallery
+          ratings={ratings}
+          // Wie der Start: ab einem verbundenen Controller (bereit muss niemand sein).
+          canPractice={start.enabled}
+          onPractice={(id) => {
+            if (onPractice(id)) setGalleryOpen(false);
+          }}
+          onClose={closeGallery}
+          exportHref={RATINGS_EXPORT_HREF}
+        />
+      )}
     </section>
   );
 }

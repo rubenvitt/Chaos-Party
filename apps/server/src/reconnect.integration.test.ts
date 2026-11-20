@@ -289,7 +289,8 @@ describe('Reconnect in jeder Phase (CHAOS-38)', () => {
     const own = lastView(h).minigame?.placements?.find((p) => p.slot === 2);
     expect(context(h, 2)).toMatchObject({
       layout: 'board',
-      actions: [],
+      // Daumen nach dem Minispiel (CHAOS-87) bleiben nach der Rückkehr möglich.
+      actions: ['rate'],
       minigame: { stage: 'results', place: own?.place, aborted: false },
     });
     expect(context(h, 2).minigame?.reward).toBeTypeOf('number');

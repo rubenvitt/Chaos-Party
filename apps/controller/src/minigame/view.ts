@@ -14,6 +14,7 @@ import type {
   ControllerMinigameInfo,
   ItemKindName,
   MinigameControlsInfo,
+  Vote,
 } from '@chaos-party/protocol';
 import type { SlotContext } from '../state/reducer.ts';
 
@@ -25,6 +26,10 @@ export const INTRO_READY = 'Gleich geht’s los!';
 export const REPEAT_KICKER = 'Nochmal!';
 /** Hinweis unter dem Ergebnis: Danach geht es am PC weiter. */
 export const RESULTS_LEAD = 'Gleich geht’s auf dem Brett weiter.';
+/** Hinweis unter dem Ergebnis einer Übungsrunde aus der Galerie (CHAOS-87). */
+export const PRACTICE_LEAD = 'Übungsrunde ohne Münzen – gleich geht’s zurück in die Lobby.';
+/** Frage über den Daumen-Knöpfen (CHAOS-87). */
+export const VOTE_QUESTION = 'Hat’s Spaß gemacht?';
 export const ABORTED_HEADLINE = 'Minispiel abgebrochen';
 export const ABORTED_LEAD = 'Keine Wertung – gleich geht’s auf dem Brett weiter.';
 /** Joystick-Hinweis ohne Minispiel (M1-Arena). */
@@ -125,6 +130,8 @@ export type ResultView =
       readonly reward: string | null;
       /** Trostpreis-Items aus dem Ergebnis (CHAOS-51, EXP-019); leer, wenn keine. */
       readonly prizes: readonly ItemKindName[];
+      /** Zeile unter dem Ergebnis (Brett bzw. zurück in die Lobby nach einer Übungsrunde). */
+      readonly lead: string;
     }
   | { readonly kind: 'aborted'; readonly headline: string; readonly lead: string };
 
@@ -161,8 +168,29 @@ export function describeResult(minigame: ControllerMinigameInfo): ResultView {
     headline: tied ? `Geteilter Platz ${String(place)}!` : `Platz ${String(place)}!`,
     cheer: tied && place === 1 ? 'Gemeinsam gewonnen!' : (CHEERS[place] ?? 'Gut gespielt!'),
     score: minigame.score === undefined ? null : formatScore(minigame.score, minigame.scoreUnit),
-    reward: rewardText(minigame.reward),
+    // Übungsrunde (CHAOS-87): keine Münzen, also auch kein „Keine Münzen“.
+    reward: minigame.practice === true ? null : rewardText(minigame.reward),
     prizes: [...(minigame.prizes ?? [])],
+    lead: minigame.practice === true ? PRACTICE_LEAD : RESULTS_LEAD,
+  };
+}
+
+/** Daumen-Knöpfe nach dem Minispiel (CHAOS-87). */
+export interface VoteView {
+  /** Der Server bietet `rate` gerade an (Ergebnisanzeige, nicht pausiert). */
+  readonly open: boolean;
+  /** Eigene Stimme: gesendet und noch unbestätigt, sonst die vom Server, sonst `null`. */
+  readonly selected: Vote | null;
+}
+
+export function describeVote(
+  context: Pick<SlotContext, 'actions' | 'minigame'>,
+  pending: Vote | null = null,
+): VoteView {
+  const minigame = context.minigame?.stage === 'results' ? context.minigame : undefined;
+  return {
+    open: minigame !== undefined && context.actions.includes('rate'),
+    selected: pending ?? minigame?.vote ?? null,
   };
 }
 

@@ -351,6 +351,14 @@ export function App({ config }: AppProps) {
       ...(roundsChoice === null ? {} : { rounds: roundsChoice }),
     });
   }, [start, arena, roundsChoice]);
+  // Minispiel-Galerie (CHAOS-87): Übungsrunde mit einem Minispiel, ohne Münzen.
+  const onPractice = useCallback(
+    (minigameId: string) => {
+      soundEngine().unlock();
+      return start({ mode: 'board', practice: minigameId });
+    },
+    [start],
+  );
   const onRematch = useCallback(() => {
     if (local) {
       // Lokaler Brett-Modus (ohne Server): Beispiel-Stand neu laden.
@@ -456,6 +464,8 @@ export function App({ config }: AppProps) {
           onRounds={onRounds}
           onMoreReactionTime={onMoreReactionTime}
           onBoard={onBoard}
+          ratings={session.ratings}
+          onPractice={onPractice}
         />
       )}
     </main>

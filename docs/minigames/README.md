@@ -99,6 +99,8 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Spielbar:** mit Szene im Baukasten, über die **Minispiel-Galerie** am Host einzeln startbar (Übungsmodus).
 - **Rotation:** in echten Partien. Nach jedem Minispiel können alle am Controller **Daumen hoch / runter** geben. Die Stimmen werden lokal gesammelt; Spiele mit vielen Daumen runter fallen aus der Rotation und gehen zurück in den Trichter.
 
+**Umgesetzt (CHAOS-87, 2026-11-20):** Die Galerie steht in der PC-Lobby („Minispiel-Galerie“): alle Spiele mit Status (`rotation`/`spielbar`, abgeleitet aus `ROTATION` im Katalog), Kategorie, Familie (sobald CHAOS-85 sie in den Steckbrief bringt), Spielzeit, Bedienung und Daumen. „Üben“ startet eine Übungsrunde (`start.practice`): nur dieses Spiel, keine Münzen, Siege oder Items, danach zurück in die Lobby. Daumen gibt es am iPhone in der Ergebnisanzeige jedes Minispiels (Partie und Übung, Controller-Nachricht `rate`); nichts wartet darauf. Der Server speichert die Stimmen in `~/.chaos-party/minispiel-stimmen.json` (`STIMMEN_DATEI`), der Export liegt unter `/ratings.json`. Rauswurf-Vorschlag ab **6 Stimmen mit ≥ 60 % Daumen runter** (`packages/minigames/src/gallery.ts`); er gilt nur für Spiele der Rotation, entscheiden tut Ruben. Offen: Daumen in iPad-Zonen und in der nativen Controller-App, Galerie am Apple-Host.
+
 ### 5.5 Gegen Gleichförmigkeit
 
 Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Spiele „einem Muster folgen“. Die Fabrik ist nur dann freigegeben, wenn das nicht passiert. Darum gelten diese Regeln:

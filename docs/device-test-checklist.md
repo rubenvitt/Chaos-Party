@@ -741,3 +741,21 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. Minispiel-Galerie und Daumen (für CHAOS-87)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-87 · **Protokoll:** v4-Nachtrag CHAOS-87 (`start.practice`, `rate`, `ratings`)
+
+Automatisch geprüft (Linux): Übungsrunde in game-core (ohne Münzen, Siege, Items; Ende nach dem Ergebnis), Session (Übungsstart, Daumen nur in der Ergebnisanzeige, Umentscheiden ersetzt, Rückweg zum Brett bzw. in die Lobby genauso schnell mit und ohne Stimmen), Stimmen-Datei und Export `/ratings.json`, E2E: Galerie öffnen → Pump-Parade üben → Ergebnis → Daumen am iPhone (Chromium-Emulation) → Galerie zeigt die Stimme. **Nicht** automatisch geprüft: Tippen auf echtem iOS, Lesbarkeit am Fernseher, Datei nach Server-Neustart auf Rubens PC. **Noch nicht umgesetzt:** Daumen in den iPad-Zonen und in der nativen Controller-App, Galerie am Apple-Host (eigene Folgeaufgaben); dort fehlen die Knöpfe, alles andere läuft wie bisher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| GA1 | PC: `pnpm play`, Lobby, „Minispiel-Galerie“ | Alle Minispiele mit Status (Rotation/Spielbar), Kategorie, Spielzeit, Bedienung und Daumen; Liste scrollt, Escape schließt | | Foto |
+| GA2 | Ein iPhone verbinden (nicht bereit), in der Galerie „Üben“ bei einem Spiel | Gleich die Anleitung dieses Spiels, kein Brettzug; Handy zeigt Anleitung, dann Joystick/Knöpfe | | |
+| GA3 | Spiel zu Ende spielen | PC: Ergebnis ohne Münzspalte, Hinweis „Übungsrunde – keine Münzen“; iPhone: Platz, kein „Keine Münzen“, Frage „Hat’s Spaß gemacht?“ mit 👍/👎 | | Foto |
+| GA4 | 👍 tippen, dann 👎 | Gewählter Daumen leuchtet in Spielerfarbe sofort; Umentscheiden geht; nach ~6 s ohne Warten zurück in der Lobby | | |
+| GA5 | Galerie erneut öffnen | Spiel zeigt 👍 0 · 👎 1 („1 Stimme“) | | |
+| GA6 | Echte Partie, nach einem Minispiel 👍 am Handy | Stimme zählt in der Galerie dazu; das Brett geht nach dem Ergebnis genauso schnell weiter wie ohne Stimme | | |
+| GA7 | „Stimmen exportieren“ | Browser lädt `minispiel-stimmen-<Datum>.json` mit allen Spielen und Einzelstimmen | | Datei |
+| GA8 | Server beenden und neu starten (`pnpm play`), Galerie öffnen | Stimmen sind noch da (Datei `~/.chaos-party/minispiel-stimmen.json`, Pfad steht beim Start im Terminal) | | |
+| GA9 | Ruben: Urteil | Sind die Daumen am Handy schnell genug erreichbar? Schwelle für den Rauswurf-Vorschlag (6 Stimmen, ≥ 60 % runter) sinnvoll? | | Kommentar an CHAOS-87 |

@@ -18,6 +18,8 @@ export default defineConfig({
     // leitet Vite das an den Session-Server weiter (ADR-007, Dev-Topologie).
     proxy: {
       '/ws': { target: `ws://localhost:${String(SERVER_PORT)}`, ws: true },
+      // Export der Daumen-Stimmen (CHAOS-87) vom Server.
+      '/ratings.json': { target: `http://localhost:${String(SERVER_PORT)}` },
     },
   },
   preview: {
@@ -25,6 +27,8 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/ws': { target: `ws://localhost:${String(SERVER_PORT)}`, ws: true },
+      // Export der Daumen-Stimmen (CHAOS-87) vom Server.
+      '/ratings.json': { target: `http://localhost:${String(SERVER_PORT)}` },
     },
   },
   optimizeDeps: {
