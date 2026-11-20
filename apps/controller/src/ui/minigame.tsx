@@ -124,6 +124,8 @@ export function MinigameResult({
   voting?: VotingProps | undefined;
 }) {
   const view = describeResult(minigame);
+  // Daumen nur, wenn der Server sie anbietet; sonst bleibt der Hinweis auf den Bildschirm.
+  const openVoting = voting && describeVote(voting.context).open ? voting : undefined;
   return (
     <div
       className="minigame-card minigame-result"
@@ -190,8 +192,8 @@ export function MinigameResult({
           <p className="minigame-lead ui-text">{view.lead}</p>
         </>
       )}
-      {voting && <VoteButtons minigame={minigame} {...voting} />}
-      {!compact && !voting && <p className="minigame-look ui-text">{LOOK_AT_SCREEN}</p>}
+      {openVoting && <VoteButtons minigame={minigame} {...openVoting} />}
+      {!compact && !openVoting && <p className="minigame-look ui-text">{LOOK_AT_SCREEN}</p>}
     </div>
   );
 }
