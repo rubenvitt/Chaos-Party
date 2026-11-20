@@ -10,8 +10,31 @@
  *
  * Koordinaten: Ebene x/z, +z = vom Fernseher weg („Stick nach oben“), Arena-Mitte (0, 0).
  * Zeit nur über `step(dt)`, Zufall nur über den übergebenen `MinigameRng`.
+ *
+ * Unterbau aus dem Baukasten (ADR-020, CHAOS-83): Spielzeit mit Endphase (`MatchClock`),
+ * Wurf-Takt mit Vorwarnung (`Spawner`), Laufen/Hechten/Benommenheit (`movement`). Die Regeln
+ * (Fangen, Plätten, gezielte Bügeleisen, herausspringende Socke) bleiben hier.
  */
+import {
+  MatchClock,
+  Spawner,
+  arcPosition,
+  clampToRadius,
+  createWalker,
+  isDashing,
+  isStunned,
+  randomInCircle,
+  setWalkerStick,
+  stepWalker,
+  stunWalker,
+  tryDash,
+  uniqueMax,
+  type Bounds,
+  type WalkerState,
+} from '@chaos-party/minigame-kit';
 import type { MinigameRng, Slot } from '@chaos-party/minigame-sdk';
+
+export { clampToRadius };
 
 export const SOCKENREGEN_RULES = {
   arenaRadius: 6.2,
@@ -47,9 +70,6 @@ export type SockenregenRules = { readonly [K in keyof typeof SOCKENREGEN_RULES]:
 /** Abwurfpunkt: Bullauge der Waschmaschine hinter der Arena. */
 export const LAUNCH_POINT = { x: 0, y: 2.6, z: 8.1 } as const;
 
-/** Toleranz für aufsummierte Schrittzeiten. */
-const EPSILON = 1e-6;
-
 export type ItemKind = 'sock' | 'gold' | 'iron';
 
 export interface Item {
@@ -71,22 +91,13 @@ export interface Item {
   groundUntil: number;
 }
 
-export interface Runner {
+/** Läufer: Grundbewegung aus dem Baukasten plus Zähler für Wertung und Höhepunkte. */
+export interface Runner extends WalkerState {
   readonly slot: Slot;
-  x: number;
-  z: number;
-  /** Blickrichtung (Radiant um y, 0 = +z). */
-  heading: number;
-  stickX: number;
-  stickY: number;
-  stunUntil: number;
-  dashUntil: number;
-  dashReadyAt: number;
   score: number;
   socks: number;
   golds: number;
   hits: number;
-  dashes: number;
 }
 
 export type SockEvent =
@@ -102,15 +113,13 @@ export type SockEvent =
 export class SockenregenLogic {
   readonly runners: Runner[];
   readonly items: Item[] = [];
-  /** Spielzeit in s. */
-  time = 0;
-  finale = false;
   finished = false;
   /** Wer zuletzt eine Socke gesammelt hat (Höhepunkt). */
   lastCollector: Slot | null = null;
-  private nextSpawn: number;
+  private readonly clock: MatchClock;
+  private readonly spawner: Spawner;
+  private readonly bounds: Bounds;
   private nextId = 1;
-  private readonly limitS: number;
 
   constructor(
     slots: readonly Slot[],
@@ -118,32 +127,43 @@ export class SockenregenLogic {
     timeLimitMs: number,
     readonly rules: SockenregenRules = SOCKENREGEN_RULES,
   ) {
-    this.limitS = timeLimitMs / 1000;
-    this.nextSpawn = rules.firstSpawnS;
+    this.clock = new MatchClock(timeLimitMs, rules.finaleS);
+    this.spawner = new Spawner({
+      firstS: rules.firstSpawnS,
+      everyS: rules.spawnS,
+      finaleEveryS: rules.finaleSpawnS,
+      warnS: rules.flightS,
+    });
+    this.bounds = { kind: 'circle', radius: rules.arenaRadius };
     this.runners = slots.map((slot, index) => {
       // Im Halbkreis vor der Maschine aufstellen, Blick zur Maschine.
       const angle = Math.PI + (Math.PI * (index + 1)) / (slots.length + 1);
       return {
         slot,
-        x: Math.cos(angle) * rules.startRadius,
-        z: Math.sin(angle) * rules.startRadius * 0.6,
-        heading: 0,
-        stickX: 0,
-        stickY: 0,
-        stunUntil: 0,
-        dashUntil: 0,
-        dashReadyAt: 0,
+        ...createWalker(
+          Math.cos(angle) * rules.startRadius,
+          Math.sin(angle) * rules.startRadius * 0.6,
+        ),
         score: 0,
         socks: 0,
         golds: 0,
         hits: 0,
-        dashes: 0,
       };
     });
   }
 
+  /** Spielzeit in s. */
+  get time(): number {
+    return this.clock.time;
+  }
+
+  /** Schleudergang (Endphase). */
+  get finale(): boolean {
+    return this.clock.finale;
+  }
+
   get remainingS(): number {
-    return Math.max(0, this.limitS - this.time);
+    return this.clock.remainingS;
   }
 
   runner(slot: Slot): Runner | undefined {
@@ -151,58 +171,40 @@ export class SockenregenLogic {
   }
 
   isStunned(runner: Runner): boolean {
-    return this.time < runner.stunUntil;
+    return isStunned(runner, this.time);
   }
 
   isDashing(runner: Runner): boolean {
-    return this.time < runner.dashUntil;
+    return isDashing(runner, this.time);
   }
 
   /** Stick-Stellung (Achsen −1…1, y > 0 = nach hinten/+z). */
   setStick(slot: Slot, x: number, y: number): void {
     const runner = this.runner(slot);
-    if (!runner) return;
-    const length = Math.hypot(x, y);
-    const scale = length > 1 ? 1 / length : 1;
-    runner.stickX = x * scale;
-    runner.stickY = y * scale;
+    if (runner) setWalkerStick(runner, x, y);
   }
 
   /** Hechtsprung (Knopf A). Liefert `true`, wenn er ausgelöst wurde. */
   dash(slot: Slot): boolean {
     const runner = this.runner(slot);
     if (!runner || this.finished) return false;
-    if (this.isStunned(runner) || this.time < runner.dashReadyAt) return false;
-    const stick = Math.hypot(runner.stickX, runner.stickY);
-    if (stick > 0.2) runner.heading = Math.atan2(runner.stickX, runner.stickY);
-    runner.dashUntil = this.time + this.rules.dashS;
-    runner.dashReadyAt = this.time + this.rules.dashCooldownS;
-    runner.dashes++;
-    return true;
+    return tryDash(runner, this.time, this.rules);
   }
 
   /** Ein fester Logikschritt; liefert, was passiert ist (für Anzeige und Effekte). */
   step(dt: number): SockEvent[] {
     if (this.finished) return [];
     const events: SockEvent[] = [];
-    this.time += dt;
-    const { rules } = this;
-
-    if (!this.finale && this.time >= this.limitS - rules.finaleS - EPSILON) {
-      this.finale = true;
-      events.push({ type: 'finale' });
-    }
+    if (this.clock.tick(dt).finaleStarted) events.push({ type: 'finale' });
     // Würfe nur, solange sie vor dem Ende landen.
-    while (this.time >= this.nextSpawn) {
-      this.nextSpawn += this.finale ? rules.finaleSpawnS : rules.spawnS;
-      if (this.time + rules.flightS < this.limitS) events.push(this.spawn());
+    for (let n = this.spawner.poll(this.time, this.finale, this.clock.limitS); n > 0; n--) {
+      events.push(this.spawn());
     }
 
-    this.moveRunners(dt);
+    for (const runner of this.runners) stepWalker(runner, dt, this.time, this.rules, this.bounds);
     this.resolveItems(events);
 
-    // Gleitkomma-Summe der festen Schritte: 1800 × 1/60 s soll genau 30 s sein.
-    if (this.time >= this.limitS - EPSILON) {
+    if (this.clock.expired) {
       this.finished = true;
       events.push({ type: 'end' });
     }
@@ -224,11 +226,9 @@ export class SockenregenLogic {
       target = victim.slot;
       ({ x, z } = clampToRadius(victim.x, victim.z, rules.landingRadius));
     } else {
-      const r = Math.sqrt(rng.next()) * rules.landingRadius;
-      const a = rng.next() * Math.PI * 2;
-      x = Math.cos(a) * r;
-      z = Math.sin(a) * r;
+      ({ x, z } = randomInCircle(() => rng.next(), rules.landingRadius));
     }
+    const { warnAt, arriveAt } = this.spawner.timing(this.time);
     const item: Item = {
       id: this.nextId++,
       kind,
@@ -237,8 +237,8 @@ export class SockenregenLogic {
       fromZ: LAUNCH_POINT.z,
       x,
       z,
-      launchT: this.time,
-      landT: this.time + rules.flightS,
+      launchT: warnAt,
+      landT: arriveAt,
       dropped: false,
       target,
       state: 'flying',
@@ -250,42 +250,8 @@ export class SockenregenLogic {
 
   /** Alleinige Führung mit mindestens einem Punkt, sonst `null`. */
   leader(): Runner | null {
-    let best: Runner | null = null;
-    let tie = false;
-    for (const runner of this.runners) {
-      if (!best || runner.score > best.score) {
-        best = runner;
-        tie = false;
-      } else if (runner.score === best.score) {
-        tie = true;
-      }
-    }
-    return best && !tie && best.score > 0 ? best : null;
-  }
-
-  private moveRunners(dt: number): void {
-    const { rules } = this;
-    for (const runner of this.runners) {
-      if (this.isStunned(runner)) continue;
-      let vx: number;
-      let vz: number;
-      if (this.isDashing(runner)) {
-        const speed = rules.speed * rules.dashFactor;
-        vx = Math.sin(runner.heading) * speed;
-        vz = Math.cos(runner.heading) * speed;
-      } else {
-        vx = runner.stickX * rules.speed;
-        vz = runner.stickY * rules.speed;
-        if (Math.hypot(runner.stickX, runner.stickY) > 0.15) {
-          runner.heading = Math.atan2(runner.stickX, runner.stickY);
-        }
-      }
-      ({ x: runner.x, z: runner.z } = clampToRadius(
-        runner.x + vx * dt,
-        runner.z + vz * dt,
-        rules.arenaRadius,
-      ));
-    }
+    const best = uniqueMax(this.runners, (runner) => runner.score);
+    return best && best.score > 0 ? best : null;
   }
 
   private resolveItems(events: SockEvent[]): void {
@@ -299,8 +265,7 @@ export class SockenregenLogic {
           for (const runner of this.runners) {
             if (this.isStunned(runner)) continue;
             if (Math.hypot(runner.x - item.x, runner.z - item.z) > rules.ironRadius) continue;
-            runner.stunUntil = this.time + rules.stunS;
-            runner.dashUntil = 0;
+            stunWalker(runner, this.time, rules.stunS);
             runner.hits++;
             const drop = runner.score > 0 ? this.dropSock(runner) : null;
             events.push({ type: 'hit', slot: runner.slot, item, drop });
@@ -376,12 +341,6 @@ export class SockenregenLogic {
   }
 }
 
-export function clampToRadius(x: number, z: number, radius: number): { x: number; z: number } {
-  const r = Math.hypot(x, z);
-  if (r <= radius) return { x, z };
-  return { x: (x / r) * radius, z: (z / r) * radius };
-}
-
 /** Position eines fliegenden Dings (Parabel vom Start zum Landepunkt) für die Anzeige. */
 export function flightPosition(
   item: Item,
@@ -390,10 +349,6 @@ export function flightPosition(
   const span = Math.max(1e-6, item.landT - item.launchT);
   const p = Math.min(1, Math.max(0, (time - item.launchT) / span));
   const apex = item.dropped ? 1.6 : 5.5;
-  return {
-    x: item.fromX + (item.x - item.fromX) * p,
-    z: item.fromZ + (item.z - item.fromZ) * p,
-    y: item.fromY * (1 - p) + 4 * apex * p * (1 - p),
-    progress: p,
-  };
+  const from = { x: item.fromX, y: item.fromY, z: item.fromZ };
+  return { ...arcPosition(from, item, p, apex), progress: p };
 }

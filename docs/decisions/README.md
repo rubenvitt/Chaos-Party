@@ -32,3 +32,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-017](ADR-017-native-controller.md) | Native Controller-App in SwiftUI für iPhone/iPad, Browser-Controller bleibt Rückfall | Vorgeschlagen (Entwurf, Vertrag steht) | CHAOS-115 |
 | [ADR-018](ADR-018-lizenz.md) | Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build | Angenommen | CHAOS-69 |
 | [ADR-019](ADR-019-nativer-apple-host.md) | Nativer Apple-Host mit RealityKit, Apple TV hostet allein (TS-Kern in JavaScriptCore), Babylon bleibt am PC | Angenommen (2026-11-17; Überprüfung nach Spike) | CHAOS-135 |
+| [ADR-020](ADR-020-minispiel-baukasten.md) | Minispiel-Baukasten als eigenes Paket `minigame-kit`: Unterbau, keine Spielvorlage; Vielfalts-Steckbrief | Angenommen | CHAOS-83 |

@@ -43,6 +43,8 @@ chaos-party/
     game-core/            # Pure rules, seeded RNG, scoring, turn state
     protocol/             # Typed, versioned messages and validation
     minigame-sdk/         # Minigame lifecycle and shared APIs
+    minigame-kit/         # Minigame building blocks: clock, spawner, movement, bots, arenas, cameras (ADR-020)
+    minigames/            # The minigames, one folder each (ADR-012)
     ui/                   # Optional shared design primitives
     assets/               # Manifests, conversion/validation tooling
   tests/

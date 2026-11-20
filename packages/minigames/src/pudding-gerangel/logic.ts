@@ -5,6 +5,7 @@
  *
  * Werte aus EXP-006 (Variante A5 „Kirschfleck + Wackelkrone“).
  */
+import { clampStick, steeringDeltaV as kitSteeringDeltaV } from '@chaos-party/minigame-kit';
 import type { MinigameRng, Slot } from '@chaos-party/minigame-sdk';
 
 export const TUNING = {
@@ -169,28 +170,14 @@ export function leaderOf(scores: readonly { slot: Slot; score: number }[]): Slot
 
 /**
  * Lenkung als Geschwindigkeitsänderung für einen Schritt: zieht die waagrechte Geschwindigkeit
- * zu Stick × Höchsttempo, begrenzt durch `maxAcceleration`. Stick-y (vorn) = Welt +Z.
+ * zu Stick × Höchsttempo, begrenzt durch `maxAcceleration` (Baukasten, ADR-020).
  */
 export function steeringDeltaV(velocity: Vec2, stick: { x: number; y: number }, dt: number): Vec2 {
-  const blend = Math.min(1, PAWN.responsiveness * dt);
-  let dx = (stick.x * PAWN.maxSpeed - velocity.x) * blend;
-  let dz = (stick.y * PAWN.maxSpeed - velocity.z) * blend;
-  const max = PAWN.maxAcceleration * dt;
-  const length = Math.hypot(dx, dz);
-  if (length > max && length > 0) {
-    dx = (dx / length) * max;
-    dz = (dz / length) * max;
-  }
-  return { x: dx, z: dz };
+  return kitSteeringDeltaV(velocity, stick, dt, PAWN);
 }
 
-/** Kürzt einen Stick auf Länge ≤ 1, ungültige Werte werden 0. */
-export function clampStick(x: number, y: number): { x: number; y: number } {
-  const sx = Number.isFinite(x) ? x : 0;
-  const sy = Number.isFinite(y) ? y : 0;
-  const length = Math.hypot(sx, sy);
-  return length > 1 ? { x: sx / length, y: sy / length } : { x: sx, y: sy };
-}
+/** Kürzt einen Stick auf Länge ≤ 1, ungültige Werte werden 0 (Baukasten). */
+export { clampStick };
 
 export interface PlayerStats {
   readonly slot: Slot;

@@ -4,23 +4,25 @@
  * ansteuern, Hechtsprung bei Zeitnot. Dient der Kontrollzeile „A4 (Spiellogik)“ in EXP-005
  * und den Logiktests.
  */
-import { createMinigameRng, type MinigameRng, type Slot } from '@chaos-party/minigame-sdk';
-import { SockenregenLogic, type Item, type Runner } from '../../sockenregen/logic.ts';
 import {
-  BOT_PROFILES,
-  LeadTracker,
-  gaussian,
+  BotSenses,
   lineup,
-  reactionSample,
+  noisyStick,
+  runBotMatch,
+  type BotAction,
+  type BotMatchAdapter,
   type BotProfile,
   type GameRecord,
+  type MinigameBot,
   type PlayerCount,
-} from './common.ts';
+} from '@chaos-party/minigame-kit';
+import type { MinigameRng, Slot } from '@chaos-party/minigame-sdk';
+import { SockenregenLogic, type Item } from '../../sockenregen/logic.ts';
 
 const THINK_S = 0.15;
 
-export class SockenregenBot {
-  private readonly seen = new Map<number, { noticeAt: number; aware: boolean }>();
+export class SockenregenBot implements MinigameBot<SockenregenLogic> {
+  private readonly senses: BotSenses;
   private nextThink = 0;
   private target: number | null = null;
   decisions = 0;
@@ -29,28 +31,36 @@ export class SockenregenBot {
     readonly slot: Slot,
     readonly profile: BotProfile,
     private readonly rng: MinigameRng,
-  ) {}
+  ) {
+    this.senses = new BotSenses(profile, rng);
+  }
+
+  /** Gemeinsame Bot-Schnittstelle (ADR-020): Stick setzen, A für den Hechtsprung. */
+  act(game: SockenregenLogic): BotAction | null {
+    const decision = this.decide(game);
+    if (!decision) return null;
+    return { stick: { x: decision.x, y: decision.y }, ...(decision.dash ? { press: ['a'] } : {}) };
+  }
 
   /** Entscheidet für den aktuellen Schritt: Stick und ob A gedrückt wird. */
-  act(game: SockenregenLogic): { x: number; y: number; dash: boolean } | null {
+  decide(game: SockenregenLogic): { x: number; y: number; dash: boolean } | null {
     const me = game.runner(this.slot);
     if (!me) return null;
     const t = game.time;
-    for (const item of game.items) {
-      if (!this.seen.has(item.id)) {
-        this.seen.set(item.id, {
-          noticeAt: t + reactionSample(this.rng, this.profile.reactionMs) / 1000,
-          aware: this.rng.next() < this.profile.awareness,
-        });
-      }
-    }
+    for (const item of game.items) this.senses.see(item.id, t);
     if (t < this.nextThink) return null;
     this.nextThink = t + THINK_S;
     if (game.isStunned(me)) return { x: 0, y: 0, dash: false };
     const { rules } = game;
 
     for (const item of game.items) {
-      if (item.kind !== 'iron' || item.state !== 'flying' || !this.noticed(item, t, true)) continue;
+      if (
+        item.kind !== 'iron' ||
+        item.state !== 'flying' ||
+        !this.senses.noticed(item.id, t, true)
+      ) {
+        continue;
+      }
       const d = Math.hypot(me.x - item.x, me.z - item.z);
       if (d < rules.ironRadius + 0.4 && item.landT - t < 1.0) {
         const away =
@@ -62,7 +72,8 @@ export class SockenregenBot {
 
     const candidates: { item: Item; value: number }[] = [];
     for (const item of game.items) {
-      if (item.kind === 'iron' || item.state === 'gone' || !this.noticed(item, t, false)) continue;
+      if (item.kind === 'iron' || item.state === 'gone' || !this.senses.noticed(item.id, t))
+        continue;
       const d = Math.hypot(me.x - item.x, me.z - item.z);
       const eta = d / rules.speed;
       const deadline = (item.state === 'flying' ? item.landT : t) + rules.groundS - t;
@@ -99,18 +110,28 @@ export class SockenregenBot {
     return { ...stick, dash };
   }
 
-  private noticed(item: Item, t: number, needsAwareness: boolean): boolean {
-    const seen = this.seen.get(item.id);
-    if (!seen || t < seen.noticeAt) return false;
-    return !needsAwareness || seen.aware;
-  }
-
   /** Winkel in der x/z-Ebene → Stick (x, y = +z) mit Lenkungsrauschen. */
   private steer(angle: number): { x: number; y: number } {
-    const noisy = angle + gaussian(this.rng) * this.profile.aimNoise;
-    return { x: Math.cos(noisy), y: Math.sin(noisy) };
+    return noisyStick(angle, this.profile, this.rng);
   }
 }
+
+/** Sockenregen für `runBotMatch` (gemeinsame Bot-Partie des Baukastens). */
+export const SOCKENREGEN_BOT_ADAPTER: BotMatchAdapter<SockenregenLogic> = {
+  create: (slots, rng, durationMs) => new SockenregenLogic(slots, rng, durationMs),
+  bot: (slot, profile, rng) => new SockenregenBot(slot, profile, rng),
+  apply: (game, slot, action) => {
+    if (action.stick) game.setStick(slot, action.stick.x, action.stick.y);
+    if (action.press?.includes('a')) game.dash(slot);
+  },
+  step: (game, dt) => {
+    game.step(dt);
+  },
+  finished: (game) => game.finished,
+  scores: (game) => game.runners.map((runner) => runner.score),
+  elapsedMs: (game) => game.time * 1000,
+  extraActions: (game, slot) => game.runner(slot)?.dashes ?? 0,
+};
 
 /** Eine ganze Runde mit Bots auf der echten Logik (1/60-s-Schritte wie die Laufzeit). */
 export function simulateSockenregenLogic(
@@ -119,33 +140,5 @@ export function simulateSockenregenLogic(
   profiles: readonly BotProfile[] = lineup(players),
   durationMs = 30_000,
 ): GameRecord {
-  const slots = ([1, 2, 3, 4] as const).slice(0, profiles.length);
-  const game = new SockenregenLogic(slots, createMinigameRng(seed), durationMs);
-  const bots = slots.map(
-    (slot, index) =>
-      new SockenregenBot(
-        slot,
-        profiles[index] ?? BOT_PROFILES.normal,
-        createMinigameRng(seed * 31 + slot),
-      ),
-  );
-  const lead = new LeadTracker((durationMs * 2) / 3);
-  const score = (runner: Runner) => runner.score;
-  while (!game.finished) {
-    for (const bot of bots) {
-      const action = bot.act(game);
-      if (!action) continue;
-      game.setStick(bot.slot, action.x, action.y);
-      if (action.dash) game.dash(bot.slot);
-    }
-    game.step(1 / 60);
-    lead.update(game.runners.map(score), game.time * 1000);
-  }
-  return {
-    durationMs,
-    scores: game.runners.map(score),
-    leadChanges: lead.changes,
-    leaderAtTwoThirds: lead.leaderAtTwoThirds,
-    actions: bots.map((bot, index) => bot.decisions + (game.runners[index]?.dashes ?? 0)),
-  };
+  return runBotMatch(SOCKENREGEN_BOT_ADAPTER, seed, profiles, durationMs);
 }
