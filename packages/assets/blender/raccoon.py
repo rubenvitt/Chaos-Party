@@ -325,7 +325,7 @@ def tail_extra(name: str, p: float) -> k.Pose:
 
 def build() -> None:
     k.reset()
-    fur = k.material("fell", vertex_colors=True, roughness=0.8, sheen=0.5, subsurface=0.05)
+    fur = k.material("fell", vertex_colors=True, roughness=0.8, sheen=0.5, subsurface=0.05, structure="fell")
     gloss = k.material("glanz", vertex_colors=True, roughness=0.08, coat=1.0)
     accent = k.material("akzent", color=SCARF, roughness=0.65, sheen=0.3)
 

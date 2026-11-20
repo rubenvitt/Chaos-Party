@@ -193,6 +193,45 @@ describe('Asset-Prüfung', () => {
     expect(result.errors.join('\n')).toMatch(/„figur-sock“: Material „akzent“ fehlt/);
   });
 
+  it('Figuren-Textur nur als normalTexture (CHAOS-172)', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      const path = join(dir, 'packages/assets/models/characters/sock.glb');
+      const patched = patchGlb(new Uint8Array(await readFile(path)), (json) => {
+        const mats = json.materials as Record<string, unknown>[];
+        const strick = mats.find((m) => m.name === 'strick');
+        if (!strick) throw new Error('Material strick fehlt');
+        strick.pbrMetallicRoughness = { baseColorTexture: { index: 0 } };
+      });
+      await writeFile(path, patched);
+    });
+    expect(result.errors.join('\n')).toMatch(
+      /„figur-sock“: Material „strick“ nutzt eine Textur in „pbrMetallicRoughness\.baseColorTexture“/,
+    );
+  });
+
+  it('Normal-Textur über Budget (CHAOS-172)', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      budgets: {
+        ...manifest.budgets,
+        model: { ...manifest.budgets.model, maxImageBytes: 1024, maxImageSize: 128 },
+      },
+    });
+    const text = result.errors.join('\n');
+    expect(text).toMatch(/„figur-sock“: Bild 0 zu groß: .* > Budget 1\.0 KiB/);
+    expect(text).toMatch(/„figur-sock“: Bild 0: 256×256 muss quadratisch mit Zweierpotenz bis 128/);
+  });
+
+  it('zu viele Bilder in einer Figur (CHAOS-172)', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      budgets: { ...manifest.budgets, model: { ...manifest.budgets.model, maxImages: 0 } },
+    });
+    expect(result.errors.join('\n')).toMatch(/„figur-robot“: 1 eingebettete Bilder, Budget 0/);
+  });
+
   it('Budget überschritten', async () => {
     const manifest = await fileManifest();
     const assets = manifest.assets.map((a) =>

@@ -29,6 +29,8 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Observer } from '@babylonjs/core/Misc/observable.js';
 import type { Scene } from '@babylonjs/core/scene.js';
 import '@babylonjs/loaders/glTF/2.0/glTFLoader.js';
+// Normal-Texturen der Feinstruktur liegen als WebP im GLB (CHAOS-172, `extensionsRequired`).
+import '@babylonjs/loaders/glTF/2.0/Extensions/EXT_texture_webp.js';
 import { GLTFLoaderAnimationStartMode } from '@babylonjs/loaders/glTF/glTFFileLoader.js';
 import cactusUrl from '@chaos-party/assets/models/characters/cactus.glb?url';
 import raccoonUrl from '@chaos-party/assets/models/characters/raccoon.glb?url';
@@ -100,7 +102,8 @@ const LOOPING: ReadonlySet<CharacterAnimation> = new Set(['idle', 'run']);
 /** Anteil je Frame, mit dem eine neue Animation die alte überblendet. */
 const BLENDING_SPEED = 0.12;
 
-/** glTF-PBR → StandardMaterial (sRGB zurück aus linear, wenig Glanz, leichtes Eigenleuchten). */
+/** glTF-PBR → StandardMaterial (sRGB zurück aus linear, wenig Glanz, leichtes Eigenleuchten,
+ * Normal-Textur bleibt). */
 function toStandard(scene: Scene, source: Material): StandardMaterial {
   const mat = new StandardMaterial(source.name, scene);
   const pbr = source instanceof PBRMaterial ? source : null;
@@ -111,6 +114,12 @@ function toStandard(scene: Scene, source: Material): StandardMaterial {
   const shine = Math.max(0, 0.9 - roughness) * 0.5;
   mat.specularColor = new Color3(0.05 + shine, 0.05 + shine, 0.05 + shine);
   mat.specularPower = 48;
+  // Feinstruktur (CHAOS-172): Normal-Textur samt Konvention, wie der glTF-Lader sie gesetzt hat.
+  if (pbr?.bumpTexture) {
+    mat.bumpTexture = pbr.bumpTexture;
+    mat.invertNormalMapX = pbr.invertNormalMapX;
+    mat.invertNormalMapY = pbr.invertNormalMapY;
+  }
   return mat;
 }
 

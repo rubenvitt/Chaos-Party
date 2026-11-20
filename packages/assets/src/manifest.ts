@@ -115,6 +115,12 @@ export const ModelBudgetSchema = z
     maxPrimitives: z.number().int().positive(),
     maxMaterials: z.number().int().positive(),
     maxTriangles: z.number().int().positive(),
+    /** CHAOS-172: eingebettete Bilder je Figur (nur Normal-Texturen der Feinstruktur). */
+    maxImages: z.number().int().nonnegative(),
+    /** Größe eines eingebetteten Bildes in Bytes. */
+    maxImageBytes: z.number().int().positive(),
+    /** Größte Kantenlänge eines eingebetteten Bildes in Pixeln (quadratisch, Zweierpotenz). */
+    maxImageSize: z.number().int().positive(),
   })
   .strict();
 

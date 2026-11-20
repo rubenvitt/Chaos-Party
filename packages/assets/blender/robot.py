@@ -237,12 +237,12 @@ def extra(name: str, p: float) -> k.Pose:
 
 def build() -> None:
     k.reset()
-    paint = k.material("lack", vertex_colors=True, roughness=0.32, coat=0.6)
+    paint = k.material("lack", vertex_colors=True, roughness=0.32, coat=0.6, structure="lack")
     brass = k.material("messing", vertex_colors=True, roughness=0.3, coat=0.3)
     brass.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.85
     screen_mat = k.material("bildschirm", color=SCREEN, roughness=0.08, coat=1.0)
     glow = k.material("leuchten", vertex_colors=True, roughness=0.2, emission=2.0, color=GLOW)
-    accent = k.material("akzent", color=k.hex_color("#0072b2"), roughness=0.45, coat=0.4)
+    accent = k.material("akzent", color=k.hex_color("#0072b2"), roughness=0.45, coat=0.4, structure="lack")
 
     rig = k.armature("schraubi", BONES)
     for side, bone in ((1, "bein-l"), (-1, "bein-r")):

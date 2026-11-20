@@ -2475,3 +2475,61 @@ Zwei Läufe, weil das Display des gesperrten Macs im zweiten Lauf abschaltete:
 Der Simulator rendert auf der GPU des Macs, und JavaScriptCore hat dort JIT. Die Werte oben sind also eine Obergrenze für die Apple TV, kein Nachweis.
 
 **Entscheidung:** **keep.** Der native Host spielt eine komplette Partie ohne Rechner-Server, mit allen Minispielen der Rotation, Pause, Wiederverbindung, Finale und Revanche. Im Simulator und am Mac bleibt er in allen Phasen weit über 30 fps. Offen ist der Nachweis auf der echten Apple TV (GL1–GL16), danach die M5-Abnahme CHAOS-164.
+
+---
+
+## EXP-032: Feinstruktur der Figuren über Normal-Texturen (2026-11-20, CHAOS-172)
+
+**Hypothese / gewünschtes Spielerlebnis:** Nach EXP-027 und EXP-028 sitzen Form und grobes Detail der vier Figuren in Punkten und Vertexfarben. Aus der Nähe fehlt Material: Die Socke ist glatter Kunststoff statt Strick, Wusel hat kein Fell, Schraubis Lack ist makellos. Annahme (EXP-027, Variante D): Eine kleine, kachelbare Normal-Textur je Figur bringt diese Struktur ohne neue Punkte. Aus der Brettentfernung mitteln die Mipmaps sie weg.
+
+**Auftrag:** Ruben hat die Aufgabe am 2026-11-20 direkt genannt („CHAOS-172“). Sie lag im zurückgestellten Backlog unter CHAOS-44 (Kommentar vom 19.11.).
+
+**Varianten:**
+
+| | Weg | Erwartung |
+|---|---|---|
+| a | Normal-Textur aus einem Fremd-Asset (z. B. Poly Haven) | fertige Optik, aber Lizenz- und Herkunftspflege und Größe (512²+) |
+| b | **prozedural mit numpy** (`packages/assets/blender/struktur.py`): Höhenfeld aus ganzzahligen Sinuswellen, Maschen-Ellipsen, Kratzer-Rillen, Tüpfeln → Normalen; 256², kachelbar, fester Startwert | eigenes Werk, reproduzierbar, sehr klein; Optik muss man selbst treffen |
+| c | Rauheits- statt Normal-Textur | billiger im Shader, aber Strick und Fell leben von Licht und Schatten der Struktur, nicht vom Glanz |
+
+Umgesetzt und gemessen wurde **b**. Bei der UV-Abwicklung gab es zwei Schritte:
+
+| | UV-Map `struktur` | Eckpunkte Socke (vorher 5 772) |
+|---|---|---|
+| b1 | Würfelprojektion je Fläche nach der Hauptachse der Normale | 7 770 (+35 %), GLB 546 KiB |
+| b2 | **Würfelprojektion mit Hysterese:** Die Achse wächst über Nachbarflächen und wechselt erst ab 53° Abweichung (`STICKY = 0.6`) | 6 781 (+17 %), GLB 489 KiB |
+
+**Umsetzung:**
+- Vier Muster: `strick` (Spalten aus V-Maschen, Kachel 12 cm), `fell` (gekämmte Strähnen, 10 cm), `lack` (Orangenhaut und neun Kratzer, 30 cm), `haut` (Tüpfel, 9 cm). Je Figur genau ein Muster: Socke Strick (auch das Bündchen), Wusel Fell, Schraubi Lack (auch der Halsring), Kalle Kaktushaut.
+- Tangentenbasis je Projektionsachse rechtshändig, auf Seitenflächen zeigt V nach oben (Maschen stehen senkrecht, Fell fällt nach unten).
+- Die Stärke steckt in der Textur (`relief`), die Normal Map im Material hat Stärke 1. Grund: `UsdPreviewSurface` kennt keine Stärke (der USD-Export schreibt immer `scale 2`/`bias -1`). So sehen Babylon und RealityKit gleich stark aus.
+- **GLB:** `normalTexture` auf `TEXCOORD_0` (die einzige UV-Map; Farben bleiben Vertexfarben), Bild als WebP (Qualität 90, `EXT_texture_webp`). Der Babylon-Host registriert dafür `EXT_texture_webp`; ohne den Import lehnte der Lader die Dateien ab („Required extension … not available“).
+- **USDZ:** Der Farbatlas bekommt eine eigene UV-Map `farbatlas` (wird zur Primvar `st`), die Struktur liest die Primvar `struktur`. Die Normal-Textur liegt als PNG im Paket (`textures/struktur_<muster>.png`).
+
+**Messgrößen und Ergebnisse** (Linux-Container, bpy 5.3.0, Chromium mit SwiftShader):
+
+| Figur | GLB vorher | GLB nachher | Bild | Eckpunkte | USDZ vorher → nachher |
+|---|---|---|---|---|---|
+| Socke | 371 KiB | 488 KiB | 24 KiB | 5 772 → 6 781 | 995 KiB → 1,41 MiB |
+| Wusel | 430 KiB | 594 KiB | 12 KiB | 7 180 → 9 371 | 1,1 → 1,54 MiB |
+| Schraubi | 372 KiB | 580 KiB | 3 KiB | 7 198 → 11 017 | 903 KiB → 1,01 MiB |
+| Kalle | 486 KiB | 636 KiB | 8 KiB | 8 172 → 9 957 | 1,3 → 1,44 MiB |
+
+- Dreiecke unverändert (Grenze 15 000). Die Größe kommt fast ganz aus der UV-Map (8 Byte je Punkt) und den Nähten (getrennte Punkte mit Normale, Vertexfarbe und Gewichten). Die Bilder selbst sind 3–24 KiB groß. Schraubi wächst am stärksten, weil seine gefasten Kästen an jeder Fase die Projektionsachse wechseln.
+- **Nahbilder** (Blender-Cycles): Strickmaschen, Fellstrich und Kaktustüpfel deutlich, Lackkratzer dezent ([`chaos172-blender-nahbilder.jpg`](screenshots/chaos172-blender-nahbilder.jpg)). Muster: [`chaos172-muster.jpg`](screenshots/chaos172-muster.jpg).
+- **Babylon-Vitrine:** Die Socke zeigt aus der Nähe Maschen. Im Brettblick ist kein Unterschied zu vorher zu sehen ([`chaos172-babylon-vorher-nachher.jpg`](screenshots/chaos172-babylon-vorher-nachher.jpg)).
+- **USDZ** (in Blender importiert und gerendert): Farbatlas und Struktur sitzen richtig, keine Flecken ([`chaos172-usdz-nachher.jpg`](screenshots/chaos172-usdz-nachher.jpg)).
+- **Nebenbefund:** Der Babylon-Host registriert keine einzige glTF-Materialerweiterung. Sheen, Clearcoat und `KHR_materials_emissive_strength` der Figuren kommen im Spiel nicht an (Test mit `keepPbr`: `sheen.isEnabled` und `clearCoat.isEnabled` sind bei allen vier Figuren `false`). Das ist älter als diese Aufgabe und hier bewusst nicht behoben, weil es den abgenommenen Look ändern würde → CHAOS-207.
+
+**Budgets** (Manifest `budgets.model`):
+- Neu: `maxImages` 1, `maxImageBytes` 32 KiB, `maxImageSize` 256. Texturen in Figuren nur als `normalTexture`. Eine Grundfarbe aus einer Textur würde die Slot-Färbung von `akzent` und die Vertexfarben umgehen.
+- Dateigröße je Figur: Art-Budget von 512 auf 768 KiB. Je Figur: Socke 576 KiB, Schraubi und Wusel 640 KiB, Kalle 704 KiB. Begründung wie EXP-027: Die Größe kommt aus Punkten, nicht aus der Grafikleistung. Im Web lädt der Host die Figuren nach dem Start-Bundle (`pnpm check:bundle` unverändert), alle vier zusammen 2,3 MiB über das lokale Netz.
+- USDZ je Figur: 1,5 → 2 MiB (Wusel 1,54 MiB).
+
+**Nicht geprüft:**
+- **RealityKit:** ob es die zweite UV-Map (`struktur`) für die Normal-Textur liest und daraus Tangenten bildet. Dafür gibt es kein Werkzeug im Container, also Gerätecheckliste §35.
+- Echte GPU am PC (SwiftShader rendert Normal Maps korrekt, aber ohne anisotrope Filterung).
+
+**Entscheidung:** **b2 behalten**, vorbehaltlich RealityKit am Mac und Rubens Urteil. Falls RealityKit nur `st` liest: Normalen in eine zweite Atlas-Textur auf `st` backen (1024², ohne Kacheln). Das ist gröber, braucht aber keine zweite UV-Map.
+
+**Subjektive Fragen an Ruben:** Ist die Struktur aus der Nähe schön oder zu viel (Strick vor allem)? Wirkt Wusels Fell wie Fell? Sind die Lackkratzer bei Schraubi passend oder überflüssig?

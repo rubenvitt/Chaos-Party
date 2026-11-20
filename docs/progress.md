@@ -181,6 +181,7 @@ Inhalt ist das Epic CHAOS-137 (ADR-019). Am 2026-11-19 orchestriert mit Workern 
 | CHAOS-146 | Gesamtlauf: tvOS-Simulator und Mac mit Bots (EXP-031), Gerätecheckliste §34 | Simulator/Mac erledigt; echte Apple TV bei Ruben |
 | CHAOS-160, CHAOS-169 | **Ruben:** TestFlight auf der Apple TV, Messung Minispiel-Start/-Ende auf dem Gerät | offen |
 | CHAOS-164 | **M5-Abnahme (Ruben)** | offen |
+| CHAOS-172 | Feinstruktur der Figuren als Normal-Textur (Strick, Fell, Lack, Kaktushaut; EXP-032), aus dem Backlog von Ruben direkt beauftragt | PR offen; RealityKit am Mac offen (Gerätecheckliste §35) |
 
 ## Validierte Befehle
 

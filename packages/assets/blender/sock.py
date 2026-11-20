@@ -192,9 +192,9 @@ def extra(name: str, p: float) -> k.Pose:
 
 def build() -> None:
     k.reset()
-    knit = k.material("strick", vertex_colors=True, roughness=0.9, sheen=0.7)
+    knit = k.material("strick", vertex_colors=True, roughness=0.9, sheen=0.7, structure="strick")
     gloss = k.material("knopf", vertex_colors=True, roughness=0.2, coat=0.8)
-    accent = k.material("akzent", color=k.hex_color("#cc79a7"), roughness=0.85, sheen=0.6)
+    accent = k.material("akzent", color=k.hex_color("#cc79a7"), roughness=0.85, sheen=0.6, structure="strick")
 
     rig = k.armature("sigi", BONES)
     body = sock()

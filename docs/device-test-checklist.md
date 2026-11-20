@@ -680,3 +680,18 @@ Vorbereitung: Apple TV und iPhones im selben WLAN, **kein Rechner nötig**. Neue
 | GL14 | Ton: Brett- und Minispiel-Klänge (§32) | Klänge zur richtigen Zeit, nichts knackt | | |
 | GL15 | Mac: GL1–GL10 mit der Mac-App (Tastatur statt Fernbedienung: Return startet, P/Esc pausiert) | Wie auf der Apple TV | | |
 | GL16 | Gesamturteil | Optik nah am PC-Host? Flüssig? Lust auf eine weitere Runde? | | Kommentar an CHAOS-164 |
+
+## 35. Feinstruktur der Figuren in RealityKit und im Babylon-Host (für CHAOS-172)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-172 · **Experiment:** [EXP-032](experiments.md) · **Anleitung:** [`apple-assets.md`](apple-assets.md)
+
+Automatisch geprüft (Linux, ohne Mac): Normal-Textur je Figur im GLB (`pnpm check:assets`) und im USDZ (`check_usdz.py`: Primvar `struktur` am Mesh, `raw`, `scale 2`/`bias -1`); Babylon lädt die WebP-Texturen (Vitrine, Unit-Test). **Nicht** automatisch prüfbar: ob RealityKit die zweite UV-Map liest, wie die Struktur auf dem Fernseher wirkt, Rubens Urteil.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| FS1 | Mac: `pnpm build:apple-assets --nur=figuren` | „USDZ ok“ mit Zeilen „Feinstruktur an …“, danach RealityKit-Prüfung „OK“ | | Log |
+| FS2 | Mac: Spike mit `--nah=sock`, `--nah=raccoon`, `--nah=robot`, `--nah=cactus` | Strickmaschen auf Socke und Bündchen, Fellstrich bei Wusel, feine Kratzer bei Schraubi, Tüpfel bei Kalle; keine Streifen oder harten Kanten an den Projektionsnähten, Farben wie vorher | | Screenshots `docs/screenshots/chaos172-realitykit-*.jpg` |
+| FS3 | Apple TV oder Mac: Brett mit vier Figuren | Im Brettblick kein Flimmern und kein Moiré auf den Figuren | | Foto |
+| FS4 | PC: `pnpm play`, Figur aus der Nähe (Lobby, Podest) | Struktur sichtbar, keine Nähte; Ladezeit der Figuren unauffällig | | |
+| FS5 | Ruben: Urteil | Strick, Fell, Lack, Haut passend oder zu viel bzw. zu wenig (je Figur) | | Kommentar an CHAOS-172 |
+
