@@ -64,15 +64,21 @@ import { createSoundTrack } from './soundTrack.ts';
 import { minigameLight } from './lightMood.ts';
 import { base64url, randomBytes, randomInt, setRandomSource } from './nodeCrypto.ts';
 import { parseHostCommand } from './hostCommand.ts';
-import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
+import {
+  infoView,
+  introCountdown,
+  readinessView,
+  resultsView,
+  scoreboardView,
+} from './minigameView.ts';
 import { createMinigameSounds } from './minigameSounds.ts';
 import { createNoticeTracker } from './notice.ts';
 import {
   createHeadlessStage,
   describe,
   PREPARE_BUDGET_MS,
-  PREPARE_URGENT_MS,
   prepareBudgetMs,
+  stageUrgentFor,
   type HeadlessStage,
 } from './stage.ts';
 
@@ -309,15 +315,12 @@ function create(env: HostEnv): ChaosHostInstance {
 
   /**
    * Bühne knapp (CHAOS-205): noch nicht fertig, und die Anleitung endet in höchstens
-   * `PREPARE_URGENT_MS` oder das Spiel läuft schon.
+   * `PREPARE_URGENT_MS`, wartet auf „Bereit“ (CHAOS-214) oder das Spiel läuft schon
+   * (`stageUrgentFor`).
    */
   const stageUrgent = (): boolean => {
     if (!stage || stage.headless.ready || !view) return false;
-    const stageName = minigameStageOf(view);
-    if (stageName === 'play') return true;
-    if (stageName !== 'intro' || view.remainingMs === null) return false;
-    const left = view.remainingMs - (view.paused ? 0 : now() - receivedAt);
-    return left <= PREPARE_URGENT_MS;
+    return stageUrgentFor(view, receivedAt, now());
   };
 
   /** Bühne an den neuesten Brett-Stand anpassen (wie `MinigameScreen` im Browser-Host). */
@@ -541,6 +544,7 @@ function create(env: HostEnv): ChaosHostInstance {
       round: minigame.round,
       repeat: minigame.repeat === true,
       countdown: introCountdown(current, receivedAt, now()),
+      readiness: readinessView(current),
       camera: headless?.ready ? headless.camera() : null,
       backdrop: headless?.backdrop ?? null,
       figures: headless?.figures() ?? [],
