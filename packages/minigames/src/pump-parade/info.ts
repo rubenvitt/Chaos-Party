@@ -16,4 +16,8 @@ export const PUMP_PARADE_INFO: MinigameInfo = {
   physics: false,
   scoring: 'higher',
   scoreUnit: 'Pumpstöße',
+  family: 'pumpen-dosieren',
+  verb: 'pumpen',
+  form: 'ffa',
+  ipadZone: true,
 };

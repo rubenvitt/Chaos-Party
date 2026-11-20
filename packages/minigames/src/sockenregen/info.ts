@@ -19,4 +19,8 @@ export const SOCKENREGEN_INFO: MinigameInfo = {
   physics: false,
   scoring: 'higher',
   scoreUnit: 'Socken',
+  family: 'fangen-sammeln',
+  verb: 'fangen',
+  form: 'ffa',
+  ipadZone: true,
 };

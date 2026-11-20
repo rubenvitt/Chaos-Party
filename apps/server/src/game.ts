@@ -12,17 +12,20 @@ import {
   DEFAULT_BOARD,
   DEFAULT_RULES,
   getBoard,
+  playedMinigames,
   step,
   viewClock,
   type GameCommand,
   type GameError,
   type GameEvent,
   type GameState,
+  type MinigameRotationOptions,
   type MinigameSpec,
   type Prompt,
   type RuleSet,
   type Slot,
 } from '@chaos-party/game-core';
+import { controlSchemeOf, type MinigameInfo } from '@chaos-party/minigame-sdk';
 import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
@@ -53,6 +56,11 @@ export interface BoardGameSettings {
    * (`@chaos-party/minigames/catalog`); leer = M2-Platzhalter ohne Host-Logik.
    */
   readonly minigames: readonly MinigameSpec[];
+  /**
+   * Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85). Die Session setzt sie je
+   * Partie aus Lobby-Einstellungen, Aufstellung und letzter Partie; fehlt = keine.
+   */
+  readonly minigameRotation?: MinigameRotationOptions | undefined;
   /**
    * Vorschläge für die Rundenzahl in der Lobby (`lobby.settings.roundPresets`, aufsteigend).
    * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
@@ -103,13 +111,27 @@ export const DEFAULT_ROUNDS = 10;
  */
 export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
 
-/** Spezifikationen der Katalog-Rotation für game-core. */
-export function catalogMinigames(): MinigameSpec[] {
-  return rotationInfos().map((info) => ({
+/** Regel-Steckbrief eines Minispiels: Kennung, Zeit, Wertung und Achsen der Rotation (CHAOS-85). */
+export function minigameSpecOf(info: MinigameInfo): MinigameSpec {
+  return {
     id: info.id,
     playMs: info.durationMs,
     scoring: info.scoring,
-  }));
+    category: info.category,
+    controls: controlSchemeOf(info.controls),
+    form: info.form ?? 'ffa',
+    ...(info.family === undefined ? {} : { family: info.family }),
+    ...(info.verb === undefined ? {} : { verb: info.verb }),
+    ...(info.minPlayers === undefined ? {} : { minPlayers: info.minPlayers }),
+    ...(info.maxPlayers === undefined ? {} : { maxPlayers: info.maxPlayers }),
+    ...(info.ipadZone === undefined ? {} : { ipadZone: info.ipadZone }),
+    ...(info.secretChoice === undefined ? {} : { secretChoice: info.secretChoice }),
+  };
+}
+
+/** Spezifikationen der Katalog-Rotation für game-core. */
+export function catalogMinigames(): MinigameSpec[] {
+  return rotationInfos().map(minigameSpecOf);
 }
 
 export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
@@ -173,11 +195,19 @@ export class BoardGame {
       seed,
       players: players.map((player) => ({ slot: player.slot, name: player.name })),
       minigames: settings.minigames,
+      ...(settings.minigameRotation === undefined
+        ? {}
+        : { minigameRotation: settings.minigameRotation }),
     });
   }
 
   get state(): GameState {
     return this.stateValue;
+  }
+
+  /** Minispiele, die in dieser Partie schon liefen (für „nicht gleich wieder“, CHAOS-85). */
+  get playedMinigames(): readonly string[] {
+    return playedMinigames(this.stateValue);
   }
 
   /** Wendet einen Befehl an. Fehler lassen den Zustand unverändert. */

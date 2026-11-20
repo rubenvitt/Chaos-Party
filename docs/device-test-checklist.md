@@ -741,3 +741,16 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. Minispiel-Rotation: Sperrliste, Favoriten, iPad-Zonen (für CHAOS-85)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-85
+
+Automatisch geprüft: Auswahl ohne Wiederholung, Familien und Kernverben nie direkt hintereinander, Filter für Spielerzahl und iPad-Zonen, Gewichte, letzte Partie (`packages/game-core/src/rules/rotation.test.ts`, 200 Dummy-Steckbriefe); Sperrliste/Favoriten über die Session und die Revanche (`apps/server/src/minigameRotation.integration.test.ts`); Dialog „Minispiele“ am PC per Maus und Escape, lokale Speicherung und erneutes Senden an eine frische Session (`tests/e2e/host-minispiel-rotation.spec.ts`). **Nicht** automatisch prüfbar: ob die Mischung sich am Abend abwechslungsreich anfühlt (bei fünf Spielen kaum sichtbar, erst mit der Pilotwelle CHAOS-91) und die Erkennung eines echten geteilten iPads.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RO1 | PC-Lobby: „Minispiele ›“ öffnen, ein Spiel sperren, eines als Favorit markieren, „Fertig“ | Knopf zeigt „4 im Topf · 1 ★ · 1 ⦸“ | | Foto |
+| RO2 | Partie mit 10 Runden spielen | Das gesperrte Minispiel kommt nicht vor | | |
+| RO3 | Browser schließen, Server neu starten, Host wieder öffnen | Sperre und Favorit sind wieder gesetzt | | |
+| RO4 | Partie mit geteiltem iPad (zwei Zonen) und einem iPhone | Startet normal; alle Minispiele bleiben an den Zonen bedienbar (heute sind alle als iPad-tauglich markiert) | | |

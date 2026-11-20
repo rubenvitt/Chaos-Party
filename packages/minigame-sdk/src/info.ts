@@ -60,6 +60,73 @@ export interface MinigameInfo {
   readonly scoring: 'higher' | 'lower';
   /** Einheit der Punkte für die Anzeige („Punkte“, „Sekunden“, „Meter“). */
   readonly scoreUnit: string;
+
+  // --- Vielfalts-Steckbrief für die Rotation (CHAOS-85, docs/minigames/README.md §3, §5.5) ---
+  // Alle optional (additiv): Ohne Angabe mischt die Rotation nur per Seed wie bisher.
+
+  /** Mechanik-Familie (README §4); nie zwei Spiele derselben Familie hintereinander. */
+  readonly family?: MinigameFamily;
+  /**
+   * Kernverb in Kleinbuchstaben („fangen“, „rempeln“, „stapeln“ …, README §5.5); nie zwei
+   * Spiele mit demselben Kernverb hintereinander.
+   */
+  readonly verb?: string;
+  /** Spielform; fehlt = `ffa` (jeder gegen jeden). */
+  readonly form?: MinigameForm;
+  /** Kleinste/größte Spielerzahl, für die das Spiel taugt; fehlt = 1 bzw. 4. */
+  readonly minPlayers?: number;
+  readonly maxPlayers?: number;
+  /**
+   * Am geteilten iPad (Zone) bedienbar? `false` = „nur iPhone“: Die Rotation lässt das Spiel
+   * weg, sobald jemand an einer iPad-Zone spielt (README §5.3 Punkt 4). Fehlt = tauglich.
+   */
+  readonly ipadZone?: boolean;
+  /**
+   * Geheime Wahl am Controller (Familie Bluff, README §7 Nr. 4): Bei iPad-Zonen in der
+   * Aufstellung zieht die Rotation das Spiel deutlich seltener (Gewicht, kein Ausschluss).
+   */
+  readonly secretChoice?: boolean;
+}
+
+/** Spielformen (README §3). `mikro` gehört zur Schnellfeuer-Runde, nicht zur Rotation. */
+export type MinigameForm = 'ffa' | '1v3' | '2v2' | 'koop' | 'mikro';
+
+/** Die 20 Mechanik-Familien aus README §4 (Kennung für Steckbrief und Rotation). */
+export const MINIGAME_FAMILIES = [
+  'fangen-sammeln',
+  'ausweichen-ueberleben',
+  'rempeln-schubsen',
+  'timing-rhythmus',
+  'reflex-reaktion',
+  'pumpen-dosieren',
+  'zielen-werfen',
+  'balance-stapeln',
+  'rennen-parcours',
+  'gedaechtnis-muster',
+  'zocken',
+  'bluff-geheime-wahl',
+  'revier-malen',
+  'fahrzeuge-schwung',
+  'schaetzen-wahrnehmung',
+  'hektik-kueche',
+  'einer-gegen-alle',
+  'zwei-gegen-zwei',
+  'koop-chaos',
+  'mikro',
+] as const;
+
+export type MinigameFamily = (typeof MINIGAME_FAMILIES)[number];
+
+/** Bedienung als Kürzel wie im Katalog (README §3): `A`, `AB`, `S`, `SA`, `SAB`, `SB`, `B`. */
+export type MinigameControlScheme = 'A' | 'AB' | 'B' | 'S' | 'SA' | 'SB' | 'SAB' | '-';
+
+/** Bedienungs-Kürzel aus den angebotenen Eingaben (`-` = gar keine, nur Zuschauen). */
+export function controlSchemeOf(controls: MinigameControls): MinigameControlScheme {
+  const code =
+    (controls.joystick === null ? '' : 'S') +
+    (controls.a === null ? '' : 'A') +
+    (controls.b === null ? '' : 'B');
+  return code === '' ? '-' : (code as MinigameControlScheme);
 }
 
 /** Eingabe eines Slots, wie die Laufzeit sie an das Minispiel gibt (ohne `seq`/Umschlag). */

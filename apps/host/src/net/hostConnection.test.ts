@@ -275,6 +275,16 @@ describe('connectHost', () => {
     expect(createHostCommandMessage({ type: 'configure', board: 'wackelwald' })).toEqual(
       createMessage('configure', { board: 'wackelwald' }),
     );
+    // Sperrliste und Favoriten (CHAOS-85).
+    expect(
+      createHostCommandMessage({
+        type: 'configure',
+        minigameBlocklist: ['sockenregen'],
+        minigameFavorites: [],
+      }),
+    ).toEqual(
+      createMessage('configure', { minigameBlocklist: ['sockenregen'], minigameFavorites: [] }),
+    );
     t.last().drop();
     expect(t.connection.sendCommand({ type: 'resume' })).toBe(false);
   });
