@@ -11,6 +11,7 @@
  *   Zone (Spieler sitzt gegenüber) hat ihr lokales „oben“ auf dem Bildschirm unten.
  */
 import type { Action, Button, CharacterId, Layout, SlotNumber } from '@chaos-party/protocol';
+import type { IntroReadyState } from '../minigame/view.ts';
 
 export interface Point {
   readonly x: number;
@@ -289,6 +290,12 @@ export interface ZoneControlsInput {
   readonly choices?: ZoneChoicesInput;
   /** Nur Lobby mit Charakterwahl (Layout `lobby` oder `wait`). */
   readonly lobby?: ZoneLobbyInput;
+  /**
+   * Nur Minispiel-Anleitung, die auf „Bereit“ wartet (CHAOS-214): `guard` zeigt den Knopf
+   * gesperrt (`inert`), `button` antippbar, `done` die Bestätigung (kein Bedienelement).
+   * Fehlt = Anleitung mit fester Zeit, keine Fußzeile.
+   */
+  readonly introReady?: Exclude<IntroReadyState, 'timer'>;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -380,6 +387,9 @@ export function layoutZoneControls(local: Size, input: ZoneControlsInput): Contr
   }
 
   if (input.layout === 'board') {
+    if (input.introReady === 'guard' || input.introReady === 'button') {
+      return [introReadyControl(local, input.introReady === 'guard')];
+    }
     return input.choices ? layoutChoiceControls(boardZoneFrames(local).body, input.choices) : [];
   }
 
@@ -581,6 +591,58 @@ export function layoutChoiceControls(body: Rect, input: ZoneChoicesInput): Contr
       ...flags(false),
     })),
   ];
+}
+
+/* ---------------------------------------------------------------------------
+ * Minispiel-Anleitung (CHAOS-214): Karte und Fußzeile mit „Bereit!“
+ * ------------------------------------------------------------------------- */
+
+/** Fußzeile der Anleitung: wächst mit der Zone, mindestens 64 px (Touch-Ziel). */
+export function minigameFootHeight(local: Size): number {
+  return Math.round(clamp(local.height * 0.12, 64, 96));
+}
+
+/** Abstand zwischen Anleitungskarte und Fußzeile. */
+export const MINIGAME_FOOT_GAP = 10;
+/** Bereit-Knopf der Anleitung wird höchstens so breit. */
+export const MAX_INTRO_READY_WIDTH = 320;
+
+export interface MinigameZoneFrames {
+  /** Anleitung bzw. Ergebnis (ganze Fläche unter der Plakette, mit Fußzeile kürzer). */
+  readonly card: Rect;
+  /** „Bereit!“ bzw. Bestätigung; ohne Fußzeile leer (Höhe 0) am unteren Rand. */
+  readonly foot: Rect;
+}
+
+/** Bereiche einer Zone im Minispiel-Intro/-Ergebnis (lokal; Darstellung und Trefferprüfung). */
+export function minigameZoneFrames(local: Size, withFoot: boolean): MinigameZoneFrames {
+  const p = ZONE_PADDING;
+  const width = Math.max(0, local.width - 2 * p);
+  const bottom = Math.max(BADGE_STRIP, local.height - p);
+  const footHeight = withFoot ? minigameFootHeight(local) : 0;
+  const foot: Rect = { x: p, y: bottom - footHeight, width, height: footHeight };
+  const cardBottom = withFoot ? foot.y - MINIGAME_FOOT_GAP : bottom;
+  const card: Rect = {
+    x: p,
+    y: BADGE_STRIP,
+    width,
+    height: Math.max(0, cardBottom - BADGE_STRIP),
+  };
+  return { card, foot };
+}
+
+/** „Bereit!“ mittig in der Fußzeile; in der Schonfrist sichtbar, aber `inert`. */
+function introReadyControl(local: Size, inert: boolean): ControlGeometry {
+  const { foot } = minigameZoneFrames(local, true);
+  const width = Math.min(MAX_INTRO_READY_WIDTH, foot.width);
+  const rect: Rect = {
+    x: rectCenter(foot).x - width / 2,
+    y: foot.y,
+    width,
+    height: foot.height,
+  };
+  const ready = control('ready', rect, HIT_SLOP);
+  return inert ? { ...ready, inert: true } : ready;
 }
 
 /* ---------------------------------------------------------------------------
