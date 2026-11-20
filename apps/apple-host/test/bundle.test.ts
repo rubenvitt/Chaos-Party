@@ -6,7 +6,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { getMinigameInfo } from '@chaos-party/minigames/catalog';
 import { HAVOK_WASM_SOURCE, bundle } from '../build.mjs';
+import { RESULT_MARGIN_MS } from '../../host/src/minigame/plan.ts';
 import { RenderStateSchema, type RenderState } from '../src/contract.ts';
 import { PROBLEM_MARKERS, loadBundle, runBotMatch, seededBytes, settle } from './botMatch.ts';
 
@@ -166,6 +168,42 @@ describe('Bündel', () => {
     expect(phases.slice(0, 2)).toEqual(['lobby', 'board']);
     expect(phases).toContain('minigame-play');
     expect(result.ok).toBe(true);
+  }, 60_000);
+
+  /** Bot-Partie bis zum ersten Minispiel-Ergebnis, Bühne erst `lateMs` nach dem Spielstart fertig. */
+  const lateMatch = async (lateMs: number) => {
+    const lines: string[] = [];
+    // Die Bühne entsteht mit der Anleitung (7 s), fertig also `lateMs` nach dem Spielstart.
+    const result = await runBotMatch({
+      code,
+      wasm,
+      full: false,
+      seed: 3,
+      stageDelayMs: 7_000 + lateMs,
+      log: (line) => lines.push(line),
+    });
+    expect(result.exceptions).toEqual([]);
+    expect(result.problems).toEqual([]);
+    expect(result.serverErrors).toEqual([]);
+    expect(result.resultsAccepted).toBe(1);
+    expect(result.ok).toBe(true);
+    const playMs = getMinigameInfo(result.minigamesBuilt[0] ?? '')?.durationMs ?? 0;
+    expect(playMs).toBeGreaterThan(20_000);
+    const cut = lines.some((line) => line.includes('Frist des Servers'));
+    return { afterPlayMs: result.resultAfterPlayMs[0] ?? Infinity, playMs, cut };
+  };
+
+  it('nimmt das Ergebnis eines 5 s zu spät aufgebauten Minispiels an, volle Spielzeit (CHAOS-206)', async () => {
+    const { afterPlayMs, playMs, cut } = await lateMatch(5_000);
+    expect(cut).toBe(false);
+    expect(afterPlayMs).toBeGreaterThanOrEqual(playMs + 5_000);
+  }, 60_000);
+
+  it('wertet ein 20 s zu spät aufgebautes Minispiel vor der Frist des Servers (CHAOS-206)', async () => {
+    // Frist = Spielzeit + 15 s Kulanz; ohne Ausrichtung käme das Ergebnis 5 s danach.
+    const { afterPlayMs, playMs, cut } = await lateMatch(20_000);
+    expect(cut).toBe(true);
+    expect(afterPlayMs).toBeLessThanOrEqual(playMs + 15_000 - RESULT_MARGIN_MS + 200);
   }, 60_000);
 
   it('schickt host-ready mit deferSceneReady erst nach sceneReady() und spielt dann normal', async () => {

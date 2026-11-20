@@ -42,7 +42,9 @@ import {
   minigameStageOf,
   phaseSecondsLeft,
   planPlay,
+  playDeadline,
   playersFromView,
+  shownRemainingMs,
   type MinigameStageName,
 } from './plan.ts';
 import { resultPayload, resultsDisplay } from './results.ts';
@@ -75,6 +77,12 @@ export interface MinigameScreenProps {
    * Der lokale Ablauf (keine echte Partie) nutzt die feste Brett-Stimmung.
    */
   readonly lightByRound?: boolean;
+  /**
+   * Spielende an der Frist des Servers ausrichten (CHAOS-206, Standard `true`): Ein spät
+   * gestartetes Spiel wird vor der Frist gewertet, die Anzeige zählt bis dorthin. Der lokale
+   * Ablauf hat keinen Server und keine Frist.
+   */
+  readonly serverDeadline?: boolean;
 }
 
 const CONNECTION_TEXT: Record<ConnectionStatus, string> = {
@@ -316,9 +324,25 @@ export function MinigameScreen(props: MinigameScreenProps) {
   useEffect(() => {
     if (test) return;
     const timer = setInterval(() => {
-      setNow(performance.now());
+      const clockNow = performance.now();
+      setNow(clockNow);
       const stage = stageRef.current;
       if (stage?.status === 'ready') setHud(stage.hud());
+      // Ablauf an der Frist des Servers (CHAOS-206): spät gestartetes oder langsam gerechnetes
+      // Spiel vorher werten, damit das Ergebnis noch angenommen wird.
+      const current = latest.current.props;
+      if (
+        stage &&
+        current.serverDeadline !== false &&
+        playDeadline(
+          current.view,
+          current.receivedAt,
+          clockNow,
+          stage.runnerState === 'running',
+        ) === 'end'
+      ) {
+        stage.endPlay();
+      }
     }, 100);
     return () => {
       clearInterval(timer);
@@ -371,7 +395,12 @@ export function MinigameScreen(props: MinigameScreenProps) {
           hud={hud}
           waiting={plan.kind === 'wait'}
           remainingMs={
-            plan.kind === 'play' ? (hud?.remainingMs ?? plan.timeLimitMs) : plan.remainingMs
+            plan.kind === 'wait'
+              ? plan.remainingMs
+              : test || props.serverDeadline === false
+                ? (hud?.remainingMs ?? plan.timeLimitMs)
+                : // Höchstens bis zur Frist des Servers (CHAOS-206); im Testmodus treibt `step`.
+                  shownRemainingMs(hud?.remainingMs ?? plan.timeLimitMs, view, receivedAt, clock)
           }
         />
       )}

@@ -105,6 +105,7 @@ export function LocalMinigameFlow({
         onReady={setReady}
         onNext={toPlay}
         lightByRound={false}
+        serverDeadline={false}
       />
     </main>
   );

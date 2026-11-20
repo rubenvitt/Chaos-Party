@@ -66,3 +66,17 @@ Neu bewerten, wenn Host-Neuladen im Playtest stört, wenn ein Minispiel eigene C
 `MinigameContext` bekommt `pace(): Promise<void>`. Minispiele rufen es in `prepare` zwischen ihren Bauschritten auf (`await ctx.pace()`, etwa je Mesh-Gruppe, Figur oder vorgewärmtem Gegenstand). Mit Taktgeber (`RunnerOptions.pacing`: nächstes Bild, echte Uhr, Budget in ms) gibt `pace` ab, sobald das Budget des Bildes verbraucht ist, und der Aufbau geht im nächsten Bild weiter. Ohne Taktgeber löst `pace` sofort auf: Tests und der PC-Host bauen wie bisher am Stück. Wird die Laufzeit während des Aufbaus entsorgt, wirft `pace` `PrepareAborted` und `prepare` endet ohne weitere Meshes.
 
 Grund: Im nativen Apple-Host läuft JavaScriptCore ohne JIT. Ein Aufbau am Stück hielt dort ein Bild bis zu 98 ms an (EXP-024), in der Interpreter-Näherung des Harness bis 330 ms. Mit `pace` und 2 ms Budget liegt das längste Bild in der Näherung bei 19 ms (EXP-024, Nachtrag). Bauschritte zwischen zwei `pace` sollten klein bleiben: eine Kugel mit Standard-Segmenten kostet ohne JIT bereits gut 10 ms.
+
+## Nachtrag 2 (2026-11-20, CHAOS-206): Host wertet vor der Frist des Servers
+
+Die Spielzeit eines Minispiels steht schon im Aufbau fest (`ctx.timeLimitMs`). Ist die Bühne erst nach dem Countdown fertig (langsamer Aufbau, gedrosselter Mac, CHAOS-203, Software-Rendering in der CI) oder rechnet der Host langsamer als die Uhr, läuft sein Spiel über das Ende beim Server hinaus. Das ist in Ordnung, solange das Ergebnis vor der Frist kommt (Spielzeit + `minigameResultGraceMs`, sonst bricht der Server ab). Darum richtet der Host seinen Ablauf an dieser Frist aus (`playDeadline` in `apps/host/src/minigame/plan.ts`, beide Hosts). Die Frist liest er aus `view.remainingMs` in `minigame-play`, so gilt auch eine anders eingestellte Kulanz.
+
+- Läuft das Spiel noch, wenn bis zur Frist höchstens `RESULT_MARGIN_MS` (3 s) bleiben, beendet der Host es mit `runner.finishNow()`. Hat das Minispiel noch kein Ergebnis, wertet die Laufzeit den Stand aus dem HUD (`RunnerResult.cut`, Log „Frist des Servers“).
+- Bleiben bei Fertigstellung der Bühne bis zu diesem Punkt weniger als `MIN_RESTART_MS` (3 s) Spielzeit, startet das Spiel nicht mehr (Begründung wie beim Neuladen, Punkt 6). Der Server bricht nach seiner Frist ohne Münzen ab.
+- Die angezeigte Restzeit reicht höchstens bis zum Werten vor der Frist (`shownRemainingMs`). Sonst stünden beim Abbruch noch Sekunden auf der Uhr.
+- Ein wenig zu spät gestartetes Spiel behält seine volle Spielzeit und endet in der Kulanz. Gekürzt wird nur, wenn die Frist sonst reißt.
+- In der Pause steht die Uhr. Im Testmodus und im lokalen Ablauf des PC-Hosts greift nichts davon (kein Server).
+
+Verworfen: Das Spiel schon 1 s nach dem Ende der Spielzeit beim Server zu beenden. Das ließ in der CI unter Software-Rendering ein 8-s-Minispiel nie starten, dessen Bühne 5 s zu spät fertig war (`m2-brett-durchstich`, 60 s Kulanz). Vorher wurde es innerhalb der Kulanz angenommen.
+
+Nachstellen: `HostEnv.debugStageDelayMs` verzögert im Apple-Host jede Bühne künstlich. Zwei Bündel-Tests prüfen das. Bei 5 s Verspätung wird mit voller Spielzeit angenommen. Bei 20 s Verspätung wird vor der Frist gewertet und angenommen; ohne die Ausrichtung meldete der Kern dort „nicht mehr gebraucht“.

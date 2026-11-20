@@ -121,6 +121,8 @@ export interface BotMatchOptions {
   readonly afterStart?: readonly string[];
   /** Regel Rückenwind an (`HostEnv.tailwind`, CHAOS-188). */
   readonly tailwind?: boolean;
+  /** Künstlich später Minispiel-Aufbau (`HostEnv.debugStageDelayMs`, CHAOS-206). */
+  readonly stageDelayMs?: number;
   /**
    * CHAOS-145 (nur mit `full`): In der ersten Partie Pause im Brett und im Minispiel, Ben
    * trennt sich sauber und kommt zurück, dann verliert er das Netz (Funkstille, der Server wirft
@@ -161,6 +163,11 @@ export interface BotMatchResult {
   readonly tailwindRounds: readonly number[];
   readonly minigamesBuilt: readonly string[];
   readonly resultsAccepted: number;
+  /**
+   * Je angenommenem Ergebnis: virtuelle ms vom Spielstart (erstes `minigame-play`) bis zur
+   * Annahme durch den Server (CHAOS-206).
+   */
+  readonly resultAfterPlayMs: readonly number[];
   /** Ausnahmen, die aus dem Bündel bis zum Aufrufer durchschlugen. */
   readonly exceptions: readonly string[];
   /** Log-Zeilen des Kerns, die auf einen Fehler deuten (wie der Swift-Harness). */
@@ -224,6 +231,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
     joinCode: JOIN_CODE,
     ...(options.deferSceneReady === true ? { deferSceneReady: true } : {}),
     ...(options.tailwind === true ? { tailwind: true } : {}),
+    ...(options.stageDelayMs === undefined ? {} : { debugStageDelayMs: options.stageDelayMs }),
   };
 
   const guard = <T>(label: string, run: () => T): T | undefined => {
@@ -376,6 +384,9 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
   const noticeRounds: number[] = [];
   const tailwindRounds: number[] = [];
   let firstResults = false;
+  const resultAfterPlayMs: number[] = [];
+  let playSeenAt: number | null = null;
+  let logScanned = 0;
   const exercise = options.full && options.exercise === true;
   /** Stand der `exercise`-Prüfungen (CHAOS-145). */
   const ex = {
@@ -450,6 +461,12 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       const parsed = RenderStateSchema.safeParse(raw);
       if (!parsed.success && contractErrors.length < 10) {
         contractErrors.push(`${key}: ${parsed.error.message}`);
+      }
+    }
+    if (changed && key === 'minigame-play') playSeenAt = now;
+    for (; logScanned < logLines.length; logScanned++) {
+      if (playSeenAt !== null && logLines[logScanned]?.includes('angenommen')) {
+        resultAfterPlayMs.push(Math.round(now - playSeenAt));
       }
     }
     if (changed) {
@@ -767,6 +784,7 @@ export async function runBotMatch(options: BotMatchOptions): Promise<BotMatchRes
       tailwindRounds,
       minigamesBuilt,
       resultsAccepted,
+      resultAfterPlayMs,
       exceptions,
       problems,
       serverErrors,

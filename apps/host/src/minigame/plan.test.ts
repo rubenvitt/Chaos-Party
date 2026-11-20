@@ -6,8 +6,11 @@ import {
   minigameStageOf,
   phaseSecondsLeft,
   planPlay,
+  RESULT_MARGIN_MS,
+  playDeadline,
   playersFromView,
   remainingPlayMs,
+  shownRemainingMs,
   stageKeyOf,
 } from './plan.ts';
 import { minigameView } from './testViews.ts';
@@ -88,6 +91,45 @@ describe('Spielzeit und Host-Neuladen', () => {
     expect(phaseSecondsLeft(null, 0, 0)).toBeNull();
     // Uhr vor Empfang (z. B. eingefrorene Testuhr): volle Zeit.
     expect(phaseSecondsLeft(2500, 1000, 0)).toBe(3);
+  });
+});
+
+describe('Ablauf an der Frist des Servers (CHAOS-206)', () => {
+  // playMs 8000, Kulanz 15 s; Stand empfangen bei 1000 zu Spielbeginn → Frist bei 24 000.
+  const play = minigameView(
+    'minigame-play',
+    { playMs: 8000, elapsedMs: 0 },
+    { remainingMs: 23_000 },
+  );
+  const deadline = 24_000;
+
+  it('beendet ein laufendes Spiel RESULT_MARGIN_MS vor der Frist, nicht am Ende der Spielzeit', () => {
+    expect(playDeadline(play, 1000, 9000 + 5000, true)).toBe('keep');
+    expect(playDeadline(play, 1000, deadline - RESULT_MARGIN_MS - 1, true)).toBe('keep');
+    expect(playDeadline(play, 1000, deadline - RESULT_MARGIN_MS, true)).toBe('end');
+  });
+
+  it('startet ein spät aufgebautes Spiel nur, wenn bis dahin noch MIN_RESTART_MS bleiben', () => {
+    // 5 s nach dem Spielbeginn fertig: startet (Ergebnis kommt in der Kulanz).
+    expect(playDeadline(play, 1000, 6000, false)).toBe('keep');
+    const lastStart = deadline - RESULT_MARGIN_MS - MIN_RESTART_MS;
+    expect(playDeadline(play, 1000, lastStart, false)).toBe('keep');
+    expect(playDeadline(play, 1000, lastStart + 1, false)).toBe('end');
+  });
+
+  it('außerhalb des Spiels und ohne Frist im Stand nie; in der Pause steht die Uhr', () => {
+    expect(playDeadline(minigameView('minigame-intro'), 0, 99_000, true)).toBe('keep');
+    expect(playDeadline(minigameView('minigame-results'), 0, 99_000, false)).toBe('keep');
+    expect(playDeadline(minigameView('minigame-play'), 0, 99_000, true)).toBe('keep');
+    expect(playDeadline({ ...play, paused: true }, 1000, 99_000, true)).toBe('keep');
+  });
+
+  it('Anzeige: Restzeit des Minispiels, höchstens bis zum Werten vor der Frist', () => {
+    expect(shownRemainingMs(8000, play, 1000, 1000)).toBe(8000);
+    // Spiel 16 s zu spät gestartet: 8 s Spielzeit übrig, gewertet wird aber in 5 s.
+    expect(shownRemainingMs(8000, play, 1000, 17_000)).toBe(4000);
+    expect(shownRemainingMs(4000, play, 1000, 99_000)).toBe(0);
+    expect(shownRemainingMs(4000, minigameView('minigame-play'), 0, 99_000)).toBe(4000);
   });
 });
 
