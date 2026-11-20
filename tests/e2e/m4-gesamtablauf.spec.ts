@@ -60,6 +60,8 @@ const TEST_PACING = {
 
 /** Spielzeit je Minispiel im Test (statt 30–35 s): 360 feste Schritte à 1/60 s. */
 const TEST_PLAY_MS = 6000;
+/** Dieselbe Spielzeit in festen Schritten à 1/60 s (reicht immer bis zum Ende). */
+const TEST_PLAY_FRAMES = (TEST_PLAY_MS / 1000) * 60;
 /** Rundenvorschläge der Test-Lobby (statt 10/16/20); Standard 3, gewählt wird per Klick. */
 const TEST_ROUND_PRESETS = [1, 2, 3] as const;
 
@@ -475,11 +477,18 @@ async function playMinigame(
   // Fertig rechnen: Host meldet das Ergebnis, Server nimmt es an.
   const resultsBefore = new Map<SlotNumber, number>();
   for (const seat of seats) resultsBefore.set(seat.slot, await resultScreens(seat));
-  const finished = await host.evaluate(() => {
+  // In *einem* großen Schritt (CHAOS-211): `step(n)` rechnet n feste Schritte und rendert
+  // danach ein Bild. Viele kleine Schritte (früher ~9 × 30) stauen in SwiftShader so viele
+  // Bilder auf, dass der Host-Hauptthread auf langsamen Maschinen (Cloud-Sandbox) ~11 s lang
+  // keine Aufgaben abarbeitet – Server-Nachrichten und damit die 5-s-Ergebnisanzeige kommen
+  // dann erst, wenn die Ergebnisphase am Server schon vorbei ist. Schritte nach dem Ende ändern
+  // das Ergebnis nicht (der Runner wertet beim Erreichen der Spielzeit).
+  const finished = await host.evaluate((playFrames) => {
     const minigame = window.__chaosMinigame;
-    for (let i = 0; i < 60 && minigame?.state === 'running'; i++) minigame.step(30);
+    if (minigame?.state === 'running') minigame.step(playFrames);
+    for (let i = 0; i < 10 && minigame?.state === 'running'; i++) minigame.step(60);
     return minigame?.state ?? null;
-  });
+  }, TEST_PLAY_FRAMES);
   expect(finished, 'Minispiel zu Ende gerechnet').toBe('finished');
   // Erst die Ergebnisanzeige, dann die Annahme (CHAOS-170): Die Anzeige steht nur
   // `minigameResultsMs` lang, danach entfernt der Host die Bühne samt Testhaken
