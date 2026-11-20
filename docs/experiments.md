@@ -2575,7 +2575,7 @@ Feinabstimmung innerhalb von C:
 **Hypothese / gewünschtes Spielerlebnis:** Ein drittes, großes Brett mit eigenem Thema bringt Abwechslung. Das Karussell in der Mitte ändert jede Runde, wohin seine Abkürzung führt. Spieler sehen die Stellung (Tor am Karussell, Zusatz an der Wegwahl) und planen danach. Die Wegwahl bleibt fair: Kein Weg gewinnt deutlich öfter, alle Trophäen-Kandidaten kommen ins Spiel.
 
 **Varianten:**
-- **Drehung je Runde, fest reihum (gewählt, ADR-021):** West (Spiegelkabinett) → Süd (Abkürzung zum Startplatz) → Ost (Ehrenrunde zurück in die Geisterbahn). Planbar, ohne Protokolländerung.
+- **Drehung je Runde, fest reihum (gewählt, ADR-022):** West (Spiegelkabinett) → Süd (Abkürzung zum Startplatz) → Ost (Ehrenrunde zurück in die Geisterbahn). Planbar, ohne Protokolländerung.
 - Drehung per Zufall je Runde: verworfen, nicht planbar.
 - Karussell als normale Gabel mit wechselnden Optionen: verworfen, dann entscheidet der Spieler statt des Karussells.
 - Losbude als neuer Feldtyp: zurückgestellt. Ein neuer `SpaceKind` hätte Protokoll, Controller und beide Hosts berührt. Die Losbudengasse ist stattdessen der Glücksweg (fünf Item- und zwei Ereignisfelder auf zehn Feldern).

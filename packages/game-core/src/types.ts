@@ -40,7 +40,7 @@ export interface BoardSpace {
 }
 
 /**
- * Drehendes Feld (CHAOS-199, ADR-021), z. B. das Karussell des Rummelplatzes: Sein Ausgang
+ * Drehendes Feld (CHAOS-199, ADR-022), z. B. das Karussell des Rummelplatzes: Sein Ausgang
  * wechselt jede Runde reihum, ohne Zufall. In Runde `r` gilt `exits[(r - 1) % exits.length]`;
  * wer das Feld betritt oder verlässt, nimmt genau diesen Ausgang (keine Wegwahl). `next` des
  * Felds nennt alle Ausgänge (statische Topologie für Prüfung, Wege und Deko).

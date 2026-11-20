@@ -25,6 +25,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
+import { symbolMesh } from '@chaos-party/minigame-kit/babylon';
 import {
   rankByScore,
   type MinigameInput,
@@ -826,9 +827,14 @@ export class KuckucksKlatsche implements Minigame {
       { emissive: 0.5 },
     );
     plate.position.set(x, DOOR_Y + DOOR_RADIUS + 0.48, z - 0.03);
-    const symbol = this.mesh(symbolMesh(scene, name('symbol'), player.symbol), player.color, null, {
-      emissive: 0.5,
-    });
+    const symbol = this.mesh(
+      symbolMesh(scene, name('symbol'), player.symbol, 0.22),
+      player.color,
+      null,
+      {
+        emissive: 0.5,
+      },
+    );
     symbol.position.set(x, plate.position.y, z - 0.05);
     for (const flat of [plate, symbol]) {
       if (flat.material) flat.material.backFaceCulling = false;
@@ -1155,47 +1161,6 @@ function prismMesh(scene: Scene, name: string, width: number, height: number, de
     for (const corner of face) positions.push(...(corners[corner] ?? [0, 0, 0]));
     indices.push(base, base + 1, base + 2);
     if (face.length === 4) indices.push(base, base + 2, base + 3);
-  }
-  const normals: number[] = [];
-  VertexData.ComputeNormals(positions, indices, normals);
-  const data = new VertexData();
-  data.positions = positions;
-  data.indices = indices;
-  data.normals = normals;
-  const mesh = new Mesh(name, scene);
-  data.applyToMesh(mesh);
-  return mesh;
-}
-
-/** Flaches Slot-Symbol (● ▲ ■ ★) als Mesh in der x/y-Ebene, Blick −z. */
-function symbolMesh(scene: Scene, name: string, symbol: string): Mesh {
-  const outline: [number, number][] = [];
-  const radius = 0.22;
-  if (symbol === '▲') {
-    for (let index = 0; index < 3; index++) {
-      const a = Math.PI / 2 + (index * 2 * Math.PI) / 3;
-      outline.push([Math.cos(a) * radius * 1.15, Math.sin(a) * radius * 1.15 - 0.03]);
-    }
-  } else if (symbol === '■') {
-    const s = radius * 0.8;
-    outline.push([-s, -s], [s, -s], [s, s], [-s, s]);
-  } else if (symbol === '★') {
-    for (let index = 0; index < 10; index++) {
-      const a = Math.PI / 2 + (index * Math.PI) / 5;
-      const r = index % 2 === 0 ? radius * 1.15 : radius * 0.48;
-      outline.push([Math.cos(a) * r, Math.sin(a) * r]);
-    }
-  } else {
-    for (let index = 0; index < 28; index++) {
-      const a = (index / 28) * Math.PI * 2;
-      outline.push([Math.cos(a) * radius, Math.sin(a) * radius]);
-    }
-  }
-  const positions = [0, 0, 0];
-  for (const [x, y] of outline) positions.push(x, y, 0);
-  const indices: number[] = [];
-  for (let index = 0; index < outline.length; index++) {
-    indices.push(0, 1 + ((index + 1) % outline.length), 1 + index);
   }
   const normals: number[] = [];
   VertexData.ComputeNormals(positions, indices, normals);

@@ -33,4 +33,5 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-018](ADR-018-lizenz.md) | Projektlizenz GPL-3.0-only für Code und eigene Assets, Lizenzhinweise im Build | Angenommen | CHAOS-69 |
 | [ADR-019](ADR-019-nativer-apple-host.md) | Nativer Apple-Host mit RealityKit, Apple TV hostet allein (TS-Kern in JavaScriptCore), Babylon bleibt am PC | Angenommen (2026-11-17; Überprüfung nach Spike) | CHAOS-135 |
 | [ADR-020](ADR-020-ki-spieler.md) | KI-Spieler: jeder Platz Mensch oder KI (Solo erlaubt), Brett-KI im Server, Minispiel-KI im Host, Stärke leicht/mittel/schwer/dynamisch, Persönlichkeit per Seed | Angenommen (Rubens Entscheidungen 2026-11-19) | CHAOS-178 |
-| [ADR-021](ADR-021-drehende-felder.md) | Drehende Felder (Karussell): Ausgang als feste Funktion der Runde, keine Wegwahl, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-199 |
+| [ADR-021](ADR-021-minispiel-baukasten.md) | Minispiel-Baukasten als eigenes Paket `minigame-kit`: Unterbau, keine Spielvorlage; Vielfalts-Steckbrief | Angenommen | CHAOS-83 |
+| [ADR-022](ADR-022-drehende-felder.md) | Drehende Felder (Karussell): Ausgang als feste Funktion der Runde, keine Wegwahl, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-199 |

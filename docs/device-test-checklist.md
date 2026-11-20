@@ -744,7 +744,7 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 
 ## 39. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
 
-**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-021 · **Experiment:** EXP-034
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-034
 
 Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App und tvOS-Simulator mit je vier Bots über drei Runden bis zum Siegerbild, Zufall mit sieben Revanchen am Mac (Kulisse wechselte sechsmal in beide Richtungen ohne Neustart). **Nicht** geprüft: echte Apple TV (Ladezeit der zweiten Kulisse, im Simulator 4,2 s; Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
 
