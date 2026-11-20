@@ -14,15 +14,7 @@
  *   (Bräunung, Türfarbe). Farbe allein trägt nie Information (`docs/art-direction.md`).
  */
 
-export const PROP_MATERIALS = [
-  'lack',
-  'matt',
-  'glas',
-  'metall',
-  'leuchten',
-  'akzent',
-  'zustand',
-] as const;
+export const PROP_MATERIALS = ['lack', 'matt', 'glas', 'metall', 'akzent', 'zustand'] as const;
 export type PropMaterial = (typeof PROP_MATERIALS)[number];
 
 export const PROP_RUNTIME_MATERIALS = ['akzent', 'zustand'] as const;

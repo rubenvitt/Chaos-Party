@@ -113,14 +113,6 @@ def _material(key: str) -> bpy.types.Material:
         bsdf.inputs["Alpha"].default_value = 0.55
         mat.surface_render_method = "BLENDED"
         return mat
-    if key == "leuchten":
-        mat = k.material(key, vertex_colors=True, roughness=0.4)
-        tree = mat.node_tree
-        bsdf = tree.nodes["Principled BSDF"]
-        attr = next(n for n in tree.nodes if n.bl_idname == "ShaderNodeVertexColor")
-        tree.links.new(attr.outputs["Color"], bsdf.inputs["Emission Color"])
-        bsdf.inputs["Emission Strength"].default_value = 0.6
-        return mat
     if key in RUNTIME_MATERIALS:
         return k.material(key, color=P["weiss"], roughness=0.45, coat=0.25)
     raise ValueError(f"unbekanntes Material „{key}“")

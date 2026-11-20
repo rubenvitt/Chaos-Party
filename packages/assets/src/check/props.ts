@@ -14,7 +14,7 @@ import {
   propModelPath,
   type PropId,
 } from '../props.ts';
-import { GlbError, glbStats } from './glb.ts';
+import { GlbError, glbStats, parseGlb } from './glb.ts';
 
 /** Toleranz für „Boden bei y = 0“, „mittig“ und die Höhe im Manifest (Meter). */
 export const PROP_TOLERANCE = 0.01;
@@ -90,6 +90,21 @@ export function checkProp(
   for (const name of stats.materials) {
     if (!ALLOWED_MATERIALS.has(name)) {
       errors.push(`${label}: Material „${name}“ unbekannt (erlaubt: ${PROP_MATERIALS.join(', ')})`);
+    }
+  }
+  // Farben kommen aus Vertexfarben (keine Texturen): jedes Primitive braucht COLOR_0.
+  const { json } = parseGlb(bytes);
+  for (const mesh of json.meshes ?? []) {
+    for (const primitive of mesh.primitives) {
+      if (!('COLOR_0' in primitive.attributes)) {
+        const material =
+          primitive.material === undefined
+            ? '?'
+            : (json.materials?.[primitive.material]?.name ?? '?');
+        errors.push(
+          `${label}: Mesh „${mesh.name ?? '?'}“ (Material „${material}“) ohne Vertexfarben (COLOR_0)`,
+        );
+      }
     }
   }
   const propId = entry.id.replace(/^requisit-/, '') as PropId;

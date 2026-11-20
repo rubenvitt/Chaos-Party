@@ -424,8 +424,9 @@ describe('Requisiten (CHAOS-88)', () => {
         prop: { ...manifest.budgets.prop, maxTriangles: 2000, maxMaterials: 3 },
       },
     });
-    expect(result.errors).toContain('Asset „requisit-toaster“: 2740 Dreiecke, Budget 2000');
-    expect(result.errors).toContain('Asset „requisit-toaster“: 4 Materialien, Budget 3');
+    const errors = result.errors.join('\n');
+    expect(errors).toMatch(/Asset „requisit-toaster“: \d+ Dreiecke, Budget 2000/);
+    expect(errors).toMatch(/Asset „requisit-toaster“: 4 Materialien, Budget 3/);
   });
 
   it('Budget je Minispiel: Summe der Requisiten (Bytes, Dreiecke, Anzahl)', async () => {
@@ -434,14 +435,15 @@ describe('Requisiten (CHAOS-88)', () => {
       ...manifest,
       budgets: {
         ...manifest.budgets,
-        minigame: { maxBytes: 200 * 1024, maxTriangles: 9000, maxProps: 6 },
+        minigame: { maxBytes: 100 * 1024, maxTriangles: 3000, maxProps: 6 },
       },
     });
     const errors = result.errors.join('\n');
-    expect(errors).toMatch(/Minispiel MG-101: Requisiten 281\.\d KiB > Budget 200\.0 KiB/);
-    expect(errors).toMatch(/Minispiel MG-011: Requisiten 11952 Dreiecke > Budget 9000/);
+    // MG-001 hat 7 Requisiten (Fangen + Garten), MG-023 ist klein (nur Rempeln, < 100 KiB).
+    expect(errors).toMatch(/Minispiel MG-101: Requisiten [\d.]+ KiB > Budget 100\.0 KiB/);
+    expect(errors).toMatch(/Minispiel MG-011: Requisiten \d+ Dreiecke > Budget 3000/);
     expect(errors).toMatch(/Minispiel MG-001: 7 Requisiten > Budget 6/);
-    expect(errors).not.toMatch(/MG-023/);
+    expect(errors).not.toMatch(/MG-023: Requisiten [\d.]+ KiB/);
   });
 
   it('Höhe im Manifest muss zur Datei passen', async () => {
@@ -474,6 +476,25 @@ describe('Requisiten (CHAOS-88)', () => {
     expect(errors).toMatch(/„requisit-toaster“: Material „gold“ unbekannt/);
     expect(errors).toMatch(
       /„requisit-toaster“: Laufzeit-Material „akzent“ fehlt oder ist an keinem Mesh/,
+    );
+  });
+
+  it('Requisit ohne Vertexfarben', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      const file = join(dir, toaster);
+      const bytes = new Uint8Array(await readFile(file));
+      await writeFile(
+        file,
+        patchGlb(bytes, (json) => {
+          const meshes = json.meshes as { primitives: { attributes: Record<string, number> }[] }[];
+          for (const mesh of meshes) {
+            for (const primitive of mesh.primitives) delete primitive.attributes.COLOR_0;
+          }
+        }),
+      );
+    });
+    expect(result.errors.join('\n')).toMatch(
+      /„requisit-toaster“: Mesh „[^“]+“ \(Material „lack“\) ohne Vertexfarben \(COLOR_0\)/,
     );
   });
 

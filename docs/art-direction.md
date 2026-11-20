@@ -186,8 +186,27 @@ Arena-Vorlagen aus CHAOS-83 platzieren können. Erzeugen: `pnpm generate:props`
 | `kulisse-garten` | Ort | Zaunfeld, Blumentopf, Gießkanne | mehrere |
 | `kulisse-kueche` | Ort | Kochtopf, Milchkanne, Holzlöffel | MG-033, MG-045 |
 
-Die übrigen Familien bekommen ihr Set mit ihrer Familien-Welle (CHAOS-94 …); neue Grundformen
-gehören in `requisitkit.py`, nicht in ein einzelnes Requisit.
+**Geplante Sets der übrigen Familien** (gebaut mit ihrer Familien-Welle, CHAOS-94 …; Auswahl aus
+den Skizzen in `docs/minigames/katalog.md`, Wiederverwendung über Familien hinweg erwünscht):
+
+| Set | Familie | Geplante Requisiten | Grundformen |
+|---|---|---|---|
+| `pumpen` | 6 Pumpen, Kurbeln, Dosieren | Luftpumpe, Luftmatratze, Riesenrübe, Lagerfeuer mit Marshmallow, Wasserbombe | Gefäße, Kästen, Obst |
+| `werfen` | 7 Zielen & Werfen | Dosenpyramide, Torwand, Tomate, Briefkasten, Frisbee | Kästen, Obst, Gefäße |
+| `stapeln` | 8 Balance & Stapeln | Tablett mit Gläsern, Stapelstein, Ei auf Löffel, Holzlabyrinth, Kiste | Gefäße, Kästen, Obst |
+| `parcours` | 9 Rennen & Parcours | Trittstein, Hecke, Klopapierrolle, Schneckenhaus, Rutschenteil | Kästen, Gefäße, Spielzeug |
+| `gedaechtnis` | 10 Gedächtnis & Muster | Blumentopf umgedreht (Hütchen), Seerose, Leuchtturm, Glocke | Gefäße, Spielzeug |
+| `fahrzeuge` | 14 Fahrzeuge & Schwung | Aufsitzmäher, Einkaufswagen, Seifenkiste, Schubkarre, Hamsterkugel | Kästen, Gartengeräte, Spielzeug |
+| `schaetzen` | 15 Schätzen & Wahrnehmung | Schaf, Waage, Kürbis, Messbecher | Spielzeug, Gefäße, Obst |
+| `kueche-laden` | 16 Hektik-Küche & Laden | Tresen, Brot und Belag, Eistüte, Pizza, Sortierfächer | Kästen, Gefäße, Obst |
+| `einer-gegen-alle` | 17 Einer gegen alle | Vogelscheuche, Kegel, Schrank, Busch | Gartengeräte, Kästen, Spielzeug |
+| `zwei-gegen-zwei` | 18 Zwei gegen zwei | Tau, Melone, Fass, Leiter, Ruderboot | Gartengeräte, Obst, Kästen |
+| `koop` | 19 Gemeinsam gegen das Chaos | Arche-Bretter, Sandburg, Wäscheleine, Gatter, Picknickdecke | Kästen, Gartengeräte |
+| `mikro` | 20 Mikro-Spiele | Feder, Kerze, Kuchen, Wecker, Schlüssel und Schloss | Spielzeug, Gefäße, Kästen |
+
+Kulissen nach Ort fehlen noch für Bad, Teich, Spielzimmer, Wald und Dachboden (Orte aus Rubens
+Notiz an CHAOS-83, eigene Folgeaufgabe). Neue Grundformen gehören in `requisitkit.py`, nicht in
+ein einzelnes Requisit.
 
 **Vertrag** (`packages/assets/src/props.ts`, geprüft in `check:assets` und im Babylon-Ladetest):
 - Meter wie die Figuren, Y oben, vorn +Z; **Boden bei y = 0**, Grundfläche mittig über dem
@@ -195,8 +214,8 @@ gehören in `requisitkit.py`, nicht in ein einzelnes Requisit.
   Sprenger-Arm oder Fallenbügel bewegt das Spiel, sonst eigenes Requisit).
 - Spielzeug-groß übertrieben, damit es aus 3 m lesbar bleibt (Eichel 0,38 m, Toaster 0,63 m, Tür
   2,3 m neben 1,5-m-Figuren). Silhouette eindeutig, auch einfarbig.
-- Farben als **Vertexfarben**, keine Texturen. Materialien nur `lack`, `matt`, `glas`, `metall`,
-  `leuchten` und die zwei Laufzeit-Materialien: `akzent` färbt das Spiel in die **Slot-Farbe**
+- Farben als **Vertexfarben** (`COLOR_0` an jedem Mesh, geprüft), keine Texturen; Leuchten folgt bei Bedarf als eigenes Material mit fester Farbe (glTF kann Eigenleuchten nicht aus Vertexfarben speisen). Materialien nur `lack`, `matt`, `glas`, `metall`
+  und die zwei Laufzeit-Materialien: `akzent` färbt das Spiel in die **Slot-Farbe**
   (immer zusammen mit dem Slot-Symbol), `zustand` nach Spielzustand (Bräunung des Toasts,
   Türfarbe). Beide sind im GLB weiß und stehen je Requisit in `PROP_RUNTIME`.
 - Eigene Flächenfarben meiden die Slot-Farbtöne (Natur-Palette in `requisitkit.P`).
