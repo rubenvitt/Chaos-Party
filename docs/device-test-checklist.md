@@ -721,7 +721,7 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
-| BA1 | PC: `pnpm play`, Lobby | Neben „Runden“ steht „Brett: Wackelwald · 43 Felder“; Klick wechselt auf „🎲 Zufall“ und zurück; Startknopf zeigt „10 Runden · Wackelwald“ bzw. „· Zufallsbrett“ | | |
+| BA1 | PC: `pnpm play`, Lobby | Neben „Runden“ steht „Brett: Wackelwald · 74 Felder“ (seit CHAOS-196; vorher 43); Klick wechselt auf „🎲 Zufall“ und zurück; Startknopf zeigt „10 Runden · Wackelwald“ bzw. „· Zufallsbrett“ | | |
 | BA2 | iPhone und iPad in der Lobby | Kopfzeile zeigt das gewählte Brett und folgt jeder Änderung am Host; auf dem iPad passt die Kopfzeile in jede Zone | | Foto |
 | BA3 | Mac-App: Lobby, Taste B bzw. Klick auf den Brett-Knopf rechts neben „Chaos Party“ | Wechselt Wackelwald ↔ Zufall; Lobby wird nicht höher, nichts überlappt | | Foto |
 | BA4 | Apple TV: Fokus mit der Fernbedienung auf den Brett-Knopf (von den Einstellungen nach oben), drücken | Fokusrahmen sichtbar, Wechsel wie am Mac; danach erreicht man Runden, Schalter und Start weiterhin | | Foto |
@@ -741,3 +741,17 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. Großer Wackelwald (für CHAOS-196)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-196 · **Experiment:** [EXP-034](experiments.md)
+
+Automatisch geprüft: Brett-Validierung, Bot-Simulation (Trophäen, faire Wegwahl), Unit-Tests der Kulisse, E2E am PC-Host (Linux, SwiftShader), Kulisse als USDZ (`pnpm build:apple-assets`, `check_usdz.py`, `check_realitykit.swift`), Bot-Partie im tvOS-Simulator. **Nicht** automatisch prüfbar: ob das größere Brett vom Sofa aus lesbar ist, Bildrate und Ladezeit auf der echten Apple TV, wie sich die Wegwahl anfühlt.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| GW1 | PC am Fernseher: `pnpm play`, Partie mit 4 Spielern, 12 Runden | Überblick zu Rundenbeginn zeigt das ganze Brett, Felder und Wegweiser lesbar; danach nah an der Figur | | Foto |
+| GW2 | An jeder der vier Gabeln wählen (Klippenweg/Sumpf, Bachlauf/Lichtung, Uferweg/Baumkronenweg, Pilzpfad/Wackelbrücke) | Beide Wege samt Wegweiser im Bild, Controller-Knöpfe zeigen die Namen | | Foto |
+| GW3 | Apple TV (TestFlight): GW1 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps, Ladezeit der Kulisse im Log notieren | | Log |
+| GW4 | Mac-App: GW1–GW2 | Wie auf der Apple TV | | |
+| GW5 | Ruben: Urteil | Brett groß genug? Wege abwechslungsreich? Lichtung als Abkürzung reizvoll, Baumkronenweg riskant genug? 10 oder 12 Runden? | | Kommentar an CHAOS-196 |

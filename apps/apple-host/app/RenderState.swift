@@ -40,7 +40,7 @@ struct RenderState: Decodable, Equatable {
         var id: String
         /// „Wackelwald“, „Zufall“.
         var name: String
-        /// Zweite Zeile: „43 Felder“, „Überraschung!“.
+        /// Zweite Zeile: „74 Felder“, „Überraschung!“.
         var detail: String
         var selected: Bool
         var random: Bool

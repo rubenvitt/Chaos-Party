@@ -2569,3 +2569,87 @@ Feinabstimmung innerhalb von C:
 **Entscheidung:** **C behalten.** B scheitert an Gabel und Klau, A erfüllt Rubens Wunsch nicht und taugt nicht für größere Bretter. Die Zahlen sind ein erster Wurf aus Screenshots, kein Spieltest.
 
 **Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.
+
+## EXP-034: Großer Wackelwald – 74 Felder, vier Gabeln (2026-11-20, CHAOS-196)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein größeres Brett mit mehr Wegen macht die Wegwahl interessanter und das Brett abwechslungsreicher, ohne dass Trophäen außer Reichweite geraten. Ruben (2026-11-19): „auch das wackelwald brett muss größer werden“. Die dynamische Kamera (CHAOS-194, EXP-033) hält das größere Brett lesbar.
+
+**Varianten:**
+- **A (bisher, `wackelwaldM2.ts`):** 43 Felder auf ≈ 32 × 18, zwei Gabeln (Klippenweg/Sumpf, Pilzpfad/Wackelbrücke), Runde 32–36 Felder, sechs Trophäen-Kandidaten, sechs Item-Felder. Bleibt für EXP-001 … EXP-022 erhalten (`rules/experiments.ts`, `rules/experimentsM4.ts`), damit deren Tabellen wiederholbar bleiben.
+- **B1 (erster Entwurf):** 74 Felder auf ≈ 41 × 26, vier Gabeln: A Klippenweg 6 / Sumpfabkürzung 4, D Bachlauf oben herum / Lichtung 11 quer durch die Mitte, B (oben) Uferweg 11 / Baumkronenweg 8, C Pilzpfad 6 / Wackelbrücke 4; Runde 37–47 Felder. Acht Trophäen-Kandidaten, vorwiegend auf kurzen Zweigen wie in A.
+- **B2:** wie B1, zusätzlich Trophäen-Kandidaten auf Pilzpfad, Uferweg und oben (s22), Lichtung beginnt mit Minus.
+- **B3 (gewählt):** wie B2 ohne s22, Lichtung wieder mit Plus; dafür drei Kandidaten auf gemeinsamen Stücken (s05 nach dem Start, s73 hinter Lichtung und Bachlauf, s42 wie bisher) und ein Ereignis statt Minus am Ende der Sumpfabkürzung. Zwölf Kandidaten, zehn Item-Felder, jeder Zweig hat einen Kandidaten.
+
+**Objektive Messgrößen:** Bot-Partien mit den Standardregeln und echter Minispiel-Rotation (`packages/game-core/src/rules/experimentsBoard.ts`, Seeds 1–200, 2–4 Spieler, 5/10/12/15/20 Runden): Trophäen je Partie, Anteil Spieler und Partien ohne Trophäe, gelaufene Runden ums Brett. **Fairness der Wegwahl:** Bots mit fester Wegwahl (`BotPolicy.routes`: an jeder Gabel der kürzeste bzw. längste Weg zurück zum Start) spielen gegeneinander, die Hälfte „immer kurz“, die Hälfte „immer lang“, mit getauschten Rollen gegen den Vorteil der Zugreihenfolge. Fair heißt: Siegquote „kurz“ nahe 50 %. Dazu die Wahl je Gabel und die gekauften Trophäen je Feld mit dem Experiment-Verhalten (75 % Richtung Trophäe).
+
+**Testumgebung:** MacBook (Apple Silicon), Node, Vitest; `EXPERIMENTS=brett pnpm exec vitest run packages/game-core/src/rules/experimentsBoard.test.ts --silent=false` (≈ 4 s). Branch `claude/chaos-196-wackelwald-gross`.
+
+**Ergebnisse (B3, alt zum Vergleich; 12 und 15 Runden liefert der Lauf zusätzlich):**
+
+Rundenlänge alt: 32–36 Felder (4 Wegkombinationen); neu: 37–47 Felder (12 Wegkombinationen)
+
+**EXP-034 Brettgröße (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
+
+| Brett | Runden | Sp. | Partie min | Felder/Sp. | Runden ums Brett | Trophäen | Trophäen Sieger | ohne Trophäe | Partie ohne Trophäe | Münzen entscheiden |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Wackelwald alt (43 Felder) | 5 | 2 | 5,8 | 20 | 0,58 | 3,04 | 1,95 | 11 % | 1 % | 39 % |
+| Wackelwald alt (43 Felder) | 5 | 3 | 6,6 | 20 | 0,58 | 3,91 | 1,88 | 12 % | 1 % | 46 % |
+| Wackelwald alt (43 Felder) | 5 | 4 | 7,3 | 19 | 0,57 | 4,18 | 1,71 | 20 % | 0 % | 54 % |
+| Wackelwald alt (43 Felder) | 10 | 2 | 11,1 | 40 | 1,16 | 6,55 | 3,94 | 1 % | 0 % | 23 % |
+| Wackelwald alt (43 Felder) | 10 | 3 | 12,6 | 39 | 1,16 | 8,16 | 3,64 | 1 % | 0 % | 34 % |
+| Wackelwald alt (43 Felder) | 10 | 4 | 14,0 | 39 | 1,13 | 8,68 | 3,15 | 3 % | 0 % | 44 % |
+| Wackelwald alt (43 Felder) | 20 | 2 | 21,5 | 78 | 2,29 | 14,98 | 8,39 | 0 % | 0 % | 21 % |
+| Wackelwald alt (43 Felder) | 20 | 3 | 24,6 | 78 | 2,29 | 19,09 | 7,57 | 0 % | 0 % | 26 % |
+| Wackelwald alt (43 Felder) | 20 | 4 | 27,5 | 77 | 2,26 | 21,31 | 6,73 | 0 % | 0 % | 31 % |
+| Wackelwald neu (74 Felder) | 5 | 2 | 5,8 | 20 | 0,47 | 2,04 | 1,42 | 31 % | 14 % | 35 % |
+| Wackelwald neu (74 Felder) | 5 | 3 | 6,6 | 20 | 0,46 | 2,59 | 1,39 | 34 % | 9 % | 49 % |
+| Wackelwald neu (74 Felder) | 5 | 4 | 7,4 | 19 | 0,46 | 2,93 | 1,34 | 39 % | 6 % | 60 % |
+| Wackelwald neu (74 Felder) | 10 | 2 | 11,1 | 39 | 0,93 | 6,74 | 3,88 | 1 % | 0 % | 31 % |
+| Wackelwald neu (74 Felder) | 10 | 3 | 12,7 | 39 | 0,93 | 8,93 | 3,73 | 1 % | 0 % | 41 % |
+| Wackelwald neu (74 Felder) | 10 | 4 | 14,2 | 38 | 0,91 | 9,74 | 3,37 | 1 % | 0 % | 41 % |
+| Wackelwald neu (74 Felder) | 20 | 2 | 21,7 | 78 | 1,87 | 15,77 | 8,46 | 0 % | 0 % | 32 % |
+| Wackelwald neu (74 Felder) | 20 | 3 | 24,8 | 77 | 1,84 | 20,16 | 7,63 | 0 % | 0 % | 37 % |
+| Wackelwald neu (74 Felder) | 20 | 4 | 27,7 | 77 | 1,82 | 21,77 | 6,50 | 0 % | 0 % | 35 % |
+
+**EXP-034 Wegwahl: immer kurz gegen immer lang (Rollen getauscht, Seeds 1–200 je Zeile × 2)**
+
+| Brett | Runden | Sp. | Sieg kurz (fair ≈ 50 %) | Trophäen kurz / lang | Münzen kurz / lang |
+| --- | --- | --- | --- | --- | --- |
+| Wackelwald alt (43 Felder) | 5 | 2 | 45 % | 1,45 / 1,46 | 28,5 / 33,2 |
+| Wackelwald alt (43 Felder) | 5 | 4 | 50 % | 1,06 / 0,97 | 20,7 / 25,7 |
+| Wackelwald alt (43 Felder) | 10 | 2 | 69 % | 3,42 / 2,58 | 40,4 / 60,8 |
+| Wackelwald alt (43 Felder) | 10 | 4 | 66 % | 2,28 / 1,72 | 30,2 / 43,9 |
+| Wackelwald alt (43 Felder) | 20 | 2 | 75 % | 7,76 / 6,13 | 57,4 / 96,6 |
+| Wackelwald alt (43 Felder) | 20 | 4 | 64 % | 5,30 / 4,53 | 39,3 / 60,6 |
+| Wackelwald neu (74 Felder) | 5 | 2 | 39 % | 0,81 / 0,92 | 39,5 / 42,2 |
+| Wackelwald neu (74 Felder) | 5 | 4 | 41 % | 0,58 / 0,61 | 29,2 / 32,3 |
+| Wackelwald neu (74 Felder) | 10 | 2 | 47 % | 3,26 / 3,21 | 44,3 / 52,6 |
+| Wackelwald neu (74 Felder) | 10 | 4 | 47 % | 2,16 / 2,09 | 32,4 / 40,5 |
+| Wackelwald neu (74 Felder) | 20 | 2 | 47 % | 7,31 / 7,24 | 69,0 / 80,7 |
+| Wackelwald neu (74 Felder) | 20 | 4 | 47 % | 4,85 / 4,82 | 48,5 / 59,6 |
+
+**EXP-034 Wegwahl und Trophäenfelder (10 Runden, 2–4 Sp., Seeds 1–200 je Zeile)**
+
+| Gabel / Feld | Anteil |
+| --- | --- |
+| Gabel s07 | Klippenweg 28 % · Sumpfabkürzung 72 % |
+| Gabel s20 | Bachlauf 65 % · Lichtung 35 % |
+| Gabel s25 | Uferweg 34 % · Baumkronenweg 66 % |
+| Gabel s29 | Pilzpfad 26 % · Wackelbrücke 74 % |
+| Trophäen gekauft je Feld | s05 7 % · s12 5 % · s16 7 % · s49 7 % · s24 12 % · s57 4 % · s62 4 % · s67 9 % · s73 17 % · s33 5 % · s36 13 % · s42 9 % |
+
+- Fairness je Entwurf (10 Runden, 2 / 4 Spieler, Siegquote „immer kurz“): A 69 / 66 %, B1 74 / 70 %, B2 30 / 35 %, B2 ohne s22 37 / 43 %, B3 **47 / 47 %** (20 Runden ebenfalls 47 / 47 %). Schon das alte Brett bevorzugte kurze Wege: Die Trophäen-Kandidaten lagen dort, und auf der kürzeren Runde kommt man öfter an ihnen vorbei. Münzen allein gleichen das nicht aus, sie zählen erst bei gleich vielen Trophäen.
+- Wahl je Gabel mit Experiment-Verhalten: Kurze Wege werden häufiger genommen (Sumpf 72 %, Brücke 74 %, Baumkronen 66 %), weil Bots Richtung Trophäe laufen und der kurze Weg meist näher dran ist. Die Lichtung nehmen 35 %. Gekaufte Trophäen verteilen sich auf alle zwölf Kandidaten (4–17 %).
+- Trophäen bei 10 Runden wie auf dem alten Brett (6,7–9,7 statt 6,6–8,7 je Partie), kaum jemand ohne Trophäe (1 %). Nach 10 Runden ist man aber erst 0,93-mal ums Brett gelaufen, nach 12 Runden 1,1-mal.
+- Kurze Partien (5 Runden) leiden: 31–39 % der Spieler und 6–14 % der Partien ohne Trophäe (alt 11–20 % bzw. 0–1 %).
+- Bild (Playwright, SwiftShader, Testmodus): Der Überblick zu Rundenbeginn ist 1,5-mal so weit weg wie die frühere Vollansicht, Felder und Wegweiser bleiben lesbar; nah an der Figur unverändert 17.
+
+**Kulisse (`apps/host/src/board/wackelwaldScenery.ts`):** Bach zwischen Uferweg und Baumkronenweg (Wasserband, Ufersteine), Teich im Wald unten zwischen Start-Reihe, Sumpf und Lichtung, Lichtung mit Hexenring, Hängebrücken-Bretter am Baumkronenweg wie an der Wackelbrücke. Bäume stehen nicht mehr in einer festen Liste, sondern locker im Inneren (Raster mit Zufall, Seed 62), mit Abstand zu Feldern, Wegen, Teich, Bach und Lichtung und nie knapp vor einem Feld (die Kamera schaut von vorn). Inselrand, Randbäume, Blumen und Laternen wachsen mit dem Brett. Grashalme bleiben bei 64 000 (Apple-TV-Budget, EXP-020), stehen also dünner.
+
+**Hosts:** PC-Host im Playwright-Lauf (alle 173 E2E-Tests grün im Playwright-Docker-Image, 14 Referenzbilder neu: Brett, Lobby mit „74 Felder“, Siegerbilder des Gesamtablaufs mit anderem Partieverlauf). Apple-Host: `pnpm build:apple-assets` grün (`check_usdz.py`, `check_realitykit.swift`: 74 von 74 Feld-Ankern), `brett.usdz` 32,5 statt 25,6 MB, Instanzen unverändert 64 338. tvOS-Simulator (Apple TV 4K, 3. Generation, eigenes Gerät), 4 Bots mit `--bunt`, 3 Runden: „Brett wackelwald geladen: 74 Felder … in 1946 ms“, drei Minispiel-Ergebnisse angenommen, Finale, keine `FEHLER`; Phase `board` im Simulator Median 56,6 fps (Simulator, kein Gerätewert). Die Mac-App nutzt denselben Swift-Weg und wurde nicht eigens gestartet.
+
+Bilder: [`chaos196-ueberblick.jpg`](screenshots/chaos196-ueberblick.jpg) (PC, Überblick zu Rundenbeginn), [`chaos196-zonen.jpg`](screenshots/chaos196-zonen.jpg) (Lichtung, Baumkronenweg, Uferweg, Wackelbrücke aus der Nähe), [`chaos196-apple-tv-ueberblick.jpg`](screenshots/chaos196-apple-tv-ueberblick.jpg) (tvOS-Simulator).
+
+**Entscheidung:** **B3 behalten.** Empfohlene Rundenzahl im Brett-Register 12 statt 10 (`recommendedRounds`, nur Anzeige; der Server-Standard bleibt 10). Fünf-Runden-Partien bleiben möglich, haben aber oft Spieler ohne Trophäe; das ist bewusst so und eine Frage für den Playtest.
+
+**Offen für Playtest:** Ist die Lichtung als Abkürzung erkennbar und reizvoll? Fühlt sich der Baumkronenweg riskant an? Reicht der Überblick zu Rundenbeginn, um sich auf dem großen Brett zurechtzufinden? Sind 10 Runden zu kurz? Gerätecheckliste §39.
