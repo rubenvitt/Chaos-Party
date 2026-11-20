@@ -91,6 +91,7 @@ Quelle: `packages/assets/manifest.json`, geprüft von `pnpm check:assets` (Datei
 |---|---|---|---|
 | Figuren (GLB) | 4 (Schraubi, Kalle Kaktus, Wusel, Socke Sigi) | eigene Blender-Skripte (`packages/assets/blender`, CHAOS-58) | `LicenseRef-ChaosParty-Eigenwerk` |
 | Porträts (SVG) | 4 | eigener Generator | Eigenwerk |
+| Minispiel-Requisiten (GLB) | 27 in 10 Sets (CHAOS-88) | eigene Blender-Skripte (`packages/assets/blender/requisiten.py`) | `GPL-3.0-only` (Eigenwerk, keine Fremdquellen) |
 | Prozedurale Geometrie | 10 (Brett, Marker, Fallen, Sockel, Abzeichen, Arena, 4 Minispiele) | Code | Eigenwerk |
 | Klänge, Partikel | 3 | prozedural im Code (WebAudio, Babylon-Partikel) | Eigenwerk |
 | Schriften | 2: Nunito (Host), Inter (Controller) | npm `@fontsource-variable/*` | OFL-1.1 |

@@ -30,6 +30,8 @@ async function sandbox(): Promise<string> {
   await mkdir(join(dir, 'packages/assets/blender'), { recursive: true });
   await writeFile(join(dir, 'packages/assets/blender/build-all.sh'), '# Generator\n');
   await writeFile(join(dir, 'packages/assets/blender/portraits-all.sh'), '# Generator\n');
+  // Requisiten (CHAOS-88).
+  await writeFile(join(dir, 'packages/assets/blender/props-all.sh'), '# Generator\n');
   return dir;
 }
 
@@ -380,5 +382,114 @@ describe('Asset-Prüfung', () => {
     await writeFile(join(dir, 'packages/assets/manifest.json'), '{ kaputt');
     const result = await checkAssets({ repoRoot: dir });
     expect(result.errors[0]).toMatch(/^Manifest ist kein gültiges JSON/);
+  });
+});
+
+describe('Requisiten (CHAOS-88)', () => {
+  const toaster = 'packages/assets/models/props/toaster.glb';
+
+  it('Requisit aus dem Katalog ohne Manifest-Eintrag', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      assets: manifest.assets.filter((a) => a.id !== 'requisit-kaese'),
+    });
+    expect(result.errors).toContain(
+      'Requisit „kaese“: Manifest-Eintrag „requisit-kaese“ (Art prop) fehlt',
+    );
+    expect(result.errors).toContain(
+      'Datei ohne Manifest-Eintrag: packages/assets/models/props/kaese.glb',
+    );
+  });
+
+  it('Art prop außerhalb des Katalogs', async () => {
+    const manifest = await fileManifest();
+    const kaese = manifest.assets.find((a) => a.id === 'requisit-kaese');
+    if (!kaese) throw new Error('requisit-kaese fehlt im Manifest');
+    const result = await run({
+      ...manifest,
+      assets: [...manifest.assets, { ...kaese, id: 'requisit-extra' }],
+    });
+    expect(result.errors).toContain(
+      'Asset „requisit-extra“: Art prop, aber nicht im Requisiten-Katalog (props.ts)',
+    );
+  });
+
+  it('Budget je Requisit: Dreiecke, Materialien', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      budgets: {
+        ...manifest.budgets,
+        prop: { ...manifest.budgets.prop, maxTriangles: 2000, maxMaterials: 3 },
+      },
+    });
+    expect(result.errors).toContain('Asset „requisit-toaster“: 2740 Dreiecke, Budget 2000');
+    expect(result.errors).toContain('Asset „requisit-toaster“: 4 Materialien, Budget 3');
+  });
+
+  it('Budget je Minispiel: Summe der Requisiten (Bytes, Dreiecke, Anzahl)', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      budgets: {
+        ...manifest.budgets,
+        minigame: { maxBytes: 200 * 1024, maxTriangles: 9000, maxProps: 6 },
+      },
+    });
+    const errors = result.errors.join('\n');
+    expect(errors).toMatch(/Minispiel MG-101: Requisiten 281\.\d KiB > Budget 200\.0 KiB/);
+    expect(errors).toMatch(/Minispiel MG-011: Requisiten 11952 Dreiecke > Budget 9000/);
+    expect(errors).toMatch(/Minispiel MG-001: 7 Requisiten > Budget 6/);
+    expect(errors).not.toMatch(/MG-023/);
+  });
+
+  it('Höhe im Manifest muss zur Datei passen', async () => {
+    const manifest = await fileManifest();
+    const result = await run({
+      ...manifest,
+      assets: manifest.assets.map((a) => (a.id === 'requisit-toaster' ? { ...a, height: 1 } : a)),
+    });
+    expect(result.errors.join('\n')).toMatch(
+      /„requisit-toaster“: Höhe im Manifest 1, gemessen 0\.6\d\d/,
+    );
+  });
+
+  it('Requisit mit Animation, unbekanntem Material oder ohne Laufzeit-Material', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      const file = join(dir, toaster);
+      const bytes = new Uint8Array(await readFile(file));
+      await writeFile(
+        file,
+        patchGlb(bytes, (json) => {
+          const materials = json.materials as { name: string }[];
+          const accent = materials.find((m) => m.name === 'akzent');
+          if (accent) accent.name = 'gold';
+          json.animations = [{ name: 'wackeln', channels: [], samplers: [] }];
+        }),
+      );
+    });
+    const errors = result.errors.join('\n');
+    expect(errors).toMatch(/„requisit-toaster“: statisch erwartet, GLB hat 1 Animationen/);
+    expect(errors).toMatch(/„requisit-toaster“: Material „gold“ unbekannt/);
+    expect(errors).toMatch(
+      /„requisit-toaster“: Laufzeit-Material „akzent“ fehlt oder ist an keinem Mesh/,
+    );
+  });
+
+  it('Requisit nicht am Boden', async () => {
+    const result = await run(await fileManifest(), async (dir) => {
+      const file = join(dir, toaster);
+      const bytes = new Uint8Array(await readFile(file));
+      await writeFile(
+        file,
+        patchGlb(bytes, (json) => {
+          const nodes = json.nodes as { name: string; translation?: number[] }[];
+          const root = nodes.find((n) => n.name === 'toaster');
+          if (root) root.translation = [0, 0.2, 0];
+        }),
+      );
+    });
+    expect(result.errors.join('\n')).toMatch(/„requisit-toaster“: Boden nicht bei y = 0/);
   });
 });

@@ -162,11 +162,67 @@ Nacht, CHAOS-77). Ohne bekannte Runde (Vorschau, lokaler Minispiel-Ablauf)
 gilt die Brett-Stimmung (Goldene Stunde). Fest zum Ansehen: `?stimmung=<id>` (Morgen, Mittag,
 Wolken, Abend, Dämmerung, Nacht). Bilder: `docs/screenshots/chaos63-lichtverlauf.jpg`.
 
+## Requisiten der Minispiele (CHAOS-88)
+
+**Art-Kit statt Einzelstücke:** Requisiten entstehen aus parametrischen Grundformen in
+`packages/assets/blender/requisitkit.py` (auf `figurkit`): Obst & Nüsse (`obst`, `nuss`), Gefäße
+(`gefaess`, `drehkoerper`, `henkel`, `tuelle`), Möbel & Kästen (`kasten`, `brett`), Spielzeug
+(`kugel`, `wolke`, `fluegel`), Gartengeräte (`stab`, `ring`, `netz`). Die Requisiten selbst stehen
+in `requisiten.py`, je Familie ein **Set**; dazu Kulissen nach Ort (Garten, Küche), die die
+Arena-Vorlagen aus CHAOS-83 platzieren können. Erzeugen: `pnpm generate:props`
+(`blender/props-all.sh`, mit `--vorschau` auch den Kontaktbogen
+`docs/screenshots/chaos88-requisiten.jpg`).
+
+| Set | Familie | Requisiten | Pilot-Spiel |
+|---|---|---|---|
+| `fangen` | 1 Fangen & Sammeln | Eichel, faule Eichel, Kescher, Sammelkorb | MG-001 Nussregen-Netz |
+| `ausweichen` | 2 Ausweichen & Überleben | Rasensprenger, Schlauchtrommel | MG-011 Rasensprenger-Rodeo |
+| `rempeln` | 3 Rempeln & Runterschubsen | Eiswürfel, Limoglas, Zitronenscheibe, Strohhalm | MG-023 Eiswürfel-Sumo |
+| `timing` | 4 Timing & Rhythmus | Toaster, Toast | MG-033 Toaster-Timing |
+| `reflex` | 5 Reflex & Reaktion | Mausefalle, Käse | MG-045 Schnapp den Käse |
+| `zocken` | 11 Zocken & Push-your-luck | Bienenstock, Honigtopf, Biene | MG-101 Bienenstock-Honig |
+| `bluff` | 12 Bluff & geheime Wahl | Tür, Türschild | MG-111 Drei Türen |
+| `revier` | 13 Revier & Malen | Matscheimer, Regenwolke | MG-121 Matschmaler |
+| `kulisse-garten` | Ort | Zaunfeld, Blumentopf, Gießkanne | mehrere |
+| `kulisse-kueche` | Ort | Kochtopf, Milchkanne, Holzlöffel | MG-033, MG-045 |
+
+Die übrigen Familien bekommen ihr Set mit ihrer Familien-Welle (CHAOS-94 …); neue Grundformen
+gehören in `requisitkit.py`, nicht in ein einzelnes Requisit.
+
+**Vertrag** (`packages/assets/src/props.ts`, geprüft in `check:assets` und im Babylon-Ladetest):
+- Meter wie die Figuren, Y oben, vorn +Z; **Boden bei y = 0**, Grundfläche mittig über dem
+  Ursprung, Wurzelknoten mit dem Namen des Requisits; **statisch** (bewegliche Teile wie
+  Sprenger-Arm oder Fallenbügel bewegt das Spiel, sonst eigenes Requisit).
+- Spielzeug-groß übertrieben, damit es aus 3 m lesbar bleibt (Eichel 0,38 m, Toaster 0,63 m, Tür
+  2,3 m neben 1,5-m-Figuren). Silhouette eindeutig, auch einfarbig.
+- Farben als **Vertexfarben**, keine Texturen. Materialien nur `lack`, `matt`, `glas`, `metall`,
+  `leuchten` und die zwei Laufzeit-Materialien: `akzent` färbt das Spiel in die **Slot-Farbe**
+  (immer zusammen mit dem Slot-Symbol), `zustand` nach Spielzustand (Bräunung des Toasts,
+  Türfarbe). Beide sind im GLB weiß und stehen je Requisit in `PROP_RUNTIME`.
+- Eigene Flächenfarben meiden die Slot-Farbtöne (Natur-Palette in `requisitkit.P`).
+
+**Budget** (`manifest.json` → `budgets`):
+
+| Budget | Grenze | Ist (Pilot) |
+|---|---|---|
+| je Requisit (`prop`) | 128 KiB, 6 Meshes, 5 Materialien, 6 000 Dreiecke, keine Texturen | 3,7–111 KiB, 108–5 064 Dreiecke |
+| je Minispiel (`minigame`, Summe seiner Sets) | 512 KiB, 25 000 Dreiecke, 10 Requisiten | 46–282 KiB, 1 900–12 400 Dreiecke, 4–7 Requisiten |
+
+**Ladezeit:** Maß ist die Dateigröße (Download über LAN und glTF-Parsen wachsen mit ihr). 512 KiB
+sind weniger als eine Figur (bis 704 KiB) und im LAN unter 0,1 s. Der Ladetest
+(`packages/assets/src/propsLoad.test.ts`, NullEngine ohne Netz) misst je Pilot-Spiel 1–6 ms für
+das Parsen aller Requisiten und bricht über 1,5 s ab. Die Zuordnung Spiel → Sets steht in
+`MINIGAME_PROP_SETS`; neue Spiele tragen sich dort ein, bevor sie Requisiten laden.
+
+**Grenzen:** Die GLBs sind nicht byte-gleich reproduzierbar (Gleitkomma-Rauschen in den
+Normalen); `check:assets` prüft Maße, Budget und Materialien statt eines Byte-Vergleichs. Der
+native Apple-Host bekommt die Requisiten noch nicht als USDZ (Folgeaufgabe).
+
 ## Pipeline (hybrid)
 
 - **Prozedural** (Code, zur Laufzeit): Brett, Felder, Fallen, Wegweiser, Marker, Arena,
   Abzeichen, später Effekte und Klänge.
-- **Generiert** (eingecheckte Dateien): Figuren als GLB aus **Blender-Skripten**
+- **Generiert** (eingecheckte Dateien): Figuren und Minispiel-Requisiten (CHAOS-88) als GLB aus **Blender-Skripten**
   (`packages/assets/blender/`, bpy 5.3 als Python-Modul, ADR-013): weiche Körper aus
   Skin-Modifier + Subdivision, Vertexfarben, Sheen/Klarlack, Skelett und sieben Clips.
   Erzeugen: `packages/assets/blender/build-all.sh` (venv mit `requirements.txt`).
