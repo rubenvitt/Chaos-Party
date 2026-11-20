@@ -2,8 +2,9 @@
  * Höhepunkte für die Ergebnisanzeige von Kuckucks-Klatsche (rein, testbar). 0–4 Zeilen à
  * höchstens 64 Zeichen, mit Spielernamen.
  */
+import { fitLine, uniqueMax } from '@chaos-party/minigame-kit';
 import { MINIGAME_TEXT_LIMITS, type Slot } from '@chaos-party/minigame-sdk';
-import type { Clapper, KuckucksKlatscheLogic } from './logic.ts';
+import type { KuckucksKlatscheLogic } from './logic.ts';
 
 export function kuckucksKlatscheHighlights(
   logic: Pick<KuckucksKlatscheLogic, 'clappers' | 'thefts' | 'lastScorer'>,
@@ -41,7 +42,7 @@ export function kuckucksKlatscheHighlights(
   if (logic.lastScorer !== null && lines.length < MINIGAME_TEXT_LIMITS.highlights) {
     lines.push(`${name(logic.lastScorer)} klatscht den letzten Kuckuck.`);
   }
-  return lines.slice(0, MINIGAME_TEXT_LIMITS.highlights).map(fit);
+  return lines.slice(0, MINIGAME_TEXT_LIMITS.highlights).map((line) => fitLine(line));
 }
 
 function biggestTheft(
@@ -60,27 +61,4 @@ function biggestTheft(
     }
   }
   return tie ? null : best;
-}
-
-/** Die eine Spitzenreiterin nach `value`, bei Gleichstand keine. */
-function uniqueMax(
-  clappers: readonly Clapper[],
-  value: (clapper: Clapper) => number,
-): Clapper | null {
-  let best: Clapper | null = null;
-  let tie = false;
-  for (const clapper of clappers) {
-    if (!best || value(clapper) > value(best)) {
-      best = clapper;
-      tie = false;
-    } else if (value(clapper) === value(best)) {
-      tie = true;
-    }
-  }
-  return tie ? null : best;
-}
-
-function fit(line: string): string {
-  const max = MINIGAME_TEXT_LIMITS.highlight;
-  return line.length <= max ? line : `${line.slice(0, max - 1)}…`;
 }
