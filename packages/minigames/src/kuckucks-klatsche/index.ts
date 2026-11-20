@@ -185,7 +185,7 @@ export class KuckucksKlatsche implements Minigame {
     }
     // Aufbau in Schritten, `pace` verteilt ihn auf mehrere Bilder (CHAOS-141).
     await ctx.pace();
-    this.buildHouse(scene, width);
+    await this.buildHouse(scene, width);
     await ctx.pace();
     this.buildStage(scene, width);
     for (const [index, player] of ctx.players.entries()) {
@@ -539,7 +539,8 @@ export class KuckucksKlatsche implements Minigame {
     return mesh;
   }
 
-  private buildHouse(scene: Scene, width: number): void {
+  /** In Schritten: ohne JIT kostete das Haus am Stück gut 10 ms (CHAOS-209). */
+  private async buildHouse(scene: Scene, width: number): Promise<void> {
     const house = this.track(markVisual(new TransformNode('kuckuck-haus', scene), 'kuckucksuhr'));
     house.position.set(0, 0, HOUSE_Z);
     this.house = house;
@@ -617,6 +618,7 @@ export class KuckucksKlatsche implements Minigame {
       trim.rotation.z = plank.rotation.z;
     });
     // Giebeldreieck zwischen den Dachbrettern.
+    await this.pace();
     const triangle = this.mesh(
       prismMesh(
         scene,
@@ -633,6 +635,7 @@ export class KuckucksKlatsche implements Minigame {
     // Eigene Geometrie: beide Seiten zeichnen, egal wie die Dreiecke umlaufen.
     if (triangle.material) triangle.material.backFaceCulling = false;
     // Zifferblatt.
+    await this.pace();
     const faceY = bodyH + 0.2 + gableH / 2;
     const frontZ = -HOUSE_DEPTH * 0.4;
     const face = this.mesh(
@@ -647,6 +650,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     face.rotation.x = Math.PI / 2;
     face.position.set(0, faceY, frontZ - 0.04);
+    await this.pace();
     const rim = this.mesh(
       CreateTorus(
         'kuckuck-zifferblatt-rand',
@@ -658,6 +662,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     rim.rotation.x = Math.PI / 2;
     rim.position.set(0, faceY, frontZ - 0.08);
+    await this.pace();
     for (let hour = 0; hour < 12; hour++) {
       const a = (hour / 12) * Math.PI * 2;
       const mark = this.mesh(
@@ -672,6 +677,7 @@ export class KuckucksKlatsche implements Minigame {
       mark.position.set(Math.sin(a) * 0.66, faceY + Math.cos(a) * 0.66, frontZ - 0.1);
       mark.rotation.z = -a;
     }
+    await this.pace();
     const hand = (name: string, length: number, thickness: number, z: number) => {
       const pivot = this.track(markVisual(new TransformNode(name, scene), 'zeiger', name));
       pivot.parent = house;
@@ -695,6 +701,7 @@ export class KuckucksKlatsche implements Minigame {
     );
     hub.position.set(0, faceY, frontZ - 0.18);
     // Tannenzapfen-Gewichte an Ketten links und rechts (Deko).
+    await this.pace();
     [-1, 1].forEach((side) => {
       const x = side * (width / 2 + 0.55);
       const chain = this.mesh(
@@ -762,7 +769,7 @@ export class KuckucksKlatsche implements Minigame {
     const frame = this.mesh(
       CreateTorus(
         name('rahmen'),
-        { diameter: DOOR_RADIUS * 2 + 0.12, thickness: 0.2, tessellation: 36 },
+        { diameter: DOOR_RADIUS * 2 + 0.12, thickness: 0.2, tessellation: 32 },
         scene,
       ),
       player.color,
@@ -775,7 +782,7 @@ export class KuckucksKlatsche implements Minigame {
     const glow = this.mesh(
       CreateTorus(
         name('leuchten'),
-        { diameter: DOOR_RADIUS * 2 + 0.55, thickness: 0.13, tessellation: 36 },
+        { diameter: DOOR_RADIUS * 2 + 0.55, thickness: 0.13, tessellation: 32 },
         scene,
       ),
       player.color,
@@ -849,7 +856,7 @@ export class KuckucksKlatsche implements Minigame {
       await this.pace();
       occupants.set(
         kind,
-        markVisual(this.buildFinte(scene, perch, name(kind), kind), `finte-${kind}`, slot),
+        markVisual(await this.buildFinte(scene, perch, name(kind), kind), `finte-${kind}`, slot),
       );
     }
     for (const node of occupants.values()) node.setEnabled(false);
@@ -883,6 +890,7 @@ export class KuckucksKlatsche implements Minigame {
       { finish: 'stoff' },
     );
     body.scaling.set(1, 0.92, 1.15);
+    await this.pace();
     const belly = this.mesh(
       CreateSphere(`${name}-bauch`, { diameter: 0.4, segments: 10 }, scene),
       PALETTE.belly,
@@ -890,6 +898,7 @@ export class KuckucksKlatsche implements Minigame {
       { finish: 'stoff' },
     );
     belly.position.set(0, -0.05, -0.17);
+    await this.pace();
     const head = this.mesh(
       CreateSphere(`${name}-kopf`, { diameter: 0.4, segments: 12 }, scene),
       PALETTE.bird,
@@ -908,8 +917,8 @@ export class KuckucksKlatsche implements Minigame {
     );
     beak.rotation.x = -Math.PI / 2;
     beak.position.set(0, 0.3, -0.38);
-    await this.pace();
-    [-1, 1].forEach((side) => {
+    for (const side of [-1, 1]) {
+      await this.pace();
       const eye = this.mesh(
         CreateSphere(`${name}-auge-${String(side)}`, { diameter: 0.13, segments: 8 }, scene),
         PALETTE.white,
@@ -931,7 +940,7 @@ export class KuckucksKlatsche implements Minigame {
       );
       wing.scaling.set(0.35, 0.8, 1.1);
       wing.position.set(side * 0.27, 0.02, 0.02);
-    });
+    }
     const tail = this.mesh(
       CreateBox(`${name}-schwanz`, { width: 0.2, height: 0.06, depth: 0.32 }, scene),
       PALETTE.birdDark,
@@ -942,12 +951,12 @@ export class KuckucksKlatsche implements Minigame {
     return root;
   }
 
-  private buildFinte(
+  private async buildFinte(
     scene: Scene,
     parent: TransformNode,
     name: string,
     kind: FinteKind,
-  ): TransformNode {
+  ): Promise<TransformNode> {
     const root = this.track(new TransformNode(name, scene));
     root.parent = parent;
     if (kind === 'ente') {
@@ -958,6 +967,7 @@ export class KuckucksKlatsche implements Minigame {
         { finish: 'glanz' },
       );
       body.scaling.set(1, 0.78, 1.2);
+      await this.pace();
       const head = this.mesh(
         CreateSphere(`${name}-kopf`, { diameter: 0.38, segments: 12 }, scene),
         PALETTE.duck,
@@ -1020,6 +1030,7 @@ export class KuckucksKlatsche implements Minigame {
       );
       center.position.set(0, 0.3, -0.05);
       for (let index = 0; index < 6; index++) {
+        if (index % 3 === 0) await this.pace();
         const a = (index / 6) * Math.PI * 2;
         const petal = this.mesh(
           CreateSphere(`${name}-blatt-${String(index)}`, { diameter: 0.2, segments: 8 }, scene),

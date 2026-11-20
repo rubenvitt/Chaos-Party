@@ -74,7 +74,13 @@ class PumpParade implements Minigame {
       const character = ctx.characters.create(scene, player);
       character.root.position.set(x, 0, 0);
       character.play('idle');
-      const balloon = CreateSphere(`pump-ballon-${player.slot}`, { diameter: 1 }, scene);
+      // Ohne JIT kostet eine Kugel mit Standard-Segmenten gut 10 ms: eigener Schritt, weniger Segmente (CHAOS-209).
+      await ctx.pace();
+      const balloon = CreateSphere(
+        `pump-ballon-${player.slot}`,
+        { diameter: 1, segments: 20 },
+        scene,
+      );
       balloon.position.set(x, 2.6, 0);
       const material =
         ctx.look?.material(player.color, { finish: 'glanz' }) ??

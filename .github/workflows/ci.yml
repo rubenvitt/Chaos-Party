@@ -304,6 +304,14 @@ jobs:
           JSC_useJIT: 'false'
         run: apps/apple-host/harness/run.sh full
 
+      # Gedrosselter Takt (CHAOS-205): mit 10 Ticks je Sekunde muss jede Minispiel-Bühne vor dem
+      # Ende des Countdowns fertig sein (Aufbau-Budget wächst mit der Tick-Dauer).
+      - name: Apple-Host – ganze Bot-Partie mit 10 Hz in JavaScriptCore (Swift-Harness)
+        if: hashFiles('apps/apple-host/project.yml') != ''
+        env:
+          JSC_useJIT: 'false'
+        run: apps/apple-host/harness/run.sh full hz=10
+
       - name: Apple-Host bauen (macOS, tvOS, ohne Signatur)
         if: hashFiles('apps/apple-host/project.yml') != ''
         working-directory: apps/apple-host

@@ -217,7 +217,7 @@ export class KruemelKehraus implements Minigame {
     this.area = dropAreaFor(count);
     const materials = boardMaterials(scene, this.disposables);
     await ctx.pace();
-    this.buildBoard(count, materials);
+    await this.buildBoard(count, materials);
 
     // Startkrümel liegen schon auf dem Blech (nicht direkt vor einer Figur), alle anderen
     // warten geparkt. Körper entstehen gleich am richtigen Ort: In `prepare` versetzte Körper
@@ -284,8 +284,13 @@ export class KruemelKehraus implements Minigame {
   }
 
   /** Boden, Rand, Schrägen und Stürze (sichtbar und zugleich statische Körper). */
-  private buildBoard(players: number, materials: ReturnType<typeof boardMaterials>): void {
-    const scene = this.requireCtx().scene;
+  /** In Schritten (je Ecke ein Mausloch): ohne JIT kostete das Blech am Stück über 6 ms (CHAOS-209). */
+  private async buildBoard(
+    players: number,
+    materials: ReturnType<typeof boardMaterials>,
+  ): Promise<void> {
+    const ctx = this.requireCtx();
+    const scene = ctx.scene;
     const { halfX, halfZ, cut, wallHeight, wallThickness: wt } = TUNING;
     const floor = plank(
       scene,
@@ -397,6 +402,7 @@ export class KruemelKehraus implements Minigame {
           wallHeight,
         );
       }
+      await ctx.pace();
       const material = buildMouseHole(
         scene,
         backHoleCorner,
@@ -417,6 +423,7 @@ export class KruemelKehraus implements Minigame {
     } else {
       wall(`kruemel-rand-z1`, { x: 0, z: halfZ + wt / 2 }, 0, longLength, 0, wallHeight);
     }
+    await ctx.pace();
     for (const sx of [-1, 1] as const)
       wall(
         `kruemel-rand-x${sx}`,
@@ -428,6 +435,7 @@ export class KruemelKehraus implements Minigame {
       );
     const length = cut * Math.SQRT2 + 0.35;
     for (const [cornerIndex, { corner, open }] of allCorners(players).entries()) {
+      await ctx.pace();
       const tangent = { x: -corner.normal.z, z: corner.normal.x };
       const holeIndex = this.corners.findIndex(
         (hole) => hole.sx === corner.sx && hole.sz === corner.sz,
