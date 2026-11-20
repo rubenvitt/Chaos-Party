@@ -82,6 +82,13 @@ function assertConfig(config: GameConfig): void {
       if (!spaces.has(next)) throw new RangeError(`Feld ${space.id}: Nachfolger ${next} fehlt`);
     }
   }
+  for (const rotation of board.rotations ?? []) {
+    const next = spaces.get(rotation.space)?.next;
+    if (!next) throw new RangeError(`Drehung an unbekanntem Feld ${rotation.space}`);
+    if (rotation.exits.length < 1 || rotation.exits.some((id) => !next.includes(id))) {
+      throw new RangeError(`Drehung an ${rotation.space}: Ausgänge passen nicht zu next`);
+    }
+  }
   if (!Number.isInteger(rules.trophy.activeCount) || rules.trophy.activeCount < 1) {
     throw new RangeError('trophy.activeCount muss eine ganze Zahl ≥ 1 sein');
   }

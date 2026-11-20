@@ -7,6 +7,7 @@
  * (Dauer, Abstände, Sabotage-Häufigkeit) für den Vergleich von Regelvarianten.
  */
 import { rankByScore } from '@chaos-party/minigame-sdk';
+import { activeNext } from '../board/rotation.ts';
 import { createRng, pickOne, type Rng } from '../rng.ts';
 import type {
   BoardDefinition,
@@ -173,6 +174,12 @@ export interface SimulationResult {
   /** Trophäen Platz 1 minus Platz 2 (`null` bei einem Spieler). */
   readonly trophyGap: number | null;
   readonly trophiesBought: number;
+  /** Gekaufte Trophäen je Feld (CHAOS-199: Sind alle Trophäen-Kandidaten erreichbar?). */
+  readonly trophySpacesBought: Readonly<Record<string, number>>;
+  /** Gewählte Wege je Ziel-Feld an Gabeln (`path-chosen`, auch automatisch gewählte). */
+  readonly pathsChosen: Readonly<Record<string, number>>;
+  /** Durchfahrten drehender Felder je Ausgang (Karussell, CHAOS-199). */
+  readonly rotationExits: Readonly<Record<string, number>>;
   readonly coinSteals: number;
   readonly coinsStolen: number;
   readonly trapsPlaced: number;
@@ -218,9 +225,18 @@ function inRange(rng: Rng, [min, max]: MsRange): number {
   return rng.int(lo, hi);
 }
 
-/** Schritte von `from` bis zum nächsten der `targets` entlang der Laufrichtung (BFS). */
-function distanceTo(board: BoardDefinition, from: string, targets: readonly string[]): number {
-  const next = new Map(board.spaces.map((space) => [space.id, space.next]));
+/**
+ * Schritte von `from` bis zum nächsten der `targets` entlang der Laufrichtung (BFS), mit der
+ * Stellung der drehenden Felder in Runde `round` (CHAOS-199): Bots sehen das Karussell wie die
+ * Spieler am Tisch.
+ */
+function distanceTo(
+  board: BoardDefinition,
+  from: string,
+  targets: readonly string[],
+  round: number,
+): number {
+  const next = new Map(board.spaces.map((space) => [space.id, activeNext(board, space.id, round)]));
   const seen = new Set([from]);
   let frontier = [from];
   for (let distance = 0; frontier.length > 0; distance++) {
@@ -253,11 +269,11 @@ function choosePath(
   if (policy.avoidTrapChance > 0 && rng.next() < policy.avoidTrapChance) {
     const slot = state.prompt?.slot;
     const traps = state.traps.filter((trap) => trap.owner !== slot).map((trap) => trap.spaceId);
-    const safe = ids.filter((id) => distanceTo(board, id, traps) >= TRAP_LOOKAHEAD);
+    const safe = ids.filter((id) => distanceTo(board, id, traps, state.round) >= TRAP_LOOKAHEAD);
     if (traps.length > 0 && safe.length > 0) ids = safe;
   }
   if (policy.trophyPathChance > 0 && rng.next() < policy.trophyPathChance) {
-    const distances = ids.map((id) => distanceTo(board, id, state.trophySpaces));
+    const distances = ids.map((id) => distanceTo(board, id, state.trophySpaces, state.round));
     const best = Math.min(...distances);
     const nearest = ids.filter((_, index) => distances[index] === best);
     if (best !== Infinity && nearest.length > 0) return pickOne(rng, nearest);
@@ -323,6 +339,14 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
   let round = 0;
   let countingMoves = false;
   let trophiesBought = 0;
+  const trophySpacesBought: Record<string, number> = {};
+  const pathsChosen: Record<string, number> = {};
+  const rotationExits: Record<string, number> = {};
+  const rotating = new Map((options.board.rotations ?? []).map((r) => [r.space, r.exits]));
+  const positions = new Map<Slot, string>(slots.map((slot) => [slot, options.board.start]));
+  const bump = (record: Record<string, number>, key: string): void => {
+    record[key] = (record[key] ?? 0) + 1;
+  };
   let coinSteals = 0;
   let coinsStolen = 0;
   let trapsPlaced = 0;
@@ -359,8 +383,19 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       case 'dice-rolled':
         countingMoves = true;
         break;
-      case 'moved':
+      case 'moved': {
         if (countingMoves) turnSpaces += event.path.length;
+        let from = positions.get(event.slot);
+        for (const to of event.path) {
+          // Nur echte Ausfahrten, kein Platztausch vom Karussell weg.
+          if (from !== undefined && rotating.get(from)?.includes(to)) bump(rotationExits, to);
+          from = to;
+        }
+        if (from !== undefined) positions.set(event.slot, from);
+        break;
+      }
+      case 'path-chosen':
+        bump(pathsChosen, event.spaceId);
         break;
       case 'board-event':
         countingMoves = false;
@@ -373,6 +408,7 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
         break;
       case 'trophy-bought':
         trophiesBought += 1;
+        bump(trophySpacesBought, event.spaceId);
         break;
       case 'item-gained':
         itemsGained[event.item] += 1;
@@ -553,6 +589,9 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
     minigameSharedWins,
     trophyGap: first && second ? first.trophies - second.trophies : null,
     trophiesBought,
+    trophySpacesBought,
+    pathsChosen,
+    rotationExits,
     coinSteals,
     coinsStolen,
     trapsPlaced,

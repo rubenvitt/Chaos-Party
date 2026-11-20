@@ -5,6 +5,7 @@
  * Regelmodule arbeiten darauf und sammeln Ereignisse; am Ende wird daraus wieder ein
  * `GameState`. Der Eingangszustand wird nie verändert.
  */
+import { activeNext } from '../board/rotation.ts';
 import { createRng, type Rng } from '../rng.ts';
 import type {
   BoardDefinition,
@@ -203,6 +204,14 @@ export function spaceOf(ctx: Ctx, id: string): BoardSpace {
 }
 
 /** Automatische Phase setzen: läuft bis `t + ms`, kein Prompt offen. */
+/**
+ * Offene Nachfolger eines Felds in der laufenden Runde: bei einem drehenden Feld (Karussell,
+ * CHAOS-199) nur der aktuelle Ausgang, sonst `next`.
+ */
+export function nextOf(ctx: Ctx, id: string): readonly string[] {
+  return activeNext(ctx.d.internal.board, id, ctx.d.round);
+}
+
 export function schedule(ctx: Ctx, phase: GamePhase, t: number, ms: number): void {
   ctx.d.phase = phase;
   ctx.d.prompt = null;

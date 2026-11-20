@@ -39,12 +39,27 @@ export interface BoardSpace {
   readonly label?: string;
 }
 
+/**
+ * Drehendes Feld (CHAOS-199, ADR-020), z. B. das Karussell des Rummelplatzes: Sein Ausgang
+ * wechselt jede Runde reihum, ohne Zufall. In Runde `r` gilt `exits[(r - 1) % exits.length]`;
+ * wer das Feld betritt oder verlässt, nimmt genau diesen Ausgang (keine Wegwahl). `next` des
+ * Felds nennt alle Ausgänge (statische Topologie für Prüfung, Wege und Deko).
+ */
+export interface BoardRotation {
+  /** Feld, dessen Ausgang sich dreht. */
+  readonly space: string;
+  /** Ausgänge in Drehreihenfolge, als Menge gleich `next` des Felds, mindestens zwei. */
+  readonly exits: readonly string[];
+}
+
 export interface BoardDefinition {
   readonly id: string;
   readonly name: string;
   readonly spaces: readonly BoardSpace[];
   /** Startfeld aller Spieler. */
   readonly start: string;
+  /** Drehende Felder (CHAOS-199); fehlt = keine, alle Kanten sind fest. */
+  readonly rotations?: readonly BoardRotation[];
 }
 
 // ---------------------------------------------------------------------------
