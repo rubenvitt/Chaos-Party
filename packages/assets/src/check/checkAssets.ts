@@ -24,7 +24,11 @@
  * - Natur-Texturen (`textures/nature/`, CHAOS-62): quadratisch, Kantenlänge Zweierpotenz
  *   (Kacheln und Mipmaps auf der GPU);
  * - Porträts (CHAOS-61): je Figur `<id>.webp` und Akzent-Maske `<id>-akzent.webp` im Manifest,
- *   beide quadratisch, gleich groß, mindestens `PORTRAIT.minSize` und mit Alphakanal.
+ *   beide quadratisch, gleich groß, mindestens `PORTRAIT.minSize` und mit Alphakanal;
+ * - Requisiten (CHAOS-88, `props.ts`): Katalog = Manifest-Einträge der Art `prop`; je GLB statisch,
+ *   ohne Texturen, Boden bei y = 0, mittig, Höhe wie im Manifest, Budget `prop`, erlaubte
+ *   Materialien und die Laufzeit-Materialien aus `PROP_RUNTIME`; je Minispiel die Summe seiner
+ *   Requisiten im Budget `minigame` (Bytes = Ladezeit, Dreiecke, Anzahl).
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -49,6 +53,7 @@ import { checkBuildEntries } from '../builds.ts';
 import { GlbError, glbStats, type GlbStats } from './glb.ts';
 import { HdrError, hdrInfo } from './hdr.ts';
 import { WebpError, webpInfo, type WebpInfo } from './webp.ts';
+import { checkMinigameBudgets, checkProp, checkPropCatalog, type PropMeasure } from './props.ts';
 
 export interface CheckOptions {
   /** Wurzel des Repositorys (Manifest-Pfade sind relativ dazu). */
@@ -349,6 +354,7 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
   const ids = new Set<string>();
   const filePaths = new Set<string>();
   const webps = new Map<string, WebpInfo>();
+  const propMeasures = new Map<string, PropMeasure>();
   for (const entry of manifest.assets) {
     const label = `Asset „${entry.id}“`;
     if (ids.has(entry.id)) errors.push(`${label}: id doppelt`);
@@ -400,7 +406,7 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
           `${label}: ${entry.source === 'procedural' ? 'prozedural' : 'Paket'} – Pfad muss eine Code-Datei sein (${entry.path})`,
         );
       }
-      if (entry.kind === 'model') {
+      if (entry.kind === 'model' || entry.kind === 'prop') {
         errors.push(`${label}: Modelle müssen Dateien sein (generated/imported)`);
       }
       continue;
@@ -412,13 +418,15 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
     const kindBudget =
       entry.kind === 'model'
         ? manifest.budgets.model.maxBytes
-        : entry.kind === 'texture'
-          ? manifest.budgets.texture.maxBytes
-          : entry.kind === 'sound'
-            ? manifest.budgets.sound.maxBytes
-            : entry.kind === 'hdri'
-              ? manifest.budgets.hdri.maxBytes
-              : undefined;
+        : entry.kind === 'prop'
+          ? manifest.budgets.prop.maxBytes
+          : entry.kind === 'texture'
+            ? manifest.budgets.texture.maxBytes
+            : entry.kind === 'sound'
+              ? manifest.budgets.sound.maxBytes
+              : entry.kind === 'hdri'
+                ? manifest.budgets.hdri.maxBytes
+                : undefined;
     if (entry.budgetBytes === undefined) {
       errors.push(`${label}: Feld „budgetBytes“ fehlt (Datei ${kib(bytes.byteLength)})`);
     } else {
@@ -442,6 +450,11 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
       const result = checkModel(entry, bytes, manifest, label);
       errors.push(...result.errors);
       if (result.note) notes.push(result.note);
+    } else if (entry.kind === 'prop') {
+      const result = checkProp(entry, bytes, manifest.budgets.prop, label);
+      errors.push(...result.errors);
+      if (result.note) notes.push(result.note);
+      if (result.measure) propMeasures.set(entry.id, result.measure);
     } else if (entry.path.endsWith('.svg')) {
       const problems = checkSvg(new TextDecoder().decode(bytes));
       for (const problem of problems) errors.push(`${label}: SVG ${problem}`);
@@ -490,6 +503,12 @@ export async function checkAssets(options: CheckOptions): Promise<CheckResult> {
   }
 
   errors.push(...checkPortraits(assetsDir, webps));
+
+  // Requisiten (CHAOS-88): Katalog gegen Manifest, Budget je Minispiel.
+  errors.push(...checkPropCatalog(manifest, toPosix(assetsDir)));
+  const budgets = checkMinigameBudgets(manifest, propMeasures);
+  errors.push(...budgets.errors);
+  notes.push(...budgets.notes);
 
   // Build-Artefakte (CHAOS-140): Regeln immer, Dateien nur, wenn der Build-Schritt lief.
   errors.push(...checkBuildEntries(manifest));

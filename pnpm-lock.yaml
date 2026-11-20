@@ -251,6 +251,19 @@ importers:
 
   packages/metrics: {}
 
+  packages/minigame-kit:
+    dependencies:
+      '@babylonjs/core':
+        specifier: ^9.35.0
+        version: 9.35.0
+      '@chaos-party/minigame-sdk':
+        specifier: workspace:*
+        version: link:../minigame-sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+
   packages/minigame-sdk:
     dependencies:
       '@babylonjs/core':
@@ -272,6 +285,9 @@ importers:
       '@babylonjs/core':
         specifier: ^9.35.0
         version: 9.35.0
+      '@chaos-party/minigame-kit':
+        specifier: workspace:*
+        version: link:../minigame-kit
       '@chaos-party/minigame-sdk':
         specifier: workspace:*
         version: link:../minigame-sdk
