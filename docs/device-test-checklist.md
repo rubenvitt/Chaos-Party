@@ -762,7 +762,7 @@ Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests,
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-198 · **Entscheidung:** ADR-022 · **Experiment:** EXP-036
 
-Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host in Chrome mit Metal (Bilder unter `docs/screenshots/chaos198-*`), E2E Lobby-Wahl und Brett-Szene. **Nicht** geprüft: echte Apple TV (Ladezeit und Bildrate der Winterkulisse), Lesbarkeit und Spielspaß am Fernseher.
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host in Chrome mit Metal (Bilder unter `docs/screenshots/chaos198-*`), E2E Lobby-Wahl und Brett-Szene, USDZ-Export samt Prüfung, Mac-App und tvOS-Simulator mit je vier Bots über vier Runden bis zum Siegerbild (Lawine zu Beginn von Runde 4 angesagt). **Nicht** geprüft: echte Apple TV (Ladezeit der Kulisse, im Simulator 4,1 s; Bildrate in 4K), Lesbarkeit und Spielspaß am Fernseher.
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
