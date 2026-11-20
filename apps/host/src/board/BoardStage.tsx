@@ -167,6 +167,18 @@ export function BoardStage({
             getPawnSpaces: () => director.getPawnSpaces(),
             getPawnCharacters: () => scene.getPawnCharacters(),
             getLightMood: () => scene.getLightMood(),
+            getCamera: () => {
+              const camera = scene.getCamera();
+              return camera
+                ? {
+                    kind: camera.shot.kind,
+                    focus: camera.focus,
+                    distance: camera.distance,
+                    shotFocus: camera.shot.focus,
+                    shotDistance: camera.shot.distance,
+                  }
+                : null;
+            },
             getHud: () => {
               const view = director.getHud().view;
               return {

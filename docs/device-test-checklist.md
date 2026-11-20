@@ -695,3 +695,20 @@ Automatisch geprüft (Linux, ohne Mac): Normal-Textur je Figur im GLB (`pnpm che
 | FS4 | PC: `pnpm play`, Figur aus der Nähe (Lobby, Podest) | Struktur sichtbar, keine Nähte; Ladezeit der Figuren unauffällig | | |
 | FS5 | Ruben: Urteil | Strick, Fell, Lack, Haut passend oder zu viel bzw. zu wenig (je Figur) | | Kommentar an CHAOS-172 |
 
+
+## 36. Dynamische Brett-Kamera am Fernseher (für CHAOS-194)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-194 · **Experiment:** [EXP-033](experiments.md)
+
+Automatisch geprüft: Einstellungen je Phase und Feder (Unit-Tests `apps/host/src/board/camera.test.ts`), Phasenbilder im PC-Host (Playwright, SwiftShader), eine Bot-Partie im tvOS-Simulator mit `--bild`/`--ereignisbild`. **Nicht** automatisch prüfbar: wie sich Nähe und Tempo vom Sofa aus anfühlen, ob jemandem schwindlig wird, Bildrate auf echter Hardware, der Mac-Host (gleicher Swift-Weg wie tvOS, nicht eigens gestartet).
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| KA1 | PC am Fernseher: `pnpm play`, Partie mit 2–4 Spielern, eine Runde | Kamera nah an der Figur am Zug; beim Würfeln kurzer Zoom, beim Laufen Blick voraus; keine Dauer-Vollansicht | | Video |
+| KA2 | Gabel (Weg wählen) | Beide Wege samt Wegweisern lesbar; Wegweiser verdecken den Pfeil nicht | | Foto |
+| KA3 | Zugwechsel zu einer weit entfernten Figur | Ruhige Fahrt mit leichtem Anheben, kein Ruck, keine Übelkeit | | |
+| KA4 | Münzklau / Reaktion / Platztausch | Beide beteiligten Figuren im Bild | | Foto |
+| KA5 | Rundenbeginn, Trophäen-Wirbel | Kurzer Überblick über das ganze Brett, danach zurück zur Figur am Zug | | |
+| KA6 | Apple TV (TestFlight): KA1–KA5 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps | | Log |
+| KA7 | Mac-App: KA1–KA3 | Wie auf der Apple TV | | |
+| KA8 | Ruben: Urteil | Nähe richtig? Tempo ruhig genug? Überblick oft genug? Fehlt ein Hinweis, wo die anderen stehen (→ CHAOS-210)? | | Kommentar an CHAOS-194 |

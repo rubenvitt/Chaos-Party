@@ -13,7 +13,7 @@ import {
   SWAP_FLIGHT_MS,
 } from './animation.ts';
 import { DEMO_VIEW } from './demo.ts';
-import { createBoardDirector, MESSAGE_MS, NOTICE_MS, toQueueItems } from './director.ts';
+import { createBoardDirector, CUE_MS, MESSAGE_MS, NOTICE_MS, toQueueItems } from './director.ts';
 
 const STEP = DEMO_VIEW.stepMs;
 
@@ -36,6 +36,37 @@ function started() {
 }
 
 describe('createBoardDirector', () => {
+  it('meldet gespielte Ereignisse mit Alter für die Kamera (CHAOS-194)', () => {
+    const director = started();
+    expect(director.getFrame().cues).toEqual([]);
+    const after = { ...moveBlue(DEMO_VIEW, 's10'), gamePhase: 'turn-end' as const, prompt: null };
+    director.receive(
+      msg(
+        after,
+        [
+          { type: 'path-chosen', slot: 1, spaceId: 's08' },
+          { type: 'moved', slot: 1, path: ['s08', 's09', 's10'] },
+        ],
+        0,
+      ),
+    );
+    director.advance(100);
+    let cues = director.getFrame().cues;
+    expect(cues.map((c) => c.event.type)).toEqual(['path-chosen', 'moved']);
+    expect(cues[1]).toMatchObject({ start: 's07', durationMs: 3 * STEP, style: 'walk' });
+    expect(cues[1]?.elapsedMs).toBe(100);
+    // Nach dem Ende läuft das Alter weiter, bis das Ereignis aus der Liste fällt.
+    director.advance(3 * STEP);
+    expect(director.getFrame().cues[1]?.elapsedMs).toBe(100 + 3 * STEP);
+    director.advance(CUE_MS);
+    cues = director.getFrame().cues;
+    expect(cues).toEqual([]);
+    // Sprung (settle) leert die Liste.
+    director.receive(msg(DEMO_VIEW, [{ type: 'turn-ended', slot: 1 }], 2));
+    director.settle();
+    expect(director.getFrame().cues).toEqual([]);
+  });
+
   it('springt bei der ersten Nachricht ohne Animation auf den Stand', () => {
     const director = createBoardDirector();
     expect(director.getHud().view).toBeNull();
