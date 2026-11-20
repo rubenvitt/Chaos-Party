@@ -457,7 +457,12 @@
             "duration": 0.18,
             "gain": 0.3
           }
-        ]
+        ],
+        "sample": {
+          "file": "win-2.mp3",
+          "rate": 1,
+          "gain": 0.75
+        }
       }
     ]
   },

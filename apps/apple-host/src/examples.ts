@@ -605,6 +605,8 @@ const FINALE_WINNER: FinaleState = {
       id: 9,
       name: 'win',
       voices: [{ wave: 'triangle', freq: 523, delay: 0, attack: 0.01, duration: 0.18, gain: 0.3 }],
+      // Klang-Datei (CHAOS-223); Swift spielt sie, das Rezept ist der Rückfall.
+      sample: { file: 'win-2.mp3', rate: 1, gain: 0.75 },
     },
   ],
 };
