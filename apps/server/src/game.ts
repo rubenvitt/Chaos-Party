@@ -278,6 +278,7 @@ export class BoardGame {
             seed: state.minigame.seed,
             playMs: state.minigame.playMs,
             repeat: state.minigame.repeat,
+            ...(state.minigame.ready ? { ready: [...state.minigame.ready] } : {}),
             elapsedMs:
               state.minigame.playStartedAt === null
                 ? null
@@ -344,7 +345,24 @@ export class BoardGame {
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
       // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
       repeat: minigame.repeat,
+      // CHAOS-214: Anleitung wartet auf „Bereit“ – eigener Stand.
+      ...(stage === 'intro' && minigame.ready ? { ready: minigame.ready.includes(slot) } : {}),
     };
+  }
+
+  /**
+   * Wartet die Anleitung noch auf „Bereit“ dieses Slots (CHAOS-214)? Nicht in der Pause; dann
+   * bietet der Controller den Knopf nicht an.
+   */
+  awaitsReady(slot: Slot): boolean {
+    const state = this.stateValue;
+    const ready = state.minigame?.ready;
+    return (
+      state.phase === 'minigame-intro' &&
+      !state.paused &&
+      ready !== undefined &&
+      !ready.includes(slot)
+    );
   }
 
   /** Eingaben, die gerade (Minispiel läuft) angeboten werden; sonst leer. */

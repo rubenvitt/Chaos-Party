@@ -231,6 +231,21 @@ const serverToController = {
     board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
     minigame: minigame({ repeat: true }),
   }),
+  // CHAOS-214: Anleitung wartet auf „Bereit“ – angeboten bzw. schon gedrückt.
+  'context-minigame-intro-ready': context({
+    phase: 'board',
+    layout: 'board',
+    actions: ['ready'],
+    board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
+    minigame: minigame({ ready: false }),
+  }),
+  'context-minigame-intro-ready-done': context({
+    phase: 'board',
+    layout: 'board',
+    actions: [],
+    board: board({ gamePhase: 'minigame-intro', activeSlot: null }),
+    minigame: minigame({ ready: true }),
+  }),
   'context-minigame-play': context({
     phase: 'board',
     layout: 'joystick-buttons',

@@ -23,6 +23,12 @@ export const MAX_MINIGAME_SOUNDS = 48;
 /** Countdown-Ticks der Anleitung wie im Browser-Host: bei 3, 2 und 1 s. */
 export const COUNTDOWN_TICKS = [3, 2, 1] as const;
 
+/** Stand der wartenden Anleitung (CHAOS-214): bereite bzw. getrennte Spieler von allen. */
+export interface ReadyProgress {
+  readonly done: number;
+  readonly total: number;
+}
+
 export interface MinigameSounds {
   /**
    * Klang auslösen. `key` ist der Bühnen-Schlüssel (`stageKeyOf`) des Minispiels, zu dem er
@@ -33,7 +39,12 @@ export interface MinigameSounds {
    * Je `tick`: gezeigtes Minispiel (`stageKeyOf`, `null` = keins), Abschnitt und Countdown der
    * Anleitung (`introCountdown`). Löst „minigame-start“ und die Countdown-Ticks aus.
    */
-  observe(key: string | null, stage: MinigameStage | null, countdown: number | null): void;
+  observe(
+    key: string | null,
+    stage: MinigameStage | null,
+    countdown: number | null,
+    ready?: ReadyProgress | null,
+  ): void;
   /** Klänge des Minispiels `key` aus den letzten `SOUND_WINDOW_MS`. */
   cues(key: string | null): SoundCue[];
 }
@@ -47,6 +58,7 @@ export function createMinigameSounds(now: () => number): MinigameSounds {
   let cues: (SoundCue & { readonly at: number; readonly key: string })[] = [];
   let currentKey: string | null = null;
   let lastCountdown: number | null = null;
+  let lastReady = 0;
 
   const expire = () => {
     const t = now();
@@ -68,10 +80,11 @@ export function createMinigameSounds(now: () => number): MinigameSounds {
 
   return {
     play,
-    observe(key, stage, countdown) {
+    observe(key, stage, countdown, ready) {
       if (key !== currentKey) {
         currentKey = key;
         lastCountdown = null;
+        lastReady = 0;
         // Wie `MinigameScreen` beim Erscheinen: nur, wenn es in der Anleitung beginnt.
         if (key !== null && stage === 'intro') play('minigame-start', undefined, key);
       }
@@ -81,6 +94,12 @@ export function createMinigameSounds(now: () => number): MinigameSounds {
         play('tick', { pitch: shown === 1 ? 1.25 : 1 }, key ?? undefined);
       }
       lastCountdown = shown;
+      // CHAOS-214: Statt Countdown tickt jedes neue „Bereit“, das letzte etwas höher.
+      const done = key !== null && stage === 'intro' && ready ? ready.done : 0;
+      if (ready && done > lastReady) {
+        play('tick', { pitch: done >= ready.total ? 1.25 : 1 }, key ?? undefined);
+      }
+      lastReady = done;
       expire();
     },
     cues(key) {

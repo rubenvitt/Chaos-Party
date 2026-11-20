@@ -1,3 +1,5 @@
+import type { SlotNumber } from '@chaos-party/protocol';
+
 /** Start-Parameter des Hosts aus der URL (Entwicklung, Tests, Fehlersuche). */
 export interface HostConfig {
   /**
@@ -51,6 +53,12 @@ export interface HostConfig {
    * Anleitung, nur Titel und Bedienung.
    */
   readonly repeat: boolean;
+  /**
+   * Mit `flow`: Anleitung wartet auf Bereitschaft wie beim Server (CHAOS-214) – `&ready=1,3`
+   * nennt die bereiten Slots (`&ready=` = noch niemand), `&offline=4` getrennte Spieler.
+   * `null` = feste Anleitungszeit (Standard).
+   */
+  readonly ready: LocalReadiness | null;
   /** Ton aus (`?mute=1`, CHAOS-33). Im Testmodus ist der Ton immer aus. */
   readonly mute: boolean;
   /** Gesamtlautstärke 0–100 (`?volume=`), Standard 70. */
@@ -65,6 +73,12 @@ export interface HostConfig {
    * WebGL2; ohne WebGPU-Adapter fällt `webgpu` auf WebGL2 zurück (Messanzeige zeigt die API).
    */
   readonly gpu: GpuBackend;
+}
+
+/** Bereitschaft im lokalen Ablauf (`&ready=`/`&offline=`, CHAOS-214). */
+export interface LocalReadiness {
+  readonly ready: readonly SlotNumber[];
+  readonly offline: readonly SlotNumber[];
 }
 
 /** Grafik-Schnittstelle der Host-Szene (CHAOS-75). */
@@ -93,6 +107,7 @@ export const DEFAULT_CONFIG: HostConfig = {
   minigame: null,
   flow: false,
   repeat: false,
+  ready: null,
   mute: false,
   volume: 70,
   finale: null,
@@ -104,6 +119,16 @@ const MAX_ROUNDS = 20;
 
 function flag(value: string | null): boolean {
   return value === '1' || value === 'true';
+}
+
+/** Kommaliste von Slots („1,3“), Unsinn und Doppelte fallen weg, sortiert. */
+function slotList(value: string | null): SlotNumber[] {
+  const slots = new Set<SlotNumber>();
+  for (const part of (value ?? '').split(',')) {
+    const slot = Number(part.trim());
+    if (slot === 1 || slot === 2 || slot === 3 || slot === 4) slots.add(slot);
+  }
+  return [...slots].sort((a, b) => a - b);
 }
 
 export function parseHostConfig(search: string): HostConfig {
@@ -132,6 +157,9 @@ export function parseHostConfig(search: string): HostConfig {
       : null,
     flow: flag(params.get('flow')),
     repeat: flag(params.get('repeat')),
+    ready: params.has('ready')
+      ? { ready: slotList(params.get('ready')), offline: slotList(params.get('offline')) }
+      : null,
     mute: flag(params.get('mute')),
     volume: Number.isInteger(volume) ? Math.min(100, Math.max(0, volume)) : DEFAULT_CONFIG.volume,
     finale: FINALE_SPEEDS.find((speed) => speed === params.get('finale')) ?? null,

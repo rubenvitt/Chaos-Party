@@ -834,6 +834,11 @@ export class Session {
     const player = this.players.get(message.slot);
     if (!player) return;
 
+    if (message.type === 'ready' && this.phaseValue === 'board') {
+      this.minigameReady(conn, player, seq, now);
+      return;
+    }
+
     if (message.type === 'ready') {
       if (!conn.seq.accept(seq)) {
         this.reject(conn, 'stale-seq', 'Veraltete Sequenznummer', seq);
@@ -975,6 +980,29 @@ export class Session {
       boardId: settings.boardId,
       slots: players.map((p) => p.slot),
     });
+  }
+
+  /** „Bereit“ in der Minispiel-Anleitung (CHAOS-214); verspätet/doppelt ist kein Missbrauch. */
+  private minigameReady(conn: Connection, player: Player, seq: number, now: number): void {
+    if (this.game?.paused) {
+      this.reject(conn, 'paused', 'Spiel ist pausiert', seq);
+      return;
+    }
+    if (!this.contextFor(player).actions.includes('ready')) {
+      this.reject(conn, 'out-of-phase', 'Gerade wartet keine Anleitung auf „Bereit“', seq);
+      // Den aktuellen Stand erneut schicken, damit der Controller den Knopf löst.
+      this.contextKeys.delete(player.slot);
+      return;
+    }
+    if (!conn.seq.accept(seq)) {
+      this.reject(conn, 'stale-seq', 'Veraltete Sequenznummer', seq);
+      return;
+    }
+    const result = this.game?.apply({ type: 'minigame-ready', slot: player.slot, at: now });
+    if (result && !result.ok) {
+      this.reject(conn, 'out-of-phase', result.error.message, seq);
+      this.contextKeys.delete(player.slot);
+    }
   }
 
   private choose(conn: Connection, player: Player, message: ChooseMessage, now: number): void {
@@ -1236,7 +1264,11 @@ export class Session {
     if (minigame?.stage === 'play') {
       return { layout: 'joystick-buttons', actions: game.minigameActions(), board, minigame };
     }
-    if (minigame) return { layout: 'board', actions: [], board, minigame };
+    if (minigame) {
+      // CHAOS-214: In der Anleitung „Bereit“ anbieten, bis dieser Slot gedrückt hat.
+      const actions: SlotContext['actions'] = game.awaitsReady(slot) ? ['ready'] : [];
+      return { layout: 'board', actions, board, minigame };
+    }
     const prompt = game.promptFor(slot, this.now());
     return prompt
       ? { layout: 'board', actions: ['choose'], prompt, board }

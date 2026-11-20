@@ -7,9 +7,15 @@ import {
   describePlay,
   describeResult,
   formatScore,
+  INTRO_READY_BUTTON,
+  INTRO_READY_DONE,
+  INTRO_READY_GUARD_MS,
+  introReadyState,
   minigameIn,
   offeredActions,
+  readyIntroToken,
   rewardText,
+  sameReadyIntro,
 } from './view.ts';
 import type { SlotContext } from '../state/reducer.ts';
 
@@ -184,5 +190,69 @@ describe('formatScore', () => {
     expect(formatScore(1234, 'Pumpstöße')).toBe('1.234 Pumpstöße');
     expect(formatScore(-3, 'Punkte')).toBe('-3 Punkte');
     expect(formatScore(1_000_000, 'Meter')).toBe('1.000.000 Meter');
+  });
+});
+
+describe('introReadyState (CHAOS-214)', () => {
+  function intro(actions: Action[], ready?: boolean): SlotContext {
+    return {
+      phase: 'board',
+      layout: 'board',
+      actions,
+      minigame: info({ stage: 'intro', ...(ready !== undefined && { ready }) }),
+    };
+  }
+  const fresh = { sent: false, armed: false };
+  const armed = { sent: false, armed: true };
+
+  it('Anleitung wartet: erst Schonfrist, dann Knopf', () => {
+    expect(introReadyState(intro(['ready'], false), fresh)).toBe('guard');
+    expect(introReadyState(intro(['ready'], false), armed)).toBe('button');
+    // Angebot ohne `ready`-Feld (Server bietet die Aktion an): ebenfalls Knopf.
+    expect(introReadyState(intro(['ready']), armed)).toBe('button');
+  });
+
+  it('nach dem Tippen bzw. bestätigt: „Warte auf die anderen“', () => {
+    expect(introReadyState(intro(['ready'], false), { sent: true, armed: true })).toBe('done');
+    expect(introReadyState(intro([], true), fresh)).toBe('done');
+    expect(introReadyState(intro([], true), armed)).toBe('done');
+  });
+
+  it('feste Anleitungszeit, Ergebnis, Spiel oder kein Minispiel: Schlusszeile wie bisher', () => {
+    expect(introReadyState(intro([]), armed)).toBe('timer');
+    expect(introReadyState(intro([], false), armed)).toBe('timer');
+    expect(introReadyState(undefined, armed)).toBe('timer');
+    expect(introReadyState(play(['move']), armed)).toBe('timer');
+    const results = { ...intro(['ready']), minigame: info({ stage: 'results' }) };
+    expect(introReadyState(results, armed)).toBe('timer');
+  });
+
+  it('readyIntroToken: Runde und Minispiel, nur solange „Bereit“ angeboten wird', () => {
+    const board = { round: 3 } as NonNullable<SlotContext['board']>;
+    expect(readyIntroToken({ ...intro(['ready'], false), board })).toBe('3:kartoffel-hupf');
+    expect(readyIntroToken(intro(['ready'], false))).toBe('0:kartoffel-hupf');
+    expect(readyIntroToken({ ...intro([], true), board })).toBeNull();
+    expect(readyIntroToken(intro([]))).toBeNull();
+    expect(readyIntroToken(undefined)).toBeNull();
+  });
+
+  it('Texte und Schonfrist', () => {
+    expect(INTRO_READY_BUTTON).toBe('Bereit!');
+    expect(INTRO_READY_DONE).toBe('Bereit! Warte auf die anderen …');
+    expect(INTRO_READY_GUARD_MS).toBeGreaterThanOrEqual(400);
+    expect(INTRO_READY_GUARD_MS).toBeLessThanOrEqual(1000);
+  });
+
+  it('sameReadyIntro: gleiche wartende Anleitung, auch als neues Objekt', () => {
+    const a = intro(['ready'], false);
+    expect(sameReadyIntro(a, intro(['ready'], false))).toBe(true);
+    expect(sameReadyIntro(a, intro([], true))).toBe(false);
+    expect(
+      sameReadyIntro(a, {
+        ...a,
+        minigame: info({ stage: 'intro', id: 'pump-parade', ready: false }),
+      }),
+    ).toBe(false);
+    expect(sameReadyIntro(a, { ...a, minigame: info({ stage: 'play' }) })).toBe(false);
   });
 });
