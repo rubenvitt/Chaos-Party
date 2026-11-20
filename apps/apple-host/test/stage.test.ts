@@ -7,7 +7,12 @@ import { getMinigameModule, ROTATION } from '@chaos-party/minigames';
 import { loadHavokForNode } from '@chaos-party/minigame-sdk/testing';
 import type { MinigamePlayer, PrepareThrottle } from '@chaos-party/minigame-sdk/babylon';
 import { describe, expect, it } from 'vitest';
-import { createHeadlessStage } from '../src/stage.ts';
+import {
+  createHeadlessStage,
+  PREPARE_BUDGET_MAX_MS,
+  PREPARE_BUDGET_MS,
+  prepareBudgetMs,
+} from '../src/stage.ts';
 
 const PLAYERS: MinigamePlayer[] = [
   { slot: 1, name: 'Anna', color: '#0072B2', symbol: '●', character: 'raccoon' },
@@ -160,5 +165,26 @@ describe('Headless-Bühne: Darstellung für Swift (CHAOS-144)', () => {
     expect(stage.effects(0).some((effect) => effect.kind === 'confetti')).toBe(true);
     stage.dispose();
     expect(logs).toEqual([]);
+  });
+});
+
+describe('Aufbau-Budget je Tick (CHAOS-205)', () => {
+  it('bleibt bei 60 Hz und schneller bei PREPARE_BUDGET_MS', () => {
+    expect(prepareBudgetMs(0)).toBe(PREPARE_BUDGET_MS);
+    expect(prepareBudgetMs(1000 / 120)).toBe(PREPARE_BUDGET_MS);
+    expect(prepareBudgetMs(1000 / 60)).toBe(PREPARE_BUDGET_MS);
+    expect(prepareBudgetMs(Number.NaN)).toBe(PREPARE_BUDGET_MS);
+  });
+
+  it('wächst mit der Tick-Dauer (gleicher Anteil wie bei 60 Hz), gedeckelt', () => {
+    expect(prepareBudgetMs(1000 / 30)).toBeCloseTo(2 * PREPARE_BUDGET_MS);
+    expect(prepareBudgetMs(100)).toBeCloseTo(12);
+    expect(prepareBudgetMs(1250)).toBe(PREPARE_BUDGET_MAX_MS);
+  });
+
+  it('gibt bei knapper Bühne die halbe Tick-Dauer, gedeckelt', () => {
+    expect(prepareBudgetMs(1000 / 60, true)).toBeCloseTo(1000 / 120);
+    expect(prepareBudgetMs(0, true)).toBeCloseTo(1000 / 120);
+    expect(prepareBudgetMs(100, true)).toBe(PREPARE_BUDGET_MAX_MS);
   });
 });

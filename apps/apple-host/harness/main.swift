@@ -5,7 +5,10 @@
 // Dekodiert außerdem die Beispielnachrichten (Fixtures/render-state) und jedes geprüfte
 // `renderState` mit `app/RenderState.swift`, also genau dem Typ der App.
 //
-//   apps/apple-host/harness/run.sh [full]     (baut mit swiftc und startet; vorher `pnpm build`)
+//   apps/apple-host/harness/run.sh [full] [hz=10]  (baut mit swiftc und startet; vorher `pnpm build`)
+//
+// `hz=N` (CHAOS-205): nur N Ticks je Spielsekunde wie ein gedrosselter Takt; dann muss jede
+// Minispiel-Bühne vor dem Ende des Countdowns fertig sein, sonst Exit 1.
 //
 // Die Zeiten sind CPU-Zeit dieses Threads. JSC lief hier faktisch ohne JIT (EXP-024); die CI setzt
 // zusätzlich JSC_useJIT=false. Ein Apple TV hat einen langsameren Kern, die Zahlen sind also eine
@@ -18,6 +21,9 @@ let harnessDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 let dist = harnessDir.deletingLastPathComponent().appendingPathComponent("dist")
 let fixtures = harnessDir.appendingPathComponent("Fixtures/render-state")
 let full = CommandLine.arguments.contains("full")
+/// Ticks je Spielsekunde (`hz=N`); ohne Angabe 60 wie die App.
+let hzArg = CommandLine.arguments.first { $0.hasPrefix("hz=") }.flatMap { Double($0.dropFirst(3)) }
+let hz = hzArg ?? 60
 let joinCode = "AB12"
 
 /// CPU-Zeit dieses Threads in ms: robust, wenn andere Prozesse die Maschine auslasten.
@@ -244,6 +250,8 @@ struct Stat { var n = 0; var sum = 0.0; var max = 0.0
 }
 var tickStats: [String: Stat] = [:]
 var renderStats: [String: Stat] = [:]
+/// JS-Zeit je Bild: `tick` + `renderState` (CHAOS-205, Bildbudget 16,7 ms bei 60 Hz).
+var frameStats: [String: Stat] = [:]
 var lastPhase = ""
 var lastStage = ""
 var started = false
@@ -263,7 +271,10 @@ func expectSettings(_ rounds: Int, _ more: Bool, _ label: String) {
     fail("\(label): \(settings), erwartet \(rounds) Runden, mehr Zeit \(more)")
   }
 }
-let step = 1000.0 / 60.0
+let step = 1000.0 / hz
+/// CHAOS-205: Minispiele, deren Bühne beim Wechsel Anleitung → Spiel schon stand, und alle.
+var readyAtPlay = 0
+var playsSeen = 0
 let limitMs = full ? 30 * 60_000.0 : 5 * 60_000.0
 
 for c in controllers {
@@ -296,6 +307,7 @@ while now < limitMs {
   let key = phase == "minigame" ? "minigame-\(stageName)" : phase
   tickStats[key, default: Stat()].add(tickMs)
   renderStats[key, default: Stat()].add(renderMs)
+  frameStats[key, default: Stat()].add(tickMs + renderMs)
 
   frame += 1
   // CHAOS-144: jede Geometrie kommt genau einmal; alle müssen mit RenderState.swift dekodierbar sein.
@@ -324,6 +336,11 @@ while now < limitMs {
     } catch {
       fail("renderState passt nicht zu RenderState.swift: \(error) – \(stateText.prefix(300))")
     }
+  }
+  if phase == "minigame", stageName == "play", lastStage != "play" {
+    playsSeen += 1
+    let ready = minigame?["ready"] as? Bool == true
+    if ready { readyAtPlay += 1 } else { out("  Bühne \(minigame?["id"] ?? "?") beim Spielstart noch nicht fertig") }
   }
   if phase != lastPhase || stageName != lastStage {
     out("[\(Int(now)) ms] Phase \(lastPhase.isEmpty ? "-" : lastPhase) → \(phase)\(stageName.isEmpty ? "" : " (\(stageName))")")
@@ -384,9 +401,11 @@ for (game, names) in soundsByGame.sorted(by: { $0.key < $1.key }) {
 }
 if soundsByGame.isEmpty { fail("keine Minispiel-Klänge im renderState") }
 out("Minispiel-Geometrien dekodiert: \(geometryDecoded)")
+out("Bühne vor Countdown-Ende fertig: \(readyAtPlay)/\(playsSeen) bei \(Int(hz)) Hz")
+if hzArg != nil && readyAtPlay < playsSeen { fail("Bühne nicht immer vor dem Countdown-Ende fertig (\(Int(hz)) Hz)") }
 out("\nCPU-Zeit je Tick (macOS-JSC, faktisch ohne JIT; Apple TV langsamer):")
 for key in tickStats.keys.sorted() {
-  out("  \(key): tick \(tickStats[key]!.text); renderState \(renderStats[key]!.text)")
+  out("  \(key): tick \(tickStats[key]!.text); renderState \(renderStats[key]!.text); Bild max \(String(format: "%.2f", frameStats[key]!.max)) ms")
 }
 out("Virtuelle Spielzeit \(Int(now / 1000)) s, Server-Fehler an Controller: \(errorsFromServer), JS-Ausnahmen: \(jsErrors)")
 // Fehler, die der Kern nur loggt (die Partie liefe trotzdem bis zum Ende weiter).

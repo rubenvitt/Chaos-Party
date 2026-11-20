@@ -66,9 +66,22 @@ import { parseHostCommand } from './hostCommand.ts';
 import { infoView, introCountdown, resultsView, scoreboardView } from './minigameView.ts';
 import { createMinigameSounds } from './minigameSounds.ts';
 import { createNoticeTracker } from './notice.ts';
-import { createHeadlessStage, describe, PREPARE_BUDGET_MS, type HeadlessStage } from './stage.ts';
+import {
+  createHeadlessStage,
+  describe,
+  PREPARE_BUDGET_MS,
+  PREPARE_URGENT_MS,
+  prepareBudgetMs,
+  type HeadlessStage,
+} from './stage.ts';
 
 const now = clock.now;
+
+/**
+ * Aufbau-Budget je `tick` (CHAOS-205, `prepareBudgetMs`): folgt der Dauer des letzten Ticks auf
+ * der Kern-Uhr; vor dem ersten Abstand das Budget für 60 Hz.
+ */
+let prepareBudget = PREPARE_BUDGET_MS;
 
 /**
  * Minispiel-Aufbau über mehrere `tick` verteilen (CHAOS-141): weiter geht es im nächsten `tick`
@@ -83,7 +96,9 @@ const PACING = {
       }, 0);
     }),
   now: () => Date.now(),
-  budgetMs: PREPARE_BUDGET_MS,
+  get budgetMs() {
+    return prepareBudget;
+  },
 };
 
 /**
@@ -91,7 +106,10 @@ const PACING = {
  * Die Geometrie eines Minispiels kommt so über einige Bilder der Anleitung verteilt.
  */
 const GEOMETRY_CHARS_PER_FRAME = 256 * 1024;
-/** So viele ms (echte Uhr) kodiert `renderState` höchstens Geometrie je Aufruf (CHAOS-141). */
+/**
+ * So viele ms (echte Uhr) kodiert `renderState` bei 60 Hz höchstens Geometrie je Aufruf
+ * (CHAOS-141); bei langsamem Takt im selben Verhältnis mehr wie der Aufbau (CHAOS-205).
+ */
 const GEOMETRY_BUDGET_MS = 2;
 /** So lange (ms) bleiben Effekte in `renderState`, damit Swift keinen verpasst. */
 const EFFECT_WINDOW_MS = 1_500;
@@ -261,6 +279,8 @@ function create(env: HostEnv): ChaosHostInstance {
   const isKnownMinigame = (id: string) => getMinigameModule(id) !== undefined;
   let lastAdvanceAt: number | null = null;
   let lastSessionTickAt = -Infinity;
+  /** Kern-Uhr beim letzten `tick` (Tick-Dauer für das Aufbau-Budget, CHAOS-205). */
+  let lastTickAt: number | null = null;
   /** Erster `tick`-Wert: Die Uhr des Kerns zählt ab 0 (Session und Host starten bei 0). */
   let clockBase: number | null = null;
   const resultSender = createResultSender({ warn: log });
@@ -284,6 +304,19 @@ function create(env: HostEnv): ChaosHostInstance {
     }
     stage = null;
     lastAdvanceAt = null;
+  };
+
+  /**
+   * Bühne knapp (CHAOS-205): noch nicht fertig, und die Anleitung endet in höchstens
+   * `PREPARE_URGENT_MS` oder das Spiel läuft schon.
+   */
+  const stageUrgent = (): boolean => {
+    if (!stage || stage.headless.ready || !view) return false;
+    const stageName = minigameStageOf(view);
+    if (stageName === 'play') return true;
+    if (stageName !== 'intro' || view.remainingMs === null) return false;
+    const left = view.remainingMs - (view.paused ? 0 : now() - receivedAt);
+    return left <= PREPARE_URGENT_MS;
   };
 
   /** Bühne an den neuesten Brett-Stand anpassen (wie `MinigameScreen` im Browser-Host). */
@@ -512,7 +545,11 @@ function create(env: HostEnv): ChaosHostInstance {
       scoreboard,
       results,
       effects: headless?.effects(now() - EFFECT_WINDOW_MS) ?? [],
-      geometry: headless?.takeGeometry(GEOMETRY_CHARS_PER_FRAME, GEOMETRY_BUDGET_MS) ?? [],
+      geometry:
+        headless?.takeGeometry(
+          GEOMETRY_CHARS_PER_FRAME,
+          (GEOMETRY_BUDGET_MS * prepareBudget) / PREPARE_BUDGET_MS,
+        ) ?? [],
       geometryTotal: headless?.geometryTotal ?? 0,
       sounds: sounds.cues(stageKeyOf(current, isKnownMinigame)),
       light: minigameLight(minigame.round, current.rounds),
@@ -537,6 +574,9 @@ function create(env: HostEnv): ChaosHostInstance {
       // ein Sprung von 0 auf Epoch-ms hielte sonst den Host für 30 s still und würfe ihn raus.
       clockBase ??= nowMs;
       clock.advance(nowMs - clockBase);
+      // Aufbau-Budget an die Tick-Dauer koppeln (CHAOS-205); der erste Tick zählt als 60 Hz.
+      prepareBudget = prepareBudgetMs(lastTickAt === null ? 0 : now() - lastTickAt, stageUrgent());
+      lastTickAt = now();
       if (now() - lastSessionTickAt >= DEFAULT_TICK_MS) {
         lastSessionTickAt = now();
         apply(session.tick());
