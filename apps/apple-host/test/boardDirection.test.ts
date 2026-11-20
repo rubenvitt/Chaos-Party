@@ -28,6 +28,7 @@ function run(direction: BoardDirection, ms: number, visible = true): void {
 function board(direction: BoardDirection) {
   const fields = direction.fields();
   const state = {
+    boardId: 'wackelwald',
     round: 2,
     rounds: 5,
     activeSlot: 1,

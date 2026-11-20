@@ -20,45 +20,52 @@ func firstModel(_ e: Entity) -> Entity? {
 }
 func fmt(_ v: SIMD3<Float>) -> String { String(format: "(%.2f, %.2f, %.2f)", v.x, v.y, v.z) }
 
-// Kulisse
-let brett = try await Entity(contentsOf: dir.appendingPathComponent("brett.usdz"))
-let b = brett.visualBounds(relativeTo: nil)
-print("brett.usdz: \(count(brett)) Entitäten, Bounds min \(fmt(b.min)) max \(fmt(b.max))")
-// Die Wiese liegt flach (Y-up wie glTF/RealityKit); Himmelskuppeln machen die Gesamt-Bounds ±250.
-if let wiese = brett.findEntity(named: "wiese") {
-    let wb = wiese.visualBounds(relativeTo: nil)
-    print("  wiese: Bounds min \(fmt(wb.min)) max \(fmt(wb.max)) (glTF: x -20,8…19,6, y -0,6…0,3, z -13,1…12,9)")
-    if wb.extents.y > 2 || wb.extents.x < 30 || wb.min.z > -12 { fail("Wiese liegt nicht wie im glTF – Achsen falsch") }
-} else { fail("wiese fehlt") }
-
+// Kulissen je Brett (CHAOS-212): `bretter/<brett-id>/brett.usdz` mit `brett.szene.json` daneben.
 struct Szene: Decodable {
     struct Inst: Decodable { let mesh: String }
     struct Feld: Decodable { let id: String; let anchor: String; let position: [Float] }
     let instanced: [Inst]
     let fields: [Feld]?
 }
-let szene = try JSONDecoder().decode(Szene.self, from: Data(contentsOf: dir.appendingPathComponent("brett.szene.json")))
-// Feld-Anker (CHAOS-140): leere Knoten `feld_<id>` an der Feldoberfläche, Weltkoordinaten wie im JSON.
-var anchorsOk = 0
-for feld in szene.fields ?? [] {
-    guard let node = brett.findEntity(named: feld.anchor) else { fail("Feld-Anker \(feld.anchor) fehlt"); continue }
-    let at = node.position(relativeTo: nil)
-    let want = SIMD3<Float>(feld.position[0], feld.position[1], feld.position[2])
-    if simd_distance(at, want) > 0.01 { fail("Feld-Anker \(feld.anchor) bei \(fmt(at)), erwartet \(fmt(want))") } else { anchorsOk += 1 }
-}
-print("  Feld-Anker: \(anchorsOk) von \((szene.fields ?? []).count) am richtigen Ort")
-if (szene.fields ?? []).isEmpty { fail("brett.szene.json ohne Felder") }
-for inst in szene.instanced {
-    let name = inst.mesh.replacingOccurrences(of: "-", with: "_")
-    guard let node = brett.findEntity(named: name), let model = firstModel(node) else {
-        fail("Grundmesh \(inst.mesh) (\(name)) fehlt"); continue
+let boardDirs = ((try? FileManager.default.contentsOfDirectory(at: dir.appendingPathComponent("bretter"), includingPropertiesForKeys: nil)) ?? [])
+    .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("brett.usdz").path) }
+    .sorted { $0.lastPathComponent < $1.lastPathComponent }
+if boardDirs.isEmpty { fail("keine Kulisse unter bretter/<brett-id>/brett.usdz") }
+for boardDir in boardDirs {
+    let id = boardDir.lastPathComponent
+    let brett = try await Entity(contentsOf: boardDir.appendingPathComponent("brett.usdz"))
+    let b = brett.visualBounds(relativeTo: nil)
+    print("\(id)/brett.usdz: \(count(brett)) Entitäten, Bounds min \(fmt(b.min)) max \(fmt(b.max))")
+    // Die Wiese liegt flach (Y-up wie glTF/RealityKit) um die Brettmitte; Himmelskuppeln machen die Gesamt-Bounds ±250.
+    if let wiese = brett.findEntity(named: "wiese") {
+        let wb = wiese.visualBounds(relativeTo: nil)
+        print("  wiese: Bounds min \(fmt(wb.min)) max \(fmt(wb.max))")
+        if wb.extents.y > 2 || wb.extents.x < 20 || wb.min.z > -8 || wb.max.z < 8 { fail("\(id): Wiese liegt nicht wie im glTF – Achsen falsch") }
+    } else { fail("\(id): wiese fehlt") }
+
+    let szene = try JSONDecoder().decode(Szene.self, from: Data(contentsOf: boardDir.appendingPathComponent("brett.szene.json")))
+    // Feld-Anker (CHAOS-140): leere Knoten `feld_<id>` an der Feldoberfläche, Weltkoordinaten wie im JSON.
+    var anchorsOk = 0
+    for feld in szene.fields ?? [] {
+        guard let node = brett.findEntity(named: feld.anchor) else { fail("\(id): Feld-Anker \(feld.anchor) fehlt"); continue }
+        let at = node.position(relativeTo: nil)
+        let want = SIMD3<Float>(feld.position[0], feld.position[1], feld.position[2])
+        if simd_distance(at, want) > 0.01 { fail("\(id): Feld-Anker \(feld.anchor) bei \(fmt(at)), erwartet \(fmt(want))") } else { anchorsOk += 1 }
     }
-    // Weltmatrix des Grundmeshes: das Instanz-Ergebnis ist M_json * w.
-    let w = model.transformMatrix(relativeTo: nil)
-    let mb = model.visualBounds(relativeTo: nil)
-    // Grashalm: im glTF y 0…0,27, x ±0,02 – muss in RealityKit-Weltkoordinaten genauso stehen.
-    if name.hasPrefix("gras"), mb.extents.y < 0.2 || mb.min.y < -0.01 { fail("\(name) steht nicht entlang +Y") }
-    print("  \(inst.mesh) → \(name)/\(model.name): Basis-Weltmatrix Spalten \(fmt(SIMD3(w.columns.0.x, w.columns.0.y, w.columns.0.z))) \(fmt(SIMD3(w.columns.1.x, w.columns.1.y, w.columns.1.z))) \(fmt(SIMD3(w.columns.2.x, w.columns.2.y, w.columns.2.z))), Bounds \(fmt(mb.min))–\(fmt(mb.max))")
+    print("  Feld-Anker: \(anchorsOk) von \((szene.fields ?? []).count) am richtigen Ort")
+    if (szene.fields ?? []).isEmpty { fail("\(id)/brett.szene.json ohne Felder") }
+    for inst in szene.instanced {
+        let name = inst.mesh.replacingOccurrences(of: "-", with: "_")
+        guard let node = brett.findEntity(named: name), let model = firstModel(node) else {
+            fail("\(id): Grundmesh \(inst.mesh) (\(name)) fehlt"); continue
+        }
+        // Weltmatrix des Grundmeshes: das Instanz-Ergebnis ist M_json * w.
+        let w = model.transformMatrix(relativeTo: nil)
+        let mb = model.visualBounds(relativeTo: nil)
+        // Grashalm: im glTF y 0…0,27, x ±0,02 – muss in RealityKit-Weltkoordinaten genauso stehen.
+        if name.hasPrefix("gras"), mb.extents.y < 0.2 || mb.min.y < -0.01 { fail("\(id): \(name) steht nicht entlang +Y") }
+        print("  \(inst.mesh) → \(name)/\(model.name): Basis-Weltmatrix Spalten \(fmt(SIMD3(w.columns.0.x, w.columns.0.y, w.columns.0.z))) \(fmt(SIMD3(w.columns.1.x, w.columns.1.y, w.columns.1.z))) \(fmt(SIMD3(w.columns.2.x, w.columns.2.y, w.columns.2.z))), Bounds \(fmt(mb.min))–\(fmt(mb.max))")
+    }
 }
 
 // Auflage (CHAOS-161): wie `AUFLAGE` in check_usdz.py, hier mit den Meshes, wie RealityKit sie

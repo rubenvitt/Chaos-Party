@@ -16,8 +16,11 @@ Exit-Code 1 bei Fehlern. Geprüft wird:
   mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest; aufgesetzte Teile
   (`AUFLAGE`, z. B. Socken-Bündchen, Kaktus-Blüte) liegen in Ruhepose und in jedem Clip auf
   ihrem Träger auf, statt darüber zu schweben (CHAOS-161);
-- Brett (`brett.usdz`): jeder Feld-Anker aus `brett.szene.json` genau einmal und am richtigen
-  Ort, alle Grundmeshes der Instanz-Gruppen vorhanden, Texturen eingebettet.
+- Bretter (`bretter/<brett-id>/brett.usdz`, CHAOS-212): jeder Feld-Anker aus `brett.szene.json`
+  daneben genau einmal und am richtigen Ort, alle Grundmeshes der Instanz-Gruppen vorhanden,
+  Texturen eingebettet, `board` in `brett.szene.json` gleich dem Ordnernamen;
+- mit `--vollstaendig`: jedes Artefakt aus `builds.apple-host` im Manifest liegt vor (so prüft
+  der volle Build, dass alle Bretter des Registers erzeugt wurden).
 
 RealityKit selbst prüft das nicht: Laden und Aussehen bleiben eine Prüfung am Mac
 (`packages/assets/usd/check_realitykit.swift`, Gerätecheckliste).
@@ -281,9 +284,10 @@ def check_figure(path: Path, manifest: dict, tmp: Path) -> None:
 
 
 def check_board(path: Path) -> None:
+    label = f"{path.parent.name}/{path.name}"
     scene_path = path.parent / "brett.szene.json"
     if not scene_path.exists():
-        fail(f"{path.name}: brett.szene.json fehlt")
+        fail(f"{label}: brett.szene.json fehlt")
         return
     meta = json.loads(scene_path.read_text())
     stage = Usd.Stage.Open(str(path))
@@ -291,31 +295,34 @@ def check_board(path: Path) -> None:
     for prim in stage.Traverse():
         by_name.setdefault(prim.GetName(), []).append(prim)
 
+    if path.parent.parent.name == "bretter" and meta.get("board") != path.parent.name:
+        fail(f"{path.parent.name}/brett.szene.json: board = {meta.get('board')!r} statt {path.parent.name!r}")
+
     fields = meta.get("fields", [])
     if not fields:
         fail("brett.szene.json: keine Felder (`fields`)")
     for field in fields:
         prims = by_name.get(field["anchor"], [])
         if len(prims) != 1:
-            fail(f"{path.name}: Feld-Anker {field['anchor']} {len(prims)}× statt genau einmal")
+            fail(f"{label}: Feld-Anker {field['anchor']} {len(prims)}× statt genau einmal")
             continue
         at = UsdGeom.Xformable(prims[0]).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
         got = at.ExtractTranslation()
         want = Gf.Vec3d(*field["position"])
         if (got - want).GetLength() > ANCHOR_TOLERANCE:
-            fail(f"{path.name}: Feld-Anker {field['anchor']} bei {tuple(round(v, 3) for v in got)}, erwartet {tuple(want)}")
+            fail(f"{label}: Feld-Anker {field['anchor']} bei {tuple(round(v, 3) for v in got)}, erwartet {tuple(want)}")
 
     for group in meta.get("instanced", []):
         name = group["mesh"].replace("-", "_")
         if name not in by_name:
-            fail(f"{path.name}: Grundmesh {name} der Instanz-Gruppe {group['mesh']} fehlt")
+            fail(f"{label}: Grundmesh {name} der Instanz-Gruppe {group['mesh']} fehlt")
 
     with zipfile.ZipFile(path) as package:
         textures = [n for n in package.namelist() if n.lower().endswith((".png", ".jpg", ".jpeg"))]
     if not textures:
-        fail(f"{path.name}: keine Texturen eingebettet")
+        fail(f"{label}: keine Texturen eingebettet")
     notes.append(
-        f"{path.name}: {path.stat().st_size / 1024 / 1024:.1f} MiB, {len(fields)} Feld-Anker, "
+        f"{label}: {path.stat().st_size / 1024 / 1024:.1f} MiB, {len(fields)} Feld-Anker, "
         f"{len(meta.get('instanced', []))} Instanz-Gruppen, {len(textures)} Texturen"
     )
 
@@ -323,16 +330,24 @@ def check_board(path: Path) -> None:
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if len(args) != 1:
-        print("Aufruf: check_usdz.py <ordner> [--manifest=<packages/assets/manifest.json>]")
+        print("Aufruf: check_usdz.py <ordner> [--manifest=<packages/assets/manifest.json>] [--vollstaendig]")
         raise SystemExit(2)
     root = Path(args[0])
     manifest_arg = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--manifest=")), None)
     manifest_path = Path(manifest_arg) if manifest_arg else Path(__file__).parents[1] / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
 
-    files = sorted(root.glob("*.usdz")) + sorted((root / "figuren").glob("*.usdz"))
+    files = (
+        sorted(root.glob("*.usdz"))
+        + sorted((root / "figuren").glob("*.usdz"))
+        + sorted((root / "bretter").glob("*/brett.usdz"))
+    )
     if not files:
         fail(f"{root}: keine USDZ-Dateien")
+    if "--vollstaendig" in sys.argv[1:]:
+        for artifact in manifest.get("builds", {}).get("apple-host", {}).get("artifacts", []):
+            if not (root / artifact["path"]).exists():
+                fail(f"{artifact['path']} fehlt (Artefakt {artifact['id']} im Manifest)")
     tmp = Path(tempfile.mkdtemp(prefix="check-usdz-"))
     try:
         for path in files:

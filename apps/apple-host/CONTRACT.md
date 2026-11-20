@@ -41,7 +41,7 @@ interface ChaosHostInstance {
 
 `pause`, `resume`, `end-game` und `rematch` (CHAOS-145) gehen nur an den Server, wenn sie passen: `pause` nur bei `renderState().pause.canPause` (Brett und Minispiel, nicht vor dem Start und nicht im Finale), `resume` nur in der Pause, `end-game` nur in der laufenden Partie, `rematch` nur im Finale. Sonst loggt der Kern „Host-Befehl … ignoriert: passt gerade nicht“ (kein Server-Fehler; die Fernbedienung drückt man auch in der Lobby). `skip-finale` wirkt nur im Kern: Die Trophäenzählung springt zum Siegerbildschirm.
 
-`host-ready` (CHAOS-68): Ohne `deferSceneReady` ist der Host sofort bereit (Harness, Tests, `--selftest`). Die App setzt es und ruft `sceneReady()`, sobald `brett.usdz`, die Instanzen und die Figuren geladen sind; bis dahin ist „Partie starten“ gesperrt.
+`host-ready` (CHAOS-68): Ohne `deferSceneReady` ist der Host sofort bereit (Harness, Tests, `--selftest`). Die App setzt es und ruft `sceneReady()`, sobald die Kulisse des Standardbretts (`bretter/wackelwald/brett.usdz`), die Instanzen und die Figuren geladen sind; bis dahin ist „Partie starten“ gesperrt.
 
 `setTimeout`, `performance`, `structuredClone` und `crypto` gibt es in JavaScriptCore nicht: Das Bündel polyfillt sie aus `tick` und `env.randomBytes`. Nach jedem Aufruf aus Swift laufen die Mikrotasks des Kontexts leer (JSC-Verhalten, auf das sich der Kern verlässt).
 

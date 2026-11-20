@@ -10,14 +10,27 @@ typealias PlatformColor = UIColor
 #endif
 
 /// Darstellung von `renderState` im `RealityRenderer` (CHAOS-142):
-/// - Lobby und Brett mit echter Grafik (`BoardScene`), sobald die USDZ-Assets geladen sind;
+/// - Lobby und Brett mit echter Grafik (`BoardScene`), sobald die USDZ-Assets geladen sind; je Brett eine Kulisse
+///   (CHAOS-212): Wackelwald beim Start, andere bei Bedarf (Lobby-Wahl lädt vor, Partie-Start lädt nach);
 /// - Minispiele mit echter Grafik (`MinigameScene`, CHAOS-144), auch in der Pause eines Minispiels;
 /// - Brett ohne Assets als Grundkörper (`Primitives`).
 @MainActor
 final class Stage {
     private let renderer: RealityRenderer
     private let primitives = Primitives()
+    /// Standardbrett (`DEFAULT_BOARD` in game-core): wird beim Start geladen und bleibt geladen (Minispiel-Kulisse).
+    static let defaultBoardId = "wackelwald"
+    /// Lobby-Wahl „Zufall“ (CHAOS-197): der Server lost erst beim Start.
+    private static let randomBoardChoice = "zufall"
+    /// Gezeigte Kulisse; `nil`, solange die Kulisse des gespielten Bretts noch lädt oder fehlt (dann Grundkörper).
     private var board: BoardScene?
+    /// Geladene Kulissen nach Brett-ID: das Standardbrett und höchstens ein weiteres (Speicher auf der Apple TV).
+    private var boards: [String: BoardScene] = [:]
+    /// Kulissen, die gerade laden, und solche, die im Asset-Ordner fehlen oder nicht laden (nur einmal melden).
+    private var loadingBoards = Set<String>()
+    private var missingBoards = Set<String>()
+    private var assetRoot: URL?
+    private var models: [String: FigureModel] = [:]
     private var minigame: MinigameScene?
     /// Siegerpodest (CHAOS-145), mit den Figuren der Minispiel-Bühne.
     private var podium: PodiumScene?
@@ -52,20 +65,89 @@ final class Stage {
             loadMinigame(models: [:])
             return
         }
+        assetRoot = folder
         // Jede Figur einmal laden; Brett, Minispiel und Podest klonen daraus (CHAOS-191).
         let models = await FigureModel.loadAll(folder: folder)
-        do {
-            let scene = try await BoardScene.load(from: folder, figures: models)
-            scene.onEvent = { [weak self] in self?.onBoardEvent?($0) }
+        self.models = models
+        if let scene = await loadBoard(Self.defaultBoardId) {
             board = scene
-            renderer.entities.append(scene.root)
             primitives.boardEnabled = false
             show(board: true)
-        } catch {
-            hostLog("FEHLER Brett laden: \(error)")
         }
         loadMinigame(models: models)
         await warmUp()
+    }
+
+    // MARK: Kulisse je Brett (CHAOS-212)
+
+    /// Lädt die Kulisse eines Bretts (unsichtbar) und merkt sie sich; `nil`, wenn sie fehlt oder nicht lädt.
+    private func loadBoard(_ id: String) async -> BoardScene? {
+        if let scene = boards[id] { return scene }
+        guard let root = assetRoot, let folder = BoardScene.boardFolder(in: root, id: id) else {
+            if missingBoards.insert(id).inserted { hostLog("FEHLER Kulisse für Brett „\(id)“ fehlt (bretter/\(id)) – Grundkörper") }
+            return nil
+        }
+        loadingBoards.insert(id)
+        defer { loadingBoards.remove(id) }
+        do {
+            let scene = try await BoardScene.load(from: folder, figures: models)
+            scene.onEvent = { [weak self] in self?.onBoardEvent?($0) }
+            scene.root.isEnabled = false
+            renderer.entities.append(scene.root)
+            boards[id] = scene
+            evictBoards(keeping: id)
+            return scene
+        } catch {
+            missingBoards.insert(id)
+            hostLog("FEHLER Brett „\(id)“ laden: \(error)")
+            return nil
+        }
+    }
+
+    /// Höchstens eine Kulisse außer dem Standardbrett im Speicher: ältere, nicht gezeigte gehen.
+    private func evictBoards(keeping id: String) {
+        for (key, scene) in boards where key != Self.defaultBoardId && key != id && scene !== board {
+            renderer.entities.remove(scene.root)
+            boards[key] = nil
+            hostLog("Kulisse \(key) entladen")
+        }
+    }
+
+    /// Kulisse für diesen Zustand: in der Partie die des gespielten Bretts (fehlt sie noch, `nil` = Grundkörper und
+    /// nachladen), in der Lobby die des gewählten Bretts (bis sie geladen ist und bei „Zufall“ die bisherige).
+    private func boardScene(for s: RenderState) -> BoardScene? {
+        guard assetRoot != nil, !boards.isEmpty else { return board }
+        let inGame = s.phase != "lobby" && s.board != nil
+        let wanted = inGame ? (s.board?.boardId ?? Self.defaultBoardId) : s.lobby?.settings?.board
+        guard let id = wanted, id != Self.randomBoardChoice else { return board }
+        if let scene = boards[id] { return scene }
+        if !loadingBoards.contains(id), !missingBoards.contains(id) {
+            loadingBoards.insert(id)
+            Task { [weak self] in
+                guard let self else { return }
+                self.loadingBoards.remove(id)
+                _ = await self.loadBoard(id)
+            }
+        }
+        return inGame ? nil : board
+    }
+
+    /// Wechselt die gezeigte Kulisse; die alte geht in die Übersicht (ohne Figuren, Popups, Klänge) und aus.
+    private func switchBoard(to scene: BoardScene?) {
+        if let old = board {
+            old.showOverview(dt: 0)
+            old.root.isEnabled = false
+        }
+        board = scene
+        primitives.boardEnabled = scene == nil
+        if scene == nil {
+            primitives.root.isEnabled = true
+            renderer.activeCamera = primitives.camera
+            renderer.lighting.resource = nil
+            renderer.lighting.intensityExponent = 0
+            renderer.cameraSettings.colorBackground = .color(CGColor(red: 0.08, green: 0.1, blue: 0.16, alpha: 1))
+        }
+        hostLog("Kulisse: \(scene?.boardId ?? "Grundkörper")")
     }
 
     /// Minispiel-Bühne (CHAOS-144) und Podest mit den schon geladenen Figuren, damit der Wechsel Brett → Minispiel nicht ruckelt.
@@ -118,6 +200,8 @@ final class Stage {
             primitives.apply(s)
             return
         }
+        let scene = boardScene(for: s)
+        if scene !== board { switchBoard(to: scene) }
         if let board {
             show(board: true)
             primitives.apply(RenderState(phase: "lobby"))

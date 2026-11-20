@@ -56,6 +56,8 @@ struct RenderState: Decodable, Equatable {
     }
 
     struct Board: Decodable, Equatable {
+        /// Played board (CHAOS-212), already resolved by the core; selects the scenery `bretter/<boardId>/`.
+        var boardId: String?
         var round: Int?
         var rounds: Int?
         var activeSlot: Int?

@@ -48,8 +48,8 @@ describe('Build-Artefakte im Manifest (CHAOS-140)', () => {
   it('herkunft.json nennt je Artefakt die Eingänge, alle Lizenzen und Namensnennungen', () => {
     const doc = provenance(real, 'apple-host');
     expect(doc.generator).toBe('scripts/build-apple-assets.mjs');
-    const board = doc.artifacts.find((a) => a.id === 'apple-brett');
-    expect(board?.path).toBe('brett.usdz');
+    const board = doc.artifacts.find((a) => a.id === 'apple-brett-wackelwald');
+    expect(board?.path).toBe('bretter/wackelwald/brett.usdz');
     expect(board?.inputs.map((i) => i.id)).toContain('natur-leafy-grass-diff');
     const grass = board?.inputs.find((i) => i.id === 'natur-leafy-grass-diff');
     expect(grass?.license).toBe('CC0-1.0');

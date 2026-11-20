@@ -6,6 +6,7 @@
  * Alle Nachrichten sind gültige `board`-Nachrichten des Protokolls (unit-getestet) – so
  * würde sie auch der Server schicken. Ausgedacht, nicht von game-core berechnet.
  */
+import type { BoardDefinition } from '@chaos-party/game-core';
 import {
   createMessage,
   type BoardEvent,
@@ -242,3 +243,44 @@ export function createDemoMessages(): BoardMessage[] {
 
 /** Abstand der Demo-Nachrichten im Schleifenbetrieb (ms, Index wie {@link createDemoMessages}). */
 export const DEMO_DELAYS_MS: readonly number[] = [0, 1500, 2500, 1200, 3000, 1500, 3500];
+
+/**
+ * Startstand des Beispiels für ein beliebiges Brett (CHAOS-212, Brett-Export je Brett): Wackelwald
+ * bekommt {@link DEMO_VIEW}; andere Bretter einen gleich gebauten Stand aus ihren Feldern. Blau
+ * steht an der ersten Gabel und wählt, die anderen verteilt auf dem Kurs; die ersten drei
+ * Trophäenfelder sind aktiv, eine Falle von Orange liegt auf einem freien Feld. So enthält der
+ * Export Pokal, Falle und „Am Zug“-Pfeil als Vorlagen (`BoardScene.swift`).
+ */
+export function demoStartMessage(board: BoardDefinition): BoardMessage {
+  if (board.id === DEMO_VIEW.boardId) return message(DEMO_VIEW, [], 0);
+  const spaces = board.spaces;
+  const fork = spaces.find((s) => s.next.length >= 2) ?? spaces[0];
+  if (!fork) throw new Error(`Brett ${board.id} hat keine Felder`);
+  const others = spaces.filter((s) => s.id !== fork.id && s.kind !== 'trophy');
+  const spread = [1, 2, 3].map((i) => others[Math.floor((i * others.length) / 4)]?.id ?? fork.id);
+  const occupied = new Set([fork.id, ...spread]);
+  const trap = spaces.find((s) => s.kind === 'coins-minus' && !occupied.has(s.id)) ?? spaces[1];
+  const byId = new Map(spaces.map((s) => [s.id, s]));
+  const view: BoardView = {
+    ...DEMO_VIEW,
+    boardId: board.id,
+    players: PLAYERS.map((p, i) => ({
+      ...p,
+      spaceId: i === 0 ? fork.id : (spread[i - 1] ?? fork.id),
+    })),
+    trophySpaces: spaces
+      .filter((s) => s.kind === 'trophy')
+      .slice(0, 3)
+      .map((s) => s.id),
+    traps: trap ? [{ spaceId: trap.id, owner: 2 }] : [],
+    prompt: {
+      id: 7,
+      slot: 1,
+      kind: 'path',
+      title: 'Welchen Weg nimmst du?',
+      options: fork.next.map((id) => ({ id, label: byId.get(id)?.label ?? id })),
+      remainingMs: null,
+    },
+  };
+  return message(view, [], 0);
+}

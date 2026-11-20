@@ -13,7 +13,8 @@ pnpm build:apple-assets
 | Option | Wirkung |
 |---|---|
 | `--nur=figuren` | nur die vier Figuren (≈ 30 s) |
-| `--nur=brett` | nur die Kulisse (≈ 3 min unter Linux, Software-Rendering) |
+| `--nur=brett` | nur die Kulissen (je Brett ≈ 3 min unter Linux, Software-Rendering) |
+| `--brett=<id>` | nur die Kulisse dieses Bretts (mit `--nur=brett`; ohne die volle Prüfung) |
 | `--out=<ordner>` | anderer Ausgabeordner (Standard `build/apple-assets/`, aus dem Manifest) |
 | `--ohne-pruefung` | Prüfungen auslassen |
 
@@ -27,10 +28,12 @@ Voraussetzungen: `pnpm install`, Playwright-Chromium (`pnpm exec playwright inst
 |---|---|
 | `figuren/<id>.usdz` | Figur direkt aus dem bpy-Skript (`packages/assets/blender/build.py <id> <ziel.usdz>`), ≈ 0,5–1 MB |
 | `figuren/<id>.clips.json` | Lage der sieben Clips auf der Zeitleiste |
-| `brett.usdz` | Kulisse aus dem Web-Host (Grafikstufe `hoch`), über Blender nach USDZ, ≈ 25 MB |
-| `brett.szene.json` | Kamera, Sonne, Himmel, Figurenorte, **Felder** (`fields`), Instanz-Gruppen |
-| `brett.instanzen.json` | Matrizen für Gras und Blumen (64 246 Instanzen) |
+| `bretter/<brett-id>/brett.usdz` | Kulisse eines Bretts aus dem Web-Host (Grafikstufe `hoch`), über Blender nach USDZ, ≈ 25 MB (Wackelwald) |
+| `bretter/<brett-id>/brett.szene.json` | Brett-ID (`board`), Kamera, Sonne, Himmel, Figurenorte, **Felder** (`fields`), Instanz-Gruppen |
+| `bretter/<brett-id>/brett.instanzen.json` | Matrizen für Gras und Blumen (Wackelwald: 64 246 Instanzen) |
 | `herkunft.json` | Lizenzen, Namensnennungen und Herkunft je Artefakt, Größe und SHA-256 |
+
+**Je Brett eine Kulisse (CHAOS-212):** Der Export läuft für jedes Brett aus `BOARD_REGISTRY` (`packages/game-core/src/board/registry.ts`) mit einem Vite-Server und einem Browser nacheinander (`exportBoards` in `scripts/lib/board-export.mjs`, Seite `boardExport.html?brett=<id>`). Der Beispiel-Spielstand passt sich dem Brett an (`demoStartMessage` in `apps/host/src/board/demo.ts`), damit Pokal, Falle und „Am Zug“-Marker als Vorlagen im Export liegen. Jedes Brett braucht im Manifest ein Artefakt `bretter/<brett-id>/brett.usdz` mit `from` (Unit-Test `scripts/lib/board-artifacts.test.mjs`); der volle Lauf prüft mit `check_usdz.py --vollstaendig`, dass alle Artefakte vorliegen. Feld-IDs beginnen mit `s` (`pokal_s…`, `falle_s…` sucht `BoardScene.swift`).
 
 ## Vertrag für die Swift-Seite
 
@@ -59,7 +62,7 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
   - Figuren: Clip-Tabelle passt zu Zeitleiste und Manifest, jedes Mesh hat ein Material, keine Vertexfarbe im Shader, `akzent` gebunden, `abzeichen` vorne, mit gebackenem Skinning Füße bei y = 0 und Höhe wie im Manifest (±0,1 m)
   - Figuren, Feinstruktur (CHAOS-172): jede UV-Primvar, die ein Material liest (`st`, `struktur`), liegt am Mesh; mindestens eine Normal-Textur, gelesen als `raw` mit `scale 2`/`bias -1`
   - Figuren, Auflage (CHAOS-161): aufgesetzte Teile schweben nicht über ihrem Träger (`AUFLAGE` in `check_usdz.py`: Socken-Bündchen auf dem Schaft, Kaktus-Blüte auf dem Kaktus, Kaktus im Topf). Gemessen wird der Median des Abstands der Unterseite (unterste 2 cm) zur Trägeroberfläche, Punkte im Träger zählen 0, erlaubt sind 3 cm; in der Ruhepose und am Anfang und in der Mitte jedes Clips, mit gebackenem Skinning. Bounds allein fanden den Fehler nicht.
-  - Brett: alle Feld-Anker genau einmal und auf 1 mm am Ort aus `fields`, alle Instanz-Grundmeshes, eingebettete Texturen
+  - Bretter (je `bretter/<id>/`): `board` in `brett.szene.json` gleich dem Ordnernamen, alle Feld-Anker genau einmal und auf 1 mm am Ort aus `fields`, alle Instanz-Grundmeshes, eingebettete Texturen
 - **Herkunft:** Jede Textur im Brett-Export muss aus einem Manifest-Asset kommen, das das Artefakt in `from` nennt, oder eine Beschriftung (Wegweiser, „Am Zug“-Pfeil, gezeichnet mit Nunito) sein (`scripts/lib/board-images.mjs`). `pnpm check:assets` prüft die Einträge unter `builds` im Manifest und, wenn gebaut, die Budgets.
 - **Auf dem Mac** zusätzlich `packages/assets/usd/check_realitykit.swift`: RealityKit lädt alles, Achsen, Feld-Anker, `abzeichen`, Länge der Zeitleiste und dieselbe Auflage-Prüfung mit den Meshes, wie RealityKit sie geladen hat (nur Ruhepose: das verformte Skinning gibt RealityKit nicht an die CPU heraus). Die Prüfung läuft nur lokal mit `pnpm build:apple-assets` auf einem Mac; die CI prüft unter Linux nur mit usd-core, und die Mac-Workflows setzen `RK_CHECK=0`.
   - RealityKit unter macOS 27 (CHAOS-201) legt gehäutete Teile (Socke, Bündchen, Kaktus) als Modelle mit dem Teilnamen in die `ModelComponent` der Skelett-Entität (`sigi`, `kalle`); unter dem Teilnamen stehen dann nur leere Entitäten. Findet die Prüfung unter einem Teil keine Geometrie, nimmt sie die gleichnamigen Modelle des nächsten Vorfahren. Ohne diese Suche meldete sie „ohne Geometrie“.
@@ -78,4 +81,4 @@ Der Spike `spikes/renderer-realitykit` macht das schon für `idle` (`SceneBuilde
 - **Nicht bitgleich:** Zwei Läufe erzeugen gleichwertige, aber nicht bitgleiche Dateien. Blender packt die UV-Inseln über mehrere Objekte nicht immer gleich, und die Reihenfolge der Prims im USD schwankt. Das galt schon für die GLB-Figuren. Prims, Materialien, Clips und Anker sind gleich; die Prüfungen laufen auf den Inhalt.
 - Die Kulisse ist eine Momentaufnahme: Beispiel-Spielstand, Tageslicht-Stimmung, ohne Wasseranimation, Laternen, Glühwürmchen, Lichtstimmungen und Nachbearbeitung (SSAO, Tiefenschärfe). Der native Host zeigt die Kulisse so (CHAOS-142); Lichtstimmungen und Effekte folgen mit CHAOS-148.
 - Himmelskuppeln und Dunst (`himmel_*`, `dunst`) sind im USDZ spiegelnde Kugeln; der Host blendet sie aus (wie der Spike).
-- Größe: `brett.usdz` ≈ 25 MB (Budget 32 MiB im Manifest).
+- Größe: `brett.usdz` ≈ 25 MB je Brett (Budget 32 MiB im Manifest), dazu ≈ 15 MB Instanzen; jedes weitere Brett verlängert den Export um ≈ 3–10 min.
