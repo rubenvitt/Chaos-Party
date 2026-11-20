@@ -90,8 +90,8 @@ describe('Brett „Wackelwald“', () => {
     expect(WACKELWALD.spaces.length).toBeGreaterThanOrEqual(70);
     expect(WACKELWALD.spaces.length).toBeLessThanOrEqual(90);
     expect(counts.start).toBe(1);
-    // Zwölf Trophäen-Kandidaten und zehn Item-Felder (EXP-034).
-    expect(counts.trophy).toBe(12);
+    // 13 Trophäen-Kandidaten und zehn Item-Felder (EXP-034).
+    expect(counts.trophy).toBe(13);
     expect(counts.item).toBe(10);
     expect(counts.event).toBeGreaterThanOrEqual(6);
     expect(counts['coins-minus']).toBeGreaterThan(0);

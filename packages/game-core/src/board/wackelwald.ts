@@ -30,10 +30,10 @@
  * - Gabel C (s29): Pilzpfad 6 (sicher, Item) / Wackelbrücke 4 (Minus, Ereignis).
  *
  * Feldverteilung nach EXP-034 (CHAOS-196, `docs/experiments.md`): Jeder Zweig hat einen
- * Trophäen-Kandidaten, lange Wege bringen mehr Münzen, kurze mehr Risiko. Zwölf Kandidaten
- * (drei davon auf gemeinsamen Stücken: s05, s42, s73), damit eine wandernde Trophäe auch auf dem
+ * Trophäen-Kandidaten, lange Wege bringen mehr Münzen, kurze mehr Risiko. 13 Kandidaten
+ * (vier davon auf gemeinsamen Stücken: s05, s18, s42, s73), damit eine wandernde Trophäe auch auf dem
  * großen Brett in Reichweite landet; zehn Item-Felder etwa alle sieben Felder. In Bot-Partien
- * gewinnt „immer kurz“ gegen „immer lang“ in 47 % der Partien (10 und 20 Runden).
+ * gewinnt „immer kurz“ gegen „immer lang“ in 47–51 % der Partien (10 und 20 Runden).
  */
 import type { BoardDefinition, BoardSpace, SpaceKind } from '../types.ts';
 
@@ -69,7 +69,7 @@ const ROWS: readonly Row[] = [
   ['s16', 'trophy', 14.9, -3.4, 's17'],
   ['s17', 'event', 16, -0.6, 's18'],
   // Rechts: Zusammenführung A → Gabel D
-  ['s18', 'coins-plus', 17.6, 1.8, 's19'],
+  ['s18', 'trophy', 17.6, 1.8, 's19'],
   ['s19', 'item', 18, 4.3, 's20'],
   ['s20', 'coins-plus', 17.6, 6.8, 's21|s44'],
   // Gabel D, quer durch die Lichtung
