@@ -66,6 +66,8 @@ export interface PublicMinigame {
   readonly playMs: number;
   /** Lief schon einmal in dieser Partie: kurze Anleitung (CHAOS-66). */
   readonly repeat: boolean;
+  /** CHAOS-214: in der Anleitung schon bereite Slots; fehlt = Anleitung wartet nicht darauf. */
+  readonly ready?: readonly Slot[];
   /** Seit Beginn von `minigame-play` vergangene Zeit (ms) oder `null` davor. */
   readonly elapsedMs: number | null;
   readonly placements: readonly MinigamePlacement[] | null;
@@ -131,6 +133,7 @@ export function toPublicView(state: GameState, now: number = state.now): PublicG
           seed: state.minigame.seed,
           playMs: state.minigame.playMs,
           repeat: state.minigame.repeat,
+          ...(state.minigame.ready ? { ready: [...state.minigame.ready] } : {}),
           elapsedMs:
             state.minigame.playStartedAt === null
               ? null

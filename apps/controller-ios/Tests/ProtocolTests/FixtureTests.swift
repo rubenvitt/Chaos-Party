@@ -121,6 +121,23 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
         #expect(full.`repeat` == nil)
     }
 
+    /// v4 addendum (CHAOS-214): optional `ready` in the intro plus the offered action `ready`;
+    /// missing = intro with fixed timer.
+    @Test func minigameIntroReadyIsDecoded() throws {
+        func context(_ name: String) throws -> Context? {
+            guard case .context(let context) = try ServerMessage.decode(try Fixtures.text("server-to-controller", name))
+            else { return nil }
+            return context
+        }
+        let offered = try #require(try context("context-minigame-intro-ready.json"))
+        #expect(offered.minigame?.ready == false)
+        #expect(offered.actions == [.ready])
+        let done = try #require(try context("context-minigame-intro-ready-done.json"))
+        #expect(done.minigame?.ready == true)
+        #expect(done.actions.isEmpty)
+        #expect(try context("context-minigame-intro.json")?.minigame?.ready == nil)
+    }
+
     @Test func enumsMatchProtocolConstants() throws {
         let data = Data(try Fixtures.text(".", "protocol-constants.json").utf8)
         let constants = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])

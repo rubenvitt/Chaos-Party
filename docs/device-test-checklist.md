@@ -741,3 +741,20 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 | KB2 | Sobald es zwei Bretter gibt: in der Lobby das zweite Brett wählen | Hintergrund wechselt nach kurzem Laden auf dessen Kulisse; Log „Brett <id> geladen … in … ms“ (Ladezeit auf der Apple TV notieren) | | Log |
 | KB3 | Partie auf dem zweiten Brett, danach „Nochmal spielen“ mit Wackelwald | Figuren stehen auf den Feldern der jeweils richtigen Kulisse, kein Neustart nötig | | Foto |
 | KB4 | „Zufall“ wählen und starten, bis ein nicht geladenes Brett gelost wird | Zu Beginn kurz Grundkörper (Scheiben und Kugeln), dann die Kulisse; Dauer auf der Apple TV notieren | | |
+
+## 39. „Bereit“ in der Minispiel-Anleitung (für CHAOS-214)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-214
+
+Automatisch geprüft (Linux-CI): Regeln, Server und Bots (Unit- und Integrationstests), Web-Controller und PC-Host in Playwright. **Nicht** geprüft: native Controller-App und Apple-Host (Swift nur am Mac übersetzbar), echte Handys, echtes Gefühl beim Warten.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| BR1 | Partie zu dritt (iPhones), erste Minispiel-Anleitung | Jedes Handy zeigt die Anleitung mit großem „Bereit!“; der Host zeigt je Spieler, wer schon bereit ist | | Foto |
+| BR2 | Zwei drücken „Bereit!“, der Dritte wartet 15 s | Minispiel startet nicht; die zwei sehen „Warte auf die anderen …“; der Host hebt den Dritten hervor | | |
+| BR3 | Der Dritte drückt „Bereit!“ | Minispiel startet sofort (höchstens 3 s nach Beginn der Anleitung); Bühne steht, kein Standbild | | Video |
+| BR4 | Alle drücken sofort „Bereit!“ | Anleitung bleibt mindestens etwa 3 s stehen, dann Start; auf der Apple TV ist die Bühne fertig | | Video |
+| BR5 | Ein Handy sperren bzw. WLAN aus, während die anderen bereit sind | Nach dem Trennen startet das Spiel ohne diesen Spieler zu blockieren | | |
+| BR6 | Niemand drückt „Bereit!“ | Nach 60 s startet das Minispiel trotzdem | | |
+| BR7 | Geteiltes iPad (2 Zonen) | Jede Zone hat ihren eigenen „Bereit!“-Knopf, Druck in einer Zone wirkt nur dort | | Foto |
+| BR8 | Pause am Host während der Anleitung | Kein „Bereit!“ angeboten; nach dem Fortsetzen wieder da, schon gedrückte bleiben bereit | | |

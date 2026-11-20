@@ -1,7 +1,8 @@
 /**
  * Synthetischer Controller für Host-Specs (M4, CHAOS-36/37): tritt per Node-WebSocket bei,
- * wählt auf Wunsch eine Figur, tippt „bereit“ und beantwortet im Brettspiel jede Entscheidung
- * (bevorzugt würfeln/kaufen/festhalten). Hält die Verbindung mit Herzschlägen am Leben.
+ * wählt auf Wunsch eine Figur, tippt „bereit“ (Lobby und Minispiel-Anleitung, CHAOS-214) und
+ * beantwortet im Brettspiel jede Entscheidung (bevorzugt würfeln/kaufen/festhalten). Hält die
+ * Verbindung mit Herzschlägen am Leben.
  * Ohne echte Controller-Seite: Die prüfen die Controller-Specs.
  */
 import {
@@ -22,6 +23,8 @@ export interface LobbyBotOptions {
   readonly autoReady?: boolean;
   /** Im Brettspiel Entscheidungen beantworten (Standard: ja). */
   readonly autoChoose?: boolean;
+  /** In der Minispiel-Anleitung „Bereit“ tippen (CHAOS-214, Standard: ja). */
+  readonly minigameReady?: boolean;
   readonly name?: string;
 }
 
@@ -102,6 +105,11 @@ export class LobbyBot {
         return;
       }
       if (this.autoReady && message.actions.includes('ready')) this.ready();
+      return;
+    }
+    if (message.actions.includes('ready')) {
+      // CHAOS-214: Minispiel-Anleitung wartet auf „Bereit“ aller.
+      if (this.options.minigameReady !== false) this.ready();
       return;
     }
     if (this.options.autoChoose === false) return;
