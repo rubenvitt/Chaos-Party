@@ -293,8 +293,8 @@ export function createBoardDirection(): BoardDirection {
         if (hidden) {
           hidden = false;
           director.settle();
-          const settled = director.getFrame().view;
-          ridesOf(settled).settle(settled ? settled.round : null);
+          // Fahrgeschäfte nicht mitspringen lassen: Hat das Minispiel die Runde beendet, soll man
+          // das Karussell danach weiterfahren sehen (wie im PC-Host).
         }
         director.advance(step);
         advanceCamera(step);

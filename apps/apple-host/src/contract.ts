@@ -420,8 +420,8 @@ export const BoardStateSchema = z.strictObject({
   /**
    * Fahrgeschäfte der Kulisse (CHAOS-199, `apps/host/src/board/rides.ts`): Knoten im USDZ
    * (`karussell_dreh`, `riesenrad_rad`), Drehachse und Winkel in Babylon-Koordinaten (rad). Der
-   * Knoten steht in Ruhe ohne Drehung; Swift setzt seine Weltdrehung auf `-angle` um `axis`
-   * (der Export spiegelt x). Leer auf Brettern ohne Fahrgeschäfte.
+   * Knoten steht im Export in Ruhe; Swift dreht ihn um `angle` um die Weltachse `axis`, relativ
+   * zur Ruhelage (Vorzeichen am Mac geprüft). Leer auf Brettern ohne Fahrgeschäfte.
    */
   rides: z.array(z.strictObject({ node: z.string(), axis: z.enum(['y', 'z']), angle: z.number() })),
 });

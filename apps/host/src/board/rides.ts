@@ -9,7 +9,8 @@
  * - **Riesenrad:** dreht sich langsam und gleichmäßig.
  *
  * Winkel in Babylon-Koordinaten (linkshändig, y oben): `rotation.y = yaw` richtet lokal +z auf
- * `(sin yaw, 0, cos yaw)`. Der Apple-Host spiegelt x (Export), dort gilt der negative Winkel.
+ * `(sin yaw, 0, cos yaw)`. Der Apple-Host dreht die Knoten aus dem USDZ um denselben Winkel
+ * (`BoardScene.turn`).
  */
 import { rotationExit, type BoardDefinition, type BoardRotation } from '@chaos-party/game-core';
 

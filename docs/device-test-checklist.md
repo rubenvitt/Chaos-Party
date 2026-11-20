@@ -733,7 +733,7 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-212
 
-Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. **Nicht** prüfbar, solange es nur Wackelwald gibt: Wechsel zwischen zwei Bretter-Kulissen; das folgt mit CHAOS-199 (Rummelplatz) bzw. CHAOS-198.
+Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. Seit CHAOS-199: Mac-App mit „Zufall“ und sieben Revanchen, die Kulisse wechselte sechsmal zwischen Wackelwald und Rummelplatz ohne Neustart.
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
@@ -746,7 +746,7 @@ Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `br
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-020 · **Experiment:** EXP-034
 
-Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App mit vier Bots über drei Runden bis zum Siegerbild, Zufall mit Revanchen (Wechsel der Kulisse ohne Neustart). **Nicht** geprüft: Apple TV (Ladezeit der zweiten Kulisse, Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App und tvOS-Simulator mit je vier Bots über drei Runden bis zum Siegerbild, Zufall mit sieben Revanchen am Mac (Kulisse wechselte sechsmal in beide Richtungen ohne Neustart). **Nicht** geprüft: echte Apple TV (Ladezeit der zweiten Kulisse, im Simulator 4,2 s; Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |

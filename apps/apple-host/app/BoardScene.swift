@@ -162,12 +162,13 @@ final class BoardScene {
     }
 
     /// Fahrgeschäfte drehen (CHAOS-199): Der Knoten steht im Export in Ruhe, `angle` gilt in Babylon-Koordinaten (Achse in
-    /// Welt-y bzw. -z). Der Export spiegelt x, darum dreht die Weltlage um `-angle` (um y und z gleichermaßen).
+    /// Welt-y bzw. -z). Gerechnet wäre wegen der x-Spiegelung `-angle`; im Bild (Mac, Ausfahrt-Tor des Karussells) zeigte
+    /// das aber zum Gegen-Ausgang, die Spiegelung steckt also schon in der Knotenkette. Darum gilt `+angle`.
     private func turn(rides list: [RenderState.Ride]) {
         for ride in list {
             guard let (entity, rest) = rides[ride.node] else { continue }
             let axis: SIMD3<Float> = ride.axis == "z" ? [0, 0, 1] : [0, 1, 0]
-            entity.setOrientation(simd_quatf(angle: -ride.angle, axis: axis) * rest, relativeTo: nil)
+            entity.setOrientation(simd_quatf(angle: ride.angle, axis: axis) * rest, relativeTo: nil)
         }
     }
 
