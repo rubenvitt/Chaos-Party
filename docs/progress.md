@@ -295,6 +295,8 @@ Details: [`testing.md`](testing.md).
 
 10. **Größere Bretter (CHAOS-195):** Seit CHAOS-197 ist das Brett eine Lobby-Einstellung (Register `packages/game-core/src/board/registry.ts`, ADR-015 Nachtrag 6; Server: `BRETT=zufall pnpm start`, Mac-App: `--brett=zufall`). Seit CHAOS-212 lädt der Apple-Host die Kulisse je Brett (`bretter/<brett-id>/`, Gerätecheckliste §38). Als Nächstes Wackelwald vergrößern (CHAOS-196) und die Themen-Bretter CHAOS-198 und CHAOS-199. Offen bei Ruben: Gerätecheckliste §37.
 
+11. **KI-Spieler (CHAOS-177):** Konzept steht in [ADR-020](decisions/ADR-020-ki-spieler.md) (CHAOS-178, Rubens Entscheidungen vom 2026-11-19): Jeder Platz ist Mensch oder KI, Solo erlaubt. Die Brett-KI läuft im Server als virtueller Controller, die Minispiel-KI im Host neben der Minispiel-Laufzeit. Stärke: leicht, mittel, schwer oder dynamisch. Persönlichkeit per Seed. `VISION.md` (Spieler) und `ARCHITECTURE.md` sind nachgezogen. Als Nächstes CHAOS-179 (KI-Sitze im Server) und CHAOS-180 (Bot-Vertrag der Minispiele).
+
 ## Offene Risiken (Kurzfassung)
 
 Höchstes Risiko in M1 sind die Annahmen, die nur auf echter Hardware prüfbar sind: iPad-Multitouch für mehrere Zonen (A1–A3), LAN-Erreichbarkeit/Firewall/Client-Isolation (B1, B2), Latenz (B6) und Bildschirmsperre/Reconnect auf iOS (B7). Details und Validierungswege: [`assumptions.md`](assumptions.md).
