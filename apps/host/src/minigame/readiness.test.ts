@@ -1,6 +1,6 @@
 import { BoardViewSchema } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
-import { introReadiness, READY_HEADLINE, waitsForReady } from './readiness.ts';
+import { introReadiness, READY_HEADLINE, readyProgress, waitsForReady } from './readiness.ts';
 import { minigameView } from './testViews.ts';
 
 /** Anleitung, die auf Bereitschaft wartet: Blau und Grün bereit, Rosa getrennt. */
@@ -55,5 +55,11 @@ describe('Bereitschaft in der Anleitung (CHAOS-214)', () => {
   it('niemand bereit: alle wartend', () => {
     const readiness = introReadiness(minigameView('minigame-intro', { ready: [] }));
     expect(readiness?.players.every((p) => p.state === 'waiting')).toBe(true);
+  });
+
+  it('Fortschritt für den Klang zählt nur verbundene, die gedrückt haben', () => {
+    expect(readyProgress(waitingIntro())).toEqual({ done: 2, total: 3 });
+    expect(readyProgress(minigameView('minigame-intro'))).toBeNull();
+    expect(readyProgress(null)).toBeNull();
   });
 });

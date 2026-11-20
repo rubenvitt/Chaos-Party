@@ -49,7 +49,7 @@ import {
   shownRemainingMs,
   type MinigameStageName,
 } from './plan.ts';
-import { introReadiness, waitsForReady, type Readiness } from './readiness.ts';
+import { introReadiness, readyProgress, waitsForReady, type Readiness } from './readiness.ts';
 import { resultPayload, resultsDisplay } from './results.ts';
 import { createMinigameStage, type MinigameStage, type StageStatus } from './stage.ts';
 import type { ChaosMinigameTestHook } from './testHook.ts';
@@ -371,6 +371,17 @@ export function MinigameScreen(props: MinigameScreenProps) {
       soundEngine().play('tick', { pitch: introSeconds === 1 ? 1.25 : 1 });
     }
   }, [introSeconds]);
+  // CHAOS-214: Statt Countdown tickt jedes neue „Bereit“, das letzte etwas höher.
+  const progress = stageName === 'intro' ? readyProgress(view) : null;
+  const readyDone = progress?.done ?? 0;
+  const readyTotal = progress?.total ?? 0;
+  const lastReady = useRef(readyDone);
+  useEffect(() => {
+    if (readyDone > lastReady.current) {
+      soundEngine().play('tick', { pitch: readyDone >= readyTotal ? 1.25 : 1 });
+    }
+    lastReady.current = readyDone;
+  }, [readyDone, readyTotal]);
 
   const ack = props.resultAck;
   const rejected =

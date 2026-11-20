@@ -67,6 +67,7 @@ import { parseHostCommand } from './hostCommand.ts';
 import {
   infoView,
   introCountdown,
+  readyProgress,
   readinessView,
   resultsView,
   scoreboardView,
@@ -620,11 +621,13 @@ function create(env: HostEnv): ChaosHostInstance {
           log(`Minispiel-Schritt: ${describe(error)}`);
         }
       }
-      // Anleitung: „minigame-start“ und Countdown-Ticks wie `MinigameScreen` (CHAOS-190).
+      // Anleitung: „minigame-start“ und Countdown-Ticks wie `MinigameScreen` (CHAOS-190), in der
+      // wartenden Anleitung ein Tick je neuem „Bereit“ (CHAOS-214).
       sounds.observe(
         stageKeyOf(view, isKnownMinigame),
         minigameStageOf(view),
         view ? introCountdown(view, receivedAt, now()) : null,
+        readyProgress(view),
       );
       flush();
     },

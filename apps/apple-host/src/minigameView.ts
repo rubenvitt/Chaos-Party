@@ -8,7 +8,9 @@ import type { MinigameHud } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS, type BoardView } from '@chaos-party/protocol';
 import { ITEM_NAMES } from '../../host/src/board/texts.ts';
 import { characterName, phaseSecondsLeft } from '../../host/src/minigame/plan.ts';
-import { introReadiness, waitsForReady } from '../../host/src/minigame/readiness.ts';
+import { introReadiness, readyProgress, waitsForReady } from '../../host/src/minigame/readiness.ts';
+
+export { readyProgress };
 import { resultsDisplay } from '../../host/src/minigame/results.ts';
 import type {
   MinigameInfoView,

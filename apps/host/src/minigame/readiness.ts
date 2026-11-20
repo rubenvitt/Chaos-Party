@@ -2,8 +2,9 @@
  * Bereitschaft in der Minispiel-Anleitung (CHAOS-214): Der Server wartet, bis alle verbundenen
  * Spieler auf dem Handy „Bereit!“ gedrückt haben (`view.minigame.ready`), frühestens nach der
  * Mindestzeit, spätestens nach der Sicherheitsfrist. `view.remainingMs` ist dabei erst die Zeit
- * bis zur Mindestzeit, dann bis zur Frist – kein Countdown, die Karte zeigt ihn nicht. Reine Anzeige-Entscheidungen für die Anleitungskarte
- * im Browser-Host und das Apple-TV-/Mac-Overlay (`apps/apple-host/src/minigameView.ts`).
+ * bis zur Mindestzeit, dann bis zur Frist – kein Countdown, die Karte zeigt ihn nicht. Reine
+ * Anzeige-Entscheidungen für die Anleitungskarte im Browser-Host und das Apple-TV-/Mac-Overlay
+ * (`apps/apple-host/src/minigameView.ts`).
  */
 import { PLAYER_SLOTS, type BoardView, type SlotNumber } from '@chaos-party/protocol';
 import { characterName } from './plan.ts';
@@ -74,4 +75,19 @@ export function introReadiness(view: BoardView): Readiness | null {
       };
     });
   return { headline: READY_HEADLINE, players };
+}
+
+/**
+ * Fortschritt für den Klang (CHAOS-214): verbundene Spieler, die „Bereit!“ gedrückt haben, von
+ * allen verbundenen. Jedes neue „Bereit“ tickt, das letzte etwas höher; ein Verbindungsverlust
+ * tickt nicht. `null`, wenn die Anleitung nicht wartet.
+ */
+export function readyProgress(view: BoardView | null): { done: number; total: number } | null {
+  const ready = view?.minigame?.ready;
+  if (!view || !waitsForReady(view) || ready === undefined) return null;
+  const connected = view.players.filter((player) => player.connected);
+  return {
+    done: connected.filter((player) => ready.includes(player.slot)).length,
+    total: connected.length,
+  };
 }
