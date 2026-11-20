@@ -16,7 +16,7 @@ import { readableTextColor } from './color.ts';
 import { FinalCard, PauseCard } from './final.tsx';
 import { Joystick } from './Joystick.tsx';
 import { CharacterLobby } from './lobby.tsx';
-import { MinigameCard, MinigameHeader } from './minigame.tsx';
+import { IntroReadyControl, MinigameCard, MinigameHeader } from './minigame.tsx';
 
 export interface SlotControllerProps {
   player: PlayerInfo;
@@ -98,7 +98,22 @@ export function SlotController({
       )}
       {screen === 'minigame' && minigame && (
         <div className="panel minigame-panel" data-testid="minigame-panel">
-          <MinigameCard minigame={minigame} />
+          <MinigameCard
+            minigame={minigame}
+            readyLine={
+              minigame.stage === 'intro' ? (
+                // Neuer Kontext (z. B. Angebot weg) setzt „gesendet“ zurück; neue Anleitung
+                // (anderes Minispiel) startet auch die Schonfrist neu (CHAOS-214).
+                <IntroReadyControl
+                  key={`${minigame.id}:${contextKey(context)}`}
+                  context={context}
+                  onReady={() => {
+                    send({ type: 'ready', slot: player.slot });
+                  }}
+                />
+              ) : undefined
+            }
+          />
         </div>
       )}
       {screen === 'pause' && (

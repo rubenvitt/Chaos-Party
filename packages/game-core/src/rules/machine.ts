@@ -39,11 +39,14 @@ import {
   slotOption,
 } from './prompts.ts';
 import {
+  checkMinigameReady,
   checkMinigameResult,
   enterMinigame,
   expireMinigame,
   finishMinigame,
-  startMinigamePlay,
+  markMinigameReady,
+  releaseMinigameIntro,
+  resumeMinigameIntro,
 } from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
 import { tallyStats } from './stats.ts';
@@ -308,7 +311,7 @@ function resume(ctx: Ctx, t: number): void {
       afterTurn(ctx, t);
       return;
     case 'minigame-intro':
-      startMinigamePlay(ctx, t);
+      resumeMinigameIntro(ctx, t);
       return;
     case 'minigame-play':
       expireMinigame(ctx, t);
@@ -515,6 +518,16 @@ export function step(state: GameState, command: GameCommand): StepResult {
       applyOption(ctx, command.option, at);
       break;
     }
+    case 'minigame-ready': {
+      if (!d.players.some((p) => p.slot === command.slot)) {
+        return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
+      }
+      if (d.paused) return fail(state, 'paused', 'Partie ist pausiert');
+      const check = checkMinigameReady(ctx);
+      if (!check.ok) return fail(state, 'wrong-phase', check.message);
+      markMinigameReady(ctx, command.slot);
+      break;
+    }
     case 'minigame-result': {
       const check = checkMinigameResult(ctx, command);
       if (!check.ok) {
@@ -529,6 +542,8 @@ export function step(state: GameState, command: GameCommand): StepResult {
     }
   }
 
+  // CHAOS-214: Bereit, Verbindungsverlust oder Pausenende kann die letzte Bereitschaft sein.
+  releaseMinigameIntro(ctx, at);
   run();
   tallyStats(ctx);
   return { ok: true, state: closeDraft(ctx), events: ctx.events };

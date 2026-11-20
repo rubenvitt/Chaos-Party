@@ -19,8 +19,19 @@ import type { SlotContext } from '../state/reducer.ts';
 
 export type MinigameStage = ControllerMinigameInfo['stage'];
 
-/** Schlusszeile im Intro. */
+/** Schlusszeile im Intro (feste Anleitungszeit, ältere Server). */
 export const INTRO_READY = 'Gleich geht’s los!';
+/** Knopf in der Anleitung, wenn sie auf Bereitschaft wartet (CHAOS-214). */
+export const INTRO_READY_BUTTON = 'Bereit!';
+/** Bestätigung nach „Bereit!“ in der Anleitung (CHAOS-214), zweizeilig: Kopf und Hinweis. */
+export const INTRO_READY_DONE_HEAD = 'Bereit!';
+export const INTRO_READY_DONE_HINT = 'Warte auf die anderen …';
+export const INTRO_READY_DONE = `${INTRO_READY_DONE_HEAD} ${INTRO_READY_DONE_HINT}`;
+/**
+ * Schonfrist nach dem Erscheinen der Anleitung (CHAOS-214): So lange ist „Bereit!“ sichtbar
+ * gesperrt, damit ein Tipper vom vorigen Bildschirm (Würfeln, Wahl) nicht durchrutscht.
+ */
+export const INTRO_READY_GUARD_MS = 600;
 /** Kurzes Intro (CHAOS-66): Minispiel lief in der Partie schon, nur Titel und Bedienlegende. */
 export const REPEAT_KICKER = 'Nochmal!';
 /** Hinweis unter dem Ergebnis: Danach geht es am PC weiter. */
@@ -38,6 +49,64 @@ export function minigameIn(
   const minigame = context?.minigame;
   if (!minigame) return undefined;
   return stage === undefined || minigame.stage === stage ? minigame : undefined;
+}
+
+/**
+ * „Bereit“ in der Anleitung (CHAOS-214):
+ * - `timer`: Anleitung wartet nicht (feste Zeit, älterer Server) – Schlusszeile {@link INTRO_READY}.
+ * - `guard`: Knopf angeboten, aber noch in der Schonfrist ({@link INTRO_READY_GUARD_MS}) gesperrt.
+ * - `button`: Knopf angeboten und antippbar.
+ * - `done`: gedrückt (lokal gesendet oder vom Server bestätigt) – „Warte auf die anderen“.
+ */
+export type IntroReadyState = 'timer' | 'guard' | 'button' | 'done';
+
+export interface IntroReadyLocal {
+  /** `ready` in genau dieser Anleitung schon gesendet (Antwort des Servers steht noch aus). */
+  readonly sent: boolean;
+  /** Schonfrist vorbei. */
+  readonly armed: boolean;
+}
+
+/**
+ * Zustand des Bereit-Knopfs in der Anleitung allein aus Kontext und lokalem Stand. Der Server
+ * bietet `ready` an (`actions`), bis der Slot gedrückt hat; `minigame.ready` ist dann `true`.
+ * Fehlt beides, wartet die Anleitung nicht (ältere Server).
+ */
+export function introReadyState(
+  context: Pick<SlotContext, 'actions' | 'minigame'> | undefined,
+  local: IntroReadyLocal,
+): IntroReadyState {
+  const minigame = context?.minigame;
+  if (minigame?.stage !== 'intro') return 'timer';
+  if (minigame.ready === true) return 'done';
+  if (!context?.actions.includes('ready')) return 'timer';
+  if (local.sent) return 'done';
+  return local.armed ? 'button' : 'guard';
+}
+
+/**
+ * Kennung einer Anleitung, die gerade „Bereit“ anbietet (Runde + Minispiel), sonst `null`.
+ * Die iPad-Zonen messen die Schonfrist je Kennung: Eine neue Anleitung beginnt von vorn.
+ */
+export function readyIntroToken(
+  context: Pick<SlotContext, 'actions' | 'minigame' | 'board'> | undefined,
+): string | null {
+  if (introReadyState(context, { sent: false, armed: true }) !== 'button') return null;
+  return `${String(context?.board?.round ?? 0)}:${context?.minigame?.id ?? ''}`;
+}
+
+/**
+ * Gleiche Anleitung, die auf „Bereit“ wartet: Meldet sich ein anderer Platz bereit, kommt ein
+ * neuer Kontext mit gleichem Angebot – ein schon gesendetes „Bereit“ gilt dann weiter.
+ */
+export function sameReadyIntro(a: SlotContext, b: SlotContext): boolean {
+  return (
+    a.minigame?.stage === 'intro' &&
+    b.minigame?.stage === 'intro' &&
+    a.minigame.id === b.minigame.id &&
+    a.actions.includes('ready') &&
+    b.actions.includes('ready')
+  );
 }
 
 /** Eintrag der Bedienlegende im Intro (nur angebotene Elemente, feste Reihenfolge). */

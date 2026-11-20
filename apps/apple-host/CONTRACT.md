@@ -97,6 +97,11 @@ interface ChaosHostInstance {
                  "finish": "matt" | "glanz" | "metall" | "stoff", "twoSided": true }],
     "hud": "48 s · Anna 3 · Ben 1",                                      // Kurzfassung (Debug)
     "ready": true, "round": 3, "repeat": false, "countdown": 7 | null,
+    // CHAOS-214, optional: Intro wartet auf „Bereit“ (dann "countdown": null)
+    "readiness": null | { "headline": "Alle bereit? Drückt „Bereit!“ auf dem Handy",
+                          "players": [{ "slot": 1, "name": "Anna", "character": "Wusel", "color": "#0072B2", "symbol": "●",
+                                        "ready": true, "connected": true, "state": "ready" | "waiting" | "disconnected",
+                                        "text": "Bereit" | "Drückt Bereit …" | "getrennt" }] },
     "info": { "title": "…", "tagline": "…", "instructions": ["…"], "controls": { "joystick": "Laufen", "a": "Schubsen", "b": null }, "scoreUnit": "Punkte" },
     "camera": null | { "pos": [0, 11.5, -13.5], "target": [0, -1.3, 0.8], "fov": 0.8, "fovAxis": "vertical" | "horizontal" },
     "backdrop": null | { "halfX": 7.2, "halfZ": 7.2, "groundY": -3.3, "surface": "wiese" | "decke" },
@@ -157,12 +162,13 @@ interface ChaosHostInstance {
   | Klang | Wann | Browser-Host |
   | --- | --- | --- |
   | `minigame-start` | Minispiel erscheint in der Anleitung (nicht, wenn es erst im Spiel auftaucht) | `MinigameScreen` beim Erscheinen |
-  | `tick` | Countdown der Anleitung bei 3, 2 und 1 s, bei 1 s Tonhöhe × 1,25; in der Pause steht er | `MinigameScreen`, Effekt auf `introSeconds` |
+  | `tick` | Countdown der Anleitung bei 3, 2 und 1 s, bei 1 s Tonhöhe × 1,25; in der Pause steht er; nicht, wenn die Anleitung auf „Bereit“ wartet (CHAOS-214) | `MinigameScreen`, Effekt auf `introSeconds` |
   | `go`, `win` und alle Klänge des Spiels | `ctx.fx.sound` des Minispiels (gleicher Code: Start, Treffer, Punkte, Ende) | `fx/minigameFx.ts` |
   | `cheer` | Ergebnis, einmal, wenn die Figuren jubeln | `stage.celebrate` |
 
   Klänge der Minispiele über `ctx.fx.sound` (Stand CHAOS-190; Lautstärke/Tonhöhe in Klammern): Sockenregen `go`, `whoosh` (0,6; Bügeleisen 0,35/0,7), `bump`, `score`, `coin` (Tonhöhe steigt), `hit`, `pop`, `buzz`, `win` · Pudding-Gerangel `go`, `coin` (0,35, je Slot), `hit` (0,5), `whoosh` (0,6 bzw. 0,4/1,3), `bump` (zufällige Tonhöhe), `splash`, `pop`, `win` · Wackelturm `go`, `pop` (Tonhöhe nach Höhe), `coin`, `whoosh` (auch 1,2), `cheer`/`score` (Bonus), `hit`/`fall`, `bump`, `buzz` (0,5), `win` · Kuckucks-Klatsche `go`, `tick` (0,25/1,3), `pop`, `buzz` (0,45/1,5 und 1), `hit` (0,7), `coin`, `whoosh` (0,7 und 0,3/0,7), `score` (0,8), `lose` (0,6), `bump` (0,4/0,8), `win` · Krümel-Kehraus `go`, `pop` (1,4 und 0,35/1,1), `whoosh` (0,8/0,8 und 0,4/1,3), `bump` (0,5/0,7 und zufällig), `coin`/`score`, `win`. Der Kern ruft dieselben Module auf, also sind es dieselben Aufrufe; `test/minigameSounds.test.ts` prüft je Minispiel der Rotation `go`, `win` und `cheer`, `harness/run.sh full` zählt sie in JavaScriptCore.
 - **Bildschirme:** `info`, `countdown` (Intro), `scoreboard` (Spiel), `results` (Ergebnis mit Münzen und Trostpreis) kommen aus denselben Funktionen wie im Browser-Host (`plan.ts`, `results.ts`, `texts.ts`); `repeat` = kurze Anleitung (CHAOS-66).
+- **Bereitschaft (CHAOS-214):** Wartet die Anleitung darauf, dass alle verbundenen Spieler auf dem Handy „Bereit!“ drücken (`BoardView.minigame.ready`), kommt `readiness` (`introReadiness` aus `apps/host/src/minigame/readiness.ts`) und `countdown` ist `null`: `remainingMs` ist dann nur Mindestzeit (3 s) bzw. Sicherheitsfrist (60 s), kein Countdown. Swift zeigt statt „Los in“ die Überschrift und je Spieler einen Chip (Häkchen + „Bereit“, „Drückt Bereit …“ oder „getrennt“; getrennte zählen beim Server als bereit). Fehlt `readiness` oder ist `null`, gilt der feste Countdown wie bisher. Die Bühne gilt in dieser Anleitung von Anfang an als knapp (`stageUrgentFor`, ADR-012 Nachtrag 3), weil sie schon nach 3 s enden kann.
 
 ### Finale und Pause (CHAOS-145)
 

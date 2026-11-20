@@ -529,6 +529,16 @@ export function simulateGame(options: SimulationOptions): SimulationResult {
       minigameResult(minigame, at);
       continue;
     }
+    // CHAOS-214: Bots lesen die Anleitung (Bedenkzeit) und drücken nacheinander „Bereit“.
+    const waiting =
+      state.phase === 'minigame-intro' && minigame?.ready !== undefined
+        ? state.players.find((p) => p.connected && !minigame.ready?.includes(p.slot))
+        : undefined;
+    if (prompt === null && waiting) {
+      const at = state.now + inRange(bot, policy.decisionMs);
+      apply(step(state, { type: 'minigame-ready', slot: waiting.slot, at }), at);
+      continue;
+    }
     if (prompt === null) {
       if (state.resumeAt === null) throw new Error(`Simulation hängt in Phase ${state.phase}`);
       apply(step(state, { type: 'tick', at: state.resumeAt }), state.resumeAt);

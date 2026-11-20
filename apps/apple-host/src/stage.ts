@@ -42,7 +42,10 @@ import {
   type SoundId,
   type VisualTag,
 } from '@chaos-party/minigame-sdk/babylon';
+import type { BoardView } from '@chaos-party/protocol';
 import type { PlayOptions } from '../../host/src/fx/sounds.ts';
+import { minigameStageOf } from '../../host/src/minigame/plan.ts';
+import { waitsForReady } from '../../host/src/minigame/readiness.ts';
 import type {
   Body,
   BodyShape,
@@ -118,6 +121,23 @@ export const FRAME_RESERVE_MS = 10;
  * fertig, rechnet der Aufbau mit `URGENT_SHARE` (CHAOS-205).
  */
 export const PREPARE_URGENT_MS = 2_000;
+
+/**
+ * Ist die Zeit für eine noch nicht fertige Bühne knapp (CHAOS-205)? Ja, wenn das Spiel schon
+ * läuft oder die Anleitung in höchstens `PREPARE_URGENT_MS` endet. Wartet die Anleitung auf
+ * „Bereit“ (CHAOS-214), kann sie schon nach der Mindestzeit (3 s, `minigameReadyMinMs`) enden,
+ * sobald alle bereit sind; `remainingMs` sagt dann nichts über das Ende. Wie bei der kurzen
+ * Anleitung (3 s) gilt die Bühne deshalb von Anfang an als knapp.
+ */
+export function stageUrgentFor(view: BoardView, receivedAt: number, nowMs: number): boolean {
+  const stageName = minigameStageOf(view);
+  if (stageName === 'play') return true;
+  if (stageName !== 'intro') return false;
+  if (waitsForReady(view)) return true;
+  if (view.remainingMs === null) return false;
+  const left = view.remainingMs - (view.paused ? 0 : nowMs - receivedAt);
+  return left <= PREPARE_URGENT_MS;
+}
 
 /**
  * Aufbau-Budget (ms) für einen `tick`, der `tickIntervalMs` nach dem vorigen kommt (CHAOS-205).

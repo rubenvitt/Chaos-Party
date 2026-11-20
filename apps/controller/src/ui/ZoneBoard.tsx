@@ -22,7 +22,12 @@ import { chooseIntent, choiceById, describePrompt, isLocked, ownPrompt } from '.
 import { describeWaiting } from '../board/status.ts';
 import { createMoveSender, type MoveSender } from '../input/moveSender.ts';
 import { describeLobby, HINT_READY, type SiblingCharacter } from '../lobby/view.ts';
-import { describePlay } from '../minigame/view.ts';
+import {
+  describePlay,
+  INTRO_READY_BUTTON,
+  readyIntroToken,
+  sameReadyIntro,
+} from '../minigame/view.ts';
 import type { SlotIntent } from '../net/client.ts';
 import { ownCharacter } from '../state/character.ts';
 import type { FeedbackPulse, Notice, PendingChoice, SlotContext } from '../state/reducer.ts';
@@ -33,12 +38,14 @@ import {
   buildZones,
   lobbyZoneFrames,
   MAX_ZONES,
+  minigameZoneFrames,
   parseChoiceControl,
   parsePickControl,
   rectCenter,
   ZONE_PADDING,
   type ControlGeometry,
   type Size,
+  type ZoneControlsInput,
   type ZoneGeometry,
 } from '../zones/geometry.ts';
 import { routeTouchEvent, TOUCH_EVENT_TYPES } from '../zones/touchRouter.ts';
@@ -50,9 +57,10 @@ import { readableTextColor, slotColorVars } from './color.ts';
 import { FinalCard, PauseCard } from './final.tsx';
 import { CharacterFace, LobbyHead, ReadyBadge } from './lobby.tsx';
 import { cardData, ownerStyle } from './lobbyCard.ts';
-import { MinigameCard, MinigameHeader } from './minigame.tsx';
+import { IntroReadyDone, MinigameCard, MinigameHeader } from './minigame.tsx';
 import { Toast } from './screens.tsx';
 import { useInterruption } from './useInterruption.ts';
+import { useArmedSlots, type WaitingIntro } from './useReadyGuard.ts';
 
 export interface ZoneBoardProps {
   players: readonly PlayerInfo[];
@@ -95,9 +103,14 @@ function parseSize(key: string): Size {
   return { width, height };
 }
 
-/** „Bereit gesendet“ gilt nur für genau den Kontext, in dem gesendet wurde. */
+/**
+ * „Bereit gesendet“ gilt nur für genau den Kontext, in dem gesendet wurde – in der
+ * Minispiel-Anleitung (CHAOS-214) auch für Folgekontexte derselben Anleitung (andere Plätze
+ * melden sich bereit), damit der Knopf bis zur Antwort des Servers gesperrt bleibt.
+ */
 function sentKey(sentIn: SlotContext | undefined, current: SlotContext | undefined) {
-  return sentIn !== undefined && sentIn === current ? contextKey(current) : undefined;
+  if (sentIn === undefined || current === undefined) return undefined;
+  return sentIn === current || sameReadyIntro(sentIn, current) ? contextKey(current) : undefined;
 }
 
 /** Gegenstück zu `siblingKey` in {@link ZoneBoard}: „1=robot,2=“ → Figuren je Platz. */
@@ -195,24 +208,46 @@ export function ZoneBoard({
     .join(',');
   // Nur bei geänderten Figuren neu (stabile Referenz für die memoisierten Zonen).
   const siblings = useMemo(() => parseSiblings(siblingKey), [siblingKey]);
+  // Schonfrist je Zone (CHAOS-214): ab dem Moment, in dem die Anleitung „Bereit“ anbietet.
+  const waitingIntros = seated.flatMap(({ slot }): WaitingIntro[] => {
+    const token = readyIntroToken(contexts[slot]);
+    return token === null ? [] : [[slot, token]];
+  });
+  const armedSet = useArmedSlots(waitingIntros);
+  // Stabile Referenz für die memoisierten Zonen: nur bei geänderter Menge neu.
+  const armedKey = [...armedSet].join(',');
+  const introArmed = useMemo(
+    () => new Set(armedKey === '' ? [] : armedKey.split(',').map(Number)),
+    [armedKey],
+  );
+  const inputs = useMemo(() => {
+    const map = new Map<SlotNumber, ZoneControlsInput>();
+    for (const { slot } of seated) {
+      map.set(
+        slot,
+        zoneControlsInput(
+          contexts[slot],
+          sentKey(readySent[slot], contexts[slot]),
+          slot,
+          choices[slot],
+          {
+            pick: picks[slot],
+            siblings: siblings.filter((s) => s.slot !== slot),
+            introArmed: introArmed.has(slot),
+          },
+        ),
+      );
+    }
+    return map;
+  }, [seated, contexts, readySent, choices, picks, siblings, introArmed]);
   const zones = useMemo(
     () =>
       buildZones(
         seated.map((p) => p.slot),
         viewport,
-        (slot) =>
-          zoneControlsInput(
-            contexts[slot],
-            sentKey(readySent[slot], contexts[slot]),
-            slot,
-            choices[slot],
-            {
-              pick: picks[slot],
-              siblings: siblings.filter((s) => s.slot !== slot),
-            },
-          ),
+        (slot) => inputs.get(slot) ?? { layout: 'wait', actions: [] },
       ),
-    [seated, viewport, contexts, readySent, choices, picks, siblings],
+    [seated, viewport, inputs],
   );
 
   const movers = useMemo(() => {
@@ -334,6 +369,7 @@ export function ZoneBoard({
             pending={choices[zone.slot]}
             pick={picks[zone.slot]}
             siblings={siblings}
+            introReady={inputs.get(zone.slot)?.introReady}
             notice={notice?.slot === zone.slot ? notice : null}
             onDismissNotice={onDismissNotice}
           />
@@ -353,6 +389,8 @@ interface ZoneProps {
   pick: CharacterId | undefined;
   /** Figuren aller Plätze dieses Geräts (auch der eigene; wird hier herausgefiltert). */
   siblings: readonly SiblingCharacter[];
+  /** „Bereit“ in der Minispiel-Anleitung (CHAOS-214); fehlt = feste Anleitungszeit. */
+  introReady: ZoneControlsInput['introReady'];
   /** Hinweis nur für diese Zone (gedreht mit der Zone). */
   notice: Notice | null;
   onDismissNotice: (id: number) => void;
@@ -371,6 +409,7 @@ const Zone = memo(function Zone({
   pending,
   pick,
   siblings,
+  introReady,
   notice,
   onDismissNotice,
 }: ZoneProps) {
@@ -541,7 +580,13 @@ const Zone = memo(function Zone({
         )}
 
         {(screen === 'board' || screen === 'minigame') && context && (
-          <ZoneBoardContent zone={zone} players={players} context={context} pending={pending} />
+          <ZoneBoardContent
+            zone={zone}
+            players={players}
+            context={context}
+            pending={pending}
+            introReady={introReady}
+          />
         )}
 
         {feedback && (
@@ -646,25 +691,53 @@ interface ZoneBoardContentProps {
   players: readonly PlayerInfo[];
   context: SlotContext;
   pending: PendingChoice | undefined;
+  introReady: ZoneControlsInput['introReady'];
 }
 
 /**
  * Brettphase in einer Zone (CHAOS-22): kompakte Statuszeile, Titel, Countdown und die
  * Wahlknöpfe an genau den Rechtecken, die der Zonen-Tracker prüft (`zone.controls`).
  */
-function ZoneBoardContent({ zone, players, context, pending }: ZoneBoardContentProps) {
+function ZoneBoardContent({ zone, players, context, pending, introReady }: ZoneBoardContentProps) {
   if (context.minigame) {
     // Minispiel-Intro/-Ergebnis (CHAOS-33): ganze Fläche unter der Plakette, ohne Stand.
-    const body = belowBadge(zone);
+    // Wartet die Anleitung auf „Bereit“ (CHAOS-214), liegt der Knopf in einer Fußzeile darunter –
+    // genau am Rechteck, das der Zonen-Tracker prüft.
+    const withFoot = context.minigame.stage === 'intro' && introReady !== undefined;
+    const frames = minigameZoneFrames(zone.local, withFoot);
+    const ready = withFoot ? zone.controls.find((c) => c.kind === 'ready') : undefined;
     return (
       <div
         className="zone-board-phase"
         data-testid="minigame-panel"
         data-game-phase={context.board?.gamePhase ?? 'none'}
       >
-        <div className="zone-minigame" style={rectStyle(body)}>
-          <MinigameCard minigame={context.minigame} compact />
+        <div className="zone-minigame" style={rectStyle(frames.card)}>
+          <MinigameCard
+            minigame={context.minigame}
+            compact
+            readyLine={withFoot ? null : undefined}
+          />
         </div>
+        {withFoot &&
+          (ready ? (
+            <div
+              className="ready-button zone-ready minigame-ready-button"
+              data-testid="minigame-ready-button"
+              data-role="ready"
+              data-armed={ready.inert === true ? 'false' : 'true'}
+              aria-disabled={ready.inert === true}
+              style={rectStyle(ready.rect)}
+            >
+              <span className="ui-text">{INTRO_READY_BUTTON}</span>
+            </div>
+          ) : (
+            introReady === 'done' && (
+              <div className="zone-minigame-foot" style={rectStyle(frames.foot)}>
+                <IntroReadyDone compact />
+              </div>
+            )
+          ))}
       </div>
     );
   }
