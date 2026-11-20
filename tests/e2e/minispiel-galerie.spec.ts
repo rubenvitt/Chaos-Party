@@ -25,7 +25,8 @@ const INFO = (() => {
   if (!info) throw new Error('Referenz-Minispiel fehlt im Katalog');
   return info;
 })();
-const INTRO_MS = 2_000;
+// Großzügig: In der CI lädt die Minispiel-Bühne langsamer; die Anleitung muss sichtbar bleiben, bis sie steht.
+const INTRO_MS = 8_000;
 const RESULTS_MS = 15_000;
 const STEPS_TO_FINISH = Math.ceil(INFO.durationMs / (1000 / 60)) + 30;
 
