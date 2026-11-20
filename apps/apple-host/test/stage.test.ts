@@ -181,4 +181,10 @@ describe('Aufbau-Budget je Tick (CHAOS-205)', () => {
     expect(prepareBudgetMs(100)).toBeCloseTo(12);
     expect(prepareBudgetMs(1250)).toBe(PREPARE_BUDGET_MAX_MS);
   });
+
+  it('gibt bei knapper Bühne die halbe Tick-Dauer, gedeckelt', () => {
+    expect(prepareBudgetMs(1000 / 60, true)).toBeCloseTo(1000 / 120);
+    expect(prepareBudgetMs(0, true)).toBeCloseTo(1000 / 120);
+    expect(prepareBudgetMs(100, true)).toBe(PREPARE_BUDGET_MAX_MS);
+  });
 });

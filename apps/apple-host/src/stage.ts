@@ -100,18 +100,34 @@ export const PREPARE_BUDGET_MAX_MS = 20;
 /** Abstand zweier `tick` bei 60 Hz (ms). */
 const FRAME_MS = 1000 / 60;
 
+/** Anteil der Tick-Dauer für den Aufbau: 2 von 16,7 ms bei 60 Hz (CHAOS-141). */
+const PREPARE_SHARE = PREPARE_BUDGET_MS / FRAME_MS;
+
+/** Anteil der Tick-Dauer, wenn die Bühne knapp wird (`urgent`, CHAOS-205). */
+const URGENT_SHARE = 0.5;
+
 /**
- * Aufbau-Budget (ms) für einen `tick`, der `tickIntervalMs` nach dem vorigen kommt (CHAOS-205):
- * derselbe Anteil der Tick-Dauer wie `PREPARE_BUDGET_MS` bei 60 Hz (12 %), mindestens
- * `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS`. So kommt der Aufbau je Sekunde gleich
- * weit, ob die App mit 60 Hz tickt oder gedrosselt mit 10 Hz (vorher bei 8 Hz oft erst nach dem
- * Countdown fertig, CHAOS-203); bei 60 Hz bleibt alles wie in CHAOS-141. Ein einzelner langer
- * Tick (Hänger) gibt dem nächsten mehr Budget, gedeckelt.
+ * Bleibt bis zum Ende der Anleitung höchstens so viel Zeit (ms) und ist die Bühne noch nicht
+ * fertig, rechnet der Aufbau mit `URGENT_SHARE` (CHAOS-205).
  */
-export function prepareBudgetMs(tickIntervalMs: number): number {
-  if (!(tickIntervalMs > FRAME_MS)) return PREPARE_BUDGET_MS;
-  const share = (tickIntervalMs / FRAME_MS) * PREPARE_BUDGET_MS;
-  return Math.min(PREPARE_BUDGET_MAX_MS, share);
+export const PREPARE_URGENT_MS = 2_000;
+
+/**
+ * Aufbau-Budget (ms) für einen `tick`, der `tickIntervalMs` nach dem vorigen kommt (CHAOS-205).
+ * - Normal derselbe Anteil der Tick-Dauer wie `PREPARE_BUDGET_MS` bei 60 Hz (12 %): So kommt der
+ *   Aufbau je Sekunde gleich weit, ob die App mit 60 Hz tickt oder gedrosselt mit 10 Hz (vorher
+ *   bei 8 Hz oft erst nach dem Countdown fertig, CHAOS-203). Bei 60 Hz bleibt es bei 2 ms wie in
+ *   CHAOS-141.
+ * - `urgent` (Anleitung fast vorbei oder Spiel schon gestartet, Bühne nicht fertig): die halbe
+ *   Tick-Dauer. Bei 60 Hz sind das gut 8 ms, einzelne Bilder können dann länger als 16,7 ms
+ *   dauern; das ist besser als ein Spiel ohne Bühne.
+ * - Immer mindestens `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS`. Ein einzelner langer
+ *   Tick (Hänger) gibt dem nächsten mehr Budget, gedeckelt.
+ */
+export function prepareBudgetMs(tickIntervalMs: number, urgent = false): number {
+  const interval = tickIntervalMs > FRAME_MS ? tickIntervalMs : FRAME_MS;
+  const budget = interval * (urgent ? URGENT_SHARE : PREPARE_SHARE);
+  return Math.min(PREPARE_BUDGET_MAX_MS, Math.max(PREPARE_BUDGET_MS, budget));
 }
 
 export interface HeadlessStage {

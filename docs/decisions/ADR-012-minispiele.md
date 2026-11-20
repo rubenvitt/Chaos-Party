@@ -85,11 +85,18 @@ Nachstellen: `HostEnv.debugStageDelayMs` verzögert im Apple-Host jede Bühne k�
 
 Im Apple-Host bekam der Minispiel-Aufbau fest 2 ms je `tick` (Nachtrag 1). Tickt die App langsamer, etwa im Ersatztakt eines gedrosselten Macs (CHAOS-203) oder wenn Ticks ausfallen, kommt der Aufbau je Sekunde entsprechend weniger weit. Im Swift-Harness ohne JIT mit 10 Hz war die Bühne nur in 6 von 10 Runden vor dem Countdown-Ende fertig, vor allem bei der kurzen Anleitung (3 s) einer Wiederholung.
 
-Jetzt bekommt jeder `tick` denselben Anteil seiner Dauer wie bei 60 Hz (2 von 16,7 ms, also 12 %), mindestens 2 ms und höchstens 20 ms (`prepareBudgetMs` in `apps/apple-host/src/stage.ts`). Das gilt für `ctx.pace()` und für das Kodieren der Geometrie in `renderState`. Bei 60 Hz und schneller bleibt alles wie bisher. Ein einzelner Hänger gibt nur dem nächsten Tick mehr Budget, gedeckelt.
+Jetzt hängt das Budget an der Dauer des Ticks (`prepareBudgetMs` in `apps/apple-host/src/stage.ts`). Es gilt für `ctx.pace()` und für das Kodieren der Geometrie in `renderState`.
 
-Messung im Swift-Harness, ganze Partie ohne JIT:
-- 10 Hz: Die Bühne war in 10 von 10 Runden vor dem Countdown-Ende fertig, vorher in 6 von 10. Der längste Tick der Anleitung dauerte 34 ms, bei einem Tick-Abstand von 100 ms.
-- 60 Hz: 10 von 10 wie vorher. Das längste Bild der Anleitung (`tick` + `renderState`) lag in je drei Läufen bei 14,5/15,4/18,1 ms vorher und 18,2/16,4/21,8 ms nachher. Bei 60 Hz ist der Code-Pfad gleich, die Spitzen streuen.
-- Bilder über 16,7 ms gab es schon vorher. Sie stammen von einzelnen Bauschritten zwischen zwei `pace` (Nachtrag 1, dort 19 ms) und nicht vom Budget.
+- **Normal:** derselbe Anteil der Tick-Dauer wie bei 60 Hz (2 von 16,7 ms, also 12 %). Bei 60 Hz und schneller bleibt es bei 2 ms.
+- **Knapp:** Ist die Bühne noch nicht fertig und bleiben von der Anleitung höchstens 2 s (`PREPARE_URGENT_MS`), oder läuft das Spiel schon, bekommt der Aufbau die halbe Tick-Dauer. Bei 60 Hz sind das gut 8 ms, einzelne Bilder dauern dann länger als 16,7 ms. Das ist besser als ein Spielstart ohne Bühne.
+- Das Budget liegt immer zwischen 2 und 20 ms. Ein einzelner Hänger gibt nur dem nächsten Tick mehr, gedeckelt.
+
+Allein der Anteil von 12 % reichte auf dem langsameren CI-Mac nicht: Bei 10 Hz war die Bühne dort nur in 9 von 10 Runden rechtzeitig fertig, bei der 3-s-Anleitung von Sockenregen. In 3 s sind das wie bei 60 Hz nur 360 ms Aufbau. Mit der Regel für knappe Bühnen sind es bei 10 Hz 520 ms.
+
+Messung im Swift-Harness, ganze Partie ohne JIT, lokal:
+- 10 Hz: 10 von 10 Bühnen rechtzeitig, vorher 6 von 10. Das längste Bild der Anleitung dauerte 49 ms, bei einem Tick-Abstand von 100 ms.
+- 5 Hz: 10 von 10.
+- 60 Hz: 10 von 10 wie vorher. Das längste Bild der Anleitung (`tick` + `renderState`) lag vorher bei 14,5/15,4/18,1 ms (drei Läufe) und nachher bei 18,2/16,4/21,8/18,9 ms. Die Spitzen streuen von Lauf zu Lauf.
+- Bilder über 16,7 ms gab es schon vorher. Sie stammen von einzelnen Bauschritten zwischen zwei `pace` (Nachtrag 1, dort 19 ms; Folgeaufgabe CHAOS-209).
 
 Der CI-Job „macOS“ spielt die Partie im Harness zusätzlich mit `hz=10`. Ist dabei eine Bühne beim Spielstart nicht fertig, schlägt er fehl.

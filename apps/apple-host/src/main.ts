@@ -70,6 +70,7 @@ import {
   createHeadlessStage,
   describe,
   PREPARE_BUDGET_MS,
+  PREPARE_URGENT_MS,
   prepareBudgetMs,
   type HeadlessStage,
 } from './stage.ts';
@@ -303,6 +304,19 @@ function create(env: HostEnv): ChaosHostInstance {
     }
     stage = null;
     lastAdvanceAt = null;
+  };
+
+  /**
+   * Bühne knapp (CHAOS-205): noch nicht fertig, und die Anleitung endet in höchstens
+   * `PREPARE_URGENT_MS` oder das Spiel läuft schon.
+   */
+  const stageUrgent = (): boolean => {
+    if (!stage || stage.headless.ready || !view) return false;
+    const stageName = minigameStageOf(view);
+    if (stageName === 'play') return true;
+    if (stageName !== 'intro' || view.remainingMs === null) return false;
+    const left = view.remainingMs - (view.paused ? 0 : now() - receivedAt);
+    return left <= PREPARE_URGENT_MS;
   };
 
   /** Bühne an den neuesten Brett-Stand anpassen (wie `MinigameScreen` im Browser-Host). */
@@ -561,7 +575,7 @@ function create(env: HostEnv): ChaosHostInstance {
       clockBase ??= nowMs;
       clock.advance(nowMs - clockBase);
       // Aufbau-Budget an die Tick-Dauer koppeln (CHAOS-205); der erste Tick zählt als 60 Hz.
-      prepareBudget = prepareBudgetMs(lastTickAt === null ? 0 : now() - lastTickAt);
+      prepareBudget = prepareBudgetMs(lastTickAt === null ? 0 : now() - lastTickAt, stageUrgent());
       lastTickAt = now();
       if (now() - lastSessionTickAt >= DEFAULT_TICK_MS) {
         lastSessionTickAt = now();
