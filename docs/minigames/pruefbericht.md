@@ -10,11 +10,11 @@ PRUEFBERICHT=1 pnpm exec vitest run packages/minigames/src/checks --silent=false
 
 | Spiel | Seeds | Gleichstand P1 (≤ 25 %) | Abstand 1–2 (≤ 45 %) | Führungswechsel (≥ 1,0) | Siege Neuling (2 %–25 %) | Siege Profi (≥ 25 %) | Eindringling max. (≤ 1,50) | Rechenzeit s |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| sockenregen | 200 | 12 % | 17 % | 2,9 | 6 % | 72 % | 0,35 (Dauerdrücken (Hechtsprung)) | 2,6 |
-| pudding-gerangel | 200 | 12 % | 8 % | 6,9 | 7 % | 34 % | 0,35 (Dauerrempler) | 68,1 |
-| wackelturm | 200 | 7 % | 14 % | 6,1 | 32 % | 17 % | 1,28 (gierig (7–10 Törtchen)) | 4,7 |
-| kuckucks-klatsche | 200 | 10 % | 15 % | 3,8 | 8 % | 53 % | 1,12 (Raffzahn (klaut alles)) | 0,7 |
-| kruemel-kehraus | 200 | 21 % | 19 % | 2,2 | 7 % | 37 % | 0,98 (Dauerrempler) | 164,4 |
+| sockenregen | 200 | 12 % | 17 % | 2,9 | 6 % | 72 % | 0,35 (Dauerdrücken (Hechtsprung)) | 2,2 |
+| pudding-gerangel | 200 | 12 % | 8 % | 6,9 | 7 % | 34 % | 0,35 (Dauerrempler) | 66,7 |
+| wackelturm | 200 | 7 % | 14 % | 6,1 | 32 % | 17 % | 1,28 (gierig (7–10 Törtchen)) | 4,4 |
+| kuckucks-klatsche | 200 | 10 % | 15 % | 3,8 | 8 % | 53 % | 1,12 (Raffzahn (klaut alles)) | 0,5 |
+| kruemel-kehraus | 200 | 21 % | 19 % | 2,2 | 7 % | 37 % | 0,98 (Dauerrempler) | 156,6 |
 
 ## Ergebnis je Spiel
 
@@ -46,10 +46,10 @@ PRUEFBERICHT=1 pnpm exec vitest run packages/minigames/src/checks --silent=false
 
 ## Vielfalts-Steckbriefe
 
-| Spiel | kernverb | ziel | arena | kamera | bedienung | spielform | tempo | ähnlichstes Spiel | Abstand |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| sockenregen | fangen | sammeln | rund | schraeg-fest | SA | FFA | hektisch | kruemel-kehraus | 3 / 7 |
-| pudding-gerangel | rempeln | halten | insel-mit-kante | schraeg-fest | SA | FFA | wechselnd | sockenregen | 4 / 7 |
-| wackelturm | stapeln | abliefern | rund | schraeg-fest | SAB | FFA | wechselnd | sockenregen | 4 / 7 |
-| kuckucks-klatsche | reagieren | treffen | wand | frontal | A | FFA | wechselnd | pudding-gerangel | 5 / 7 |
-| kruemel-kehraus | schieben | einlochen | rechteckig | schraeg-fest | SA | FFA | hektisch | sockenregen | 3 / 7 |
+| Spiel | kernverb | ziel | arena | kamera | bedienung | spielform | tempo | Ort | ähnlichstes Spiel | Abstand |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sockenregen | fangen | meiste | rund | schraeg | SA | FFA | hektisch | bad | pudding-gerangel | 3 / 7 |
+| pudding-gerangel | rempeln | meiste | insel | schraeg | SA | FFA | wechselnd | garten | sockenregen | 3 / 7 |
+| wackelturm | stapeln | meiste | frei | schraeg | SAB | FFA | ruhig | garten | sockenregen | 4 / 7 |
+| kuckucks-klatsche | reagieren | meiste | buehne | fest | A | FFA | wechselnd | spielzimmer | pudding-gerangel | 4 / 7 |
+| kruemel-kehraus | rempeln | meiste | eckig | draufsicht | SA | FFA | hektisch | kueche | sockenregen | 3 / 7 |
