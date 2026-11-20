@@ -269,8 +269,11 @@ struct RenderState: Decodable, Equatable {
         var round: Int?
         /// Ran before in this match: short instructions (CHAOS-66).
         var `repeat`: Bool?
-        /// Intro: whole seconds until the start.
+        /// Intro: whole seconds until the start; nil while the intro waits for „Bereit“ (`readiness`).
         var countdown: Int?
+        /// CHAOS-214: the intro waits until every connected player pressed „Bereit“ on the phone; chips instead of
+        /// the countdown. nil = fixed intro time.
+        var readiness: Readiness?
         var camera: Camera?
         var backdrop: Backdrop?
         var figures: [Figure]?
@@ -366,6 +369,26 @@ struct RenderState: Decodable, Equatable {
         var score: Double?
         var status: String?
         var connected: Bool?
+    }
+
+    /// CHAOS-214: `introReadiness` (`apps/host/src/minigame/readiness.ts`).
+    struct Readiness: Decodable, Equatable {
+        var headline: String?
+        var players: [ReadyPlayer]?
+    }
+
+    struct ReadyPlayer: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var color: String?
+        var symbol: String?
+        var ready: Bool?
+        var connected: Bool?
+        /// ready, waiting, disconnected
+        var state: String?
+        /// „Bereit“, „Drückt Bereit …“, „getrennt“
+        var text: String?
     }
 
     struct Results: Decodable, Equatable {

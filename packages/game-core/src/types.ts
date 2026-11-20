@@ -71,6 +71,19 @@ export interface Pacing {
    * und Bedienlegende. Fehlt = `minigameIntroMs` (jedes Mal die volle Anleitung).
    */
   readonly minigameRepeatIntroMs?: number;
+  /**
+   * CHAOS-214: Die Anleitung wartet, bis alle verbundenen Spieler „Bereit“ gedrückt haben
+   * (`minigame-ready`); spätestens nach dieser Sicherheitsfrist startet das Minispiel trotzdem
+   * (Controller ohne Knopf, Handy weggelegt). Fehlt oder 0 = feste Anleitungszeit
+   * (`minigameIntroMs`/`minigameRepeatIntroMs`) ohne Warten, wie vor CHAOS-214.
+   */
+  readonly minigameReadyTimeoutMs?: number;
+  /**
+   * CHAOS-214: Mindestdauer der wartenden Anleitung. Sind alle früher bereit, startet das
+   * Minispiel erst danach: Zeit zum Ansehen, kein versehentliches Durchtippen, und der Host baut
+   * die Bühne in Ruhe auf (ADR-012 Nachtrag 3). Fehlt = 0.
+   */
+  readonly minigameReadyMinMs?: number;
   readonly minigamePlayMs: number;
   readonly minigameResultsMs: number;
   /**
@@ -242,6 +255,11 @@ export interface MinigameState {
    * (`minigameRepeatIntroMs`) und Host und Controller zeigen nur Titel und Bedienlegende.
    */
   readonly repeat: boolean;
+  /**
+   * CHAOS-214: Slots, die in der Anleitung „Bereit“ gedrückt haben (aufsteigend). Fehlt = die
+   * Anleitung wartet nicht auf Bereitschaft (feste Anleitungszeit).
+   */
+  readonly ready?: readonly Slot[];
   /** Beginn von `minigame-play` (Server-Uhr) oder `null` davor. */
   readonly playStartedAt: number | null;
   /** Ergebnis nach `minigame-play`; `null` solange offen. */
@@ -466,6 +484,11 @@ export type GameCommand =
       readonly connected: boolean;
       readonly at: number;
     }
+  /**
+   * Spieler ist nach der Minispiel-Anleitung bereit (CHAOS-214). Nur in `minigame-intro` mit
+   * `minigame.ready`; doppelt ist harmlos. Sind alle verbundenen Spieler bereit, startet das Spiel.
+   */
+  | { readonly type: 'minigame-ready'; readonly slot: Slot; readonly at: number }
   /** Ergebnis des laufenden Minispiels vom Host (M3); wird vollständig geprüft. */
   | {
       readonly type: 'minigame-result';

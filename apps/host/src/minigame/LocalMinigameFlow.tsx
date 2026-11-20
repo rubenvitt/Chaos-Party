@@ -8,6 +8,7 @@
  * Das Ergebnis erscheint, sobald das Minispiel fertig ist.
  */
 import { useCallback, useEffect, useState } from 'react';
+import type { LocalReadiness } from '../config.ts';
 import type { MinigameResultPayload } from '../net/hostConnection.ts';
 import { MinigameScreen } from './MinigameScreen.tsx';
 import {
@@ -27,6 +28,11 @@ interface LocalMinigameFlowProps {
   readonly test: boolean;
   /** Als Wiederholung in der Partie zeigen: kurze Anleitung (`&repeat=1`, CHAOS-66). */
   readonly repeat?: boolean;
+  /**
+   * Anleitung zeigt Bereitschaft wie beim Server (`&ready=1,3&offline=4`, CHAOS-214); lokal
+   * drückt niemand „Bereit“, weiter geht es wie sonst nach der Anleitungszeit bzw. `next()`.
+   */
+  readonly readiness?: LocalReadiness | null;
 }
 
 export function LocalMinigameFlow({
@@ -35,10 +41,16 @@ export function LocalMinigameFlow({
   seed,
   test,
   repeat = false,
+  readiness = null,
 }: LocalMinigameFlowProps) {
   const module = useMinigameModule(id);
   const [state, setState] = useState<LocalFlowState & { readonly receivedAt: number }>(() => ({
-    view: localView(module?.info ?? { id, durationMs: 5_000 }, 'intro', { players, seed, repeat }),
+    view: localView(module?.info ?? { id, durationMs: 5_000 }, 'intro', {
+      players,
+      seed,
+      repeat,
+      readiness,
+    }),
     rewards: null,
     receivedAt: performance.now(),
   }));

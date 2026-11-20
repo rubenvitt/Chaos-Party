@@ -205,4 +205,48 @@ test.describe('Minispiel-Bühne: Anleitung und Ergebnis (lokal)', () => {
     if (process.env.M3_BELEG) await writeRepeatDocShot(browser, chaosServer.base);
     expectNoProblems(problems, 'Host');
   });
+
+  test('Anleitung wartet auf „Bereit“ (CHAOS-214): Chips je Spieler statt Countdown', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    // Blau und Grün bereit, Orange wartet, Rosa getrennt (zählt beim Server als bereit).
+    await page.goto(`${FLOW_URL}&ready=1,3&offline=4`);
+    await expect(page.locator('main.host')).toHaveAttribute('data-scene', 'ready');
+    await page.waitForFunction(() => window.__chaosMinigame?.ready === true);
+
+    const intro = page.getByTestId('minigame-intro');
+    await expect(intro).toHaveAttribute('data-waits-ready', 'true');
+    await expect(page.getByTestId('minigame-title')).toHaveText(INFO.title);
+    await expect(page.getByTestId('minigame-instructions')).toBeVisible();
+    // Die Sicherheitsfrist ist kein Countdown: keiner zu sehen.
+    await expect(page.getByTestId('minigame-countdown')).toHaveCount(0);
+    await expect(page.getByTestId('minigame-ready')).toContainText(
+      'Alle bereit? Drückt „Bereit!“ auf dem Handy',
+    );
+    await expect(page.getByTestId('minigame-ready-count')).toHaveText('3/4');
+    const expected = [
+      { slot: 1, state: 'ready', text: 'Bereit', character: 'Schraubi' },
+      { slot: 2, state: 'waiting', text: 'Drückt Bereit …', character: 'Kalle Kaktus' },
+      { slot: 3, state: 'ready', text: 'Bereit', character: 'Wusel' },
+      { slot: 4, state: 'disconnected', text: 'getrennt', character: 'Socke Sigi' },
+    ];
+    for (const chip of expected) {
+      const locator = page.getByTestId(`minigame-ready-${String(chip.slot)}`);
+      await expect(locator).toHaveAttribute('data-state', chip.state);
+      await expect(locator).toContainText(chip.text);
+      await expect(locator).toContainText(chip.character);
+    }
+    await expect(page.getByTestId('minigame-ready-1')).toContainText('✓');
+    await hideScene(page);
+    await expect(page).toHaveScreenshot('m3-minispiel-intro-bereit.png');
+
+    // Weiter wie gewohnt: Im Spiel ist die Bereitschaft vorbei.
+    await page.evaluate(() => {
+      window.__chaosMinigame?.next?.();
+    });
+    await expect(page.getByTestId('minigame-screen')).toHaveAttribute('data-stage', 'play');
+    await expect(page.getByTestId('minigame-ready')).toHaveCount(0);
+    expectNoProblems(problems, 'Host');
+  });
 });

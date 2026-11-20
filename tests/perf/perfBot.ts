@@ -111,6 +111,11 @@ export class PerfBot {
       }
       return;
     }
+    // CHAOS-214: Minispiel-Anleitung wartet auf „Bereit“ aller.
+    if (message.actions.includes('ready')) {
+      this.send(createMessage('ready', { slot: message.slot, seq: ++this.seq }));
+      return;
+    }
     const prompt = message.prompt;
     if (!prompt || !message.actions.includes('choose')) return;
     const ids = prompt.options.map((option) => option.id);
