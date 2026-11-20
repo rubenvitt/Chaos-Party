@@ -74,6 +74,8 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Bot-Profile** (Neuling, Normal, Profi, Störenfried) über eine gemeinsame Schnittstelle, damit jedes Spiel ohne Extra-Code in die Fairness-Messung kann.
 - **Highlights** aus Ereignissen („Rot wurde dreimal geplättet“) per Vorlage.
 
+**Umgesetzt (CHAOS-83, ADR-021):** Paket `packages/minigame-kit` (rein) und `@chaos-party/minigame-kit/babylon` (Optik). Sockenregen nutzt den Baukasten ohne Verhaltensänderung; das Muster-Minispiel „Hallo Baukasten“ (`packages/minigames/src/hallo-baukasten/`, nicht in der Rotation) zeigt die Aufteilung in 300 Zeilen. Die Steckbriefe aller Spiele stehen in `packages/minigames/src/steckbriefe.ts`, die Felder in ADR-020 §3.
+
 ### 5.2 Gemeinsame Prüfungen
 
 Umgesetzt in `CHAOS-84`; Regeln, Tische, Schwellen mit Begründung und Ausnahmen in [`pruefungen.md`](pruefungen.md), Messwerte in [`pruefbericht.md`](pruefbericht.md).
@@ -84,8 +86,8 @@ Umgesetzt in `CHAOS-84`; Regeln, Tische, Schwellen mit Begründung und Ausnahmen
 
 ### 5.3 Definition of Done je Minispiel
 
-1. `info.ts` mit Anleitung ≤ 3 Zeilen, Bedienung, Dauer, Kategorie, Familie, Spielform.
-2. Logik rein und deterministisch (Seed), Unit-Tests für Wertung und Sonderfälle.
+1. `info.ts` mit Anleitung ≤ 3 Zeilen, Bedienung, Dauer, Kategorie, Familie, Spielform; Vielfalts-Steckbrief in `packages/minigames/src/steckbriefe.ts` (Felder: ADR-021 §3).
+2. Logik rein und deterministisch (Seed), Unit-Tests für Wertung und Sonderfälle. Unterbau aus dem Baukasten (`@chaos-party/minigame-kit`), Bot über `MinigameBot`/`BotMatchAdapter` (Muster: `hallo-baukasten/`).
 3. Besteht Vertragstest und Bot-Fairness-Schwellen.
 4. Läuft am geteilten iPad (Zone) bedienbar, sonst als „nur iPhone“ markiert und von der Rotation bei iPad-Zonen ausgeschlossen.
 5. Screenshot-Baseline, kurzer Eintrag im Katalog (Status, Zahlen).
