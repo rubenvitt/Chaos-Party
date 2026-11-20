@@ -112,6 +112,11 @@ export interface NatureLook {
   /** Grafikstufe wechseln (nur Laufzeit-Teile: Gras, SSAO, Unschärfe, MSAA, Bloom). */
   setQuality(level: QualityLevel): void;
   /**
+   * Schärfeebene nachführen (Abstand zur Kamera), wenn die Kamera näher kommt oder aufzieht
+   * (Brett-Kamera, CHAOS-194). Ohne Tiefenunschärfe wirkungslos.
+   */
+  setFocusDistance(distance: number): void;
+  /**
    * In eine andere Stimmung überblenden (`durationMs` 0 = sofort). Ist ihr Himmel nicht
    * vorab geladen (nicht in `upcoming`), lädt er nach und die Überblendung beginnt danach.
    */
@@ -526,6 +531,7 @@ export async function applyNatureLook(
 
   applyState(transition.current);
 
+  let focusDistance = options.focus.distance;
   const applyRuntime = (next: QualityLevel): void => {
     const s = QUALITY[next];
     options.grass?.setDensity(s.grass);
@@ -534,7 +540,7 @@ export async function applyNatureLook(
       pipeline.bloomEnabled = s.bloom;
       pipeline.depthOfFieldEnabled = s.depthOfField;
       if (s.depthOfField) {
-        pipeline.depthOfField.focusDistance = options.focus.distance * 1000;
+        pipeline.depthOfField.focusDistance = focusDistance * 1000;
         pipeline.depthOfField.focalLength = 90;
         pipeline.depthOfField.fStop = options.focus.fStop;
       }
@@ -566,6 +572,10 @@ export async function applyNatureLook(
       if (next === level) return;
       level = next;
       applyRuntime(next);
+    },
+    setFocusDistance(distance) {
+      focusDistance = distance;
+      if (pipeline?.depthOfFieldEnabled) pipeline.depthOfField.focusDistance = distance * 1000;
     },
     setMood(target, durationMs = MOOD_TRANSITION_MS) {
       if (target.id === (pending?.mood.id ?? transition.current.to)) return;

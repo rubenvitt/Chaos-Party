@@ -454,6 +454,105 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     expectNoProblems(problems);
   });
 
+  test('Kamera-Regie: Gabel, Laufen, Zugwechsel, Ereignis, Überblick (CHAOS-194)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    const camera = () => page.evaluate(() => window.__chaos?.board?.getCamera() ?? null);
+    await openBoard(page);
+
+    // Startstand: Blau wählt an Gabel A einen Weg, die Kamera zeigt beide Wege, nicht das Brett.
+    await stepFrames(page, 30);
+    let cam = await camera();
+    expect(cam?.kind).toBe('fit');
+    expect(cam?.distance).toBeLessThan(28);
+    if (process.env.HOST_BRETT_BELEG) {
+      await settleGpu(page);
+      await page.screenshot({ path: 'docs/screenshots/chaos194-kamera-gabel.jpg' });
+    }
+
+    // Laufen: nah an Blau, Blick voraus.
+    await feedDemo(page, 1);
+    await stepFrames(page, 25);
+    cam = await camera();
+    expect(cam?.kind).toBe('walk');
+    expect(cam?.shotDistance).toBeLessThan(22);
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos194-kamera-laufen.jpg' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-kamera-laufen.png', { mask: hudMask(page) });
+    await playUntilIdle(page);
+
+    // Zugwechsel: ruhige Fahrt zu Grün (s34), unterwegs etwas höher, dann nah.
+    await feedDemo(page, 2);
+    await stepFrames(page, 20);
+    cam = await camera();
+    expect(cam?.kind).toBe('follow');
+    expect(cam?.distance).toBeGreaterThan(cam?.shotDistance ?? 0);
+    await stepFrames(page, 150);
+    cam = await camera();
+    // Angekommen: Fahrt beendet, nah bei Grün (am Brettrand etwas nach innen gerückt).
+    const green = (await page.evaluate(() => window.__chaos?.getPlayerPositions() ?? [])).find(
+      (p) => p.slot === 3,
+    );
+    const gap = (a?: { x: number; z: number }, b?: { x: number; z: number }) =>
+      Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
+    expect(gap(cam?.focus, cam?.shotFocus)).toBeLessThan(0.5);
+    expect(gap(cam?.shotFocus, green)).toBeLessThan(6);
+    expect(cam?.distance).toBeLessThan(20);
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos194-kamera-zugwechsel.jpg' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-kamera-zugwechsel.png', {
+      mask: hudMask(page),
+    });
+
+    // Ereignis: Grün würfelt, kurzer Zoom auf die Figur.
+    await feedDemo(page, 3);
+    await stepFrames(page, 30);
+    cam = await camera();
+    expect(cam?.kind).toBe('event');
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos194-kamera-ereignis.jpg' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-kamera-ereignis.png', { mask: hudMask(page) });
+    await playUntilIdle(page);
+
+    // Rundenbeginn: kurzer Überblick über das ganze Brett.
+    await page.evaluate(() => {
+      const board = window.__chaos?.board;
+      const last = board?.demoMessages?.[3] as {
+        view: Record<string, unknown>;
+        events: unknown[];
+        eventSeq: number;
+      };
+      board?.receive?.({
+        ...last,
+        view: { ...last.view, round: 3, gamePhase: 'turn-start', prompt: null },
+        events: [{ type: 'round-started', round: 3 }],
+        eventSeq: last.eventSeq + last.events.length,
+      });
+    });
+    await stepFrames(page, 75);
+    cam = await camera();
+    expect(cam?.kind).toBe('overview');
+    expect(cam?.shotDistance).toBeGreaterThan(30);
+    await settleGpu(page);
+    if (process.env.HOST_BRETT_BELEG) {
+      await page.screenshot({ path: 'docs/screenshots/chaos194-kamera-ueberblick.jpg' });
+    }
+    await expect(page).toHaveScreenshot('host-brett-kamera-ueberblick.png', {
+      mask: hudMask(page),
+    });
+    // Danach wieder die Figur am Zug.
+    await stepFrames(page, 60);
+    expect((await camera())?.kind).toBe('follow');
+    expectNoProblems(problems);
+  });
+
   test('Lücke in eventSeq springt ohne Animation auf den Stand', async ({ page }) => {
     await openBoard(page);
     const jumps = await page.evaluate(() => window.__chaos?.board?.jumps ?? 0);

@@ -29,6 +29,17 @@ export interface ChaosBoardTestHook {
   getPawnCharacters(): Partial<Record<PlayerSlot, CharacterId>>;
   /** Lichtverlauf je Runde (CHAOS-63): Stimmung, Ziel und Fortschritt der Überblendung. */
   getLightMood(): { from: string; to: string; progress: number } | null;
+  /**
+   * Kamera-Regie (CHAOS-194): aktuelle Einstellung (`kind`), Blickpunkt und Abstand der
+   * nachgezogenen Kamera, dazu Ziel-Blickpunkt und -Abstand der Einstellung.
+   */
+  getCamera(): {
+    kind: string;
+    focus: { x: number; z: number };
+    distance: number;
+    shotFocus: { x: number; z: number };
+    shotDistance: number;
+  } | null;
   /** Kurzfassung des HUD: übernommene Phase, wer dran ist, sichtbare Meldungen. */
   getHud(): { gamePhase: GamePhaseName | null; activeSlot: PlayerSlot | null; messages: string[] };
   /**

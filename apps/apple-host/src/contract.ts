@@ -376,8 +376,11 @@ export const BoardStateSchema = z.strictObject({
   ticker: z.array(TickerEntrySchema),
   /** HUD-Daten aus dem gezeigten Stand der Regie. */
   hud: HudSchema.nullable(),
-  /** Blickpunkt der Kamera (`cameraFocus`: Brettmitte, leicht zum aktiven Spieler); Swift zieht nach. */
-  camera: z.strictObject({ x: z.number(), z: z.number() }),
+  /**
+   * Kamera-Pose aus der gemeinsamen Regie (`apps/host/src/board/camera.ts`, CHAOS-194):
+   * Standort und Blickpunkt in Babylon-Koordinaten, schon nachgezogen. Swift setzt sie nur.
+   */
+  camera: z.strictObject({ pos: vec3, target: vec3 }),
   /** Felder mit Trophäe (Pokal sichtbar). */
   trophySpaces: z.array(z.string()),
   /** Versteckte Fallen samt Besitzer (Mitte in Besitzerfarbe). */

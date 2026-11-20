@@ -8,6 +8,7 @@ import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import type { FrameSample, ResourceSample } from '../debug/perfTypes.ts';
 import type { PlayerPosition, RendererInfo } from '../scene/types.ts';
 import type { LightMoodId } from '../lighting/moods.ts';
+import type { CameraState } from './camera.ts';
 import type { BoardFrame } from './director.ts';
 
 export interface LightMoodStatus {
@@ -58,6 +59,8 @@ export interface BoardScene {
    * Fortschritt (1 = kein Übergang). `null`, solange das Licht noch nicht steht.
    */
   getLightMood(): LightMoodStatus | null;
+  /** Kamera-Regie (CHAOS-194): Einstellung und nachgezogene Pose, `null` vor dem ersten Bild. */
+  getCamera(): CameraState | null;
   /**
    * Brett verdeckt (Finale, CHAOS-39): `true` hält das Rendern an – die Leinwand behält das
    * letzte Bild, die Regie läuft weiter (Stand und HUD bleiben aktuell); `false` rendert wieder.

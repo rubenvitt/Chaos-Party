@@ -9,12 +9,11 @@ import {
   planEvent,
   SWAP_FLIGHT_MS,
 } from './animation.ts';
+import { BASE_DISTANCE, cameraPose, forkShot } from './camera.ts';
 import {
   approach,
   billboardsOverlap,
   boardBounds,
-  boardCamera,
-  cameraFocus,
   easeFlight,
   flightPoint,
   GUST_FLIGHT,
@@ -152,10 +151,13 @@ describe('Flug bei Windstoß und Platztausch (CHAOS-52)', () => {
 
 describe('Wegweiser und Zug-Pfeil (CHAOS-52)', () => {
   // Werte wie in der Szene: Kamera (0, 28, −17,5) mit Vorhalt −1,6, Pfeil 1,5 groß über dem Kopf.
-  const OFFSET = { x: 0, y: 28, z: -17.5 };
   const AIM_Z = -1.6;
-  const bounds = boardBounds(WACKELWALD);
-  const cameraAt = (fork: Point2) => boardCamera(cameraFocus(bounds, fork), OFFSET, AIM_Z);
+  const overviewAt = (focus: Point2) => cameraPose(focus, BASE_DISTANCE);
+  // Beim Wegwählen gilt die Gabel-Einstellung der Kamera-Regie (CHAOS-194).
+  const cameraAt = (forkId: string) => {
+    const shot = forkShot(WACKELWALD, forkId);
+    return cameraPose(shot.focus, shot.distance);
+  };
   const arrowAt = (fork: Point2) => ({
     center: { x: fork.x, y: 0.3 + 2.4 + 1.0, z: fork.z },
     halfWidth: 0.75,
@@ -169,7 +171,7 @@ describe('Wegweiser und Zug-Pfeil (CHAOS-52)', () => {
   });
 
   it('projiziert perspektivisch: Blickpunkt in der Mitte, rechts ist +x, oben ist +y', () => {
-    const camera = boardCamera({ x: 0, z: 0 }, OFFSET, AIM_Z);
+    const camera = overviewAt({ x: 0, z: 0 });
     const center = projectToView(camera, camera.target);
     expect(center.x).toBeCloseTo(0);
     expect(center.y).toBeCloseTo(0);
@@ -184,7 +186,7 @@ describe('Wegweiser und Zug-Pfeil (CHAOS-52)', () => {
   });
 
   it('erkennt Überdeckung im Bild', () => {
-    const camera = boardCamera({ x: 0, z: 0 }, OFFSET, AIM_Z);
+    const camera = overviewAt({ x: 0, z: 0 });
     const box = (x: number, y: number, z: number) => ({
       center: { x, y, z },
       halfWidth: 0.5,
@@ -198,7 +200,7 @@ describe('Wegweiser und Zug-Pfeil (CHAOS-52)', () => {
 
   it('lässt freie Schilder stehen und schiebt verdeckende vom Pfeil weg', () => {
     const fork = { x: 0, z: 0 };
-    const camera = cameraAt(fork);
+    const camera = overviewAt(fork);
     const box = sign('Klippenweg');
     expect(signpostClearOfArrow({ x: -7, z: 2 }, box, arrowAt(fork), camera)).toEqual({
       x: -7,
@@ -223,7 +225,7 @@ describe('Wegweiser und Zug-Pfeil (CHAOS-52)', () => {
     let moved = 0;
     for (const fork of WACKELWALD.spaces) {
       if (fork.next.length < 2) continue;
-      const camera = cameraAt(fork.position);
+      const camera = cameraAt(fork.id);
       for (const targetId of fork.next) {
         const target = WACKELWALD.spaces.find((s) => s.id === targetId);
         if (!target?.label) continue;
@@ -257,14 +259,6 @@ describe('Kamera', () => {
     expect(bounds.maxX).toBeGreaterThan(15);
     expect(bounds.center.x).toBeCloseTo(0, 0);
     expect(boardBounds({ ...WACKELWALD, spaces: [] }).center).toEqual({ x: 0, z: 0 });
-  });
-
-  it('rückt nur ein Stück zum aktiven Spieler, seitlich mehr als in der Tiefe', () => {
-    expect(cameraFocus(bounds, null)).toEqual(bounds.center);
-    const focus = cameraFocus(bounds, { x: bounds.center.x + 10, z: bounds.center.z + 10 });
-    expect(focus.x - bounds.center.x).toBeCloseTo(1.2);
-    expect(focus.z - bounds.center.z).toBeCloseTo(0.4);
-    expect(cameraFocus(bounds, { x: 10, z: 0 }, { x: 1, z: 1 }).x).toBe(10);
   });
 
   it('zieht bildratenunabhängig nach', () => {

@@ -53,8 +53,8 @@ struct RenderState: Decodable, Equatable {
         var popups: [Popup]?
         var ticker: [TickerEntry]?
         var hud: Hud?
-        /// Camera focus (Babylon coordinates); Swift eases towards it.
-        var camera: Point?
+        /// Camera pose from the shared direction (`camera.ts`, CHAOS-194), already eased; Babylon coordinates (flip x).
+        var camera: Camera?
         var trophySpaces: [String]?
         var traps: [Trap]?
         /// Sound cues of the last 1.5 s; play every id once.

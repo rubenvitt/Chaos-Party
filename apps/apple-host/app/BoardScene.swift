@@ -31,7 +31,7 @@ final class BoardScene {
     private let figures: [String: FigureModel]
     /// Höhe der Feldoberfläche (Anker), falls ein Feld fehlt.
     private let surfaceY: Float
-    /// Brettmitte in Babylon-Koordinaten (wie `boardBounds` im Babylon-Host); Ersatz, falls `board.camera` fehlt.
+    /// Brettmitte in Babylon-Koordinaten (wie `boardBounds` im Babylon-Host): Blickpunkt der Lobby-Übersicht.
     private var center: SIMD2<Float>
     private var focus: SIMD2<Float>?
     private var pawns: [Int: Pawn] = [:]
@@ -59,10 +59,9 @@ final class BoardScene {
     /// Grashalme des Bretts als Vorlage für die Minispiel-Kulisse (CHAOS-193).
     let grass: [GrassTemplate]
 
-    // Babylon-Host (`apps/host/src/board/createBoardScene.ts`, `layout.ts`).
+    // Lobby-Übersicht wie `BASE_OFFSET` in `apps/host/src/board/camera.ts`; im Spiel kommt die Pose aus der Regie.
     private static let cameraOffset = SIMD3<Float>(0, 28, -17.5)
     private static let cameraAimZ: Float = -1.6
-    private static let cameraFollow = SIMD2<Float>(0.12, 0.04)
     private static let cameraHalfLife: Double = 0.7
     private static let turnHalfLife: Double = 0.09
     private static let characterScale: Float = 1.3
@@ -256,11 +255,11 @@ final class BoardScene {
         react(to: popupList)
 
         let activeSlot = board.hud?.players?.first { $0.active == true }?.slot
-        let legacy = (board.activeSlot.flatMap { pawns[$0] }).map { pawn -> SIMD2<Float> in
-            let p = SIMD2<Float>(-pawn.root.position.x, pawn.root.position.z)
-            return center + (p - center) * Self.cameraFollow
+        if let pose = board.camera, pose.pos.count == 3, pose.target.count == 3 {
+            setCamera(pose)
+        } else {
+            placeCamera(dt: dt, target: center)
         }
-        placeCamera(dt: dt, target: board.camera.map { SIMD2($0.x, $0.z) } ?? legacy ?? center)
         let facingCamera = camera.orientation(relativeTo: nil)
         syncActive(activeSlot.flatMap { pawns[$0] }, camera: facingCamera)
         sync(trophies: board.trophySpaces ?? [])
@@ -461,7 +460,17 @@ final class BoardScene {
         }
     }
 
-    /// Kamera wie im Babylon-Host: Blickpunkt aus der Regie (`cameraFocus`), exponentiell nachgezogen.
+    /// Pose aus der gemeinsamen Kamera-Regie (`apps/host/src/board/camera.ts`, CHAOS-194), schon nachgezogen.
+    private func setCamera(_ pose: RenderState.Camera) {
+        // Babylon → Brett: x spiegeln.
+        let eye = SIMD3<Float>(-pose.pos[0], pose.pos[1], pose.pos[2])
+        let target = SIMD3<Float>(-pose.target[0], pose.target[1], pose.target[2])
+        camera.look(at: target, from: eye, relativeTo: nil)
+        // Übergang zur Lobby-Übersicht startet hier.
+        focus = SIMD2(pose.target[0], pose.target[2] - Self.cameraAimZ)
+    }
+
+    /// Lobby: Übersicht auf die Brettmitte, exponentiell nachgezogen.
     private func placeCamera(dt: Double, target: SIMD2<Float>) {
         if let current = focus, dt > 0 {
             focus = current + (target - current) * Float(1 - pow(0.5, dt / Self.cameraHalfLife))
