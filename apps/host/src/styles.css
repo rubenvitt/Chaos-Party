@@ -1615,7 +1615,9 @@ body,
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 30px;
+  /* 26 px: Eine Zeile mit 64 Zeichen (MINIGAME_TEXT_LIMITS.instruction) passt in die Karte.
+     Bei 30 px brach eine 58-Zeichen-Zeile von Sockenregen an der Kante um (CHAOS-84). */
+  font-size: 26px;
   font-weight: 800;
   counter-increment: schritt;
 }
