@@ -27,7 +27,8 @@ final class BoardScene {
     var onEvent: ((String) -> Void)?
 
     private let anchors: [String: SIMD3<Float>]
-    private let figures: [String: FigureTemplate]
+    /// Figurenbibliothek (CHAOS-191), geteilt mit Minispiel und Podest.
+    private let figures: [String: FigureModel]
     /// Höhe der Feldoberfläche (Anker), falls ein Feld fehlt.
     private let surfaceY: Float
     /// Brettmitte in Babylon-Koordinaten (wie `boardBounds` im Babylon-Host); Ersatz, falls `board.camera` fehlt.
@@ -90,13 +91,7 @@ final class BoardScene {
         var connected = true
     }
 
-    struct FigureTemplate {
-        let entity: Entity
-        let clips: [String: AnimationResource]
-        let durations: [String: Double]
-    }
-
-    private init(root board: Entity, meta: SceneMeta, anchors: [String: SIMD3<Float>], figures: [String: FigureTemplate],
+    private init(root board: Entity, meta: SceneMeta, anchors: [String: SIMD3<Float>], figures: [String: FigureModel],
                  sky: EnvironmentResource?, instances: Int, grass: [GrassTemplate]) {
         self.anchors = anchors
         self.grass = grass
@@ -186,7 +181,8 @@ final class BoardScene {
         return candidates.first { FileManager.default.fileExists(atPath: $0.appending(path: "brett.szene.json").path) }
     }
 
-    static func load(from folder: URL) async throws -> BoardScene {
+    /// `figures`: die Figurenbibliothek (`FigureModel.loadAll`), einmal geladen für alle Szenen (CHAOS-191).
+    static func load(from folder: URL, figures: [String: FigureModel]) async throws -> BoardScene {
         let t0 = CACurrentMediaTime()
         let meta = try JSONDecoder().decode(SceneMeta.self, from: Data(contentsOf: folder.appending(path: "brett.szene.json")))
         let board = try await Entity(contentsOf: folder.appending(path: "brett.usdz"))
@@ -206,17 +202,6 @@ final class BoardScene {
         }
         let (instances, grass) = try await addInstances(to: board, from: folder.appending(path: "brett.instanzen.json"))
 
-        var figures: [String: FigureTemplate] = [:]
-        for id in ["robot", "cactus", "raccoon", "sock"] {
-            let url = folder.appending(path: "figuren/\(id).usdz")
-            guard FileManager.default.fileExists(atPath: url.path) else {
-                hostLog("FEHLER figuren/\(id).usdz fehlt")
-                continue
-            }
-            let entity = try await Entity(contentsOf: url)
-            let (clips, durations) = clips(of: entity, table: folder.appending(path: "figuren/\(id).clips.json"))
-            figures[id] = FigureTemplate(entity: entity, clips: clips, durations: durations)
-        }
         let sky = try? await EnvironmentResource(equirectangular: hemisphereImage(
             sky: meta.sky?.color ?? [0.83, 0.9, 0.96], ground: meta.sky?.ground ?? meta.sky?.color ?? [0.49, 0.54, 0.32]))
         let scene = BoardScene(root: board, meta: meta, anchors: anchors, figures: figures, sky: sky, instances: instances, grass: grass)
@@ -314,9 +299,8 @@ final class BoardScene {
         pawnRoot.addChild(PawnParts.base(color: slotColor))
         let facing = Entity()
         facing.position.y = BoardLook.pawnLift
-        let figure = template.entity.clone(recursive: true)
+        let figure = template.instance(color: color, character: character)
         figure.scale = SIMD3(repeating: Self.characterScale)
-        tint(figure, color: color, character: character)
         facing.addChild(figure)
         pawnRoot.addChild(facing)
         let symbol = PawnParts.symbol(slot: slot, color: slotColor)
@@ -405,19 +389,15 @@ final class BoardScene {
     }
 
     private func play(_ pawn: inout Pawn, _ name: String) {
-        guard pawn.animation != name, let clip = figures[pawn.character]?.clips[name],
-              let owner = Self.find(in: pawn.figure, where: { !$0.availableAnimations.isEmpty }) else { return }
+        guard pawn.animation != name, figures[pawn.character]?.play(name, on: pawn.figure, transition: 0.2, fallback: false) == true else { return }
         pawn.animation = name
-        owner.playAnimation(clip, transitionDuration: 0.2)
     }
 
     /// Einmal-Clip (Reaktion, Flug); danach geht die Figur im Stand zurück zu `idle`.
     private func playOnce(_ pawn: inout Pawn, _ name: String) {
-        guard let clip = figures[pawn.character]?.clips[name],
-              let owner = Self.find(in: pawn.figure, where: { !$0.availableAnimations.isEmpty }) else { return }
+        guard let model = figures[pawn.character], model.play(name, on: pawn.figure, fallback: false) else { return }
         pawn.animation = name
-        pawn.oneShotUntil = time + (figures[pawn.character]?.durations[name] ?? 0.8)
-        owner.playAnimation(clip, transitionDuration: 0.15)
+        pawn.oneShotUntil = time + (model.durations[name] ?? 0.8)
     }
 
     /// Ring am Boden und Pfeil über dem Kopf des Spielers am Zug (`syncActive`).
@@ -495,59 +475,7 @@ final class BoardScene {
         camera.look(at: [-f.x, 0, z], from: eye, relativeTo: nil)
     }
 
-    /// Material „akzent“ in Slot-Farbe. Es liegt je Figur auf einem eigenen Mesh (USD-Prüfung, CHAOS-140); bei
-    /// Figuren mit Skinning fasst RealityKit die Meshes zu einem Modell zusammen, die Mesh-Modelle behalten aber
-    /// den Prim-Namen. Gefärbt wird darum das Material jedes Teils, dessen Mesh-Modell so heißt.
-    private static let accentNodes: [String: String] = ["robot": "halsring", "cactus": "halstuch", "raccoon": "halstuch", "sock": "buendchen"]
-
-    private func tint(_ figure: Entity, color hex: String, character: String) {
-        guard !hex.isEmpty, let name = Self.accentNodes[character] else { return }
-        var tinted = 0
-        var stack = [figure]
-        while let entity = stack.popLast() {
-            stack += entity.children
-            guard var model = entity.components[ModelComponent.self] else { continue }
-            let indices = Set(model.mesh.contents.models.filter { $0.id == name }.flatMap { $0.parts.map(\.materialIndex) })
-            guard !indices.isEmpty else { continue }
-            for index in indices where index < model.materials.count {
-                var pbr = (model.materials[index] as? PhysicallyBasedMaterial) ?? PhysicallyBasedMaterial()
-                pbr.baseColor = .init(tint: platformColor(hex))
-                model.materials[index] = pbr
-                tinted += 1
-            }
-            entity.components.set(model)
-        }
-        if tinted == 0 { hostLog("FEHLER \(character): Akzent-Mesh \(name) nicht gefunden") }
-    }
-
     // MARK: Laden
-
-    /// Clips aus `<id>.clips.json` (alle Clips auf einer Zeitleiste, CHAOS-140) samt Länge; fehlt die Tabelle, die ganze
-    /// Animation als `idle`.
-    private static func clips(of figure: Entity, table: URL) -> (clips: [String: AnimationResource], durations: [String: Double]) {
-        guard let owner = find(in: figure, where: { !$0.availableAnimations.isEmpty }) else {
-            hostLog("FEHLER \(figure.name): keine Animation")
-            return ([:], [:])
-        }
-        let source = owner.availableAnimations[0]
-        guard let data = try? Data(contentsOf: table), let parsed = try? JSONDecoder().decode(FigureClips.self, from: data) else {
-            return (["idle": source.repeat()], [:])
-        }
-        var result: [String: AnimationResource] = [:]
-        var durations: [String: Double] = [:]
-        for clip in parsed.clips {
-            guard let resource = try? AnimationResource.generate(with: source.definition.trimmed(start: clip.start, end: clip.end))
-            else { continue }
-            result[clip.name] = clip.loop == false ? resource : resource.repeat()
-            durations[clip.name] = clip.end - clip.start
-        }
-        return (result, durations)
-    }
-
-    private struct FigureClips: Decodable {
-        struct Clip: Decodable { let name: String; let start: Double; let end: Double; let loop: Bool? }
-        let clips: [Clip]
-    }
 
     /// Babylon-Thin-Instances (Gras, Blumen) als `MeshInstancesComponent`: ein Draw je Mesh-Teil.
     /// Liefert die Zahl der Instanzen und die Grashalme (`gras-*`) als Vorlage für die Minispiel-Kulisse (CHAOS-193).

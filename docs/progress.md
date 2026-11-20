@@ -177,6 +177,7 @@ Inhalt ist das Epic CHAOS-137 (ADR-019). Am 2026-11-19 orchestriert mit Workern 
 | CHAOS-190 | Minispiel-Klänge | erledigt (PR #96) |
 | CHAOS-193, CHAOS-192 | Lichtstimmung je Runde, Flug-Effekte, Minispiel-Kulisse, Aufwärmen | erledigt (PR #100) |
 | CHAOS-201 | RealityKit-Prüfung der Assets unter macOS 27 | erledigt (PR #103) |
+| CHAOS-191 | Gemeinsame Figurenbibliothek für Brett, Minispiel und Podest (Backlog CHAOS-44): jede Figur nur einmal geladen, im tvOS-Simulator Speicherspitze 317/321 → 274 MB | erledigt (PR #107) |
 | CHAOS-146 | Gesamtlauf: tvOS-Simulator und Mac mit Bots (EXP-031), Gerätecheckliste §34 | Simulator/Mac erledigt; echte Apple TV bei Ruben |
 | CHAOS-160, CHAOS-169 | **Ruben:** TestFlight auf der Apple TV, Messung Minispiel-Start/-Ende auf dem Gerät | offen |
 | CHAOS-164 | **M5-Abnahme (Ruben)** | offen |

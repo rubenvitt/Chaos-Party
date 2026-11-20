@@ -43,6 +43,7 @@ final class MinigameScene {
     private var retiredParticles: [Entity] = []
     private var particleMaterials: [String: RealityKit.Material] = [:]
     private let particleMesh = MeshResource.generateSphere(radius: 1)
+    /// Figurenbibliothek (CHAOS-191), geteilt mit Brett und Podest; leer ohne Assets (Kapseln).
     private let models: [String: FigureModel]
     /// Grashalme des Bretts für die Kulisse (CHAOS-193).
     private let grass: [GrassTemplate]
@@ -97,21 +98,6 @@ final class MinigameScene {
         camera.camera.far = 1000
         root.addChild(camera)
         root.addChild(sceneLight.sun)
-    }
-
-    /// Figuren als USDZ (`figuren/<id>.usdz`, Clips aus `<id>.clips.json`); fehlt der Ordner, Kapseln.
-    static func loadModels(folder: URL?) async -> [String: FigureModel] {
-        guard let folder else { return [:] }
-        var out: [String: FigureModel] = [:]
-        for id in ["robot", "cactus", "raccoon", "sock"] {
-            let url = folder.appending(path: "figuren/\(id).usdz")
-            guard FileManager.default.fileExists(atPath: url.path), let entity = try? await Entity(contentsOf: url) else {
-                hostLog("FEHLER Minispiel-Figur \(id) fehlt")
-                continue
-            }
-            out[id] = FigureModel(entity: entity, table: folder.appending(path: "figuren/\(id).clips.json"))
-        }
-        return out
     }
 
     /// Ein Bild des Minispiels.
@@ -512,70 +498,5 @@ final class MinigameScene {
         let made = MinigameBackdrop(area: b, grass: grass)
         root.addChild(made.root)
         backdrop = made
-    }
-}
-
-/// Eine Figur als USDZ mit ihren Clips (wie `BoardScene`, eigene Kopie: Brett und Minispiel teilen keine Entitäten).
-@MainActor
-struct FigureModel {
-    let entity: Entity
-    let clips: [String: AnimationResource]
-    let durations: [String: Double]
-    let loops: [String: Bool]
-
-    /// Akzent-Mesh je Figur (Material `akzent` in Slot-Farbe), wie `BoardScene.accentNodes`.
-    private static let accentNodes: [String: String] = ["robot": "halsring", "cactus": "halstuch", "raccoon": "halstuch", "sock": "buendchen"]
-
-    init(entity: Entity, table: URL) {
-        self.entity = entity
-        var clips: [String: AnimationResource] = [:], durations: [String: Double] = [:], loops: [String: Bool] = [:]
-        if let owner = BoardScene.find(in: entity, where: { !$0.availableAnimations.isEmpty }) {
-            let source = owner.availableAnimations[0]
-            if let data = try? Data(contentsOf: table), let parsed = try? JSONDecoder().decode(Table.self, from: data) {
-                for clip in parsed.clips {
-                    guard let resource = try? AnimationResource.generate(with: source.definition.trimmed(start: clip.start, end: clip.end))
-                    else { continue }
-                    let loop = clip.loop ?? true
-                    clips[clip.name] = loop ? resource.repeat() : resource
-                    durations[clip.name] = clip.end - clip.start
-                    loops[clip.name] = loop
-                }
-            } else {
-                clips["idle"] = source.repeat()
-            }
-        }
-        self.clips = clips
-        self.durations = durations
-        self.loops = loops
-    }
-
-    private struct Table: Decodable {
-        struct Clip: Decodable { let name: String; let start: Double; let end: Double; let loop: Bool? }
-        let clips: [Clip]
-    }
-
-    func instance(color hex: String, character: String) -> Entity {
-        let figure = entity.clone(recursive: true)
-        guard !hex.isEmpty, let name = Self.accentNodes[character] else { return figure }
-        var stack = [figure]
-        while let current = stack.popLast() {
-            stack += current.children
-            guard var model = current.components[ModelComponent.self] else { continue }
-            let indices = Set(model.mesh.contents.models.filter { $0.id == name }.flatMap { $0.parts.map(\.materialIndex) })
-            guard !indices.isEmpty else { continue }
-            for index in indices where index < model.materials.count {
-                var pbr = (model.materials[index] as? PhysicallyBasedMaterial) ?? PhysicallyBasedMaterial()
-                pbr.baseColor = .init(tint: platformColor(hex))
-                model.materials[index] = pbr
-            }
-            current.components.set(model)
-        }
-        return figure
-    }
-
-    func play(_ name: String, on figure: Entity) {
-        guard let clip = clips[name] ?? clips["idle"],
-              let owner = BoardScene.find(in: figure, where: { !$0.availableAnimations.isEmpty }) else { return }
-        owner.playAnimation(clip, transitionDuration: 0.15)
     }
 }
