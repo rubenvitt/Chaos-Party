@@ -1,16 +1,26 @@
 /**
- * Prüfungen für **jedes** registrierte Minispiel (CHAOS-34): Katalog stimmig, Lebenszyklus
- * mit 2–4 Spielern und Zufalls-Bots, gültiges Ergebnis ohne Rückfallwertung, Ende
- * spätestens am Zeitlimit, Szene nach `dispose` leer (keine Meshes, Materialien, Texturen,
- * Beobachter, Physik-Körper), getrennter Spieler bricht nichts.
+ * Vertragstest für **jedes** registrierte Minispiel (CHAOS-34, erweitert in CHAOS-84):
+ * Katalog stimmig, Textgrenzen, Lebenszyklus mit 2–4 Spielern und Zufalls-Bots, gültiges
+ * Ergebnis (alle Slots, Plätze passen zu den Punkten, Höhepunkte in den Grenzen) ohne
+ * Rückfallwertung, Ende spätestens am Zeitlimit, Szene nach `dispose` leer (keine Meshes,
+ * Materialien, Texturen, Beobachter, Physik-Körper), getrennter Spieler bricht nichts,
+ * Leerlauf (niemand drückt) und Dauerdrücken (alle hämmern alle Knöpfe) enden sauber.
  *
- * Neue Minispiele werden hier automatisch mitgeprüft.
+ * Neue Minispiele werden hier automatisch mitgeprüft (Schleife über `MINIGAME_MODULES`).
+ * Fairness und Vielfalt prüft `checks/checks.test.ts` für die Rotation.
  */
-import { checkInfo, CHARACTER_IDS, type Slot } from '@chaos-party/minigame-sdk';
+import {
+  checkInfo,
+  checkResult,
+  CHARACTER_IDS,
+  type MinigameInfo,
+  type Slot,
+} from '@chaos-party/minigame-sdk';
 import { FIXED_STEP_SECONDS } from '@chaos-party/minigame-sdk/babylon';
 import {
   EMPTY_RESIDUE,
   runMinigameHeadless,
+  type HeadlessRun,
   type InputScript,
 } from '@chaos-party/minigame-sdk/testing';
 import { createMinigameRng } from '@chaos-party/minigame-sdk';
@@ -44,6 +54,38 @@ function randomBots(seed: number, slots: readonly Slot[]): InputScript {
   };
 }
 
+/**
+ * Dauerdrücken: Stick voll in eine Richtung (alle 5 s gedreht), A und B im Wechsel jeden
+ * zweiten Schritt drücken und loslassen – die Eingabe eines Kindes, das alles hämmert.
+ */
+function mashAll(slots: readonly Slot[]): InputScript {
+  let step = 0;
+  return (elapsedMs, send) => {
+    const quarter = Math.floor(elapsedMs / 5_000) % 4;
+    const angle = (quarter * Math.PI) / 2;
+    for (const slot of slots) {
+      if (step % 30 === 0) send(slot, { type: 'move', x: Math.cos(angle), y: Math.sin(angle) });
+      const button = step % 4 < 2 ? 'a' : 'b';
+      send(slot, { type: step % 2 === 0 ? 'press' : 'release', button });
+    }
+    step++;
+  };
+}
+
+/** Gemeinsame Ergebnisprüfung: Ende am Zeitlimit, gültiges Ergebnis, Szene aufgeräumt. */
+function expectCleanRun(run: HeadlessRun, info: MinigameInfo, slots: readonly Slot[]): void {
+  const outcome = run.outcome;
+  expect(outcome).not.toBeNull();
+  expect(outcome?.forced).toBe(false);
+  expect(outcome?.elapsedMs).toBeLessThanOrEqual(info.durationMs + 50);
+  if (outcome) {
+    expect(
+      checkResult(outcome.result, { minigameId: info.id, slots, scoring: info.scoring }),
+    ).toEqual({ ok: true });
+  }
+  expect(run.residue).toEqual(EMPTY_RESIDUE);
+}
+
 describe('Minispiel-Katalog', () => {
   it('Katalog und Module passen zusammen, Steckbriefe sind gültig', () => {
     expect(MINIGAME_MODULES.map((m) => m.info.id)).toEqual(MINIGAME_INFOS.map((i) => i.id));
@@ -70,13 +112,26 @@ describe.each(MINIGAME_MODULES.map((module) => [module.info.id, module] as const
           seed: 1000 + players,
           script: randomBots(players, slots),
         });
-        expect(run.outcome).not.toBeNull();
-        expect(run.outcome?.forced).toBe(false);
-        expect(run.outcome?.elapsedMs).toBeLessThanOrEqual(module.info.durationMs + 50);
+        expectCleanRun(run, module.info, slots);
         expect(run.outcome?.result.placements.map((p) => p.slot).sort()).toEqual([...slots]);
-        expect(run.residue).toEqual(EMPTY_RESIDUE);
       },
     );
+
+    it('endet ohne jede Eingabe (Leerlauf) am Zeitlimit mit gültigem Ergebnis', async () => {
+      const run = await runMinigameHeadless(module, { players: 4, seed: 3 });
+      expectCleanRun(run, module.info, [1, 2, 3, 4]);
+      expect(run.outcome?.elapsedMs).toBeGreaterThanOrEqual(module.info.durationMs - 50);
+    });
+
+    it('übersteht Dauerdrücken aller Knöpfe mit gültigem Ergebnis', async () => {
+      const slots = [1, 2, 3, 4] as const;
+      const run = await runMinigameHeadless(module, {
+        players: 4,
+        seed: 11,
+        script: mashAll(slots),
+      });
+      expectCleanRun(run, module.info, slots);
+    });
 
     it('bleibt stabil, wenn ein Spieler mitten im Spiel die Verbindung verliert', async () => {
       const run = await runMinigameHeadless(module, {
@@ -88,9 +143,7 @@ describe.each(MINIGAME_MODULES.map((module) => [module.info.id, module] as const
           if (Math.abs(elapsedMs - 6000) < 10) runner.setConnected(2, true);
         },
       });
-      expect(run.outcome?.forced).toBe(false);
-      expect(run.outcome?.result.placements).toHaveLength(3);
-      expect(run.residue).toEqual(EMPTY_RESIDUE);
+      expectCleanRun(run, module.info, [1, 2, 3]);
     });
   },
 );
