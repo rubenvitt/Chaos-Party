@@ -2575,7 +2575,7 @@ Feinabstimmung innerhalb von C:
 **Hypothese / gewünschtes Spielerlebnis:** Ein drittes, großes Brett mit eigenem Thema bringt Abwechslung. Das Karussell in der Mitte ändert jede Runde, wohin seine Abkürzung führt. Spieler sehen die Stellung (Tor am Karussell, Zusatz an der Wegwahl) und planen danach. Die Wegwahl bleibt fair: Kein Weg gewinnt deutlich öfter, alle Trophäen-Kandidaten kommen ins Spiel.
 
 **Varianten:**
-- **Drehung je Runde, fest reihum (gewählt, ADR-021):** West (Spiegelkabinett) → Süd (Abkürzung zum Startplatz) → Ost (Ehrenrunde zurück in die Geisterbahn). Planbar, ohne Protokolländerung.
+- **Drehung je Runde, fest reihum (gewählt, ADR-022):** West (Spiegelkabinett) → Süd (Abkürzung zum Startplatz) → Ost (Ehrenrunde zurück in die Geisterbahn). Planbar, ohne Protokolländerung.
 - Drehung per Zufall je Runde: verworfen, nicht planbar.
 - Karussell als normale Gabel mit wechselnden Optionen: verworfen, dann entscheidet der Spieler statt des Karussells.
 - Losbude als neuer Feldtyp: zurückgestellt. Ein neuer `SpaceKind` hätte Protokoll, Controller und beide Hosts berührt. Die Losbudengasse ist stattdessen der Glücksweg (fünf Item- und zwei Ereignisfelder auf zehn Feldern).
@@ -2605,7 +2605,7 @@ Feinabstimmung innerhalb von C:
 - Apple-Host: Kulisse Rummelplatz lädt am Mac in ≈ 1,0 s, im tvOS-Simulator in 4,2 s (in der Lobby vorgeladen, parallel zum Aufwärmen). Speicher im Simulator in der Lobby (`footprint`): nur Wackelwald 354 MB, Wackelwald und Rummelplatz geladen 365 MB; RSS-Spitze während der Partie 619 MB (ohne Vergleichswert, andere Messart als CHAOS-191). Mit „Zufall“ und sieben Revanchen am Mac wechselte die Kulisse sechsmal in beide Richtungen ohne Neustart (CHAOS-212).
 - Ausfahrt-Tor im Apple-Host: Mit dem gerechneten Vorzeichen (`-angle` wegen der x-Spiegelung) zeigte es am Mac zum Gegen-Ausgang (Osten statt Westen in Runde 1). Mit `+angle` zeigt es im tvOS-Simulator richtig nach Westen. Bilder: [`chaos199-rummelplatz-pc-ueberblick.jpg`](screenshots/chaos199-rummelplatz-pc-ueberblick.jpg), [`chaos199-rummelplatz-pc-gabel.jpg`](screenshots/chaos199-rummelplatz-pc-gabel.jpg), [`chaos199-rummelplatz-mac.jpg`](screenshots/chaos199-rummelplatz-mac.jpg), [`chaos199-rummelplatz-apple-tv-sim.jpg`](screenshots/chaos199-rummelplatz-apple-tv-sim.jpg).
 
-**Entscheidung:** **Behalten**, mit 12 empfohlenen Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §39): Ist die Stellung des Karussells am Fernseher klar, und fühlt sich die Ehrenrunde lustig oder ärgerlich an?
+**Entscheidung:** **Behalten**, mit 12 empfohlenen Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §41): Ist die Stellung des Karussells am Fernseher klar, und fühlt sich die Ehrenrunde lustig oder ärgerlich an?
 
 ## EXP-036: Frostgipfel – Eis, Seilbahn und Lawinen (2026-11-20, CHAOS-198)
 
@@ -2614,9 +2614,9 @@ Feinabstimmung innerhalb von C:
 **Varianten:**
 - **Seilbahn-Preis 4 / 5 / 6 / 8 / 10 / 12 / 15 Münzen (8 gewählt):** Unter 12 wählen Bots sie in rund der Hälfte der Fälle, ab 12 deutlich seltener. Der Preis allein ändert die Siegquote der Fahrer kaum.
 - **Trophäen-Kandidat am Gipfelweg vor (g04) oder hinter der Bergstation (g07, gewählt):** Mit g04 überspringt die Seilbahn zwei Kandidaten. Wer zweimal oder öfter fährt, gewinnt dann nur 16–18 %. Mit g07 liegt ein Kandidat direkt hinter der Bergstation (22–23 %, kein Weg dominiert).
-- **Lawine am Rundenende oder am Rundenbeginn (gewählt, ADR-022):** Rundenbeginn trennt sie vom Minispiel-Ergebnis und vom Rückenwind. Warnung genau eine Runde vorher.
+- **Lawine am Rundenende oder am Rundenbeginn (gewählt, ADR-023):** Rundenbeginn trennt sie vom Minispiel-Ergebnis und vom Rückenwind. Warnung genau eine Runde vorher.
 - **Lawine schiebt Figuren ins Tal:** verworfen, weil „Tal“ auf dem Frostgipfel oft in Laufrichtung liegt (Geschenk statt Strafe).
-- Eigene Feldtypen oder Ereignisse für Eis, Seilbahn, Lawine: verworfen (Protokoll, Controller, beide Hosts; ADR-022).
+- Eigene Feldtypen oder Ereignisse für Eis, Seilbahn, Lawine: verworfen (Protokoll, Controller, beide Hosts; ADR-023).
 
 **Layout:** 75 Felder auf ≈ 44 × 24, vier Gabeln (Talstation: Talweg / Seilbahn für 8 Münzen; A: Lärchenhang 10 / Gletscherpfad 7; B: Höhenweg / Gipfelweg; C: Serpentinen 10 / Rodelbahn 7), sieben Eisfelder (Rodelbahn r1–r3 am Stück), Lawine alle drei Runden abwechselnd am Gletscherpfad und am Nordhang (je fünf Felder, 5 Münzen), neun Trophäen-Kandidaten. Runde über den Start 42–49 Felder, über die Seilbahn 21.
 
@@ -2640,4 +2640,4 @@ Feinabstimmung innerhalb von C:
 - PC-Host (Chrome, Metal): Kulisse lädt ohne Fehler, Überblick und Gabel an der Talstation siehe [`chaos198-frostgipfel-pc-ueberblick.jpg`](screenshots/chaos198-frostgipfel-pc-ueberblick.jpg) und [`chaos198-frostgipfel-pc-gabel.jpg`](screenshots/chaos198-frostgipfel-pc-gabel.jpg).
 - Apple-Host: ganze Partien mit vier Bots (`--bunt`, 4 Runden bis zum Siegerbild, alle Minispiel-Ergebnisse angenommen, keine `FEHLER`) am Mac und im tvOS-Simulator (Apple TV 4K, 3. Generation). Kulisse Frostgipfel (USDZ 15,2 MiB, 75 Feld-Anker) lädt am Mac in 0,7 s (erster Start nach dem Bauen 6,0 s), im Simulator in 4,1 s; im Simulator 60 Bilder/s auf dem Brett. Zu Beginn von Runde 4 zeigen Mac und Simulator „Lawine am Gletscherpfad!“ samt Tickerzeile. Bilder: [`chaos198-frostgipfel-mac-lawine.jpg`](screenshots/chaos198-frostgipfel-mac-lawine.jpg), [`chaos198-frostgipfel-apple-tv-sim.jpg`](screenshots/chaos198-frostgipfel-apple-tv-sim.jpg).
 
-**Entscheidung:** **Behalten**: Seilbahn 8 Münzen, Kandidat hinter der Bergstation, Lawine alle drei Runden mit 5 Münzen, 12 empfohlene Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §40): Ist die Lawinen-Warnung klar, wird die Seilbahn gezielt genutzt, ist die Rutschpartie nachvollziehbar?
+**Entscheidung:** **Behalten**: Seilbahn 8 Münzen, Kandidat hinter der Bergstation, Lawine alle drei Runden mit 5 Münzen, 12 empfohlene Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §43): Ist die Lawinen-Warnung klar, wird die Seilbahn gezielt genutzt, ist die Rutschpartie nachvollziehbar?

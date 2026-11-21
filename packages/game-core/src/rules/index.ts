@@ -41,7 +41,22 @@ export {
   type PublicPlayer,
   type PublicPrompt,
 } from './view.ts';
-export { DEFAULT_MINIGAME_RESULT_GRACE_MS, PLACEHOLDER_MINIGAME } from './minigame.ts';
+export {
+  DEFAULT_MINIGAME_RESULT_GRACE_MS,
+  PLACEHOLDER_MINIGAME,
+  playedMinigames,
+} from './minigame.ts';
+export {
+  FAVORITE_WEIGHT,
+  ROTATION_LOOKAHEAD,
+  SECRET_CHOICE_IPAD_WEIGHT,
+  eligibleMinigames,
+  fillMinigameBag,
+  minigameWeight,
+  pickMinigameIndex,
+  rememberMinigame,
+  ROTATION_MEMORY,
+} from './rotation.ts';
 export {
   DEFAULT_BOT_POLICY,
   sampleDelay,

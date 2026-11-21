@@ -39,6 +39,10 @@ const ALLOWED: Readonly<Record<Phase, ReadonlySet<ClientMessageType>>> = {
     'host-hello',
     'host-ready',
     'minigame-result',
+    // v4-Nachtrag (CHAOS-87): Daumen nach dem Minispiel (nur in der Ergebnisanzeige, prüft die Session).
+    'rate',
+    // v4-Nachtrag (CHAOS-214): „Bereit“ in der Minispiel-Anleitung (prüft die Session).
+    'ready',
     // v4 (CHAOS-36/37): Pause, vorzeitiges Ende, Revanche (nur in `game-results`, prüft die Session).
     'pause',
     'resume',

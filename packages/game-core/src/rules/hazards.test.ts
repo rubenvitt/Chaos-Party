@@ -1,5 +1,5 @@
 /**
- * Brett-Mechaniken des Frostgipfels im Regelkern (CHAOS-198, ADR-022): Eisfelder, Seilbahn und
+ * Brett-Mechaniken des Frostgipfels im Regelkern (CHAOS-198, ADR-023): Eisfelder, Seilbahn und
  * Lawinen. Seeded und mit festen Würfeln, damit jeder Weg bekannt ist.
  */
 import { describe, expect, it } from 'vitest';

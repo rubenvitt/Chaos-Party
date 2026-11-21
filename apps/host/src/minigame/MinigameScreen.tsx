@@ -4,7 +4,9 @@
  * - **Intro** (`minigame-intro`): Szene ist vorbereitet, darüber die Anleitungskarte mit Titel,
  *   Untertitel, Anleitung, Bedienung (Joystick/A/B mit Symbol) und Countdown. Lief das
  *   Minispiel in der Partie schon (`minigame.repeat`, CHAOS-66), nur Titel, Bedienung, Spieler
- *   und Countdown (kurze Anleitung, `minigameRepeatIntroMs`).
+ *   und Countdown (kurze Anleitung, `minigameRepeatIntroMs`). Wartet die Anleitung auf
+ *   Bereitschaft (`minigame.ready`, CHAOS-214), stehen statt des Countdowns die Spieler mit
+ *   „Bereit“/„Drückt Bereit …“/„getrennt“ und kein Countdown.
  * - **Spiel** (`minigame-play`): Runner läuft; Eingaben vom Server (`input`) und der Tastatur;
  *   HUD mit Restzeit, Punkten je Spieler (Farbe + Symbol + Figur), Status und Banner. Das
  *   Ergebnis geht über `onResult` (genau einmal) an den Versand.
@@ -47,7 +49,8 @@ import {
   shownRemainingMs,
   type MinigameStageName,
 } from './plan.ts';
-import { resultPayload, resultsDisplay } from './results.ts';
+import { introReadiness, readyProgress, waitsForReady, type Readiness } from './readiness.ts';
+import { PRACTICE_NOTE, resultPayload, resultsDisplay } from './results.ts';
 import { createMinigameStage, type MinigameStage, type StageStatus } from './stage.ts';
 import type { ChaosMinigameTestHook } from './testHook.ts';
 
@@ -352,8 +355,12 @@ export function MinigameScreen(props: MinigameScreenProps) {
   // Im Testmodus steht die Uhr: Countdown zeigt die Restzeit beim Empfang (stabile Bilder).
   // In der Pause steht sie ebenfalls (Restzeit des Servers gilt ab `pausedAt`).
   const clock = test || paused ? receivedAt : Math.max(now, receivedAt);
+  // CHAOS-214: Wartet die Anleitung auf „Bereit“, ist `remainingMs` nur Mindestzeit bzw.
+  // Sicherheitsfrist – kein Countdown, also auch keine Ticks.
   const introSeconds =
-    stageName === 'intro' ? phaseSecondsLeft(view.remainingMs, receivedAt, clock) : null;
+    stageName === 'intro' && !waitsForReady(view)
+      ? phaseSecondsLeft(view.remainingMs, receivedAt, clock)
+      : null;
 
   // --- Klänge: Minispiel-Start, Countdown-Ticks ----------------------------------------------
   useEffect(() => {
@@ -364,6 +371,17 @@ export function MinigameScreen(props: MinigameScreenProps) {
       soundEngine().play('tick', { pitch: introSeconds === 1 ? 1.25 : 1 });
     }
   }, [introSeconds]);
+  // CHAOS-214: Statt Countdown tickt jedes neue „Bereit“, das letzte etwas höher.
+  const progress = stageName === 'intro' ? readyProgress(view) : null;
+  const readyDone = progress?.done ?? 0;
+  const readyTotal = progress?.total ?? 0;
+  const lastReady = useRef(readyDone);
+  useEffect(() => {
+    if (readyDone > lastReady.current) {
+      soundEngine().play('tick', { pitch: readyDone >= readyTotal ? 1.25 : 1 });
+    }
+    lastReady.current = readyDone;
+  }, [readyDone, readyTotal]);
 
   const ack = props.resultAck;
   const rejected =
@@ -448,8 +466,15 @@ function IntroCard({
   const { controls } = info;
   // CHAOS-66: Minispiel lief in der Partie schon → kurze Anleitung, nur Titel und Bedienlegende.
   const repeat = view.minigame?.repeat === true;
+  // CHAOS-214: Wartet die Anleitung auf „Bereit“, ersetzt die Bereitschaft den Countdown.
+  const readiness = introReadiness(view);
   return (
-    <div className="minigame-overlay" data-testid="minigame-intro" data-repeat={repeat}>
+    <div
+      className="minigame-overlay"
+      data-testid="minigame-intro"
+      data-repeat={repeat}
+      data-waits-ready={readiness !== null}
+    >
       <section
         className={`minigame-card minigame-card--intro${repeat ? ' minigame-card--repeat' : ''}`}
         aria-label="Anleitung"
@@ -512,16 +537,68 @@ function IntroCard({
             </li>
           )}
         </ul>
-        <ul className="minigame-roster" aria-label="Mitspieler">
-          {players.map((player) => (
-            <li key={player.slot} className="minigame-roster-entry" style={colorStyle(player.slot)}>
-              <PlayerBadge slot={player.slot} />
-              <span className="minigame-roster-name">{player.name}</span>
-              <span className="minigame-roster-character">{characterName(view, player.slot)}</span>
-            </li>
-          ))}
-        </ul>
+        {readiness ? (
+          <ReadinessRow readiness={readiness} />
+        ) : (
+          <ul className="minigame-roster" aria-label="Mitspieler">
+            {players.map((player) => (
+              <li
+                key={player.slot}
+                className="minigame-roster-entry"
+                style={colorStyle(player.slot)}
+              >
+                <PlayerBadge slot={player.slot} />
+                <span className="minigame-roster-name">{player.name}</span>
+                <span className="minigame-roster-character">
+                  {characterName(view, player.slot)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
+    </div>
+  );
+}
+
+/** Bereitschaft je Spieler (CHAOS-214): Häkchen + „Bereit“, „Drückt Bereit …“ oder „getrennt“. */
+function ReadinessRow({ readiness }: { readonly readiness: Readiness }) {
+  const done = readiness.players.filter((player) => player.state !== 'waiting').length;
+  return (
+    <div className="minigame-ready" data-testid="minigame-ready">
+      <p className="minigame-ready-head">
+        <span className="minigame-ready-headline">{readiness.headline}</span>
+        <span className="minigame-ready-count" data-testid="minigame-ready-count">
+          {done}/{readiness.players.length}
+        </span>
+      </p>
+      <ul className="minigame-ready-list" aria-label="Bereitschaft">
+        {readiness.players.map((player) => (
+          <li
+            key={player.slot}
+            className="minigame-ready-chip"
+            data-testid={`minigame-ready-${player.slot}`}
+            data-state={player.state}
+            style={colorStyle(player.slot)}
+          >
+            <PlayerBadge slot={player.slot} />
+            <span className="minigame-ready-who">
+              <span className="minigame-ready-line">
+                <span className="minigame-ready-name">{player.name}</span>
+                <span className="minigame-ready-character">{player.character}</span>
+              </span>
+              <span className="minigame-ready-state">
+                {player.state !== 'waiting' && (
+                  <span className="minigame-ready-check" aria-hidden="true">
+                    {player.state === 'ready' ? '✓' : '⚠'}
+                  </span>
+                )}
+                {player.text}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -613,7 +690,12 @@ function ResultsCard({
   readonly display: ReturnType<typeof resultsDisplay>;
 }) {
   return (
-    <div className="minigame-overlay" data-testid="minigame-results" data-aborted={display.aborted}>
+    <div
+      className="minigame-overlay"
+      data-testid="minigame-results"
+      data-aborted={display.aborted}
+      data-practice={display.practice}
+    >
       <section className="minigame-card minigame-card--results" aria-label="Ergebnis">
         <p className="minigame-kicker">Ergebnis · {title}</p>
         <h2 className="minigame-title minigame-headline" data-testid="minigame-headline">
@@ -677,6 +759,11 @@ function ResultsCard({
               <li key={line}>★ {line}</li>
             ))}
           </ul>
+        )}
+        {display.practice && (
+          <p className="minigame-tagline" data-testid="minigame-practice-note">
+            {PRACTICE_NOTE}
+          </p>
         )}
       </section>
     </div>

@@ -1,4 +1,4 @@
-# ADR-021: Drehende Felder (Karussell) als feste Runden-Drehung im Regelkern
+# ADR-022: Drehende Felder (Karussell) als feste Runden-Drehung im Regelkern
 
 **Status:** Angenommen
 **Datum:** 2026-11-20
@@ -43,4 +43,4 @@ Randbedingungen: Der Regelkern bleibt deterministisch und seed-basiert (gleicher
 
 ## Überprüfung
 
-Nach dem Spieltest am Fernseher (Gerätecheckliste §39): Ist die Stellung lesbar, und fühlt sich die Ost-Ausfahrt („Ehrenrunde“ zurück in die Geisterbahn) eher lustig als unfair an? Sonst Drehung je Zug oder andere Ausgänge.
+Nach dem Spieltest am Fernseher (Gerätecheckliste §41): Ist die Stellung lesbar, und fühlt sich die Ost-Ausfahrt („Ehrenrunde“ zurück in die Geisterbahn) eher lustig als unfair an? Sonst Drehung je Zug oder andere Ausgänge.

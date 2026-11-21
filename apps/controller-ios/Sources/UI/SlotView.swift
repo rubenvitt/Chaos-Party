@@ -79,7 +79,11 @@ struct SlotView: View {
                 PlayPanel(session: session, slot: slot, context: context, tint: tint, landscape: landscape)
             }
         case .minigame:
-            if let minigame = context?.minigame { MinigameCard(minigame: minigame) }
+            if let context, let minigame = context.minigame {
+                MinigameCard(minigame: minigame, actions: context.actions, tint: tint, contextKey: context.key) {
+                    session.setReady(slot: slot)
+                }
+            }
         case .pause:
             (landscape ? AnyLayout(HStackLayout(spacing: 20)) : AnyLayout(VStackLayout(spacing: 18))) {
                 if let board = context?.board { StatusBar(board: board).frame(maxWidth: landscape ? 300 : nil) }

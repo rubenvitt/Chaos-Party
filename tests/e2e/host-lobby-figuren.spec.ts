@@ -261,14 +261,10 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await page.waitForFunction(() => window.__chaos?.board?.ready === true);
       const snapshot = chaosServer.server.session.snapshot();
       expect(snapshot.board).toBe('zufall');
-      const played = snapshot.game?.state.boardId;
-      const names: Record<string, string> = {
-        wackelwald: 'Wackelwald',
-        rummelplatz: 'Rummelplatz',
-        frostgipfel: 'Frostgipfel',
-      };
-      expect(Object.keys(names)).toContain(played);
-      await expect(page.locator('.hud-title p')).toContainText(names[played ?? ''] ?? '');
+      // Welches Brett gelost wird, hängt vom Seed ab. Den Brett-Titel im HUD prüft der Test nicht:
+      // Mit einem getrennten Spieler läuft die Partie automatisch weiter, und auf dem größeren
+      // Rummelplatz (Aufbau in SwiftShader) war sie beim ersten Bild schon im Minispiel (CHAOS-199).
+      expect(['wackelwald', 'rummelplatz', 'frostgipfel']).toContain(snapshot.game?.state.boardId);
     } finally {
       bot.close();
     }

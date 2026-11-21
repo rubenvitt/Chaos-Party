@@ -2,6 +2,7 @@
  * Texte des Wackelturms für HUD, Banner und Höhepunkte (rein, testbar). Grenzen aus dem
  * Vertrag: Status ≤ 16, Banner ≤ 32, Höhepunkte 0–4 Zeilen ≤ 64 Zeichen.
  */
+import { fitLine } from '@chaos-party/minigame-kit';
 import { MINIGAME_TEXT_LIMITS, type MinigamePlacement, type Slot } from '@chaos-party/minigame-sdk';
 import type { MinigamePlayer } from '@chaos-party/minigame-sdk/babylon';
 import type { Runner, WackelturmParams, WackelturmState } from './logic.ts';
@@ -36,7 +37,7 @@ export function bannerFor(
   finished: boolean,
 ): string | undefined {
   if (finished) return undefined;
-  if (banner && time < banner.until) return clip(banner.text, BANNER_LIMIT);
+  if (banner && time < banner.until) return fitLine(banner.text, BANNER_LIMIT);
   if (remainingMs > 0 && remainingMs <= FINAL_CALL_MS) return 'Letzte Sekunden – abliefern!';
   return undefined;
 }
@@ -48,7 +49,7 @@ export function buildHighlights(
   placements: readonly MinigamePlacement[],
 ): string[] {
   const name = (slot: Slot) =>
-    clip(players.find((player) => player.slot === slot)?.name ?? `Spieler ${String(slot)}`, 16);
+    fitLine(players.find((player) => player.slot === slot)?.name ?? `Spieler ${String(slot)}`, 16);
   const top = (key: keyof Runner['stats']): Runner | undefined =>
     [...state.runners].sort((a, b) => b.stats[key] - a.stats[key] || a.slot - b.slot)[0];
   const lines: string[] = [];
@@ -80,9 +81,5 @@ export function buildHighlights(
   }
   return lines
     .slice(0, MINIGAME_TEXT_LIMITS.highlights)
-    .map((line) => clip(line, MINIGAME_TEXT_LIMITS.highlight));
-}
-
-function clip(text: string, limit: number): string {
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+    .map((line) => fitLine(line, MINIGAME_TEXT_LIMITS.highlight));
 }

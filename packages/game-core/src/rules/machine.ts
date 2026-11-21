@@ -46,13 +46,17 @@ import {
   slotOption,
 } from './prompts.ts';
 import {
+  checkMinigameReady,
   checkMinigameResult,
   enterMinigame,
   expireMinigame,
   finishMinigame,
-  startMinigamePlay,
+  markMinigameReady,
+  releaseMinigameIntro,
+  resumeMinigameIntro,
 } from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
+import { copyRotationOptions } from './rotation.ts';
 import { tallyStats } from './stats.ts';
 import { enterSpaceEvent } from './spaces.ts';
 
@@ -154,6 +158,12 @@ function assertConfig(config: GameConfig): void {
       throw new RangeError(`Minispiel ${spec.id}: playMs muss ≥ 1000 sein`);
     }
   }
+  if (config.practice === true) {
+    if ((config.minigames ?? []).length !== 1) {
+      throw new RangeError('Übungsmodus braucht genau ein Minispiel');
+    }
+    if (rounds !== 1) throw new RangeError('Übungsmodus hat genau eine Runde');
+  }
   if (rules.diceFaces.length === 0) throw new RangeError('diceFaces ist leer');
   if (rules.diceFaces.some((face) => !Number.isInteger(face) || face < 0)) {
     throw new RangeError('diceFaces: nur ganze Zahlen ≥ 0');
@@ -185,6 +195,7 @@ export function createGame(config: GameConfig): GameState {
     promptBaseDeadline: null,
     minigameBag: [],
     minigameLast: null,
+    minigameHistory: [],
     minigamePlayed: [],
   };
   return {
@@ -215,7 +226,15 @@ export function createGame(config: GameConfig): GameState {
     pausedAt: null,
     endedEarly: false,
     minigame: null,
-    config: { rules, seed, minigames: (config.minigames ?? []).map((spec) => ({ ...spec })) },
+    config: {
+      rules,
+      seed,
+      minigames: (config.minigames ?? []).map((spec) => ({ ...spec })),
+      ...(config.practice === true ? { practice: true } : {}),
+      ...(config.minigameRotation === undefined
+        ? {}
+        : { minigameRotation: copyRotationOptions(config.minigameRotation) }),
+    },
     internal: internal as unknown as Readonly<Record<string, unknown>>,
   };
 }
@@ -278,6 +297,12 @@ function startGame(ctx: Ctx, t: number): void {
     d.players.map((p) => p.slot),
   );
   ctx.events.push({ type: 'game-started', order: [...d.turnOrder] });
+  if (d.config.practice === true) {
+    // Übungsmodus (CHAOS-87): gleich das eine Minispiel, ohne Brettzug und ohne Start-Items.
+    d.round = 1;
+    enterMinigame(ctx, t);
+    return;
+  }
   // Start-Items in Zugreihenfolge (Ereignisse zeigen sie am PC und am Controller).
   for (let i = 0; i < ctx.rules.items.startItems; i++) {
     for (const slot of d.turnOrder) gainRandomItem(ctx, slot);
@@ -365,12 +390,17 @@ function resume(ctx: Ctx, t: number): void {
       afterTurn(ctx, t);
       return;
     case 'minigame-intro':
-      startMinigamePlay(ctx, t);
+      resumeMinigameIntro(ctx, t);
       return;
     case 'minigame-play':
       expireMinigame(ctx, t);
       return;
     case 'minigame-results': {
+      // Übungsmodus (CHAOS-87): nach dem Ergebnis ist Schluss, ohne Rundenende.
+      if (d.config.practice === true) {
+        finishGame(ctx);
+        return;
+      }
       // CHAOS-125: Rückenwind wird beim Rundenende angesagt (PC-Karte, Controller-Hinweis).
       const tailwind = d.round < d.rounds ? applyTailwind(ctx) : [];
       if (tailwind.length > 0 && d.minigame) d.minigame = { ...d.minigame, tailwind };
@@ -572,6 +602,16 @@ export function step(state: GameState, command: GameCommand): StepResult {
       applyOption(ctx, command.option, at);
       break;
     }
+    case 'minigame-ready': {
+      if (!d.players.some((p) => p.slot === command.slot)) {
+        return fail(state, 'unknown-player', `Slot ${String(command.slot)} spielt nicht mit`);
+      }
+      if (d.paused) return fail(state, 'paused', 'Partie ist pausiert');
+      const check = checkMinigameReady(ctx);
+      if (!check.ok) return fail(state, 'wrong-phase', check.message);
+      markMinigameReady(ctx, command.slot);
+      break;
+    }
     case 'minigame-result': {
       const check = checkMinigameResult(ctx, command);
       if (!check.ok) {
@@ -586,6 +626,8 @@ export function step(state: GameState, command: GameCommand): StepResult {
     }
   }
 
+  // CHAOS-214: Bereit, Verbindungsverlust oder Pausenende kann die letzte Bereitschaft sein.
+  releaseMinigameIntro(ctx, at);
   run();
   tallyStats(ctx);
   return { ok: true, state: closeDraft(ctx), events: ctx.events };

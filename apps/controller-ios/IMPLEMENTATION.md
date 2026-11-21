@@ -196,7 +196,7 @@ Texts come from those files; reuse them verbatim unless they mention the browser
    | `lobbyBasic` | only "Bereit!" |
    | `wait` | waiting screen |
    | `board` | own status (coins, trophies, items, round x/y, whose turn). With `state.ownPrompt(slot)`: buttons following `describePrompt` (roll / target with player colors + cancel / path / trophy buy-skip / reaction / other), countdown bar from `ActivePrompt.fraction(at:)` in a `TimelineView`, buttons locked while `state.isLocked(slot)` |
-   | `minigame` | intro (title, tagline, instructions, control legend), results (`describeResult`: place / tied / score / reward), aborted |
+   | `minigame` | intro (title, tagline, instructions, control legend; CHAOS-214: big „Bereit!“ while `actions` offer `ready`, greyed out for the first 0.6 s, locked after a tap until a new context, then / with `minigame.ready == true` „Bereit! Warte auf die anderen …“; without `ready` the fixed line „Gleich geht’s los!“), results (`describeResult`: place / tied / score / reward), aborted |
    | `play` | joystick and A/B buttons following `describePlay`: an element shows only when offered in `actions` and not `nil` in `minigame.controls`; labels from `controls`. The joystick reports every drag change to `moveStick` (screen up = +y, length ≤ 1) and `(0, 0)` on release. Buttons call `press` on touch down and `release` on touch up or cancel. Multitouch: stick and button at the same time |
    | `pause` | pause screen, no inputs |
    | `final` | place, trophies, coins, minigame wins, tied, ended early |

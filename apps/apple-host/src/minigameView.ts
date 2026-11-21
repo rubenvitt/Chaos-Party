@@ -8,8 +8,16 @@ import type { MinigameHud } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS, type BoardView } from '@chaos-party/protocol';
 import { ITEM_NAMES } from '../../host/src/board/texts.ts';
 import { characterName, phaseSecondsLeft } from '../../host/src/minigame/plan.ts';
+import { introReadiness, readyProgress, waitsForReady } from '../../host/src/minigame/readiness.ts';
+
+export { readyProgress };
 import { resultsDisplay } from '../../host/src/minigame/results.ts';
-import type { MinigameInfoView, MinigameResults, MinigameScoreboard } from './contract.ts';
+import type {
+  MinigameInfoView,
+  MinigameReadiness,
+  MinigameResults,
+  MinigameScoreboard,
+} from './contract.ts';
 
 export function infoView(info: MinigameInfo): MinigameInfoView {
   return {
@@ -21,11 +29,38 @@ export function infoView(info: MinigameInfo): MinigameInfoView {
   };
 }
 
-/** Ganze Sekunden bis zum Spielstart (Intro), wie die Anleitungskarte im Browser-Host. */
+/**
+ * Ganze Sekunden bis zum Spielstart (Intro), wie die Anleitungskarte im Browser-Host. Wartet die
+ * Anleitung auf „Bereit“ (CHAOS-214), gibt es keinen Countdown (`null`, auch keine Ticks):
+ * `remainingMs` ist dann nur Mindestzeit bzw. Sicherheitsfrist.
+ */
 export function introCountdown(view: BoardView, receivedAt: number, now: number): number | null {
-  if (view.gamePhase !== 'minigame-intro') return null;
+  if (view.gamePhase !== 'minigame-intro' || waitsForReady(view)) return null;
   // In der Pause steht die Uhr (Restzeit gilt ab Empfang).
   return phaseSecondsLeft(view.remainingMs, receivedAt, view.paused ? receivedAt : now);
+}
+
+/**
+ * Bereitschaft der Anleitung (CHAOS-214, `introReadiness`): Überschrift und je Spieler
+ * „Bereit“/„Drückt Bereit …“/„getrennt“. `null` = Anleitung wartet nicht (fester Countdown).
+ */
+export function readinessView(view: BoardView): MinigameReadiness | null {
+  const readiness = introReadiness(view);
+  if (!readiness) return null;
+  return {
+    headline: readiness.headline,
+    players: readiness.players.map((player) => ({
+      slot: player.slot,
+      name: player.name,
+      character: player.character,
+      color: player.color,
+      symbol: player.symbol,
+      ready: player.ready,
+      connected: player.connected,
+      state: player.state,
+      text: player.text,
+    })),
+  };
 }
 
 /** HUD im Spiel: Restzeit, Banner, je Spieler Punkte, Status und Verbindung (`PlayHud`). */

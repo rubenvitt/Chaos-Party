@@ -43,7 +43,12 @@ export interface ResultsDisplay {
   readonly headline: string;
   readonly rows: readonly ResultRow[];
   readonly highlights: readonly string[];
+  /** Übungsrunde aus der Galerie (CHAOS-87): keine Münzen, danach zurück in die Lobby. */
+  readonly practice: boolean;
 }
+
+/** Zeile unter dem Ergebnis einer Übungsrunde (CHAOS-87). */
+export const PRACTICE_NOTE = 'Übungsrunde – keine Münzen. Daumen am Handy, dann zurück zur Lobby.';
 
 export const ABORTED_TEXT = 'Minispiel abgebrochen – keine Münzen';
 
@@ -67,10 +72,13 @@ export function resultsDisplay(
   const placements = minigame?.placements ?? [];
   const aborted = minigame?.aborted === true || placements.length === 0;
   const viewRewards = minigame?.rewards ?? null;
+  const practice = view.practice === true;
   const coinsOf = (slot: SlotNumber): number | null =>
-    viewRewards !== null
-      ? (viewRewards.find((entry) => entry.slot === slot)?.coins ?? 0)
-      : (rewards?.[slot] ?? null);
+    practice
+      ? null
+      : viewRewards !== null
+        ? (viewRewards.find((entry) => entry.slot === slot)?.coins ?? 0)
+        : (rewards?.[slot] ?? null);
   const rows: ResultRow[] = [...placements]
     .sort((a, b) => a.place - b.place || a.slot - b.slot)
     .map((entry) => ({
@@ -88,7 +96,7 @@ export function resultsDisplay(
     }));
   const winners = rows.filter((row) => row.place === 1).map((row) => row.name);
   let headline: string;
-  if (aborted) headline = ABORTED_TEXT;
+  if (aborted) headline = practice ? 'Minispiel abgebrochen' : ABORTED_TEXT;
   else if (winners.length === 1) headline = `${winners[0] ?? ''} gewinnt!`;
   else if (winners.length === rows.length) headline = `Gleichstand: alle auf Platz 1!`;
   else headline = `Gleichstand: ${joinNames(winners)}!`;
@@ -97,6 +105,7 @@ export function resultsDisplay(
     headline,
     rows: aborted ? [] : rows,
     highlights: aborted ? [] : [...(minigame?.highlights ?? [])],
+    practice,
   };
 }
 

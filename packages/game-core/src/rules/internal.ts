@@ -65,8 +65,15 @@ export interface Internal {
   minigameBag: string[];
   /** Zuletzt gespieltes Minispiel (keine direkte Wiederholung beim Neumischen). */
   minigameLast: string | null;
+  /** Zuletzt gezogene Minispiele, neuestes zuerst (Mischregeln der Rotation, CHAOS-85). */
+  minigameHistory: string[];
   /** Schon gestartete Minispiele dieser Partie (CHAOS-66: kurze Anleitung bei Wiederholung). */
   minigamePlayed: string[];
+  /**
+   * CHAOS-214: Mindestdauer der wartenden Anleitung vorbei; ab jetzt startet das letzte
+   * „Bereit“ das Minispiel sofort. Fehlt in Zuständen von vor CHAOS-214 (= `false`).
+   */
+  minigameReadyOpen?: boolean;
 }
 
 export type MutablePlayer = {
@@ -146,6 +153,7 @@ export function openDraft(state: GameState): Ctx {
     internal: {
       ...internal,
       minigameBag: [...internal.minigameBag],
+      minigameHistory: [...internal.minigameHistory],
       minigamePlayed: [...internal.minigamePlayed],
       move: internal.move ? { ...internal.move } : null,
       reaction: internal.reaction ? { ...internal.reaction } : null,

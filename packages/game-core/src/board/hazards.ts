@@ -1,5 +1,5 @@
 /**
- * Brett-Mechaniken des Frostgipfels (CHAOS-198, ADR-022): Eisfelder, Seilbahnen und Lawinen.
+ * Brett-Mechaniken des Frostgipfels (CHAOS-198, ADR-023): Eisfelder, Seilbahnen und Lawinen.
  * Reine Funktionen von Brett (und Runde), ohne Zufall: Regelkern, Bots und beide Hosts
  * (Ansage der Lawine, Eis-Optik, Seil statt Wegpfeil) rechnen damit dasselbe.
  *

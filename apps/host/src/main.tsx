@@ -39,6 +39,7 @@ const content =
       seed={config.seed}
       test={config.test}
       repeat={config.repeat}
+      ready={config.ready}
     />
   );
 

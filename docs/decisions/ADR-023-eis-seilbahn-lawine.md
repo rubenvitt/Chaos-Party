@@ -1,15 +1,15 @@
-# ADR-022: Eis, Seilbahn und Lawine als optionale Brett-Daten im Regelkern
+# ADR-023: Eis, Seilbahn und Lawine als optionale Brett-Daten im Regelkern
 
 **Status:** Angenommen
 **Datum:** 2026-11-20
 **Aufgabe:** CHAOS-198 (Brett „Frostgipfel“), Epic CHAOS-195
-**Betroffene Annahmen:** ADR-011 (Brett als Daten, Regelkern als reiner Reducer), ADR-021 (drehende Felder)
+**Betroffene Annahmen:** ADR-011 (Brett als Daten, Regelkern als reiner Reducer), ADR-022 (drehende Felder)
 
 ## Kontext
 
-Das Themenbrett „Frostgipfel“ soll eigene Brett-Mechaniken haben (Ruben, 2026-11-19: Thema bestätigt, Details frei): Eisfelder lassen die Figur weiterrutschen, eine Lawine räumt in festen Abständen einen Wegabschnitt ab (Figuren dort verlieren Münzen), eine Seilbahn ist eine Abkürzung gegen Münzen. ADR-021 hat für das Karussell vorgemacht, wie eine Mechanik als Brett-Daten plus reine Funktion von Brett und Runde ohne Protokolländerung auskommt. Diese ADR hält fest, wie die drei neuen Mechaniken in dasselbe Muster passen.
+Das Themenbrett „Frostgipfel“ soll eigene Brett-Mechaniken haben (Ruben, 2026-11-19: Thema bestätigt, Details frei): Eisfelder lassen die Figur weiterrutschen, eine Lawine räumt in festen Abständen einen Wegabschnitt ab (Figuren dort verlieren Münzen), eine Seilbahn ist eine Abkürzung gegen Münzen. ADR-022 hat für das Karussell vorgemacht, wie eine Mechanik als Brett-Daten plus reine Funktion von Brett und Runde ohne Protokolländerung auskommt. Diese ADR hält fest, wie die drei neuen Mechaniken in dasselbe Muster passen.
 
-Randbedingungen wie in ADR-021: Regelkern deterministisch und seed-basiert, keine neue Nachricht und kein neues Feld in `BoardView`, PC- und Apple-Host stellen alles aus Brett und `round` dar, Bretter ohne die neuen Felder verhalten sich unverändert.
+Randbedingungen wie in ADR-022: Regelkern deterministisch und seed-basiert, keine neue Nachricht und kein neues Feld in `BoardView`, PC- und Apple-Host stellen alles aus Brett und `round` dar, Bretter ohne die neuen Felder verhalten sich unverändert.
 
 ## Entscheidung
 
@@ -47,4 +47,4 @@ Randbedingungen wie in ADR-021: Regelkern deterministisch und seed-basiert, kein
 
 ## Überprüfung
 
-Nach dem Spieltest am Fernseher (Gerätecheckliste §40): Ist die Lawinen-Warnung eine Runde vorher klar? Wird die Seilbahn gezielt genutzt, und ist die Rutschpartie nachvollziehbar?
+Nach dem Spieltest am Fernseher (Gerätecheckliste §43): Ist die Lawinen-Warnung eine Runde vorher klar? Wird die Seilbahn gezielt genutzt, und ist die Rutschpartie nachvollziehbar?
