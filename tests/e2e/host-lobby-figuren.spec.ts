@@ -111,8 +111,8 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       );
 
       // Brett (CHAOS-197): Standard Wackelwald. Der Wechselknopf wählt per Maus den Rummelplatz
-      // (CHAOS-199), dann „Zufall“ – Server, Startknopf und Controller sehen es –, per Tastatur
-      // (Enter) wieder Wackelwald.
+      // (CHAOS-199), den Frostgipfel (CHAOS-198), dann „Zufall“ – Server, Startknopf und
+      // Controller sehen es –, per Tastatur (Enter) wieder Wackelwald.
       const board = page.getByTestId('board-choice');
       await expect(page.getByTestId('lobby-boards')).toBeVisible();
       await expect(board).toHaveAttribute('data-board', 'wackelwald');
@@ -125,6 +125,11 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await expect(board).toContainText('81 Felder');
       await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Rummelplatz');
       expect(session.snapshot().board).toBe('rummelplatz');
+      await board.click();
+      await expect(board).toHaveAttribute('data-board', 'frostgipfel');
+      await expect(board).toContainText('75 Felder');
+      await expect(page.getByTestId('start-button-detail')).toHaveText('10 Runden · Frostgipfel');
+      expect(session.snapshot().board).toBe('frostgipfel');
       await board.click();
       await expect(board).toHaveAttribute('data-board', 'zufall');
       await expect(board).toContainText('Zufall');
@@ -247,6 +252,8 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       await page.getByTestId('board-choice').click();
       await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'rummelplatz');
       await page.getByTestId('board-choice').click();
+      await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'frostgipfel');
+      await page.getByTestId('board-choice').click();
       await expect(page.getByTestId('board-choice')).toHaveAttribute('data-board', 'zufall');
       await start.click();
       const main = page.locator('main.host');
@@ -257,7 +264,7 @@ test.describe('Lobby mit Figuren und Rundenzahl (Node-Server, Production-Build)'
       // Welches Brett gelost wird, hängt vom Seed ab. Den Brett-Titel im HUD prüft der Test nicht:
       // Mit einem getrennten Spieler läuft die Partie automatisch weiter, und auf dem größeren
       // Rummelplatz (Aufbau in SwiftShader) war sie beim ersten Bild schon im Minispiel (CHAOS-199).
-      expect(['wackelwald', 'rummelplatz']).toContain(snapshot.game?.state.boardId);
+      expect(['wackelwald', 'rummelplatz', 'frostgipfel']).toContain(snapshot.game?.state.boardId);
     } finally {
       bot.close();
     }

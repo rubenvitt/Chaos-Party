@@ -99,7 +99,14 @@ export function buildIsland(
   scene: Scene,
   mats: NatureMaterials,
   terrain: Terrain,
-  options: { readonly subdivisions?: number; readonly grassTiling?: number } = {},
+  options: {
+    readonly subdivisions?: number;
+    readonly grassTiling?: number;
+    /** Boden statt Wiese (CHAOS-198: Schnee am Frostgipfel). */
+    readonly ground?: Material;
+    /** Tönung der Erdkante (Standard warmes Braun). */
+    readonly cliffTint?: string;
+  } = {},
 ): Mesh[] {
   const { shape } = terrain;
   const extent = Math.max(shape.halfX, shape.halfZ) * 2.3;
@@ -129,7 +136,7 @@ export function buildIsland(
   VertexData.ComputeNormals(positions, ground.getIndices() ?? [], normals);
   ground.setVerticesData(VertexBuffer.NormalKind, normals);
   const tiling = options.grassTiling ?? extent / 3.4;
-  ground.material = mats.textured('leafy_grass', { u: tiling, tint: '#b8d48a' });
+  ground.material = options.ground ?? mats.textured('leafy_grass', { u: tiling, tint: '#b8d48a' });
   ground.receiveShadows = true;
   ground.isPickable = false;
 
@@ -161,7 +168,7 @@ export function buildIsland(
   cliff.material = mats.textured('brown_mud_rocks_01', {
     u: Math.round(circumference / 4),
     v: 2,
-    tint: '#d9c2a8',
+    tint: options.cliffTint ?? '#d9c2a8',
   });
   cliff.receiveShadows = true;
   cliff.isPickable = false;

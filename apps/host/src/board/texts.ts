@@ -3,6 +3,7 @@
  * Banner, Countdown, Item-Namen. Rein, ohne React/Babylon – unit-getestet.
  * Der Host rechnet keine Regeln: Alle Zahlen kommen aus `BoardView`/`BoardEvent`.
  */
+import { avalancheAt, avalancheWarning, getBoard } from '@chaos-party/game-core';
 import {
   PLAYER_SLOTS,
   type BoardEvent,
@@ -58,8 +59,17 @@ export function eventText(
   switch (event.type) {
     case 'game-started':
       return { text: 'Die Party beginnt!', slot: null, tone: 'gold' };
-    case 'round-started':
-      return { text: `Runde ${event.round} beginnt!`, slot: null, tone: 'neutral' };
+    case 'round-started': {
+      // Frostgipfel (CHAOS-198): Lawine jetzt bzw. Warnung für den Rundenwechsel danach.
+      const avalanche = avalancheNotice(event.round, view);
+      return {
+        text: avalanche
+          ? `Runde ${event.round} beginnt – ${avalanche.title}`
+          : `Runde ${event.round} beginnt!`,
+        slot: null,
+        tone: avalanche ? 'bad' : 'neutral',
+      };
+    }
     case 'item-used':
       switch (event.item) {
         case 'double-dice':
@@ -265,12 +275,49 @@ export interface NoticeText {
   readonly detail: string;
 }
 
+/** Brett und Rundenzahl, soweit eine Ansage sie braucht (`BoardView` reicht). */
+export interface NoticeContext {
+  readonly boardId: string;
+  readonly rounds: number;
+}
+
 /**
- * Einblendung zu einem Ereignis oder `null`. Bisher nur die wachsende Sabotage (CHAOS-120):
- * `round-started` mit `sabotage` → „Sabotage wird stärker!“ mit den neuen Werten.
+ * Lawine des Frostgipfels (CHAOS-198) zu Beginn von Runde `round`: geht sie jetzt ab
+ * („Lawine am Gletscherpfad!“) oder nach dieser Runde („Lawinengefahr am Nordhang!“)?
+ * `null` ohne Lawine oder ohne Brett.
  */
-export function eventNotice(event: BoardEvent): NoticeText | null {
-  if (event.type !== 'round-started' || !event.sabotage) return null;
+export function avalancheNotice(round: number, context: NoticeContext | null): NoticeText | null {
+  const board = context ? getBoard(context.boardId) : undefined;
+  const coinsLost = board?.avalanche?.coins;
+  if (!board || !context || coinsLost === undefined) return null;
+  const now = avalancheAt(board, round);
+  if (now) {
+    return {
+      title: `Lawine am ${now.name}!`,
+      detail: `Wer dort steht, verliert ${coins(coinsLost)}`,
+    };
+  }
+  const soon = avalancheWarning(board, round, context.rounds);
+  if (soon) {
+    return {
+      title: `Lawinengefahr am ${soon.name}!`,
+      detail: 'Nach dieser Runde geht sie ab – dort nicht stehen bleiben',
+    };
+  }
+  return null;
+}
+
+/**
+ * Einblendung zu einem Ereignis oder `null`: die wachsende Sabotage (CHAOS-120,
+ * `round-started` mit `sabotage` → „Sabotage wird stärker!“ mit den neuen Werten), sonst die
+ * Lawine des Frostgipfels (CHAOS-198, braucht `context`).
+ */
+export function eventNotice(
+  event: BoardEvent,
+  context: NoticeContext | null = null,
+): NoticeText | null {
+  if (event.type !== 'round-started') return null;
+  if (!event.sabotage) return avalancheNotice(event.round, context);
   const { steal, trap } = event.sabotage;
   return {
     title: 'Sabotage wird stärker!',

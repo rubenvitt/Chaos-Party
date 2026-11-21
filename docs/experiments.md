@@ -2607,7 +2607,42 @@ Feinabstimmung innerhalb von C:
 
 **Entscheidung:** **Behalten**, mit 12 empfohlenen Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §41): Ist die Stellung des Karussells am Fernseher klar, und fühlt sich die Ehrenrunde lustig oder ärgerlich an?
 
-## EXP-035: Großer Wackelwald – 74 Felder, vier Gabeln (2026-11-20, CHAOS-196)
+## EXP-036: Frostgipfel – Eis, Seilbahn und Lawinen (2026-11-20, CHAOS-198)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein zweites Themenbrett „Frostgipfel“ mit drei eigenen Mechaniken bringt Abwechslung, ohne die Wegwahl zu verzerren. Eisfelder sorgen für kleine Überraschungen (die Figur rutscht weiter, manchmal auf ein Minusfeld). Die Lawine ist eine angekündigte Gefahr: Wer in der Warnrunde am Hang stehen bleibt, verliert Münzen. Die Seilbahn ist eine teure Abkürzung, die sich gezielt lohnt (Trophäe vorn), aber nicht immer.
+
+**Varianten:**
+- **Seilbahn-Preis 4 / 5 / 6 / 8 / 10 / 12 / 15 Münzen (8 gewählt):** Unter 12 wählen Bots sie in rund der Hälfte der Fälle, ab 12 deutlich seltener. Der Preis allein ändert die Siegquote der Fahrer kaum.
+- **Trophäen-Kandidat am Gipfelweg vor (g04) oder hinter der Bergstation (g07, gewählt):** Mit g04 überspringt die Seilbahn zwei Kandidaten. Wer zweimal oder öfter fährt, gewinnt dann nur 16–18 %. Mit g07 liegt ein Kandidat direkt hinter der Bergstation (22–23 %, kein Weg dominiert).
+- **Lawine am Rundenende oder am Rundenbeginn (gewählt, ADR-023):** Rundenbeginn trennt sie vom Minispiel-Ergebnis und vom Rückenwind. Warnung genau eine Runde vorher.
+- **Lawine schiebt Figuren ins Tal:** verworfen, weil „Tal“ auf dem Frostgipfel oft in Laufrichtung liegt (Geschenk statt Strafe).
+- Eigene Feldtypen oder Ereignisse für Eis, Seilbahn, Lawine: verworfen (Protokoll, Controller, beide Hosts; ADR-023).
+
+**Layout:** 75 Felder auf ≈ 44 × 24, vier Gabeln (Talstation: Talweg / Seilbahn für 8 Münzen; A: Lärchenhang 10 / Gletscherpfad 7; B: Höhenweg / Gipfelweg; C: Serpentinen 10 / Rodelbahn 7), sieben Eisfelder (Rodelbahn r1–r3 am Stück), Lawine alle drei Runden abwechselnd am Gletscherpfad und am Nordhang (je fünf Felder, 5 Münzen), neun Trophäen-Kandidaten. Runde über den Start 42–49 Felder, über die Seilbahn 21.
+
+**Objektive Messgrößen:** wie EXP-034 (Trophäen, Abstand 1/2, gekaufte Kandidaten, Wegwahlen, Siegquote nach Anteil riskanter Wege: Gletscherpfad, Gipfelweg, Rodelbahn, Seilbahn), dazu Rutschpartien, Seilbahnfahrten, Lawinen und Treffer (`iceSlides`, `cableRides`, `avalanches`, `avalancheHits` in `SimulationResult`).
+
+**Testumgebung:** `simulateGame` mit `DEFAULT_RULES`, 4 Bots, Seeds 1–300 je Zeile, MacBook (Node 26).
+
+**Ergebnisse:**
+
+| Brett | Runden | Dauer (min) | Trophäen | Abstand 1/2 | Kandidaten gekauft | Sieg wenig/viel riskant |
+|---|---|---|---|---|---|---|
+| Frostgipfel | 10 | 9,2 | 6,2 | 0,64 | 9/9 | 28 % / 23 % |
+| Frostgipfel | 12 | 11,1 | 8,0 | 0,79 | 9/9 | 26 % / 23 % |
+| Frostgipfel | 16 | 14,8 | 11,9 | 0,78 | 9/9 | 25 % / 24 % |
+
+- Mit 12 Runden werden etwa so viele Trophäen gekauft wie im Wackelwald mit 10 (EXP-034). Darum empfiehlt das Register 12 Runden.
+- Alle neun Kandidaten werden gekauft. Am seltensten f48 (Ende der Serpentinen, 0,23 je Partie bei 12 Runden): Gipfelweg und Seilbahn führen an Gabel C vorbei. Am häufigsten j7 vor dem Start (1,8) und r5 auf der Rodelbahn (1,4), weil fast jeder Weg dort vorbeiführt.
+- Je Partie (12 Runden): 3,7 Rutschpartien mit zusammen 4,2 Feldern, 3,5 Seilbahnfahrten, 3 Lawinen mit 0,8 Treffern. Die Lawine trifft selten, weil sie angesagt ist und die Hänge kurz sind. Bots kennen die Warnung nicht; Menschen dürften noch seltener getroffen werden.
+- Wegwahl je Partie (12 Runden): Talstation 3,4 Talweg / 3,5 Seilbahn, Gabel A 1,8 / 1,7, Gabel B 1,4 Höhenweg / 1,4 Gipfelweg, Gabel C 0,5 / 0,6.
+- Siegquote nach Nutzung (12 Runden): Seilbahn nie 25 %, einmal 26 %, zweimal oder öfter 23 %. Gletscherpfad nie 23 %, einmal 27 %. Kein Weg dominiert. Die Spreizung „wenig/viel riskant“ (3 Punkte) liegt im Bereich von Rummelplatz und Wackelwald.
+- PC-Host (Chrome, Metal): Kulisse lädt ohne Fehler, Überblick und Gabel an der Talstation siehe [`chaos198-frostgipfel-pc-ueberblick.jpg`](screenshots/chaos198-frostgipfel-pc-ueberblick.jpg) und [`chaos198-frostgipfel-pc-gabel.jpg`](screenshots/chaos198-frostgipfel-pc-gabel.jpg).
+- Apple-Host: ganze Partien mit vier Bots (`--bunt`, 4 Runden bis zum Siegerbild, alle Minispiel-Ergebnisse angenommen, keine `FEHLER`) am Mac und im tvOS-Simulator (Apple TV 4K, 3. Generation). Kulisse Frostgipfel (USDZ 15,2 MiB, 75 Feld-Anker) lädt am Mac in 0,7 s (erster Start nach dem Bauen 6,0 s), im Simulator in 4,1 s; im Simulator 60 Bilder/s auf dem Brett. Zu Beginn von Runde 4 zeigen Mac und Simulator „Lawine am Gletscherpfad!“ samt Tickerzeile. Bilder: [`chaos198-frostgipfel-mac-lawine.jpg`](screenshots/chaos198-frostgipfel-mac-lawine.jpg), [`chaos198-frostgipfel-apple-tv-sim.jpg`](screenshots/chaos198-frostgipfel-apple-tv-sim.jpg).
+
+**Entscheidung:** **Behalten**: Seilbahn 8 Münzen, Kandidat hinter der Bergstation, Lawine alle drei Runden mit 5 Münzen, 12 empfohlene Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §43): Ist die Lawinen-Warnung klar, wird die Seilbahn gezielt genutzt, ist die Rutschpartie nachvollziehbar?
+
+## EXP-037: Großer Wackelwald – 74 Felder, vier Gabeln (2026-11-20, CHAOS-196)
 
 **Hypothese / gewünschtes Spielerlebnis:** Ein größeres Brett mit mehr Wegen macht die Wegwahl interessanter und das Brett abwechslungsreicher, ohne dass Trophäen außer Reichweite geraten. Ruben (2026-11-19): „auch das wackelwald brett muss größer werden“. Die dynamische Kamera (CHAOS-194, EXP-033) hält das größere Brett lesbar.
 
@@ -2626,7 +2661,7 @@ Feinabstimmung innerhalb von C:
 
 Rundenlänge alt: 32–36 Felder (4 Wegkombinationen); neu: 37–47 Felder (12 Wegkombinationen)
 
-**EXP-035 Brettgröße (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
+**EXP-037 Brettgröße (Standardregeln + Rotation, Seeds 1–200 je Zeile)**
 
 | Brett | Runden | Sp. | Partie min | Felder/Sp. | Runden ums Brett | Trophäen | Trophäen Sieger | ohne Trophäe | Partie ohne Trophäe | Münzen entscheiden |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2649,7 +2684,7 @@ Rundenlänge alt: 32–36 Felder (4 Wegkombinationen); neu: 37–47 Felder (12 W
 | Wackelwald neu (74 Felder) | 20 | 3 | 24,9 | 78 | 1,86 | 21,32 | 7,87 | 0 % | 0 % | 41 % |
 | Wackelwald neu (74 Felder) | 20 | 4 | 27,8 | 76 | 1,81 | 22,95 | 6,82 | 0 % | 0 % | 38 % |
 
-**EXP-035 Wegwahl: immer kurz gegen immer lang (Rollen getauscht, Seeds 1–200 je Zeile × 2)**
+**EXP-037 Wegwahl: immer kurz gegen immer lang (Rollen getauscht, Seeds 1–200 je Zeile × 2)**
 
 | Brett | Runden | Sp. | Sieg kurz (fair ≈ 50 %) | Trophäen kurz / lang | Münzen kurz / lang |
 | --- | --- | --- | --- | --- | --- |
@@ -2666,7 +2701,7 @@ Rundenlänge alt: 32–36 Felder (4 Wegkombinationen); neu: 37–47 Felder (12 W
 | Wackelwald neu (74 Felder) | 20 | 2 | 51 % | 7,87 / 7,74 | 60,2 / 71,3 |
 | Wackelwald neu (74 Felder) | 20 | 4 | 51 % | 5,28 / 5,20 | 40,8 / 52,5 |
 
-**EXP-035 Wegwahl und Trophäenfelder (10 Runden, 2–4 Sp., Seeds 1–200 je Zeile)**
+**EXP-037 Wegwahl und Trophäenfelder (10 Runden, 2–4 Sp., Seeds 1–200 je Zeile)**
 
 | Gabel / Feld | Anteil |
 | --- | --- |
@@ -2690,4 +2725,4 @@ Bilder: [`chaos196-ueberblick.jpg`](screenshots/chaos196-ueberblick.jpg) (PC, Ü
 
 **Entscheidung:** **B4 behalten.** Empfohlene Rundenzahl im Brett-Register 12 statt 10 (`recommendedRounds`, nur Anzeige; der Server-Standard bleibt 10). Fünf-Runden-Partien bleiben möglich, haben aber öfter Spieler ohne Trophäe als auf dem alten Brett. **Offen für Ruben** (Abweichung vom Akzeptanzkriterium „erreichbare Trophäen in kurzen Partien“): akzeptieren, oder für den großen Wackelwald kürzere Partien als 8 Runden ausblenden bzw. mehr aktive Trophäen?
 
-**Offen für Playtest:** Ist die Lichtung als Abkürzung erkennbar und reizvoll? Fühlt sich der Baumkronenweg riskant an? Reicht der Überblick zu Rundenbeginn, um sich auf dem großen Brett zurechtzufinden? Sind 10 Runden zu kurz? Gerätecheckliste §44.
+**Offen für Playtest:** Ist die Lichtung als Abkürzung erkennbar und reizvoll? Fühlt sich der Baumkronenweg riskant an? Reicht der Überblick zu Rundenbeginn, um sich auf dem großen Brett zurechtzufinden? Sind 10 Runden zu kurz? Gerätecheckliste §45.

@@ -1,4 +1,4 @@
-import { createRng, WACKELWALD, type BoardDefinition } from '@chaos-party/game-core';
+import { createRng, FROSTGIPFEL, WACKELWALD, type BoardDefinition } from '@chaos-party/game-core';
 import { createMessage, type BoardEvent, type BoardView } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
 import {
@@ -136,6 +136,26 @@ describe('Kamera-Einstellungen je Phase (CHAOS-194)', () => {
     }
     // Dieselbe Einstellung nutzt die Szene für die Wegweiser.
     expect(forkShot(WACKELWALD, 's07')).toEqual(shot);
+  });
+
+  it('Lawine (CHAOS-198): Rundenbeginn zeigt den abgeräumten Hang statt des ganzen Bretts', () => {
+    const view = { ...roll, boardId: 'frostgipfel', round: 4, gamePhase: 'turn-start' as const };
+    const started: BoardEvent = { type: 'round-started', round: 4 };
+    const shot = cameraShot({ board: FROSTGIPFEL, view, cues: [cue(started, 100, 0)], pawns: [] });
+    expect(shot.kind).toBe('fit');
+    const camera = poseOf(shot);
+    for (const id of ['f19', 'f20', 'f21', 'f22', 'f23']) {
+      const space = FROSTGIPFEL.spaces.find((s) => s.id === id);
+      if (space) expect(inFrame(camera, space.position), id).toBe(true);
+    }
+    // Runde ohne Lawine: Überblick wie bisher.
+    const calm = cameraShot({
+      board: FROSTGIPFEL,
+      view: { ...view, round: 3 },
+      cues: [cue({ type: 'round-started', round: 3 }, 100, 0)],
+      pawns: [],
+    });
+    expect(calm.kind).toBe('overview');
   });
 
   it('Ereignis: kurzer Zoom auf die Figur, danach zurück zum Stand', () => {

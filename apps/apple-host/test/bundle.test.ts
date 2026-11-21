@@ -20,10 +20,11 @@ beforeAll(async () => {
   wasm = readFileSync(HAVOK_WASM_SOURCE);
 }, 60_000);
 
-/** Brett-Knöpfe der Lobby (CHAOS-197), Rummelplatz seit CHAOS-199. */
+/** Brett-Knöpfe der Lobby (CHAOS-197), Rummelplatz seit CHAOS-199, Frostgipfel seit CHAOS-198. */
 const BOARD_CHOICES = [
   { id: 'wackelwald', name: 'Wackelwald', detail: '74 Felder', selected: true, random: false },
   { id: 'rummelplatz', name: 'Rummelplatz', detail: '81 Felder', selected: false, random: false },
+  { id: 'frostgipfel', name: 'Frostgipfel', detail: '75 Felder', selected: false, random: false },
   { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
 ];
 

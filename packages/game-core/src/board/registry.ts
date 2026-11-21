@@ -12,6 +12,7 @@
  */
 import { createRng } from '../rng.ts';
 import type { BoardDefinition } from '../types.ts';
+import { FROSTGIPFEL } from './frostgipfel.ts';
 import { RUMMELPLATZ } from './rummelplatz.ts';
 import { WACKELWALD } from './wackelwald.ts';
 
@@ -19,7 +20,7 @@ import { WACKELWALD } from './wackelwald.ts';
  * Thema eines Bretts: bestimmt Kulisse und Lichtstimmung im Host. Neue Bretter bringen ihr
  * Thema mit (CHAOS-198 „Frostgipfel“, CHAOS-199 „Rummelplatz bei Nacht“).
  */
-export type BoardTheme = 'wald' | 'rummel';
+export type BoardTheme = 'wald' | 'rummel' | 'frost';
 
 export interface BoardInfo {
   /** Gleich `board.id`. */
@@ -45,7 +46,7 @@ export const BOARD_REGISTRY: readonly BoardInfo[] = [
     board: WACKELWALD,
     theme: 'wald',
     tagline: 'Großer Rundkurs mit Lichtung, Bachlauf, Baumkronenweg und Sumpf',
-    // EXP-035: Nach 12 Runden ist jeder einmal ums Brett, kaum jemand bleibt ohne Trophäe.
+    // EXP-037: Nach 12 Runden ist jeder einmal ums Brett, kaum jemand bleibt ohne Trophäe.
     recommendedRounds: 12,
   },
   {
@@ -53,6 +54,13 @@ export const BOARD_REGISTRY: readonly BoardInfo[] = [
     board: RUMMELPLATZ,
     theme: 'rummel',
     tagline: 'Jahrmarkt bei Nacht: Karussell dreht den Weg, Geisterbahn, Losbuden',
+    recommendedRounds: 12,
+  },
+  {
+    id: FROSTGIPFEL.id,
+    board: FROSTGIPFEL,
+    theme: 'frost',
+    tagline: 'Verschneiter Berg: Eisfelder, Lawinen und eine Seilbahn zum Gipfel',
     recommendedRounds: 12,
   },
 ];

@@ -23,6 +23,8 @@ import type { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
 import {
   getBoardInfo,
+  isCableEdge,
+  isIce,
   type BoardDefinition,
   type BoardSpace,
   type SpaceKind,
@@ -45,6 +47,7 @@ import type { NatureMaterials, PlainOptions } from '../nature/materials.ts';
 import { seeded } from '../nature/noise.ts';
 import { createTerrain, type Terrain } from '../nature/terrain.ts';
 import { buildFairground, type FairgroundWorld } from './fairground.ts';
+import { buildFrostpeak, type FrostpeakWorld } from './frostpeak.ts';
 import { boardBounds, type Point2 } from './layout.ts';
 import {
   buildFairyRing,
@@ -81,6 +84,9 @@ export const KIND_STYLES: Readonly<Record<SpaceKind, KindStyle>> = {
   trophy: { paint: '#8a68cc', tessellation: 8, rotation: Math.PI / 8 },
 };
 
+/** Eisfeld (CHAOS-198): hellblaue Einlage mit Schneeflocke statt des Feldtyps (man bleibt nie). */
+export const ICE_STYLE: KindStyle = { paint: '#9fd6ee', tessellation: 6, rotation: Math.PI / 6 };
+
 const CREAM = '#f6efe2';
 const INK = '#2a2420';
 
@@ -96,6 +102,8 @@ export interface NatureBoardWorld {
   readonly grass: Grass;
   /** Fahrgeschäfte des Rummelplatzes (CHAOS-199), sonst `null`. */
   readonly fair: FairgroundWorld | null;
+  /** Berg, Seilbahn und Lawinenhänge des Frostgipfels (CHAOS-198), sonst `null`. */
+  readonly frost: FrostpeakWorld | null;
   /**
    * Eigenleuchten der Feld-Einlagen, Ränder und Symbole setzen (Anteil der eigenen Farbe,
    * `LightMood.night.tileGlow`); für die Überblendung je Runde (CHAOS-63), ohne Shaderwechsel.
@@ -129,12 +137,16 @@ export function boardIsland(board: BoardDefinition) {
   };
 }
 
-/** Wege als Strecken (für Gras-Aussparung und ebenes Gelände). */
+/**
+ * Wege als Strecken (für Gras-Aussparung und ebenes Gelände). Seilbahnen (CHAOS-198) sind keine
+ * Wege am Boden: Ihr Seil zeichnet `frostpeak.ts`.
+ */
 export function boardEdges(board: BoardDefinition): [Point2, Point2][] {
   const byId = new Map(board.spaces.map((s) => [s.id, s]));
   const edges: [Point2, Point2][] = [];
   for (const space of board.spaces) {
     for (const next of space.next) {
+      if (isCableEdge(board, space.id, next)) continue;
       const target = byId.get(next);
       if (target) edges.push([space.position, target.position]);
     }
@@ -173,16 +185,35 @@ export function buildNatureBoard(
 ): NatureBoardWorld {
   const { mats, glow } = options;
   const rnd = seeded(62);
+  const theme = getBoardInfo(board.id)?.theme;
+  // Frostgipfel (CHAOS-198): Schnee statt Wiese, Tannen mit Schnee statt Laubwald, keine Blumen.
+  const frosty = theme === 'frost';
   const spaces = new Map(board.spaces.map((s) => [s.id, s]));
   const edges = boardEdges(board);
   const { terrain, scenery } = boardTerrain(board);
   const pond = scenery?.pond ?? null;
   const shape = terrain.shape;
   const casters: Mesh[] = [];
-  casters.push(...buildIsland(scene, mats, terrain).slice(1));
+  casters.push(
+    ...buildIsland(
+      scene,
+      mats,
+      terrain,
+      frosty
+        ? {
+            ground: mats.plain('#e9eef4', {
+              roughness: 0.92,
+              bumpFrom: 'brown_mud_rocks_01',
+              bumpScale: 0.35,
+            }),
+            cliffTint: '#c9c4c4',
+          }
+        : {},
+    ).slice(1),
+  );
 
   const statics = new StaticBatch('brett');
-  const setTileGlow = buildTiles(scene, mats, board.spaces, glow, rnd, statics);
+  const setTileGlow = buildTiles(scene, mats, board, glow, rnd, statics);
   buildPathMarkers(scene, mats, edges, terrain, rnd, statics);
 
   // Trophäen: Pokal über dem Feld, ein weicher Lichtring darunter.
@@ -217,10 +248,11 @@ export function buildNatureBoard(
       plant(t.x, t.z, t.scale, t.pine);
   }
   // Rand: hinten (von der Kamera weg) und an den Seiten, nie vorn (verdeckt die untere Reihe).
+  // Am Frostgipfel pflanzt `frostpeak.ts` verschneite Tannen.
   const margin = 1.4;
   // Anzahl wächst mit dem Umfang (26 beim alten 43-Felder-Wackelwald).
   const rimTrees = Math.round((shape.halfX + shape.halfZ) * 0.8);
-  for (let i = 0; i < rimTrees; i++) {
+  for (let i = 0; i < (frosty ? 0 : rimTrees); i++) {
     const a = (i / rimTrees) * Math.PI * 2 + rnd() * 0.15;
     const sinA = Math.sin(a);
     if (sinA < -0.35) continue;
@@ -358,6 +390,13 @@ export function buildNatureBoard(
       : null;
   if (fair) casters.push(...fair.casters);
 
+  // Frostgipfel (CHAOS-198): Gipfel, Bergkulisse, Seilbahn, Lawinenhänge, verschneite Tannen.
+  const frost = frosty ? buildFrostpeak(scene, board, statics, { mats, terrain, rnd }) : null;
+  if (frost) {
+    casters.push(...frost.casters);
+    trees.push(...frost.trees);
+  }
+
   // Felsen verstreut am Rand vorn (niedrig, verdecken nichts).
   for (let i = 0; i < 9; i++) {
     const a = -Math.PI / 2 + (rnd() - 0.5) * 2.4;
@@ -391,13 +430,14 @@ export function buildNatureBoard(
     ) ||
     edges.some(([a, b]) => segmentDistance({ x, z }, a, b) < 0.3) ||
     (pond !== null && Math.hypot((x - pond.x) / pond.rx, (z - pond.z) / pond.rz) < 0.95) ||
-    nearStream(scenery?.stream ?? [], { x, z }, 0.6);
+    nearStream(scenery?.stream ?? [], { x, z }, 0.6) ||
+    (frost?.avoid(x, z) ?? false);
 
-  // Blumen in kleinen Gruppen.
+  // Blumen in kleinen Gruppen (nicht im Schnee).
   const flowerSpots: Vector3[] = [];
   // Anzahl wächst mit der Fläche (22 beim alten 43-Felder-Wackelwald).
   const flowerGroups = Math.round(shape.halfX * shape.halfZ * 0.09);
-  for (let group = 0; group < flowerGroups; group++) {
+  for (let group = 0; group < (frosty ? 0 : flowerGroups); group++) {
     const cx = shape.centerX + (rnd() * 2 - 1) * shape.halfX * 0.85;
     const cz = shape.centerZ + (rnd() * 2 - 1) * shape.halfZ * 0.85;
     for (let k = 0; k < 7; k++) {
@@ -410,15 +450,16 @@ export function buildNatureBoard(
   flowers(scene, mats, flowerSpots, rnd);
 
   casters.push(...statics.flush());
+  // Im Schnee nur wenige bereifte Büschel.
   const grass = scatterGrass(scene, terrain, {
-    count: options.grassCount ?? BOARD_GRASS,
+    count: Math.round((options.grassCount ?? BOARD_GRASS) * (frosty ? 0.03 : 1)),
     avoid,
-    tipHex: options.grassTip,
+    tipHex: frosty ? '#d9e3dc' : options.grassTip,
     rnd,
-    scale: 1.25,
+    scale: frosty ? 1.05 : 1.25,
   });
 
-  return { terrain, trees, trophies, casters, lanterns, grass, fair, setTileGlow };
+  return { terrain, trees, trophies, casters, lanterns, grass, fair, frost, setTileGlow };
 }
 
 /** Felder ab `start` bis zur nächsten Zusammenführung (beschrifteter Abzweig einer Gabel). */
@@ -454,7 +495,7 @@ function polygon(
 function buildTiles(
   scene: Scene,
   mats: NatureMaterials,
-  spaces: readonly BoardSpace[],
+  board: BoardDefinition,
   glow: number,
   rnd: () => number,
   batch: StaticBatch,
@@ -490,9 +531,11 @@ function buildTiles(
     mesh.position.set(x, y, z);
     batch.add(mesh, material);
   };
-  for (const space of spaces) {
+  const iceInk = lit('#ffffff', { roughness: 0.3, clearCoat: 0.8 }, 0.8);
+  for (const space of board.spaces) {
     const { x, z } = space.position;
-    const style = KIND_STYLES[space.kind];
+    const ice = isIce(board, space.id);
+    const style = ice ? ICE_STYLE : KIND_STYLES[space.kind];
     const side = CreateCylinder(
       'scheibe-rinde',
       { diameter: TILE_DIAMETER + 0.02, height: 0.32, tessellation: 28, cap: Mesh.NO_CAP },
@@ -514,6 +557,15 @@ function buildTiles(
     at(inlay, x, TILE_TOP + 0.002, z, lit(style.paint, { roughness: 0.45, clearCoat: 0.6 }, 1));
 
     const y = TILE_TOP + 0.02;
+    if (ice) {
+      // Schneeflocke: drei Balken im 60°-Raster, dazu Eisglanz (CHAOS-198).
+      for (let k = 0; k < 3; k++) {
+        const bar = CreateBox('eis-flocke', { width: 0.64, height: 0.04, depth: 0.09 }, scene);
+        bar.rotation.y = (k * Math.PI) / 3;
+        at(bar, x, y, z, iceInk);
+      }
+      continue;
+    }
     switch (space.kind) {
       case 'coins-plus':
         at(CreateBox('plus', { width: 0.6, height: 0.05, depth: 0.17 }, scene), x, y, z, ink);
