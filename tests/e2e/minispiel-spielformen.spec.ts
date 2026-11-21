@@ -91,7 +91,9 @@ test.describe('Spielformen mit Teams (CHAOS-89)', () => {
       await expect(role).toHaveAttribute('data-role', 'team');
       await expect(role).toContainText(own === 0 ? 'Team Sonne' : 'Team Mond');
     }
-    await expect(phones[0]?.getByTestId('minigame-intro')).toHaveScreenshot(
+    const first = phones[0];
+    if (!first) throw new Error('kein Handy');
+    await expect(first.getByTestId('minigame-intro')).toHaveScreenshot(
       'spielform-2v2-rolle-handy.png',
     );
 
