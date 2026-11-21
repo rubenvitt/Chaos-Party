@@ -106,7 +106,7 @@ describe('Spielformen über die Session (CHAOS-89)', () => {
       if (winner !== null) {
         const winners = teams?.teams[winner] ?? [];
         const solo = winners.length === 1 && players > 2;
-        // 1 gegen 1 zahlt wie jeder gegen jeden (EXP-035).
+        // 1 gegen 1 zahlt wie jeder gegen jeden (EXP-037).
         const expected =
           teams?.layout === '1v1'
             ? (DEFAULT_RULES.economy.minigameRewards[0] ?? 0)

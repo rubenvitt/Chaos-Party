@@ -1,5 +1,5 @@
 /**
- * EXP-035 (CHAOS-89): Münz-Regel für Teams und Koop. Smoke-Test immer; volle Tabelle nur mit
+ * EXP-037 (CHAOS-89): Münz-Regel für Teams und Koop. Smoke-Test immer; volle Tabelle nur mit
  *
  * ```sh
  * EXPERIMENTS=teams pnpm exec vitest run packages/game-core/src/rules/experimentsTeams.test.ts --silent=false
@@ -14,7 +14,7 @@ const runtime = globalThis as {
   console?: { log: (...values: unknown[]) => void };
 };
 
-describe('EXP-035 Münz-Regel Teams/Koop: Smoke-Test', () => {
+describe('EXP-037 Münz-Regel Teams/Koop: Smoke-Test', () => {
   const small: ExperimentSetup = { seeds: seedRange(3), players: [2, 4], rounds: 8 };
 
   it('liefert eine vollständige Tabelle', () => {
@@ -33,7 +33,7 @@ describe('EXP-035 Münz-Regel Teams/Koop: Smoke-Test', () => {
 });
 
 describe.runIf(runtime.process?.env?.EXPERIMENTS === 'teams')(
-  'EXP-035: volle Tabelle (EXPERIMENTS=teams)',
+  'EXP-037: volle Tabelle (EXPERIMENTS=teams)',
   () => {
     it('druckt die Tabelle als Markdown', { timeout: 3_600_000 }, () => {
       runtime.console?.log(`\n${toMarkdown(teamRewardsExperiment())}\n`);

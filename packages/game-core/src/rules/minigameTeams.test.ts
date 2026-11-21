@@ -191,7 +191,7 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
     expect(Object.values(draw)).toEqual(state.players.map(() => DEFAULT_TEAM_REWARDS.draw));
   });
 
-  it('1 gegen 1 (Ersatz zu zweit) zahlt wie jeder gegen jeden (EXP-035)', () => {
+  it('1 gegen 1 (Ersatz zu zweit) zahlt wie jeder gegen jeden (EXP-037)', () => {
     const state = play(ONE_V_THREE, 2);
     const teams = state.minigame?.teams;
     if (!teams) throw new Error('keine Teams');

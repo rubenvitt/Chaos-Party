@@ -186,7 +186,7 @@ export interface CatchUpRules {
 }
 
 /**
- * Münz-Regel für Spielformen mit Teams und Koop (CHAOS-89, festgelegt in EXP-035).
+ * Münz-Regel für Spielformen mit Teams und Koop (CHAOS-89, festgelegt in EXP-037).
  * Teams: jede Person im Siegerteam `win`, im anderen Team `lose`, bei Unentschieden alle `draw`;
  * gewinnt eine Einzelperson (1 gegen 3 bzw. 1 gegen 2), bekommt sie `win × soloWinFactor`.
  * Koop: Münzen je Platz der Einzelwertung (`koop`, Index 0 = Platz 1) bei voller Stufe,
@@ -210,7 +210,7 @@ export interface RuleSet {
     readonly coinsMinus: number;
     /** Münzen je Minispiel-Platz (Index 0 = Platz 1); Gleichstand = gleiche Belohnung. */
     readonly minigameRewards: readonly number[];
-    /** Münzen bei Teams und Koop (CHAOS-89, EXP-035); fehlt = `DEFAULT_TEAM_REWARDS`. */
+    /** Münzen bei Teams und Koop (CHAOS-89, EXP-037); fehlt = `DEFAULT_TEAM_REWARDS`. */
     readonly teamRewards?: TeamRewards;
   };
   readonly trophy: {
