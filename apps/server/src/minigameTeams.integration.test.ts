@@ -3,7 +3,7 @@
  * der Rolle jedes Controllers, Team-Ausgang vom Host, Münzen nach der Team-Regel. Für jede
  * Spielform mit 2, 3 und 4 Personen, deterministisch per Seed.
  */
-import { DEFAULT_TEAM_REWARDS } from '@chaos-party/game-core';
+import { DEFAULT_RULES, DEFAULT_TEAM_REWARDS } from '@chaos-party/game-core';
 import { createMessage, type BoardView, type SlotNumber } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
 import {
@@ -106,9 +106,13 @@ describe('Spielformen über die Session (CHAOS-89)', () => {
       if (winner !== null) {
         const winners = teams?.teams[winner] ?? [];
         const solo = winners.length === 1 && players > 2;
-        const expected = solo
-          ? DEFAULT_TEAM_REWARDS.win * DEFAULT_TEAM_REWARDS.soloWinFactor
-          : DEFAULT_TEAM_REWARDS.win;
+        // 1 gegen 1 zahlt wie jeder gegen jeden (EXP-035).
+        const expected =
+          teams?.layout === '1v1'
+            ? (DEFAULT_RULES.economy.minigameRewards[0] ?? 0)
+            : solo
+              ? DEFAULT_TEAM_REWARDS.win * DEFAULT_TEAM_REWARDS.soloWinFactor
+              : DEFAULT_TEAM_REWARDS.win;
         for (const slot of winners) expect(coins.get(slot) ?? 0).toBe(expected);
       }
     }

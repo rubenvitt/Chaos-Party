@@ -191,7 +191,7 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
     expect(Object.values(draw)).toEqual(state.players.map(() => DEFAULT_TEAM_REWARDS.draw));
   });
 
-  it('1 gegen 1 (Ersatz zu zweit) zahlt den einfachen Sieg-Betrag', () => {
+  it('1 gegen 1 (Ersatz zu zweit) zahlt wie jeder gegen jeden (EXP-035)', () => {
     const state = play(ONE_V_THREE, 2);
     const teams = state.minigame?.teams;
     if (!teams) throw new Error('keine Teams');
@@ -200,7 +200,9 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
       state,
       send(state, teamPlacements(teams, 0, scoresOf(state)), { kind: 'teams', winner: 0 }),
     );
-    expect(coins[solo]).toBe(DEFAULT_TEAM_REWARDS.win);
+    const other = state.players.find((p) => p.slot !== solo)?.slot ?? 1;
+    expect(coins[solo]).toBe(10);
+    expect(coins[other]).toBe(5);
   });
 
   it('Koop: Einzelwertung anteilig zur Stufe, keine Minispiel-Siege', () => {
@@ -212,9 +214,9 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
       { slot: 3, place: 4, score: 1 },
     ];
     const full = send(state, placements, { kind: 'koop', tier: 3 });
-    expect(coinsAfter(state, full)).toEqual({ 1: 5, 2: 10, 3: 0, 4: 3 });
+    expect(coinsAfter(state, full)).toEqual({ 1: 9, 2: 12, 3: 3, 4: 6 });
     const partial = send(state, placements, { kind: 'koop', tier: 1 });
-    expect(coinsAfter(state, partial)).toEqual({ 1: 2, 2: 3, 3: 0, 4: 1 });
+    expect(coinsAfter(state, partial)).toEqual({ 1: 3, 2: 4, 3: 1, 4: 2 });
     if (full.ok) expect(full.state.players.every((p) => p.minigameWins === 0)).toBe(true);
   });
 

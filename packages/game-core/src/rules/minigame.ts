@@ -357,7 +357,8 @@ function payoutRule(
 ): PayoutRule {
   const placeRewards = ctx.rules.economy.minigameRewards;
   const teams = minigame.teams;
-  if (!teams || !outcome) {
+  // 1 gegen 1 (Ersatz zu zweit) ist ein Duell wie jeder gegen jeden: gleiche Münzen (EXP-035).
+  if (!teams || !outcome || teams.layout === '1v1') {
     return {
       coins: (entry) => placeRewards[entry.place - 1] ?? 0,
       wins: true,

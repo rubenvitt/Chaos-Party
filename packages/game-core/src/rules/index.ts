@@ -6,6 +6,7 @@ export { createGame, step } from './machine.ts';
 export {
   DEFAULT_RULES,
   DEFAULT_TEAM_REWARDS,
+  START_TEAM_REWARDS,
   TAILWIND_RULE,
   ZERO_PACING,
   withRules,
