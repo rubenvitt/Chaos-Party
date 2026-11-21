@@ -35,3 +35,4 @@ Hier stehen Architekturentscheidungen, die über eine einzelne Aufgabe hinaus ge
 | [ADR-020](ADR-020-ki-spieler.md) | KI-Spieler: jeder Platz Mensch oder KI (Solo erlaubt), Brett-KI im Server, Minispiel-KI im Host, Stärke leicht/mittel/schwer/dynamisch, Persönlichkeit per Seed | Angenommen (Rubens Entscheidungen 2026-11-19) | CHAOS-178 |
 | [ADR-021](ADR-021-minispiel-baukasten.md) | Minispiel-Baukasten als eigenes Paket `minigame-kit`: Unterbau, keine Spielvorlage; Vielfalts-Steckbrief | Angenommen | CHAOS-83 |
 | [ADR-022](ADR-022-drehende-felder.md) | Drehende Felder (Karussell): Ausgang als feste Funktion der Runde, keine Wegwahl, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-199 |
+| [ADR-023](ADR-023-eis-seilbahn-lawine.md) | Eis, Seilbahn und Lawine (Frostgipfel) als optionale Brett-Daten, Lawine als Funktion der Runde, kein neues Protokollfeld | Angenommen (2026-11-20) | CHAOS-198 |

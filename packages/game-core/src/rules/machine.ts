@@ -7,6 +7,7 @@
  * rechnen mit ihrem geplanten Zeitpunkt, nicht mit dem Tick-Zeitpunkt; der Ablauf hängt
  * deshalb nicht davon ab, wie oft der Server tickt.
  */
+import { avalancheAt } from '../board/hazards.ts';
 import { createRng, pickOne, shuffled } from '../rng.ts';
 import type {
   GameCommand,
@@ -17,7 +18,13 @@ import type {
   Slot,
   StepResult,
 } from '../types.ts';
-import { applyTailwind, rankPlayers, sabotageGrows, sabotageLevel } from './economy.ts';
+import {
+  applyTailwind,
+  changeCoins,
+  rankPlayers,
+  sabotageGrows,
+  sabotageLevel,
+} from './economy.ts';
 import {
   closeDraft,
   openDraft,
@@ -91,6 +98,39 @@ function assertConfig(config: GameConfig): void {
     if (!next) throw new RangeError(`Drehung an unbekanntem Feld ${rotation.space}`);
     if (rotation.exits.length < 1 || rotation.exits.some((id) => !next.includes(id))) {
       throw new RangeError(`Drehung an ${rotation.space}: Ausgänge passen nicht zu next`);
+    }
+  }
+  // CHAOS-198: Eis, Seilbahn und Lawine dürfen den Regelkern nicht festfahren (Endlos-Rutschen,
+  // unbekannte Felder, kostenlose Standardoption). Die ausführliche Prüfung macht `validateBoard`.
+  const ice = new Set(board.ice ?? []);
+  for (const id of ice) {
+    if (spaces.get(id)?.next.length !== 1) {
+      throw new RangeError(`Eisfeld ${id} fehlt oder hat nicht genau einen Nachfolger`);
+    }
+  }
+  if (ice.size > 0 && ice.size === spaces.size) throw new RangeError('Brett ist nur Eis');
+  for (const id of ice) {
+    let current = id;
+    for (let i = 0; ice.has(current); i++) {
+      if (i > ice.size) throw new RangeError(`Eis ab ${id} läuft im Kreis`);
+      current = spaces.get(current)?.next[0] ?? current;
+    }
+  }
+  for (const car of board.cableCars ?? []) {
+    const next = spaces.get(car.from)?.next ?? [];
+    if (!next.includes(car.to) || next[0] === car.to || !(car.price >= 1)) {
+      throw new RangeError(`Seilbahn ${car.from} → ${car.to} ist ungültig`);
+    }
+  }
+  if (board.avalanche) {
+    const { every, coins, zones } = board.avalanche;
+    if (!Number.isInteger(every) || every < 1 || !(coins >= 1)) {
+      throw new RangeError('Lawine: every und coins müssen ≥ 1 sein');
+    }
+    for (const zone of zones) {
+      for (const id of zone.spaces) {
+        if (!spaces.has(id)) throw new RangeError(`Lawinenzone ${zone.name}: Feld ${id} fehlt`);
+      }
     }
   }
   if (!Number.isInteger(rules.trophy.activeCount) || rules.trophy.activeCount < 1) {
@@ -232,7 +272,24 @@ function startRound(ctx: Ctx, t: number): void {
         }
       : { type: 'round-started', round: d.round },
   );
+  applyAvalanche(ctx);
   startTurn(ctx, t);
+}
+
+/**
+ * Lawine zu Rundenbeginn (CHAOS-198, `avalancheAt`): Wer auf einem Feld der Zone steht,
+ * verliert `coins` Münzen (Grund `space`, zählt als Pech). Ohne Zufall; die Hosts sagen sie
+ * an `round-started` an.
+ */
+function applyAvalanche(ctx: Ctx): void {
+  const board = ctx.d.internal.board;
+  const zone = avalancheAt(board, ctx.d.round);
+  const coins = board.avalanche?.coins ?? 0;
+  if (!zone || coins <= 0) return;
+  const spaces = new Set(zone.spaces);
+  for (const slot of ctx.d.turnOrder) {
+    if (spaces.has(playerOf(ctx, slot).spaceId)) changeCoins(ctx, slot, -coins, 'space');
+  }
 }
 
 function startGame(ctx: Ctx, t: number): void {

@@ -7,7 +7,7 @@ import type { BoardEventKind } from '../types.ts';
 import { changeCoins, wanderTrophy } from './economy.ts';
 import { activePlayer, schedule, spaceOf, type Ctx } from './internal.ts';
 import { gainRandomItem, triggerTrap } from './items.ts';
-import { gustForward, swapPlaces } from './movement.ts';
+import { gustForward, slideOnIce, swapPlaces } from './movement.ts';
 
 /** Die festen Brett-Ereignisse, gleich wahrscheinlich. */
 export const BOARD_EVENT_KINDS: readonly BoardEventKind[] = [
@@ -75,9 +75,14 @@ export function applyBoardEvent(ctx: Ctx, event: BoardEventKind): void {
   }
 }
 
-/** Phase `space-event` betreten: Falle, Feldwirkung, dann Anzeige-Pause. */
+/**
+ * Phase `space-event` betreten: auf Eis erst rutschen (CHAOS-198), dann Falle und Feldwirkung
+ * des Felds, auf dem die Figur steht, dann Anzeige-Pause (gerutscht: so viel länger, wie die
+ * Rutschpartie läuft).
+ */
 export function enterSpaceEvent(ctx: Ctx, t: number): void {
   const { rules } = ctx;
+  const slid = slideOnIce(ctx, activePlayer(ctx).slot);
   triggerTrap(ctx);
   const player = activePlayer(ctx);
   const space = spaceOf(ctx, player.spaceId);
@@ -98,5 +103,5 @@ export function enterSpaceEvent(ctx: Ctx, t: number): void {
     case 'trophy':
       break;
   }
-  schedule(ctx, 'space-event', t, rules.pacing.spaceEventMs);
+  schedule(ctx, 'space-event', t, rules.pacing.spaceEventMs + slid * rules.pacing.stepMs);
 }
