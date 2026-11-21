@@ -199,6 +199,19 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
     expectNoProblems(problems);
   });
 
+  test('Frostgipfel: Gipfel, Seilbahn, Eis und Schnee, ohne Fehler (CHAOS-198)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    await openBoard(page, '&brett=frostgipfel&ueberblick=1');
+    await expect(page.locator('.hud-title')).toContainText('Frostgipfel');
+    await expect(page.getByTestId('board-round')).toHaveText('Runde 2/5');
+    await stepFrames(page, 30);
+    await settleGpu(page);
+    await expect(page).toHaveScreenshot('host-brett-frostgipfel.png', { mask: hudMask(page) });
+    expectNoProblems(problems);
+  });
+
   test('Lichtverlauf: Rundenwechsel blendet weich in die nächste Stimmung (CHAOS-63)', async ({
     page,
   }) => {

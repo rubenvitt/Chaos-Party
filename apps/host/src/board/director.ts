@@ -19,7 +19,7 @@
  * Framework-frei: Die Szene liest `getFrame()` je Frame, der React-HUD abonniert
  * `getHud()` (ändert sich nur bei sichtbaren Änderungen, für `useSyncExternalStore`).
  */
-import { getBoard } from '@chaos-party/game-core';
+import { getBoard, isIce } from '@chaos-party/game-core';
 import type {
   BoardEvent,
   BoardMessage,
@@ -28,7 +28,7 @@ import type {
   SlotNumber,
 } from '@chaos-party/protocol';
 import { hopAt, planEvent, POPUP_MS, type MoveStyle, type PopupSpec } from './animation.ts';
-import { eventNotice, eventText, type EventText, type NoticeText } from './texts.ts';
+import { eventNotice, eventText, playerName, type EventText, type NoticeText } from './texts.ts';
 
 export interface FrameHop {
   readonly from: string;
@@ -280,6 +280,8 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
   let playedMs = 0;
   let messages: TimedMessage[] = [];
   let notice: (HudNotice & { readonly createdAt: number }) | null = null;
+  /** Zuletzt gestartetes Ereignis (Rutschpartie erkennen, CHAOS-198). */
+  let lastStarted: BoardEvent | null = null;
   let minigame: MinigameSummary | null = null;
   let nextId = 1;
   let received = 0;
@@ -324,7 +326,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
       if (messages.length > MAX_MESSAGES) messages = messages.slice(-MAX_MESSAGES);
       version++;
     }
-    const big = eventNotice(event);
+    const big = eventNotice(event, nameView);
     if (big) {
       notice = { ...big, id: nextId++, createdAt: now };
       version++;
@@ -361,13 +363,43 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     return pawnSpaces.get(event.slot) ?? event.path[0] ?? '';
   }
 
+  /**
+   * Rutschpartie auf Eis (CHAOS-198): ein `moved` derselben Figur direkt nach ihrem Lauf, das
+   * auf einem Eisfeld beginnt. Der Regelkern schickt es ohne eigenes Ereignis.
+   */
+  function isSlide(event: BoardEvent, previous: BoardEvent | null): boolean {
+    if (event.type !== 'moved' || previous?.type !== 'moved' || previous.slot !== event.slot) {
+      return false;
+    }
+    const board = getBoard((latest ?? committed?.view)?.boardId ?? '');
+    const from = previous.path[previous.path.length - 1];
+    return board?.ice !== undefined && from !== undefined && isIce(board, from);
+  }
+
   function startEvent(item: EventItem, at: number) {
     const { event, style, partner } = item;
+    const slide = style === 'walk' && isSlide(event, lastStarted);
+    lastStarted = event;
     announce(event);
     if (partner) announce(partner);
     const plan = planEvent(event, stepMsOf(), style);
-    if (plan.popup) {
-      popups.push({ ...plan.popup, id: nextId++, stack: freeStack(plan.popup), startedAt: now });
+    const popup: PopupSpec | null =
+      slide && event.type === 'moved'
+        ? { kind: 'event', slot: event.slot, spaceId: null, text: 'Rutsch!', tone: 'neutral' }
+        : plan.popup;
+    if (popup) {
+      popups.push({ ...popup, id: nextId++, stack: freeStack(popup), startedAt: now });
+    }
+    if (slide && event.type === 'moved') {
+      const view = latest ?? committed?.view ?? null;
+      messages.push({
+        text: `${playerName(view, event.slot)} rutscht auf dem Eis weiter!`,
+        slot: event.slot,
+        tone: 'neutral',
+        id: nextId++,
+        createdAt: now,
+      });
+      if (messages.length > MAX_MESSAGES) messages = messages.slice(-MAX_MESSAGES);
     }
 
     switch (event.type) {
@@ -471,6 +503,7 @@ export function createBoardDirector(options: DirectorOptions = {}): BoardDirecto
     }
     queue = [];
     cues = [];
+    lastStarted = null;
     if (lastCommit) commit(lastCommit.view, lastCommit.receivedAt);
     if (popups.length > 0) {
       popups = [];

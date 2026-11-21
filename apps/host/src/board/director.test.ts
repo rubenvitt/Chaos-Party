@@ -35,6 +35,51 @@ function started() {
   return director;
 }
 
+describe('Rutschpartie auf Eis (CHAOS-198)', () => {
+  it('zeigt „Rutsch!“ und eine Meldung, wenn die Figur nach dem Lauf vom Eis weiterrutscht', () => {
+    const frost: BoardView = {
+      ...DEMO_VIEW,
+      boardId: 'frostgipfel',
+      players: DEMO_VIEW.players.map((p) => ({ ...p, spaceId: 'g06' })),
+    };
+    const director = createBoardDirector();
+    director.receive(msg(frost, [], 0));
+    director.receive(
+      msg(
+        moveBlue(frost, 'g09'),
+        [
+          { type: 'moved', slot: 1, path: ['g07', 'g08'] },
+          { type: 'moved', slot: 1, path: ['g09'] },
+        ],
+        0,
+      ),
+    );
+    director.advance(2 * STEP + 10);
+    expect(director.getFrame().popups.map((p) => p.text)).toContain('Rutsch!');
+    expect(director.getHud().messages.map((m) => m.text)).toContain(
+      'Blau rutscht auf dem Eis weiter!',
+    );
+  });
+
+  it('ein Lauf, der auf festem Feld endet, rutscht nicht', () => {
+    const frost: BoardView = { ...DEMO_VIEW, boardId: 'frostgipfel' };
+    const director = createBoardDirector();
+    director.receive(msg(frost, [], 0));
+    director.receive(
+      msg(
+        frost,
+        [
+          { type: 'moved', slot: 1, path: ['g07'] },
+          { type: 'moved', slot: 1, path: ['g08'] },
+        ],
+        0,
+      ),
+    );
+    director.advance(STEP + 10);
+    expect(director.getFrame().popups.map((p) => p.text)).not.toContain('Rutsch!');
+  });
+});
+
 describe('createBoardDirector', () => {
   it('meldet gespielte Ereignisse mit Alter für die Kamera (CHAOS-194)', () => {
     const director = started();

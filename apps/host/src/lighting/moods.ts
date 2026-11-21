@@ -198,6 +198,8 @@ export const BOARD_MOODS: Readonly<Record<string, LightMoodId>> = {
   wackelwald: 'abend',
   // CHAOS-199: Rummelplatz bei Nacht.
   rummelplatz: 'nacht',
+  // CHAOS-198: klarer Wintertag am Berg.
+  frostgipfel: 'morgen',
 };
 export const DEFAULT_BOARD_MOOD: LightMoodId = 'abend';
 
@@ -236,10 +238,13 @@ export const ROUND_ARC: readonly LightMoodId[] = [
 
 /**
  * Eigener Verlauf je Brett (CHAOS-199): Der Rummelplatz spielt bei Nacht, er beginnt in der
- * Dämmerung und ist ab dem ersten Drittel der Partie Nacht. Bretter ohne Eintrag: `ROUND_ARC`.
+ * Dämmerung und ist ab dem ersten Drittel der Partie Nacht. Der Frostgipfel (CHAOS-198) bleibt
+ * ein Wintertag vom Morgen bis zum Abend. Bretter ohne Eintrag: `ROUND_ARC`.
  */
 export const BOARD_ROUND_ARCS: Readonly<Record<string, readonly LightMoodId[]>> = {
   rummelplatz: ['daemmerung', 'nacht', 'nacht'],
+  // CHAOS-198: klarer Morgen, heller Mittag, Schneewolken, Alpenglühen am Abend.
+  frostgipfel: ['morgen', 'mittag', 'wolken', 'abend'],
 };
 
 /**

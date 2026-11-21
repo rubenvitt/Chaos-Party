@@ -40,7 +40,7 @@ import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { Scene } from '@babylonjs/core/scene.js';
-import type { BoardSpace } from '@chaos-party/game-core';
+import { isCableEdge, type BoardSpace } from '@chaos-party/game-core';
 import type { CharacterAnimation } from '@chaos-party/minigame-sdk/babylon';
 import { PLAYER_SLOTS, type CharacterId, type SlotNumber } from '@chaos-party/protocol';
 import {
@@ -487,8 +487,16 @@ export function createBoardScene(
         });
         // Beim Wegwählen steht die Figur am Zug auf der Gabel und die Kamera schaut auf sie:
         // Schild nicht unter ihren Pfeil.
+        // Seilbahn (CHAOS-198): Schild an der Talstation, nicht am fernen Ende des Seils.
+        const cable = isCableEdge(board, fork.id, target.id);
+        const dx = target.position.x - fork.position.x;
+        const dz = target.position.z - fork.position.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const anchor = cable
+          ? { x: fork.position.x + (dx / len) * 2.4, z: fork.position.z + (dz / len) * 2.4 }
+          : target.position;
         const p = signpostClearOfArrow(
-          signpostPosition(target.position, sibling, SIGNPOST.distance),
+          signpostPosition(anchor, sibling, SIGNPOST.distance),
           { y: SIGNPOST.signY, halfWidth: label.width / 2, halfHeight: label.height / 2 },
           {
             center: { x: fork.position.x, y: ARROW_CENTER_Y, z: fork.position.z },
