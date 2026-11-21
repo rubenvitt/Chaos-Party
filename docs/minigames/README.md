@@ -33,7 +33,7 @@ Jede Skizze im Katalog ist auf vier Achsen eingeordnet. Die Rotation soll späte
 | Spielform | Jeder gegen jeden · 1 gegen 3 · 2 gegen 2 · Gemeinsam gegen das Spiel · Mikro | `FFA`, `1v3`, `2v2`, `Koop`, `Mikro` |
 | Familie | 20 Mechanik-Familien (Abschnitt 4) | Kapitel im Katalog |
 
-**Bedienung am geteilten iPad:** `A` und `AB` sind dort am angenehmsten (EXP-005, EXP-016). Ziel für den Katalog: mindestens 25 % der Spiele ohne Stick.
+**Bedienung am geteilten iPad:** `A` und `AB` sind dort am angenehmsten (EXP-005, EXP-016). Ziel für den Katalog: mindestens 30 % der Spiele ohne Stick (`CHAOS-93`).
 
 ## 4. Familien und Verteilung
 
@@ -60,7 +60,9 @@ Jede Skizze im Katalog ist auf vier Achsen eingeordnet. Die Rotation soll späte
 | 19 | Gemeinsam gegen das Chaos | 181–190 | `Koop` | **Spielform Koop mit Einzelwertung** |
 | 20 | Mikro-Spiele | 191–200 | `Mikro` | **Schnellfeuer-Kette** (mehrere 5–8-s-Spiele am Stück) |
 
-Verteilung der 200 Skizzen (gezählt im Katalog): Kategorie Arcade 84, Physik 40, Hybrid 76. Bedienung: nur A 28, A+B 25, nur Stick 39, Stick+A 104, Stick+A+B 4 – also 53 Spiele (26 %) ohne Stick. Stick+A überwiegt; beim Nachschub gezielt mehr A/AB- und Physik-Ideen sammeln.
+Verteilung der ersten 200 Skizzen (2026-11-16): Kategorie Arcade 84, Physik 40, Hybrid 76. Bedienung: nur A 28, A+B 25, nur Stick 39, Stick+A 104, Stick+A+B 4 – also 53 Spiele (26 %) ohne Stick.
+
+**Nach Nachschub-Runde 1 (`CHAOS-93`, 2026-11-21):** 209 aktive volle Minispiele (ohne die 10 Mikro-Spiele, ohne 7 verworfene Dubletten), Physik 59 (28 %), ohne Stick 73 (35 %). Untergrenzen ≥ 200 aktiv, ≥ 30 % ohne Stick, ≥ 25 % Physik prüft `packages/minigames/src/sketchCatalog.test.ts`; Einzelheiten am Ende des Katalogs.
 
 ## 5. Die Minispiel-Fabrik
 
