@@ -774,7 +774,7 @@ Automatisch geprüft: Auswahl ohne Wiederholung, Familien und Kernverben nie dir
 
 ## 41. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
 
-**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-034
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-035
 
 Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App und tvOS-Simulator mit je vier Bots über drei Runden bis zum Siegerbild, Zufall mit sieben Revanchen am Mac (Kulisse wechselte sechsmal in beide Richtungen ohne Neustart). **Nicht** geprüft: echte Apple TV (Ladezeit der zweiten Kulisse, im Simulator 4,2 s; Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
 
@@ -821,6 +821,21 @@ Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests,
 | FG5 | Runde 3 beginnt | Einblendung „Lawinengefahr am Gletscherpfad!“; zu Beginn von Runde 4 „Lawine am Gletscherpfad!“, Kamera zeigt den Hang, Figuren dort verlieren 5 Münzen | | Video |
 | FG6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett frostgipfel geladen … in … ms“ notieren | | Log |
 | FG7 | Spieltest-Frage | Ist die Lawinen-Warnung verständlich? Lohnt sich die Seilbahn gezielt? Fühlt sich das Rutschen lustig oder zufällig an? | | Notiz |
+
+## 44. Echte Klänge am Fernseher und am PC (für CHAOS-223)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-223 · **Entscheidung:** ADR-019 Nachtrag 6, EXP-035
+
+Automatisch geprüft (Mac): Klang-Dateien im Bündel und dekodierbar (`--selftest`), Wahl und Rückfall in Unit-Tests, Bot-Partie am Mac ohne Fehlerzeilen. **Nicht** automatisch prüfbar: wie es klingt, Lautstärke im Verhältnis, Lautsprecher der Apple TV bzw. des Fernsehers.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| KL1 | Apple TV: App starten, Partie mit iPhones | Log „Klang-Dateien: 40 geladen in … ms“; Würfel klappern, Münzen klimpern, Zugbeginn ist ein kurzer Pizzicato-Lauf | | Log |
+| KL2 | Minispiele der Rotation spielen | Trillerpfeife zum Start, Boing, Platschen, Wusch, Plopp hörbar; nichts kommt verspätet | | |
+| KL3 | Ergebnis und Finale, Kuckucks-Klatsche | Jubel und Fanfare nicht zu lang, nicht zu laut; die Finte (kurzer Saxofon-Lauf abwärts, bis zu 8× je Spiel) nervt nicht | | |
+| KL4 | Pause (Play/Pause) und Weiter | Kurzer Klang beim Anhalten und Weiterspielen | | |
+| KL5 | PC: `pnpm play`, eine Runde | Dieselben Klänge wie auf der Apple TV | | |
+| KL6 | Ruben: Urteil | Welche Klänge tauschen, welche lauter oder leiser? | | Kommentar an CHAOS-223 |
 
 ## 45. Großer Wackelwald (für CHAOS-196)
 
