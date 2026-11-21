@@ -16,7 +16,7 @@
  * Blickwinkel und Neigung bleiben fest (`CAMERA_DIRECTION`): Figuren-Neigung, Popups und
  * Wegweiser sind auf diesen Winkel abgestimmt. Nur Blickpunkt und Abstand ändern sich.
  */
-import type { BoardDefinition } from '@chaos-party/game-core';
+import { avalancheAt, type BoardDefinition } from '@chaos-party/game-core';
 import type { BoardView } from '@chaos-party/protocol';
 import type { FrameCue } from './director.ts';
 import {
@@ -429,8 +429,13 @@ function cueShot(
         partner ? spaceAt(partner.event.path[partner.event.path.length - 1]) : undefined,
       ]);
     }
-    case 'round-started':
-      return cachedOverview(input.board);
+    case 'round-started': {
+      // Lawine (CHAOS-198): den abgeräumten Hang zeigen statt des ganzen Bretts.
+      const zone = avalancheAt(input.board, event.round);
+      return zone
+        ? (fit(zone.spaces.map(spaceAt)) ?? cachedOverview(input.board))
+        : cachedOverview(input.board);
+    }
     case 'trophy-moved':
       return fit([spaceAt(event.from), spaceAt(event.to)]);
     case 'board-event':

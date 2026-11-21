@@ -56,6 +56,37 @@ export interface BoardRotation {
   readonly exits: readonly string[];
 }
 
+/**
+ * Seilbahn (CHAOS-198, ADR-023): eine Kante `from` → `to` an einer Gabel, die Geld kostet. Wer
+ * sie wählt, zahlt `price` Münzen (Grund `event`) und fährt in einem Schritt hinüber. Wer zu wenig
+ * Münzen hat, bekommt sie nicht angeboten. `to` steht in `next` von `from`, aber nie an erster
+ * Stelle: Die erste Option bleibt der kostenlose Weg (Standard bei Zeitablauf/Trennung).
+ */
+export interface BoardCableCar {
+  readonly from: string;
+  readonly to: string;
+  readonly price: number;
+}
+
+/** Ein Wegabschnitt, den eine Lawine abräumt (CHAOS-198). */
+export interface BoardAvalancheZone {
+  /** Name für Ansagen („Lawine am Gletscherpfad!“), höchstens 32 Zeichen. */
+  readonly name: string;
+  readonly spaces: readonly string[];
+}
+
+/**
+ * Lawinen (CHAOS-198, ADR-023): Zu Beginn jeder Runde `r` mit `r > 1` und
+ * `(r - 1) % every === 0` geht eine Lawine ab, reihum über `zones` (die erste Lawine trifft
+ * `zones[0]`). Wer dann auf einem Feld der Zone steht, verliert `coins` Münzen (Grund `space`).
+ * Ohne Zufall: Hosts sagen sie aus Brett und Runde eine Runde vorher an.
+ */
+export interface BoardAvalanche {
+  readonly every: number;
+  readonly coins: number;
+  readonly zones: readonly BoardAvalancheZone[];
+}
+
 export interface BoardDefinition {
   readonly id: string;
   readonly name: string;
@@ -64,6 +95,16 @@ export interface BoardDefinition {
   readonly start: string;
   /** Drehende Felder (CHAOS-199); fehlt = keine, alle Kanten sind fest. */
   readonly rotations?: readonly BoardRotation[];
+  /**
+   * Eisfelder (CHAOS-198, ADR-023): Wer nach dem Würfeln auf einem landet, rutscht ein Feld
+   * weiter (auf Eis wieder eins, bis festes Feld); erst dort gilt die Feldwirkung. Eisfelder
+   * haben genau einen Nachfolger. Fehlt = keine.
+   */
+  readonly ice?: readonly string[];
+  /** Seilbahnen (CHAOS-198); fehlt = keine. */
+  readonly cableCars?: readonly BoardCableCar[];
+  /** Lawinen (CHAOS-198); fehlt = keine. */
+  readonly avalanche?: BoardAvalanche;
 }
 
 // ---------------------------------------------------------------------------

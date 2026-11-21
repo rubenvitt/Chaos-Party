@@ -7,7 +7,7 @@
  * (sonst gäbe es keine Ergebnisanzeige).
  *
  * Was das **nicht** beweist: Lesbarkeit am Fernseher und Spaß im Team – siehe
- * `docs/device-test-checklist.md` §43.
+ * `docs/device-test-checklist.md` §44.
  */
 import { withRules } from '../../packages/game-core/src/index.ts';
 import { getMinigameInfo } from '../../packages/minigames/src/catalog.ts';
