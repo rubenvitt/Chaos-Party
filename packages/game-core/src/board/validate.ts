@@ -184,11 +184,115 @@ function checkRotations(
 }
 
 /**
+ * Eisfelder (CHAOS-198): bekanntes Feld, nicht doppelt, kein Start-, Trophäen- oder drehendes
+ * Feld, genau ein Nachfolger. Wo eine Rutschpartie endet, liegt kein Trophäenfeld (dort gäbe es
+ * kein Kaufangebot). Eis im Kreis wäre eine Endlos-Rutschpartie.
+ */
+function checkIce(board: BoardDefinition, byId: ReadonlyMap<string, BoardSpace>, errors: string[]) {
+  const ice = board.ice ?? [];
+  if (ice.length === 0) return;
+  const set = new Set<string>();
+  for (const id of ice) {
+    const space = byId.get(id);
+    if (!space) {
+      errors.push(`Eisfeld „${id}“ existiert nicht`);
+      continue;
+    }
+    if (set.has(id)) errors.push(`Eisfeld ${id} ist doppelt`);
+    set.add(id);
+    if (space.kind === 'start' || space.kind === 'trophy') {
+      errors.push(`Eisfeld ${id} darf kein Start- oder Trophäenfeld sein`);
+    }
+    if (space.next.length !== 1) errors.push(`Eisfeld ${id} braucht genau einen Nachfolger`);
+    if (board.rotations?.some((rotation) => rotation.space === id)) {
+      errors.push(`Eisfeld ${id} darf sich nicht drehen`);
+    }
+  }
+  for (const id of set) {
+    let current = id;
+    const seen = new Set<string>();
+    while (set.has(current) && !seen.has(current)) {
+      seen.add(current);
+      current = byId.get(current)?.next[0] ?? current;
+    }
+    if (set.has(current)) errors.push(`Eis ab ${id} läuft im Kreis`);
+    else if (byId.get(current)?.kind === 'trophy') {
+      errors.push(`Rutschpartie ab ${id} endet auf dem Trophäenfeld ${current}`);
+    }
+  }
+}
+
+/**
+ * Seilbahnen (CHAOS-198): Kante aus `next` einer Gabel mit Wegwahl, nicht der erste Nachfolger
+ * (der kostenlose Weg ist die Standardoption), Preis eine ganze Zahl ≥ 1, je Kante höchstens
+ * eine Seilbahn und an jeder Gabel mindestens ein kostenloser Weg.
+ */
+function checkCableCars(
+  board: BoardDefinition,
+  byId: ReadonlyMap<string, BoardSpace>,
+  errors: string[],
+) {
+  const seen = new Set<string>();
+  for (const car of board.cableCars ?? []) {
+    const from = byId.get(car.from);
+    const key = `${car.from}>${car.to}`;
+    if (seen.has(key)) errors.push(`Seilbahn ${car.from} → ${car.to} ist doppelt`);
+    seen.add(key);
+    if (!from || !byId.has(car.to)) {
+      errors.push(`Seilbahn ${car.from} → ${car.to} verbindet unbekannte Felder`);
+      continue;
+    }
+    if (!isChoiceFork(board, from.id) || !from.next.includes(car.to)) {
+      errors.push(`Seilbahn ${car.from} → ${car.to} ist keine Kante einer Gabel mit Wegwahl`);
+    } else if (from.next[0] === car.to) {
+      errors.push(`Seilbahn ${car.from} → ${car.to} darf nicht der erste Weg der Gabel sein`);
+    }
+    if (!Number.isInteger(car.price) || car.price < 1) {
+      errors.push(`Seilbahn ${car.from} → ${car.to} braucht einen Preis ≥ 1`);
+    }
+  }
+}
+
+/**
+ * Lawinen (CHAOS-198): Abstand eine ganze Zahl ≥ 1, Verlust ≥ 1, mindestens eine Zone, jede mit
+ * Namen (wie ein Wegweiser) und bekannten, nicht doppelten Feldern ohne Startfeld.
+ */
+function checkAvalanche(
+  board: BoardDefinition,
+  byId: ReadonlyMap<string, BoardSpace>,
+  errors: string[],
+) {
+  const avalanche = board.avalanche;
+  if (!avalanche) return;
+  if (!Number.isInteger(avalanche.every) || avalanche.every < 1) {
+    errors.push('Lawine braucht einen Abstand von mindestens einer Runde');
+  }
+  if (!Number.isInteger(avalanche.coins) || avalanche.coins < 1) {
+    errors.push('Lawine braucht einen Münzverlust ≥ 1');
+  }
+  if (avalanche.zones.length === 0) errors.push('Lawine braucht mindestens eine Zone');
+  for (const zone of avalanche.zones) {
+    if (zone.name.trim() === '' || zone.name.length > MAX_SPACE_LABEL_LENGTH) {
+      errors.push(`Lawinenzone „${zone.name}“ hat einen leeren oder zu langen Namen`);
+    }
+    if (zone.spaces.length === 0) errors.push(`Lawinenzone „${zone.name}“ hat keine Felder`);
+    if (new Set(zone.spaces).size !== zone.spaces.length) {
+      errors.push(`Lawinenzone „${zone.name}“ nennt ein Feld doppelt`);
+    }
+    for (const id of zone.spaces) {
+      if (!byId.has(id)) errors.push(`Lawinenzone „${zone.name}“: Feld „${id}“ existiert nicht`);
+      else if (id === board.start) errors.push(`Lawinenzone „${zone.name}“ enthält den Start`);
+    }
+  }
+}
+
+/**
  * Prüft eine Brett-Definition und sammelt **alle** Fehler (deutsch, mit Feld-ID):
  * eindeutige und gültige IDs, genau ein Startfeld, bekannte Nachfolger, keine Selbstschleife,
  * keine Sackgasse, stark zusammenhängend (alles vom Start erreichbar und zurück),
  * Mindestabstand, mindestens ein Trophäenfeld und mindestens eine Verzweigung mit Wegwahl;
- * drehende Felder wie in `checkRotations`.
+ * drehende Felder wie in `checkRotations`, Eis, Seilbahnen und Lawinen wie in `checkIce`,
+ * `checkCableCars` und `checkAvalanche`.
  */
 export function validateBoard(board: BoardDefinition): BoardValidation {
   const errors: string[] = [];
@@ -197,6 +301,9 @@ export function validateBoard(board: BoardDefinition): BoardValidation {
   checkConnectivity(board, byId, errors);
   checkDistances(board, errors);
   checkRotations(board, byId, errors);
+  checkIce(board, byId, errors);
+  checkCableCars(board, byId, errors);
+  checkAvalanche(board, byId, errors);
   if (!board.spaces.some((s) => s.kind === 'trophy')) errors.push('Brett hat kein Trophäenfeld');
   if (!board.spaces.some((s) => isChoiceFork(board, s.id)))
     errors.push('Brett hat keine Verzweigung');
