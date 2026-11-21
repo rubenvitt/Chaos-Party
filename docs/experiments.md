@@ -2642,7 +2642,7 @@ Feinabstimmung innerhalb von C:
 
 **Entscheidung:** **Behalten**: Seilbahn 8 Münzen, Kandidat hinter der Bergstation, Lawine alle drei Runden mit 5 Münzen, 12 empfohlene Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §43): Ist die Lawinen-Warnung klar, wird die Seilbahn gezielt genutzt, ist die Rutschpartie nachvollziehbar?
 
-## EXP-037: Schnellfeuer – Auslöser, Wertung und Mikro-Fairness (2026-11-21, CHAOS-90)
+## EXP-038: Schnellfeuer – Auslöser, Wertung und Mikro-Fairness (2026-11-21, CHAOS-90)
 
 **Hypothese / gewünschtes Spielerlebnis:** Schnellfeuer (fünf Mikro-Spiele à 5–8 s am Stück, je mit Bildwort statt Anleitung) ist eine eigene Rundenart, die das Minispiel einer Runde ersetzt (Ruben, CHAOS-82). Es soll überraschen, in jeder Partie vorkommen, die Partie nicht spürbar verlängern und den Sieg nicht stärker entscheiden als ein normales Minispiel. Innerhalb der Kette soll Können zählen, aber auch ein Neuling manchmal gewinnen.
 
@@ -2696,4 +2696,4 @@ Feinabstimmung innerhalb von C:
 - Kette (Fairness, 60 Seeds wie in der CI): Gleichstand 12 %, Abstand 1/2 0,23, Führungswechsel 1,12, Profi gegen drei Normale 91 %, Neuling 0,8 %, Dauerdrücken Faktor 0 (zu früh beim Wecker, Soße beim Schlürfen). Der Profi gewinnt fast immer, weil sich in fünf kurzen Reaktions- und Takt-Spielen der Vorsprung summiert. Das ist die größte Unsicherheit für den Spieltest.
 - PC-Host (Chrome, SwiftShader, Testmodus): Bildwort im Banner, alle vier Figuren über dem Banner, Gegenstände groß darunter. E2E mit 2, 3 und 4 Personen bis zum angenommenen Ergebnis. Apple-Host: `bots --full` spielt Schnellfeuer in Runde 6 ohne Fehler, Bauschritte ohne JIT unter 4 ms.
 
-**Entscheidung:** **Behalten** als Standard am Server und im Apple-Host: (a) Ereignis mit 5 Losen, höchstens einmal je Partie, sonst im Finale (`RAPID_FIRE_RULE`, ADR-024), am Server mit `SCHNELLFEUER=aus|ereignis|halbzeit|finale` umstellbar. Wertung: Rang-Punkte je Mikro-Spiel, das letzte doppelt. Alles Bot-Simulation, kein Spieltest. Offen für Ruben (Zwischenabnahme CHAOS-92, Gerätecheckliste §44): Ist das Bildwort in 1,3 s lesbar? Ist das Tempo lustig oder hektisch? Gewinnt immer dieselbe Person?
+**Entscheidung:** **Behalten** als Standard am Server und im Apple-Host: (a) Ereignis mit 5 Losen, höchstens einmal je Partie, sonst im Finale (`RAPID_FIRE_RULE`, ADR-024), am Server mit `SCHNELLFEUER=aus|ereignis|halbzeit|finale` umstellbar. Wertung: Rang-Punkte je Mikro-Spiel, das letzte doppelt. Alles Bot-Simulation, kein Spieltest. Offen für Ruben (Zwischenabnahme CHAOS-92, Gerätecheckliste §46): Ist das Bildwort in 1,3 s lesbar? Ist das Tempo lustig oder hektisch? Gewinnt immer dieselbe Person?

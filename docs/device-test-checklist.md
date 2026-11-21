@@ -822,9 +822,9 @@ Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests,
 | FG6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett frostgipfel geladen … in … ms“ notieren | | Log |
 | FG7 | Spieltest-Frage | Ist die Lawinen-Warnung verständlich? Lohnt sich die Seilbahn gezielt? Fühlt sich das Rutschen lustig oder zufällig an? | | Notiz |
 
-## 44. Schnellfeuer: fünf Mikro-Spiele als eigene Rundenart (für CHAOS-90)
+## 46. Schnellfeuer: fünf Mikro-Spiele als eigene Rundenart (für CHAOS-90)
 
-**Stand:** 2026-11-21 · **Aufgabe:** CHAOS-90 · **Entscheidung:** ADR-024 · **Experiment:** EXP-037
+**Stand:** 2026-11-21 · **Aufgabe:** CHAOS-90 · **Entscheidung:** ADR-024 · **Experiment:** EXP-038
 
 Automatisch geprüft (Mac): Mikro-Vertrag, Kette, Bots und Fairness-Vorlage (Unit-Tests), Auslöser im Regelkern samt Bot-Simulation, E2E mit 2, 3 und 4 Personen am PC-Host (SwiftShader, Testmodus) bis zum angenommenen Ergebnis, Apple-Host-Bot-Partie im Node-Kern mit Schnellfeuer in Runde 6. **Nicht** geprüft: echtes Spieltempo mit Menschen, Lesbarkeit des Bildworts am Fernseher, Apple-Host-App am Mac und auf der Apple TV, Spielspaß.
 

@@ -136,7 +136,7 @@ Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Sp
 
 **Schnellfeuer als eigene Mechanik:** Fünf Mikro-Spiele am Stück ersetzen das normale Minispiel einer Runde. Gewertet wird über alle fünf, die Münzen folgen der normalen Platzierung. Der Auslöser wird per Experiment gewählt (`CHAOS-90`). Varianten: (a) ein neues Brett-Ereignis „Schnellfeuer!“, (b) feste Runde zur Halbzeit, (c) Finale in der letzten Runde. Vorschlag: (a), weil Brett-Ereignisse zum Kern des Spiels gehören und die Überraschung erhalten. Die Mikro-Spiele bilden einen eigenen Vorrat und zählen nicht als volle Minispiele. Das Ziel „~200“ meint volle Minispiele, die Mikro-Spiele kommen obendrauf.
 
-**Umgesetzt (CHAOS-90, 2026-11-21):** Schnellfeuer ist nach außen ein normales Minispiel-Modul (`packages/minigames/src/schnellfeuer`), nicht in der Rotation. Auslöser nach EXP-037: Brett-Ereignis „Schnellfeuer!“ (5 Lose, höchstens einmal je Partie), sonst im Finale. Mikro-Vertrag: 5–8 s, Bildwort in Großbuchstaben statt Anleitung (ADR-024). Erster Vorrat: MG-192, -193, -194, -196, -197; die übrigen fünf kommen mit `CHAOS-113`.
+**Umgesetzt (CHAOS-90, 2026-11-21):** Schnellfeuer ist nach außen ein normales Minispiel-Modul (`packages/minigames/src/schnellfeuer`), nicht in der Rotation. Auslöser nach EXP-038: Brett-Ereignis „Schnellfeuer!“ (5 Lose, höchstens einmal je Partie), sonst im Finale. Mikro-Vertrag: 5–8 s, Bildwort in Großbuchstaben statt Anleitung (ADR-024). Erster Vorrat: MG-192, -193, -194, -196, -197; die übrigen fünf kommen mit `CHAOS-113`.
 
 ## 8. Wellenplan (Vorschlag)
 
