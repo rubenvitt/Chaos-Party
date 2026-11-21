@@ -236,7 +236,8 @@
       "lanternIntensity": 14,
       "lanternRange": 7,
       "grassTip": "#7f9c5e"
-    }
+    },
+    "rides": []
   },
   "minigame": null,
   "final": {

@@ -733,7 +733,7 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-212
 
-Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. **Nicht** prüfbar, solange es nur Wackelwald gibt: Wechsel zwischen zwei Bretter-Kulissen; das folgt mit CHAOS-199 (Rummelplatz) bzw. CHAOS-198.
+Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. Seit CHAOS-199: Mac-App mit „Zufall“ und sieben Revanchen, die Kulisse wechselte sechsmal zwischen Wackelwald und Rummelplatz ohne Neustart.
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
@@ -772,7 +772,23 @@ Automatisch geprüft: Auswahl ohne Wiederholung, Familien und Kernverben nie dir
 | RO3 | Browser schließen, Server neu starten, Host wieder öffnen | Sperre und Favorit sind wieder gesetzt | | |
 | RO4 | Partie mit geteiltem iPad (zwei Zonen) und einem iPhone | Startet normal; alle Minispiele bleiben an den Zonen bedienbar (heute sind alle als iPad-tauglich markiert) | | |
 
-## 41. Minispiel-Galerie und Daumen (für CHAOS-87)
+## 41. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-034
+
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App und tvOS-Simulator mit je vier Bots über drei Runden bis zum Siegerbild, Zufall mit sieben Revanchen am Mac (Kulisse wechselte sechsmal in beide Richtungen ohne Neustart). **Nicht** geprüft: echte Apple TV (Ladezeit der zweiten Kulisse, im Simulator 4,2 s; Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RP1 | PC und Apple TV: Lobby, Brett „Rummelplatz“ wählen | Lobby zeigt „Rummelplatz · 81 Felder“; Apple TV wechselt den Hintergrund auf den nächtlichen Jahrmarkt | | Foto |
+| RP2 | Partie starten, erste Runde | Dämmerung, Lichterketten leuchten, das goldene Tor des Karussells zeigt nach links (Spiegelkabinett) | | Foto |
+| RP3 | Rundenwechsel | Karussell dreht eine Runde weiter und zeigt nach vorn (Startplatz), dann rechts (Geisterbahn); ab etwa Runde 4 von 12 Nacht | | Video |
+| RP4 | An Gabel B (oben Mitte) wählen | Controller zeigt „Karussell“ mit Zusatz „Karussell → …“ passend zum Tor; die Figur fährt ohne Nachfrage über das Karussell zum angesagten Ausgang | | Foto |
+| RP5 | Geisterbahn und Losbudengasse ansehen | Portale, Gespenster, Losbuden erkennbar, kein Feld verdeckt | | Foto |
+| RP6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett rummelplatz geladen … in … ms“ notieren | | Log |
+| RP7 | Spieltest-Frage | Ist die Ost-Ausfahrt (Ehrenrunde zurück in die Geisterbahn) lustig oder ärgerlich? Ist klar, wohin das Karussell gerade fährt? | | Notiz |
+
+## 42. Minispiel-Galerie und Daumen (für CHAOS-87)
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-87 · **Protokoll:** v4-Nachtrag CHAOS-87 (`start.practice`, `rate`, `ratings`)
 

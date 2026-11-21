@@ -196,6 +196,8 @@ export type LightingMode = (typeof LIGHTING_MODES)[number];
 /** Variante A: feste Stimmung je Brett (Brett-ID aus `@chaos-party/game-core`). */
 export const BOARD_MOODS: Readonly<Record<string, LightMoodId>> = {
   wackelwald: 'abend',
+  // CHAOS-199: Rummelplatz bei Nacht.
+  rummelplatz: 'nacht',
 };
 export const DEFAULT_BOARD_MOOD: LightMoodId = 'abend';
 
@@ -232,13 +234,25 @@ export const ROUND_ARC: readonly LightMoodId[] = [
   'nacht',
 ];
 
-/** Stimmung für Runde `round` (1-basiert) von `totalRounds`; Minispiele erben sie. */
-export function moodForRound(round: number, totalRounds: number): LightMoodId {
-  const last = ROUND_ARC.length - 1;
-  if (totalRounds <= 1) return ROUND_ARC[last] ?? 'nacht';
+/**
+ * Eigener Verlauf je Brett (CHAOS-199): Der Rummelplatz spielt bei Nacht, er beginnt in der
+ * Dämmerung und ist ab dem ersten Drittel der Partie Nacht. Bretter ohne Eintrag: `ROUND_ARC`.
+ */
+export const BOARD_ROUND_ARCS: Readonly<Record<string, readonly LightMoodId[]>> = {
+  rummelplatz: ['daemmerung', 'nacht', 'nacht'],
+};
+
+/**
+ * Stimmung für Runde `round` (1-basiert) von `totalRounds`; Minispiele erben sie. Mit
+ * `boardId` gilt der Verlauf des Bretts (`BOARD_ROUND_ARCS`), sonst der Tagesverlauf.
+ */
+export function moodForRound(round: number, totalRounds: number, boardId?: string): LightMoodId {
+  const arc = (boardId !== undefined ? BOARD_ROUND_ARCS[boardId] : undefined) ?? ROUND_ARC;
+  const last = arc.length - 1;
+  if (totalRounds <= 1) return arc[last] ?? 'nacht';
   const r = Math.min(Math.max(round, 1), totalRounds);
   const index = Math.round(((r - 1) / (totalRounds - 1)) * last);
-  return ROUND_ARC[index] ?? 'nacht';
+  return arc[index] ?? 'nacht';
 }
 
 /**
@@ -247,9 +261,13 @@ export function moodForRound(round: number, totalRounds: number): LightMoodId {
  * Runde) und blendet beim Rundenwechsel in die nächste Stimmung über; deren Himmel und
  * Nachtlichter lädt die Szene deshalb schon beim Aufbau.
  */
-export function moodsForBoardRound(round: number, totalRounds: number): LightMoodId[] {
-  const current = moodForRound(round, totalRounds);
-  const next = round < totalRounds ? moodForRound(round + 1, totalRounds) : current;
+export function moodsForBoardRound(
+  round: number,
+  totalRounds: number,
+  boardId?: string,
+): LightMoodId[] {
+  const current = moodForRound(round, totalRounds, boardId);
+  const next = round < totalRounds ? moodForRound(round + 1, totalRounds, boardId) : current;
   return next === current ? [current] : [current, next];
 }
 
@@ -277,6 +295,6 @@ export function resolveMood(mode: LightingMode, context: MoodContext): LightMood
       ? moodForBoard(context.boardId)
       : mode === 'uhr'
         ? moodForClock(context.hour)
-        : moodForRound(context.round, context.totalRounds);
+        : moodForRound(context.round, context.totalRounds, context.boardId);
   return LIGHT_MOODS[id];
 }

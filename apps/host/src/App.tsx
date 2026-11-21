@@ -14,7 +14,8 @@ import {
 // Spezifität (z. B. `.start-button` vor `.finale-rematch`). Die Porträts stehen wie bisher davor.
 import './lobby/portrait.css';
 import './finale/finale.css';
-import { createDemoMessages, DEMO_DELAYS_MS } from './board/demo.ts';
+import { DEFAULT_BOARD, getBoard } from '@chaos-party/game-core';
+import { createDemoMessages, DEMO_DELAYS_MS, demoStartMessage } from './board/demo.ts';
 import type { BoardScene } from './board/types.ts';
 import { finaleSpeedOf, serverWebSocketUrl, type HostConfig } from './config.ts';
 import { DebugOverlay } from './debug/DebugOverlay.tsx';
@@ -60,7 +61,9 @@ const NO_PLAYERS: readonly HostPlayer[] = [];
  * - **Server** (Standard): Verbindung zu `/ws`, Spieler aus der Lobby, Eingaben von den
  *   Controllern; Tastatur steuert zusätzlich beigetretene Slots (Fehlersuche).
  * - **Lokal** (`?local=1`): keine Verbindung, `?players=` Demo-Spieler per Tastatur;
- *   mit `&board=1` stattdessen das Spielbrett mit Beispiel-Spielstand (`&demo=1` animiert).
+ *   mit `&board=1` stattdessen das Spielbrett mit Beispiel-Spielstand (`&demo=1` animiert,
+ *   `&brett=<id>` ein anderes Brett aus dem Register mit passendem Startstand, dazu
+ *   `&ueberblick=1` das ganze Brett, CHAOS-199).
  *
  * Szenen nach Phase: `lobby` und `play` zeigen die Arena (M1), `board` die Brett-Szene (M2).
  * In den Minispiel-Phasen eines bekannten Minispiels ersetzt die Minispiel-Bühne (M3,
@@ -268,6 +271,17 @@ export function App({ config }: AppProps) {
   // (nicht im Testmodus – dort speisen Tests Nachrichten über den Testhaken ein).
   useEffect(() => {
     if (!localBoard) return;
+    const params = new URLSearchParams(window.location.search);
+    const other = getBoard(params.get('brett') ?? '');
+    if (other && other.id !== DEFAULT_BOARD.id) {
+      const start = demoStartMessage(other);
+      // `&ueberblick=1`: ganzes Brett (Kamera wie vor der Partie), für Screenshots.
+      const overview = params.get('ueberblick') === '1';
+      director.receive(
+        overview ? { ...start, view: { ...start.view, gamePhase: 'setup', prompt: null } } : start,
+      );
+      return;
+    }
     const messages = createDemoMessages();
     const first = messages[0];
     if (first) director.receive(first);

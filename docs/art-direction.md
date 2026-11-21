@@ -115,7 +115,22 @@ Wegpfeile in Creme, Trittsteine auf langen Wegen, Wackelwald in der Mitte, Wald 
 an den Seiten (vorn verdeckt er die untere Reihe), Teich an der Sumpfabkürzung, Pilze am
 Pilzpfad, Felsen am Klippenweg, Bretter der Wackelbrücke, sechs Laternen (nachts Lichter).
 
-**Minispiele** (`apps/host/src/minigame/natureLook.ts` über die gemeinsame Bühnen-Kulisse
+**Rummelplatz** (CHAOS-199, `apps/host/src/board/fairground.ts`): gleiche Insel, Felder und
+Wege wie im Wackelwald, aber statt Wald ein Jahrmarkt bei Nacht. Thema per `BoardInfo.theme`
+(`rummel`). Palette Rot `#d9443b`, Gelb `#f2c14e`, Türkis `#2aa69a`, Lila `#7a4cc2`, Rosa
+`#f08bb8`, Creme `#f6efe2` (kräftig, aber gedeckt wie die Feld-Einlagen). Karussell in der Mitte
+(Plattform unter dem Feld, Drehteil mit Pferdchen, rot-cremefarbenem Baldachin-Ring und
+goldenem Ausfahrt-Tor mit rotem Pfeil: zeigt auf den Ausgang der Runde, dreht beim
+Rundenwechsel eine volle Runde weiter), Riesenrad hinten rechts (dreht langsam, verdeckt keine
+Felder), Portale, Gespenster und Grabsteine an der Geisterbahn, Losbuden mit gestreiftem
+Vordach an der Losbudengasse, Spiegelkabinett, Zuckerwatte-Wagen hinten, Autoscooter, Zelte und
+„Hau den Lukas“ auf den freien Flächen, Lichterketten vom Karussell zu einem Mastenring und
+entlang der hinteren Reihe. Glühbirnen sind unbeleuchtete Kugeln, nachts trägt das Bloom das
+Leuchten (keine zusätzlichen Punktlichter). Hohe Teile stehen hinten oder zwischen den Wegen,
+vorn nur Flaches (Autoscooter). Lichtstimmung: Dämmerung zu Beginn, ab dem ersten Drittel
+Nacht (`BOARD_ROUND_ARCS`), Lobby nachts. Alles aus Grundkörpern, keine fremden Assets.
+
+ über die gemeinsame Bühnen-Kulisse
 `apps/host/src/nature/stageLook.ts`, Vertrag `MinigameLook`): Das Minispiel nennt seine Spielfläche (`backdrop({ halfX, halfZ, groundY, surface })`), der Host baut eine
 kleine Insel mit Wiese oder Picknickdecke, Bäumen hinten und seitlich, Felsen, Blumen und vier
 Laternen. Sockenregen: Badvorleger auf der Wiese (statt Waschküche). Pudding-Gerangel: Pudding
