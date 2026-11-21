@@ -1,4 +1,4 @@
-import type { BoardView } from '@chaos-party/protocol';
+import type { BoardView, MinigameTeamsInfo } from '@chaos-party/protocol';
 import { describe, expect, it } from 'vitest';
 import { teamHeadline, teamLineup } from './teams.ts';
 
@@ -41,12 +41,12 @@ describe('Team-Ansage und Team-Ergebnis am PC (CHAOS-89)', () => {
   });
 
   it('Überschriften je Ausgang', () => {
-    const solo = {
+    const solo: MinigameTeamsInfo = {
       form: '1v3',
       layout: '1v3',
       teams: [[2], [1, 3, 4]],
       soloAdvantage: false,
-    } as const;
+    };
     expect(teamHeadline(view({ teams: solo, outcome: { kind: 'teams', winner: 0 } }))).toBe(
       'Ben gewinnt allein!',
     );
@@ -56,12 +56,12 @@ describe('Team-Ansage und Team-Ergebnis am PC (CHAOS-89)', () => {
     expect(teamHeadline(view({ teams: solo, outcome: { kind: 'teams', winner: null } }))).toBe(
       'Unentschieden!',
     );
-    const koop = {
+    const koop: MinigameTeamsInfo = {
       form: 'koop',
       layout: 'koop',
       teams: [[1, 2, 3, 4]],
       soloAdvantage: false,
-    } as const;
+    };
     expect(teamHeadline(view({ teams: koop, outcome: { kind: 'koop', tier: 2 } }))).toBe(
       'Gut geschafft – Stufe 2 von 3',
     );
