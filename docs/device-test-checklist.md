@@ -721,7 +721,7 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
-| BA1 | PC: `pnpm play`, Lobby | Neben „Runden“ steht „Brett: Wackelwald · 43 Felder“; Klick wechselt auf „🎲 Zufall“ und zurück; Startknopf zeigt „10 Runden · Wackelwald“ bzw. „· Zufallsbrett“ | | |
+| BA1 | PC: `pnpm play`, Lobby | Neben „Runden“ steht „Brett: Wackelwald · 74 Felder“ (seit CHAOS-196; vorher 43); Klick wechselt auf „🎲 Zufall“ und zurück; Startknopf zeigt „10 Runden · Wackelwald“ bzw. „· Zufallsbrett“ | | |
 | BA2 | iPhone und iPad in der Lobby | Kopfzeile zeigt das gewählte Brett und folgt jeder Änderung am Host; auf dem iPad passt die Kopfzeile in jede Zone | | Foto |
 | BA3 | Mac-App: Lobby, Taste B bzw. Klick auf den Brett-Knopf rechts neben „Chaos Party“ | Wechselt Wackelwald ↔ Zufall; Lobby wird nicht höher, nichts überlappt | | Foto |
 | BA4 | Apple TV: Fokus mit der Fernbedienung auf den Brett-Knopf (von den Einstellungen nach oben), drücken | Fokusrahmen sichtbar, Wechsel wie am Mac; danach erreicht man Runden, Schalter und Start weiterhin | | Foto |
@@ -837,7 +837,21 @@ Automatisch geprüft (Mac): Klang-Dateien im Bündel und dekodierbar (`--selftes
 | KL5 | PC: `pnpm play`, eine Runde | Dieselben Klänge wie auf der Apple TV | | |
 | KL6 | Ruben: Urteil | Welche Klänge tauschen, welche lauter oder leiser? | | Kommentar an CHAOS-223 |
 
-## 45. Spielformen mit Teams und Koop (für CHAOS-89)
+## 45. Großer Wackelwald (für CHAOS-196)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-196 · **Experiment:** [EXP-037](experiments.md)
+
+Automatisch geprüft: Brett-Validierung, Bot-Simulation (Trophäen, faire Wegwahl), Unit-Tests der Kulisse, E2E am PC-Host (Linux, SwiftShader), Kulisse als USDZ (`pnpm build:apple-assets`, `check_usdz.py`, `check_realitykit.swift`), Bot-Partie im tvOS-Simulator. **Nicht** automatisch prüfbar: ob das größere Brett vom Sofa aus lesbar ist, Bildrate und Ladezeit auf der echten Apple TV, wie sich die Wegwahl anfühlt.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| GW1 | PC am Fernseher: `pnpm play`, Partie mit 4 Spielern, 12 Runden | Überblick zu Rundenbeginn zeigt das ganze Brett, Felder und Wegweiser lesbar; danach nah an der Figur | | Foto |
+| GW2 | An jeder der vier Gabeln wählen (Klippenweg/Sumpf, Bachlauf/Lichtung, Uferweg/Baumkronenweg, Pilzpfad/Wackelbrücke) | Beide Wege samt Wegweiser im Bild, Controller-Knöpfe zeigen die Namen | | Foto |
+| GW3 | Apple TV (TestFlight): GW1 | Wie am PC; Bildrate in `HOST-MESSUNG` (Phase `board`) weiter ≥ 30 fps, Ladezeit der Kulisse im Log notieren | | Log |
+| GW4 | Mac-App: GW1–GW2 | Wie auf der Apple TV | | |
+| GW5 | Ruben: Urteil | Brett groß genug? Wege abwechslungsreich? Lichtung als Abkürzung reizvoll, Baumkronenweg riskant genug? 10 oder 12 Runden? | | Kommentar an CHAOS-196 |
+
+## 46. Spielformen mit Teams und Koop (für CHAOS-89)
 
 **Stand:** 2026-11-21 · **Aufgabe:** CHAOS-89 · **Protokoll:** v4-Nachtrag CHAOS-89 (`teams`, `outcome`, Kontext `team`)
 
@@ -849,4 +863,4 @@ Automatisch geprüft (Linux): Zuteilung, Ersatz zu zweit und zu dritt, Prüfung 
 | SF2 | Nur ein Team pumpt | PC: „☾ Team Mond gewinnt: …“; Handys: „Dein Team hat gewonnen!“ bzw. „verloren“ | | Foto |
 | SF3 | Pump-Solo mit drei Handys | „Einer gegen zwei“, Hinweis „… spielt allein und hat einen Vorteil“; Handy der Einzelperson „Allein gegen alle“ | | Foto |
 | SF4 | Riesenballon mit zwei Handys | „Alle zusammen“, Banner „Stufe … von 3“ im Spiel, Ergebnis „Gut geschafft – Stufe 2 von 3“ o. ä. | | Foto |
-| SF5 | Ruben: Urteil | Team-Sieg mit 7 Münzen lohnend? „Letzter gegen alle“ spannend oder demütigend? Koop für alle lohnend? (EXP-037) | | Kommentar an CHAOS-89 |
+| SF5 | Ruben: Urteil | Team-Sieg mit 7 Münzen lohnend? „Letzter gegen alle“ spannend oder demütigend? Koop für alle lohnend? (EXP-038) | | Kommentar an CHAOS-89 |

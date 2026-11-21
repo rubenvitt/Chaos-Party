@@ -1,5 +1,5 @@
 /**
- * EXP-037 (CHAOS-89): Münz-Regel für Spielformen mit Teams und Koop. Bot-Simulation ganzer
+ * EXP-038 (CHAOS-89): Münz-Regel für Spielformen mit Teams und Koop. Bot-Simulation ganzer
  * Partien mit der echten Rotation plus drei Team-Spielen (2 gegen 2, 1 gegen 3, Koop).
  *
  * ```sh
@@ -145,7 +145,7 @@ export function teamRewardsExperiment(
     }
   }
   return {
-    title: `EXP-037 Münz-Regel Teams/Koop (${seedText(setup)}, ${String(setup.rounds)} Runden)`,
+    title: `EXP-038 Münz-Regel Teams/Koop (${seedText(setup)}, ${String(setup.rounds)} Runden)`,
     headers: [
       'Variante',
       'Spieler',

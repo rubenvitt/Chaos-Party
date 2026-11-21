@@ -164,7 +164,7 @@ export const LobbySettingsStateSchema = z.strictObject({
         id: BoardChoiceSchema,
         /** „Wackelwald“, „Zufall“. */
         name: z.string(),
-        /** Zweite Zeile: „43 Felder“, „Überraschung!“. */
+        /** Zweite Zeile: „74 Felder“, „Überraschung!“. */
         detail: z.string(),
         selected: z.boolean(),
         random: z.boolean(),
