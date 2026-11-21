@@ -49,6 +49,7 @@ import {
   resumeMinigameIntro,
 } from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
+import { copyRotationOptions } from './rotation.ts';
 import { tallyStats } from './stats.ts';
 import { enterSpaceEvent } from './spaces.ts';
 
@@ -85,6 +86,13 @@ function assertConfig(config: GameConfig): void {
       if (!spaces.has(next)) throw new RangeError(`Feld ${space.id}: Nachfolger ${next} fehlt`);
     }
   }
+  for (const rotation of board.rotations ?? []) {
+    const next = spaces.get(rotation.space)?.next;
+    if (!next) throw new RangeError(`Drehung an unbekanntem Feld ${rotation.space}`);
+    if (rotation.exits.length < 1 || rotation.exits.some((id) => !next.includes(id))) {
+      throw new RangeError(`Drehung an ${rotation.space}: Ausgänge passen nicht zu next`);
+    }
+  }
   if (!Number.isInteger(rules.trophy.activeCount) || rules.trophy.activeCount < 1) {
     throw new RangeError('trophy.activeCount muss eine ganze Zahl ≥ 1 sein');
   }
@@ -109,6 +117,12 @@ function assertConfig(config: GameConfig): void {
     if (!Number.isInteger(spec.playMs) || spec.playMs < 1_000) {
       throw new RangeError(`Minispiel ${spec.id}: playMs muss ≥ 1000 sein`);
     }
+  }
+  if (config.practice === true) {
+    if ((config.minigames ?? []).length !== 1) {
+      throw new RangeError('Übungsmodus braucht genau ein Minispiel');
+    }
+    if (rounds !== 1) throw new RangeError('Übungsmodus hat genau eine Runde');
   }
   if (rules.diceFaces.length === 0) throw new RangeError('diceFaces ist leer');
   if (rules.diceFaces.some((face) => !Number.isInteger(face) || face < 0)) {
@@ -141,6 +155,7 @@ export function createGame(config: GameConfig): GameState {
     promptBaseDeadline: null,
     minigameBag: [],
     minigameLast: null,
+    minigameHistory: [],
     minigamePlayed: [],
   };
   return {
@@ -171,7 +186,15 @@ export function createGame(config: GameConfig): GameState {
     pausedAt: null,
     endedEarly: false,
     minigame: null,
-    config: { rules, seed, minigames: (config.minigames ?? []).map((spec) => ({ ...spec })) },
+    config: {
+      rules,
+      seed,
+      minigames: (config.minigames ?? []).map((spec) => ({ ...spec })),
+      ...(config.practice === true ? { practice: true } : {}),
+      ...(config.minigameRotation === undefined
+        ? {}
+        : { minigameRotation: copyRotationOptions(config.minigameRotation) }),
+    },
     internal: internal as unknown as Readonly<Record<string, unknown>>,
   };
 }
@@ -217,6 +240,12 @@ function startGame(ctx: Ctx, t: number): void {
     d.players.map((p) => p.slot),
   );
   ctx.events.push({ type: 'game-started', order: [...d.turnOrder] });
+  if (d.config.practice === true) {
+    // Übungsmodus (CHAOS-87): gleich das eine Minispiel, ohne Brettzug und ohne Start-Items.
+    d.round = 1;
+    enterMinigame(ctx, t);
+    return;
+  }
   // Start-Items in Zugreihenfolge (Ereignisse zeigen sie am PC und am Controller).
   for (let i = 0; i < ctx.rules.items.startItems; i++) {
     for (const slot of d.turnOrder) gainRandomItem(ctx, slot);
@@ -310,6 +339,11 @@ function resume(ctx: Ctx, t: number): void {
       expireMinigame(ctx, t);
       return;
     case 'minigame-results': {
+      // Übungsmodus (CHAOS-87): nach dem Ergebnis ist Schluss, ohne Rundenende.
+      if (d.config.practice === true) {
+        finishGame(ctx);
+        return;
+      }
       // CHAOS-125: Rückenwind wird beim Rundenende angesagt (PC-Karte, Controller-Hinweis).
       const tailwind = d.round < d.rounds ? applyTailwind(ctx) : [];
       if (tailwind.length > 0 && d.minigame) d.minigame = { ...d.minigame, tailwind };

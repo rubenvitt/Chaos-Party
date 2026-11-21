@@ -5,6 +5,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from '@chaos-party/protocol';
+import { rotationInfos } from '@chaos-party/minigames/catalog';
 import { describe, expect, it } from 'vitest';
 import { lobbyBoards } from './boardChoice.ts';
 import {
@@ -268,6 +269,12 @@ describe('Session: Host', () => {
         moreReactionTime: false,
         board: 'wackelwald',
         boards: lobbyBoards(),
+        minigames: rotationInfos().map((info) => ({
+          id: info.id,
+          title: info.title,
+          blocked: false,
+          favorite: false,
+        })),
       },
     });
     expect(lastLobby(t.join(1)).players).toEqual([

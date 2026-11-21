@@ -733,7 +733,7 @@ Automatisch geprüft (Linux): Protokoll-Validierung, Server-Integration (Wahl, Z
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-212
 
-Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. **Nicht** prüfbar, solange es nur Wackelwald gibt: Wechsel zwischen zwei Bretter-Kulissen; das folgt mit CHAOS-199 (Rummelplatz) bzw. CHAOS-198.
+Automatisch geprüft (Mac): `pnpm build:apple-assets` legt die Kulisse unter `bretter/wackelwald/` ab, `check_usdz.py --vollstaendig` und `check_realitykit.swift` grün, Swift-Harness grün, Mac-App mit zwei Bots: „Brett wackelwald geladen“, Lobby und Brett wie vorher. Seit CHAOS-199: Mac-App mit „Zufall“ und sieben Revanchen, die Kulisse wechselte sechsmal zwischen Wackelwald und Rummelplatz ohne Neustart.
 
 | ID  | Schritt | Erwartung | Ergebnis | Nachweis |
 | --- | ------- | --------- | -------- | -------- |
@@ -758,3 +758,50 @@ Automatisch geprüft (Linux-CI): Regeln, Server und Bots (Unit- und Integrations
 | BR6 | Niemand drückt „Bereit!“ | Nach 60 s startet das Minispiel trotzdem | | |
 | BR7 | Geteiltes iPad (2 Zonen) | Jede Zone hat ihren eigenen „Bereit!“-Knopf, Druck in einer Zone wirkt nur dort | | Foto |
 | BR8 | Pause am Host während der Anleitung | Kein „Bereit!“ angeboten; nach dem Fortsetzen wieder da, schon gedrückte bleiben bereit | | |
+
+## 40. Minispiel-Rotation: Sperrliste, Favoriten, iPad-Zonen (für CHAOS-85)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-85
+
+Automatisch geprüft: Auswahl ohne Wiederholung, Familien und Kernverben nie direkt hintereinander, Filter für Spielerzahl und iPad-Zonen, Gewichte, letzte Partie (`packages/game-core/src/rules/rotation.test.ts`, 200 Dummy-Steckbriefe); Sperrliste/Favoriten über die Session und die Revanche (`apps/server/src/minigameRotation.integration.test.ts`); Dialog „Minispiele“ am PC per Maus und Escape, lokale Speicherung und erneutes Senden an eine frische Session (`tests/e2e/host-minispiel-rotation.spec.ts`). **Nicht** automatisch prüfbar: ob die Mischung sich am Abend abwechslungsreich anfühlt (bei fünf Spielen kaum sichtbar, erst mit der Pilotwelle CHAOS-91) und die Erkennung eines echten geteilten iPads.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RO1 | PC-Lobby: „Minispiele ›“ öffnen, ein Spiel sperren, eines als Favorit markieren, „Fertig“ | Knopf zeigt „4 im Topf · 1 ★ · 1 ⦸“ | | Foto |
+| RO2 | Partie mit 10 Runden spielen | Das gesperrte Minispiel kommt nicht vor | | |
+| RO3 | Browser schließen, Server neu starten, Host wieder öffnen | Sperre und Favorit sind wieder gesetzt | | |
+| RO4 | Partie mit geteiltem iPad (zwei Zonen) und einem iPhone | Startet normal; alle Minispiele bleiben an den Zonen bedienbar (heute sind alle als iPad-tauglich markiert) | | |
+
+## 41. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-034
+
+Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests, Bot-Partien), PC-Host im Chromium mit Metal (Bilder unter `docs/screenshots/chaos199-*`), USDZ-Export und beide Prüfskripte, Mac-App und tvOS-Simulator mit je vier Bots über drei Runden bis zum Siegerbild, Zufall mit sieben Revanchen am Mac (Kulisse wechselte sechsmal in beide Richtungen ohne Neustart). **Nicht** geprüft: echte Apple TV (Ladezeit der zweiten Kulisse, im Simulator 4,2 s; Bildrate bei 81 Feldern und Lichterketten), Lesbarkeit und Spielspaß am Fernseher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RP1 | PC und Apple TV: Lobby, Brett „Rummelplatz“ wählen | Lobby zeigt „Rummelplatz · 81 Felder“; Apple TV wechselt den Hintergrund auf den nächtlichen Jahrmarkt | | Foto |
+| RP2 | Partie starten, erste Runde | Dämmerung, Lichterketten leuchten, das goldene Tor des Karussells zeigt nach links (Spiegelkabinett) | | Foto |
+| RP3 | Rundenwechsel | Karussell dreht eine Runde weiter und zeigt nach vorn (Startplatz), dann rechts (Geisterbahn); ab etwa Runde 4 von 12 Nacht | | Video |
+| RP4 | An Gabel B (oben Mitte) wählen | Controller zeigt „Karussell“ mit Zusatz „Karussell → …“ passend zum Tor; die Figur fährt ohne Nachfrage über das Karussell zum angesagten Ausgang | | Foto |
+| RP5 | Geisterbahn und Losbudengasse ansehen | Portale, Gespenster, Losbuden erkennbar, kein Feld verdeckt | | Foto |
+| RP6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett rummelplatz geladen … in … ms“ notieren | | Log |
+| RP7 | Spieltest-Frage | Ist die Ost-Ausfahrt (Ehrenrunde zurück in die Geisterbahn) lustig oder ärgerlich? Ist klar, wohin das Karussell gerade fährt? | | Notiz |
+
+## 42. Minispiel-Galerie und Daumen (für CHAOS-87)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-87 · **Protokoll:** v4-Nachtrag CHAOS-87 (`start.practice`, `rate`, `ratings`)
+
+Automatisch geprüft (Linux): Übungsrunde in game-core (ohne Münzen, Siege, Items; Ende nach dem Ergebnis), Session (Übungsstart, Daumen nur in der Ergebnisanzeige, Umentscheiden ersetzt, Rückweg zum Brett bzw. in die Lobby genauso schnell mit und ohne Stimmen), Stimmen-Datei und Export `/ratings.json`, E2E: Galerie öffnen → Pump-Parade üben → Ergebnis → Daumen am iPhone (Chromium-Emulation) → Galerie zeigt die Stimme. **Nicht** automatisch geprüft: Tippen auf echtem iOS, Lesbarkeit am Fernseher, Datei nach Server-Neustart auf Rubens PC. **Noch nicht umgesetzt:** Daumen in den iPad-Zonen und in der nativen Controller-App, Galerie am Apple-Host (eigene Folgeaufgaben); dort fehlen die Knöpfe, alles andere läuft wie bisher.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| GA1 | PC: `pnpm play`, Lobby, „Minispiel-Galerie“ | Alle Minispiele mit Status (Rotation/Spielbar), Kategorie, Spielzeit, Bedienung und Daumen; Liste scrollt, Escape schließt | | Foto |
+| GA2 | Ein iPhone verbinden (nicht bereit), in der Galerie „Üben“ bei einem Spiel, am Handy „Bereit!“ | Gleich die Anleitung dieses Spiels, kein Brettzug; auch gesperrte Spiele lassen sich üben; Handy zeigt Anleitung, dann Joystick/Knöpfe | | |
+| GA3 | Spiel zu Ende spielen | PC: Ergebnis ohne Münzspalte, Hinweis „Übungsrunde – keine Münzen“; iPhone: Platz, kein „Keine Münzen“, Frage „Hat’s Spaß gemacht?“ mit 👍/👎 | | Foto |
+| GA4 | 👍 tippen, dann 👎 | Gewählter Daumen leuchtet in Spielerfarbe sofort; Umentscheiden geht; nach ~6 s ohne Warten zurück in der Lobby | | |
+| GA5 | Galerie erneut öffnen | Spiel zeigt 👍 0 · 👎 1 („1 Stimme“) | | |
+| GA6 | Echte Partie, nach einem Minispiel 👍 am Handy | Stimme zählt in der Galerie dazu; das Brett geht nach dem Ergebnis genauso schnell weiter wie ohne Stimme | | |
+| GA7 | „Stimmen exportieren“ | Browser lädt `minispiel-stimmen-<Datum>.json` mit allen Spielen und Einzelstimmen | | Datei |
+| GA8 | Server beenden und neu starten (`pnpm play`), Galerie öffnen | Stimmen sind noch da (Datei `~/.chaos-party/minispiel-stimmen.json`, Pfad steht beim Start im Terminal) | | |
+| GA9 | Ruben: Urteil | Sind die Daumen am Handy schnell genug erreichbar? Schwelle für den Rauswurf-Vorschlag (6 Stimmen, ≥ 60 % runter) sinnvoll? | | Kommentar an CHAOS-87 |

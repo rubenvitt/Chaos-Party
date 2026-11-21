@@ -2,9 +2,10 @@ import {
   MAX_PLAYERS,
   PLAYER_SLOTS,
   type LobbyMessage,
+  type MinigameRating,
   type SlotNumber,
 } from '@chaos-party/protocol';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import type { ConnectionStatus } from '../net/hostConnection.ts';
 import type { HostPlayer } from '../players.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
@@ -13,12 +14,21 @@ import {
   boardOptions,
   cardCharacter,
   chosenBoardName,
+  minigamePrefs,
+  minigameSummary,
   nextBoardId,
   roundOptions,
   roundsDuration,
   startState,
+  toggleMinigame,
+  type MinigamePrefs,
 } from './lobbyState.ts';
+import { MinigameGallery } from './MinigameGallery.tsx';
+import { MinigameRotationDialog } from './MinigameRotationDialog.tsx';
 import { QrCode } from './QrCode.tsx';
+
+/** Export der Daumen-Stimmen am Server (CHAOS-87, `RATINGS_PATH` in `apps/server`). */
+const RATINGS_EXPORT_HREF = '/ratings.json';
 
 interface LobbyPanelProps {
   readonly lobby: LobbyMessage | null;
@@ -32,6 +42,12 @@ interface LobbyPanelProps {
   readonly onMoreReactionTime: (on: boolean) => void;
   /** Brett gewählt: Brett-ID oder `zufall` (sendet `configure`, CHAOS-197). */
   readonly onBoard: (board: string) => void;
+  /** Daumen je Minispiel vom Server (CHAOS-87). */
+  readonly ratings: readonly MinigameRating[];
+  /** Übungsrunde aus der Galerie starten (sendet `start.practice`, CHAOS-87). */
+  readonly onPractice: (minigameId: string) => boolean;
+  /** Sperrliste/Favoriten der Minispiele geändert (sendet `configure`, CHAOS-85). */
+  readonly onMinigames?: ((prefs: MinigamePrefs) => void) | undefined;
 }
 
 const ALL_SLOTS: readonly SlotNumber[] = [1, 2, 3, 4];
@@ -62,7 +78,9 @@ function hostLabel(url: string): string {
  * Bretter vom Server keine Auswahl), die Rundenzahl aus `lobby.settings.roundPresets` (sendet
  * `configure`), der Schalter
  * „Mehr Zeit zum Reagieren“ (Barrierefreiheit, CHAOS-124; zeigt den Server-Stand
- * `lobby.settings.moreReactionTime`) und der Start.
+ * `lobby.settings.moreReactionTime`), daneben der Knopf „Minispiele“ mit Favoriten und
+ * Sperrliste der Rotation (CHAOS-85, Dialog; nur wenn der Server `settings.minigames` schickt)
+ * und der Start.
  * Alles per Maus und Tastatur bedienbar (echte Knöpfe, sichtbarer Fokus).
  */
 export function LobbyPanel({
@@ -74,7 +92,15 @@ export function LobbyPanel({
   onRounds,
   onMoreReactionTime,
   onBoard,
+  ratings,
+  onPractice,
+  onMinigames,
 }: LobbyPanelProps) {
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const closeGallery = useCallback(() => {
+    setGalleryOpen(false);
+  }, []);
+  const [rotationOpen, setRotationOpen] = useState(false);
   const urls = lobby?.joinUrl ? [lobby.joinUrl, ...(lobby.joinUrlAlternatives ?? [])] : [];
   const [chosenUrl, setChosenUrl] = useState<string | null>(null);
   const baseUrl = chosenUrl !== null && urls.includes(chosenUrl) ? chosenUrl : urls[0];
@@ -117,6 +143,18 @@ export function LobbyPanel({
   const currentBoard = boards.find((option) => option.selected) ?? boards[0];
   const boardName = chosenBoardName(lobby.settings);
   const moreReactionTime = lobby.settings.moreReactionTime ?? false;
+  const rotation = lobby.settings.minigames ?? [];
+  const rotationSummary = onMinigames === undefined ? null : minigameSummary(lobby.settings);
+  const toggleRotation = (id: string, kind: 'blocked' | 'favorite') => {
+    onMinigames?.(
+      toggleMinigame(
+        minigamePrefs(lobby.settings),
+        id,
+        kind,
+        rotation.map((game) => game.id),
+      ),
+    );
+  };
   return (
     <section className="lobby" aria-label="Lobby">
       <div className="lobby-card">
@@ -180,6 +218,16 @@ export function LobbyPanel({
               </select>
             </label>
           )}
+          <button
+            type="button"
+            className="lobby-gallery-button"
+            data-testid="gallery-button"
+            onClick={() => {
+              setGalleryOpen(true);
+            }}
+          >
+            Minispiel-Galerie
+          </button>
         </div>
 
         <div className="lobby-side">
@@ -266,26 +314,61 @@ export function LobbyPanel({
             </fieldset>
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            className="lobby-toggle"
-            data-testid="more-reaction-time"
-            aria-checked={moreReactionTime}
-            onClick={() => {
-              onMoreReactionTime(!moreReactionTime);
-            }}
-          >
-            <span className="lobby-toggle-track" aria-hidden="true">
-              <span className="lobby-toggle-thumb" />
-            </span>
-            <span className="lobby-toggle-text">
-              <span className="lobby-toggle-label">Mehr Zeit zum Reagieren</span>
-              <span className="lobby-toggle-detail">
-                {moreReactionTime ? 'An: 5 s zum Festhalten' : 'Aus: 3 s zum Festhalten'}
+          <div className="lobby-extras-row">
+            <button
+              type="button"
+              role="switch"
+              className="lobby-toggle"
+              data-testid="more-reaction-time"
+              aria-checked={moreReactionTime}
+              onClick={() => {
+                onMoreReactionTime(!moreReactionTime);
+              }}
+            >
+              <span className="lobby-toggle-track" aria-hidden="true">
+                <span className="lobby-toggle-thumb" />
               </span>
-            </span>
-          </button>
+              <span className="lobby-toggle-text">
+                <span className="lobby-toggle-label">Mehr Zeit zum Reagieren</span>
+                <span className="lobby-toggle-detail">
+                  {moreReactionTime ? 'An: 5 s zum Festhalten' : 'Aus: 3 s zum Festhalten'}
+                </span>
+              </span>
+            </button>
+            {rotationSummary !== null && (
+              <button
+                type="button"
+                className="lobby-toggle lobby-minigames"
+                data-testid="minigame-rotation-open"
+                aria-haspopup="dialog"
+                aria-label={`Minispiele: ${rotationSummary.long}`}
+                onClick={() => {
+                  setRotationOpen(true);
+                }}
+              >
+                <span className="lobby-toggle-text">
+                  <span className="lobby-toggle-label">
+                    Minispiele{' '}
+                    <span className="lobby-board-next" aria-hidden="true">
+                      ›
+                    </span>
+                  </span>
+                  <span className="lobby-toggle-detail" data-testid="minigame-rotation-summary">
+                    {rotationSummary.short}
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+          {rotationOpen && rotation.length > 0 && (
+            <MinigameRotationDialog
+              minigames={rotation}
+              onToggle={toggleRotation}
+              onClose={() => {
+                setRotationOpen(false);
+              }}
+            />
+          )}
 
           <button
             type="button"
@@ -332,6 +415,18 @@ export function LobbyPanel({
           )}
         </div>
       </div>
+      {galleryOpen && (
+        <MinigameGallery
+          ratings={ratings}
+          // Wie der Start: ab einem verbundenen Controller (bereit muss niemand sein).
+          canPractice={start.enabled}
+          onPractice={(id) => {
+            if (onPractice(id)) setGalleryOpen(false);
+          }}
+          onClose={closeGallery}
+          exportHref={RATINGS_EXPORT_HREF}
+        />
+      )}
     </section>
   );
 }

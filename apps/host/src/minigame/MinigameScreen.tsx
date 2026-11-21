@@ -50,7 +50,7 @@ import {
   type MinigameStageName,
 } from './plan.ts';
 import { introReadiness, readyProgress, waitsForReady, type Readiness } from './readiness.ts';
-import { resultPayload, resultsDisplay } from './results.ts';
+import { PRACTICE_NOTE, resultPayload, resultsDisplay } from './results.ts';
 import { createMinigameStage, type MinigameStage, type StageStatus } from './stage.ts';
 import type { ChaosMinigameTestHook } from './testHook.ts';
 
@@ -124,7 +124,7 @@ export function MinigameScreen(props: MinigameScreenProps) {
     round: minigame?.round ?? view.round,
     lightRound:
       (props.lightByRound ?? true) && view.rounds > 0
-        ? { round: minigame?.round ?? view.round, rounds: view.rounds }
+        ? { round: minigame?.round ?? view.round, rounds: view.rounds, boardId: view.boardId }
         : null,
     plan: planPlay(view, receivedAt, performance.now()),
   }));
@@ -690,7 +690,12 @@ function ResultsCard({
   readonly display: ReturnType<typeof resultsDisplay>;
 }) {
   return (
-    <div className="minigame-overlay" data-testid="minigame-results" data-aborted={display.aborted}>
+    <div
+      className="minigame-overlay"
+      data-testid="minigame-results"
+      data-aborted={display.aborted}
+      data-practice={display.practice}
+    >
       <section className="minigame-card minigame-card--results" aria-label="Ergebnis">
         <p className="minigame-kicker">Ergebnis · {title}</p>
         <h2 className="minigame-title minigame-headline" data-testid="minigame-headline">
@@ -754,6 +759,11 @@ function ResultsCard({
               <li key={line}>★ {line}</li>
             ))}
           </ul>
+        )}
+        {display.practice && (
+          <p className="minigame-tagline" data-testid="minigame-practice-note">
+            {PRACTICE_NOTE}
+          </p>
         )}
       </section>
     </div>

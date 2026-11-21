@@ -18,6 +18,7 @@ import {
   type InputMessage,
   type LobbyMessage,
   type MinigameResultAckMessage,
+  type RatingsMessage,
   type ServerMessage,
   type SlotNumber,
 } from '@chaos-party/protocol';
@@ -71,6 +72,8 @@ export class Harness {
   readonly lobbies: LobbyMessage[] = [];
   /** Bestätigungen auf `minigame-result` (v4, CHAOS-55). */
   readonly acks: MinigameResultAckMessage[] = [];
+  /** Daumen-Übersichten an den Host (CHAOS-87). */
+  readonly ratings: RatingsMessage[] = [];
   /** Vom Server an den Host weitergeleitete Controller-Eingaben (Minispiele, M3). */
   readonly hostInputs: InputMessage[] = [];
   /** Vom Server geschlossene Verbindungen (Close-Code, Grund). */
@@ -135,6 +138,9 @@ export class Harness {
         return;
       case 'minigame-result-ack':
         if (to === HOST) this.acks.push(message);
+        return;
+      case 'ratings':
+        if (to === HOST) this.ratings.push(message);
         return;
       case 'context':
         this.contexts.set(message.slot, { context: message, at: this.clock });
@@ -219,6 +225,32 @@ export class Harness {
     this.send(
       HOST,
       createMessage('start', rounds === undefined ? { mode: 'board' } : { mode: 'board', rounds }),
+    );
+  }
+
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87) mit diesem Minispiel starten. */
+  startPractice(minigameId: string): void {
+    this.answered.clear();
+    this.send(HOST, createMessage('start', { practice: minigameId }));
+  }
+
+  /** Daumen (CHAOS-87) für das Minispiel im letzten Kontext dieses Slots. */
+  rate(
+    slot: SlotNumber,
+    vote: 'up' | 'down',
+    override: { minigameId?: string; round?: number } = {},
+  ): void {
+    const controller = this.controllerOf(slot);
+    const minigame = this.boards.at(-1)?.view.minigame;
+    this.send(
+      controller.id,
+      createMessage('rate', {
+        slot,
+        seq: ++controller.seq,
+        minigameId: override.minigameId ?? minigame?.id ?? 'unbekannt',
+        round: override.round ?? minigame?.round ?? 0,
+        vote,
+      }),
     );
   }
 

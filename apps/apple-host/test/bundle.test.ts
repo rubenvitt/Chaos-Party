@@ -20,9 +20,10 @@ beforeAll(async () => {
   wasm = readFileSync(HAVOK_WASM_SOURCE);
 }, 60_000);
 
-/** Brett-Knöpfe der Lobby mit nur Wackelwald im Register (CHAOS-197). */
+/** Brett-Knöpfe der Lobby (CHAOS-197), Rummelplatz seit CHAOS-199. */
 const BOARD_CHOICES = [
   { id: 'wackelwald', name: 'Wackelwald', detail: '43 Felder', selected: true, random: false },
+  { id: 'rummelplatz', name: 'Rummelplatz', detail: '81 Felder', selected: false, random: false },
   { id: 'zufall', name: 'Zufall', detail: 'Überraschung!', selected: false, random: true },
 ];
 

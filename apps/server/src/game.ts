@@ -12,18 +12,21 @@ import {
   DEFAULT_BOARD,
   DEFAULT_RULES,
   getBoard,
+  playedMinigames,
   step,
   viewClock,
   type GameCommand,
   type GameError,
   type GameEvent,
   type GameState,
+  type MinigameRotationOptions,
   type MinigameSpec,
   type Prompt,
   type RuleSet,
   type Slot,
 } from '@chaos-party/game-core';
-import { getMinigameInfo, rotationInfos } from '@chaos-party/minigames/catalog';
+import type { MinigameInfo } from '@chaos-party/minigame-sdk';
+import { getMinigameInfo, getSteckbrief, rotationInfos } from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
   type BoardEvent,
@@ -54,6 +57,11 @@ export interface BoardGameSettings {
    */
   readonly minigames: readonly MinigameSpec[];
   /**
+   * Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85). Die Session setzt sie je
+   * Partie aus Lobby-Einstellungen, Aufstellung und letzter Partie; fehlt = keine.
+   */
+  readonly minigameRotation?: MinigameRotationOptions | undefined;
+  /**
    * Vorschläge für die Rundenzahl in der Lobby (`lobby.settings.roundPresets`, aufsteigend).
    * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
    */
@@ -63,6 +71,11 @@ export interface BoardGameSettings {
    * Fehlt = aus.
    */
   readonly moreReactionTime?: boolean | undefined;
+  /**
+   * Übungsrunde der Minispiel-Galerie (CHAOS-87): `minigames` enthält genau das eine Spiel,
+   * `rounds` ist 1. Nur in `BoardGame`, die Session setzt es beim Start mit `start.practice`.
+   */
+  readonly practice?: boolean | undefined;
 }
 
 /**
@@ -103,13 +116,43 @@ export const DEFAULT_ROUNDS = 10;
  */
 export const DEFAULT_ROUND_PRESETS: readonly number[] = [10, 16, 20];
 
-/** Spezifikationen der Katalog-Rotation für game-core. */
-export function catalogMinigames(): MinigameSpec[] {
-  return rotationInfos().map((info) => ({
+/**
+ * Regel-Steckbrief eines Minispiels: Kennung, Zeit, Wertung und Achsen der Rotation (CHAOS-85).
+ * Kernverb, Spielform und Bedienung kommen aus dem Vielfalts-Steckbrief (ADR-021), Familie und
+ * Tauglichkeit aus `MinigameInfo`.
+ */
+export function minigameSpecOf(info: MinigameInfo): MinigameSpec {
+  const steckbrief = getSteckbrief(info.id);
+  const controls =
+    steckbrief?.bedienung ??
+    `${info.controls.joystick === null ? '' : 'S'}${info.controls.a === null ? '' : 'A'}${
+      info.controls.b === null ? '' : 'B'
+    }`;
+  return {
     id: info.id,
     playMs: info.durationMs,
     scoring: info.scoring,
-  }));
+    category: info.category,
+    controls,
+    form: steckbrief?.spielform.toLowerCase() ?? 'ffa',
+    ...(steckbrief === undefined ? {} : { verb: steckbrief.kernverb }),
+    ...(info.family === undefined ? {} : { family: info.family }),
+    ...(info.minPlayers === undefined ? {} : { minPlayers: info.minPlayers }),
+    ...(info.maxPlayers === undefined ? {} : { maxPlayers: info.maxPlayers }),
+    ...(info.ipadZone === undefined ? {} : { ipadZone: info.ipadZone }),
+    ...(info.secretChoice === undefined ? {} : { secretChoice: info.secretChoice }),
+  };
+}
+
+/** Spezifikationen der Katalog-Rotation für game-core. */
+export function catalogMinigames(): MinigameSpec[] {
+  return rotationInfos().map(minigameSpecOf);
+}
+
+/** Spezifikation eines Minispiels aus dem Katalog (Übungsrunde, CHAOS-87) oder `undefined`. */
+export function catalogMinigame(id: string): MinigameSpec | undefined {
+  const info = getMinigameInfo(id);
+  return info ? minigameSpecOf(info) : undefined;
 }
 
 export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
@@ -173,11 +216,25 @@ export class BoardGame {
       seed,
       players: players.map((player) => ({ slot: player.slot, name: player.name })),
       minigames: settings.minigames,
+      ...(settings.practice === true ? { practice: true } : {}),
+      ...(settings.minigameRotation === undefined
+        ? {}
+        : { minigameRotation: settings.minigameRotation }),
     });
+  }
+
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87). */
+  get practice(): boolean {
+    return this.stateValue.config.practice === true;
   }
 
   get state(): GameState {
     return this.stateValue;
+  }
+
+  /** Minispiele, die in dieser Partie schon liefen (für „nicht gleich wieder“, CHAOS-85). */
+  get playedMinigames(): readonly string[] {
+    return playedMinigames(this.stateValue);
   }
 
   /** Wendet einen Befehl an. Fehler lassen den Zustand unverändert. */
@@ -302,6 +359,7 @@ export class BoardGame {
         : null,
       paused: state.paused,
       endedEarly: state.endedEarly,
+      ...(this.practice ? { practice: true } : {}),
     };
   }
 
@@ -345,6 +403,7 @@ export class BoardGame {
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
       // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
       repeat: minigame.repeat,
+      ...(this.practice ? { practice: true } : {}),
       // CHAOS-214: Anleitung wartet auf „Bereit“ – eigener Stand.
       ...(stage === 'intro' && minigame.ready ? { ready: minigame.ready.includes(slot) } : {}),
     };

@@ -37,8 +37,8 @@ function expectNoProblems(problems: Problems) {
   expect(problems.failedRequests).toEqual([]);
 }
 
-async function openBoard(page: Page) {
-  await page.goto(BOARD_URL);
+async function openBoard(page: Page, query = '') {
+  await page.goto(BOARD_URL + query);
   const main = page.locator('main.host');
   await expect(main).toHaveAttribute('data-phase', 'board');
   await expect(main).toHaveAttribute('data-scene', 'ready');
@@ -184,6 +184,19 @@ test.describe('Host-Brett im lokalen Modus (Production-Build)', () => {
       await page.screenshot({ path: 'docs/screenshots/m2-host-brett.png' });
     }
     await expect(page).toHaveScreenshot('host-brett.png', { mask: hudMask(page) });
+  });
+
+  test('Rummelplatz: Kulisse mit Karussell und Nachtstimmung, ohne Fehler (CHAOS-199)', async ({
+    page,
+  }) => {
+    const problems = collectProblems(page);
+    await openBoard(page, '&brett=rummelplatz&ueberblick=1');
+    await expect(page.locator('.hud-title')).toContainText('Rummelplatz');
+    await expect(page.getByTestId('board-round')).toHaveText('Runde 2/5');
+    await stepFrames(page, 30);
+    await settleGpu(page);
+    await expect(page).toHaveScreenshot('host-brett-rummelplatz.png', { mask: hudMask(page) });
+    expectNoProblems(problems);
   });
 
   test('Lichtverlauf: Rundenwechsel blendet weich in die nächste Stimmung (CHAOS-63)', async ({

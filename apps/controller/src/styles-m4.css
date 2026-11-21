@@ -901,6 +901,63 @@
   }
 }
 
+/* Daumen nach dem Minispiel (CHAOS-87): freiwillig, groß genug für den Daumen, nichts wartet. */
+.minigame-vote {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.minigame-vote-question {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.minigame-vote-buttons {
+  display: flex;
+  gap: 16px;
+}
+
+.vote-button {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 64px;
+  border: 2px solid var(--glass-line);
+  border-radius: 20px;
+  background: var(--glass-strong);
+  color: var(--ink);
+  font-size: 34px;
+  line-height: 1;
+  touch-action: manipulation;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.vote-button:active {
+  transform: scale(0.94);
+}
+
+.vote-button[aria-pressed='true'] {
+  border-color: var(--player);
+  background: var(--player);
+  color: var(--on-player);
+  box-shadow: var(--shadow-small);
+}
+
+.minigame-vote[data-selected]:not([data-selected='']) .vote-button[aria-pressed='false'] {
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vote-button {
+    transition: none;
+  }
+}
 /* ---------------------------------------------------------------------------
  * „Bereit“ in der Minispiel-Anleitung (CHAOS-214): großer Knopf statt Schlusszeile, in der
  * Schonfrist nach dem Erscheinen sichtbar gesperrt; danach „Bereit! Warte auf die anderen …“.

@@ -18,6 +18,9 @@ import { PUMP_PARADE_INFO } from './pump-parade/info.ts';
 import { SOCKENREGEN_INFO } from './sockenregen/info.ts';
 import { WACKELTURM_INFO } from './wackelturm/info.ts';
 
+/** Vielfalts-Steckbriefe (ADR-021): rein, auch für Server und Rotation (CHAOS-85). */
+export { getSteckbrief, STECKBRIEFE } from './steckbriefe.ts';
+
 export const MINIGAME_INFOS: readonly MinigameInfo[] = [
   PUMP_PARADE_INFO,
   SOCKENREGEN_INFO,

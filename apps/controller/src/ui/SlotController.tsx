@@ -99,6 +99,8 @@ export function SlotController({
       {screen === 'minigame' && minigame && (
         <div className="panel minigame-panel" data-testid="minigame-panel">
           <MinigameCard
+            // Neuer Lauf (andere Runde/anderes Spiel): Daumen-Auswahl beginnt leer.
+            key={`${minigame.id}:${String(context.board?.round ?? 0)}`}
             minigame={minigame}
             readyLine={
               minigame.stage === 'intro' ? (
@@ -113,6 +115,18 @@ export function SlotController({
                 />
               ) : undefined
             }
+            voting={{
+              context,
+              onVote: (vote) => {
+                send({
+                  type: 'rate',
+                  slot: player.slot,
+                  minigameId: minigame.id,
+                  round: context.board?.round ?? 0,
+                  vote,
+                });
+              },
+            }}
           />
         </div>
       )}
