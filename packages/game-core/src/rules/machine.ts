@@ -49,6 +49,7 @@ import {
   resumeMinigameIntro,
 } from './minigame.ts';
 import { resolveReaction } from './reaction.ts';
+import { copyRotationOptions } from './rotation.ts';
 import { tallyStats } from './stats.ts';
 import { enterSpaceEvent } from './spaces.ts';
 
@@ -141,6 +142,7 @@ export function createGame(config: GameConfig): GameState {
     promptBaseDeadline: null,
     minigameBag: [],
     minigameLast: null,
+    minigameHistory: [],
     minigamePlayed: [],
   };
   return {
@@ -171,7 +173,14 @@ export function createGame(config: GameConfig): GameState {
     pausedAt: null,
     endedEarly: false,
     minigame: null,
-    config: { rules, seed, minigames: (config.minigames ?? []).map((spec) => ({ ...spec })) },
+    config: {
+      rules,
+      seed,
+      minigames: (config.minigames ?? []).map((spec) => ({ ...spec })),
+      ...(config.minigameRotation === undefined
+        ? {}
+        : { minigameRotation: copyRotationOptions(config.minigameRotation) }),
+    },
     internal: internal as unknown as Readonly<Record<string, unknown>>,
   };
 }

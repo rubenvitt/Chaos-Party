@@ -13,10 +13,23 @@
  */
 import { checkResult } from '@chaos-party/minigame-sdk';
 import { shuffled } from '../rng.ts';
-import type { ItemKind, MinigamePlacement, MinigameSpec, Pacing, Slot } from '../types.ts';
+import type {
+  GameState,
+  ItemKind,
+  MinigamePlacement,
+  MinigameSpec,
+  Pacing,
+  Slot,
+} from '../types.ts';
 import { changeCoins } from './economy.ts';
 import { playerOf, schedule, type Ctx } from './internal.ts';
 import { gainRandomItem } from './items.ts';
+import {
+  eligibleMinigames,
+  fillMinigameBag,
+  pickMinigameIndex,
+  rememberMinigame,
+} from './rotation.ts';
 
 export const PLACEHOLDER_MINIGAME = 'placeholder';
 export const DEFAULT_MINIGAME_RESULT_GRACE_MS = 15_000;
@@ -25,25 +38,32 @@ function specs(ctx: Ctx): readonly MinigameSpec[] {
   return ctx.d.config.minigames;
 }
 
-/** Nächstes Minispiel: aus einer gemischten Liste ohne Wiederholung ziehen. */
+/**
+ * Nächstes Minispiel: aus einer gemischten Liste ohne Wiederholung ziehen, mit Filtern,
+ * Gewichten und Mischen über die Achsen (CHAOS-85, `rotation.ts`).
+ */
 function drawMinigame(ctx: Ctx): MinigameSpec | null {
   const all = specs(ctx);
   if (all.length === 0) return null;
   const { internal } = ctx.d;
+  const options = ctx.d.config.minigameRotation ?? {};
   if (internal.minigameBag.length === 0) {
-    const bag = shuffled(
-      ctx.rng,
-      all.map((spec) => spec.id),
-    );
-    // Beim Neumischen nicht direkt dasselbe wie zuletzt.
-    const first = bag[0];
-    if (bag.length > 1 && first === internal.minigameLast) bag.push(...bag.splice(0, 1));
-    internal.minigameBag = bag;
+    const pool = eligibleMinigames(all, ctx.d.players.length, options);
+    internal.minigameBag = fillMinigameBag(ctx.rng, pool, options, internal.minigameLast);
   }
-  const id = internal.minigameBag.shift();
+  const byId = new Map(all.map((spec) => [spec.id, spec]));
+  const index = pickMinigameIndex(internal.minigameBag, byId, internal.minigameHistory, options);
+  const [id] = internal.minigameBag.splice(index, 1);
   if (id === undefined) return null;
+  internal.minigameHistory = rememberMinigame(internal.minigameHistory, id);
   internal.minigameLast = id;
-  return all.find((spec) => spec.id === id) ?? null;
+  return byId.get(id) ?? null;
+}
+
+/** Minispiele, die in dieser Partie schon liefen (Reihenfolge des ersten Starts, CHAOS-85). */
+export function playedMinigames(state: GameState): readonly string[] {
+  const played = (state.internal as { minigamePlayed?: unknown }).minigamePlayed;
+  return Array.isArray(played) ? played.filter((id): id is string => typeof id === 'string') : [];
 }
 
 /** Nach dem letzten Zug der Runde: Minispiel wählen und Anleitung zeigen. */

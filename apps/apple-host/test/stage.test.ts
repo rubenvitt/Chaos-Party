@@ -11,6 +11,7 @@ import {
   createHeadlessStage,
   FRAME_RESERVE_MS,
   PREPARE_BUDGET_MAX_MS,
+  PREPARE_URGENT_MAX_MS,
   PREPARE_BUDGET_MS,
   PREPARE_URGENT_MS,
   prepareBudgetMs,
@@ -186,9 +187,12 @@ describe('Aufbau-Budget je Tick (CHAOS-205)', () => {
     expect(prepareBudgetMs(1250)).toBe(PREPARE_BUDGET_MAX_MS);
   });
 
-  it('gibt bei knapper Bühne die halbe Tick-Dauer, gedeckelt', () => {
+  it('gibt bei knapper Bühne die halbe Tick-Dauer, gedeckelt (CHAOS-227)', () => {
     expect(prepareBudgetMs(1000 / 30, true)).toBeCloseTo(1000 / 60);
-    expect(prepareBudgetMs(100, true)).toBe(PREPARE_BUDGET_MAX_MS);
+    // 10 Hz: halbe Tick-Dauer, damit die Bühne in 3 s Anleitung fertig wird (CHAOS-214).
+    expect(prepareBudgetMs(100, true)).toBe(50);
+    expect(prepareBudgetMs(1250, true)).toBe(PREPARE_URGENT_MAX_MS);
+    expect(PREPARE_URGENT_MAX_MS).toBeGreaterThan(PREPARE_BUDGET_MAX_MS);
   });
 
   it('lässt bei knapper Bühne FRAME_RESERVE_MS des Bildes frei (CHAOS-209)', () => {

@@ -3,10 +3,13 @@ import {
   boardOptions,
   cardCharacter,
   chosenBoardName,
+  minigamePrefs,
+  minigameSummary,
   nextBoardId,
   roundOptions,
   roundsDuration,
   startState,
+  toggleMinigame,
 } from './lobbyState.ts';
 
 function at<T>(list: readonly T[], index: number): T {
@@ -168,5 +171,60 @@ describe('boardOptions (CHAOS-197)', () => {
     expect(nextBoardId(boardOptions(settings('frostgipfel')))).toBe('zufall');
     expect(nextBoardId(boardOptions(settings('zufall')))).toBe('wackelwald');
     expect(() => nextBoardId([])).toThrow();
+  });
+});
+
+describe('Minispiel-Rotation in der Lobby (CHAOS-85)', () => {
+  const settings = {
+    rounds: 10,
+    roundPresets: [10],
+    minigames: [
+      { id: 'sockenregen', title: 'Sockenregen', blocked: true, favorite: false },
+      { id: 'wackelturm', title: 'Wackelturm', blocked: false, favorite: true },
+      { id: 'pudding-gerangel', title: 'Pudding-Gerangel', blocked: false, favorite: false },
+    ],
+  };
+  const order = settings.minigames.map((game) => game.id);
+
+  it('liest Sperrliste und Favoriten aus dem Server-Stand', () => {
+    expect(minigamePrefs(settings)).toEqual({
+      blocklist: ['sockenregen'],
+      favorites: ['wackelturm'],
+    });
+    expect(minigamePrefs({ rounds: 10, roundPresets: [10] })).toEqual({
+      blocklist: [],
+      favorites: [],
+    });
+  });
+
+  it('Favorit und Sperre schließen sich aus; Reihenfolge wie im Katalog', () => {
+    const prefs = minigamePrefs(settings);
+    expect(toggleMinigame(prefs, 'sockenregen', 'favorite', order)).toEqual({
+      blocklist: [],
+      favorites: ['sockenregen', 'wackelturm'],
+    });
+    expect(toggleMinigame(prefs, 'wackelturm', 'blocked', order)).toEqual({
+      blocklist: ['sockenregen', 'wackelturm'],
+      favorites: [],
+    });
+    expect(toggleMinigame(prefs, 'sockenregen', 'blocked', order)).toEqual({
+      blocklist: [],
+      favorites: ['wackelturm'],
+    });
+  });
+
+  it('fasst den Stand für den Knopf zusammen', () => {
+    expect(minigameSummary(settings)).toEqual({
+      short: '2 im Topf · 1 ★ · 1 ⦸',
+      long: '2 im Topf, 1 Favorit, 1 gesperrt',
+    });
+    expect(
+      minigameSummary({
+        ...settings,
+        minigames: settings.minigames.map((game) => ({ ...game, blocked: false, favorite: true })),
+      }),
+    ).toEqual({ short: '3 im Topf · 3 ★', long: '3 im Topf, 3 Favoriten' });
+    expect(minigameSummary({ rounds: 10, roundPresets: [10] })).toBeNull();
+    expect(minigameSummary({ ...settings, minigames: [] })).toBeNull();
   });
 });
