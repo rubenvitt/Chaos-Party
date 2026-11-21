@@ -11,7 +11,13 @@
 // Muss das erste Modul bleiben: setzt `setTimeout`, `performance` usw., bevor Babylon lädt.
 import { clock } from './install.ts';
 import HavokPhysics from '@babylonjs/havok';
-import { DEFAULT_BOARD, getBoard, withTailwind } from '@chaos-party/game-core';
+import {
+  DEFAULT_BOARD,
+  DEFAULT_RULES,
+  getBoard,
+  withRapidFire,
+  withTailwind,
+} from '@chaos-party/game-core';
 import { getMinigameModule } from '@chaos-party/minigames';
 import { ROTATION } from '@chaos-party/minigames/catalog';
 import type { HavokInstance, MinigameHud } from '@chaos-party/minigame-sdk/babylon';
@@ -188,8 +194,11 @@ function create(env: HostEnv): ChaosHostInstance {
     now,
     createToken: () => randomBytes(24).toString('base64url'),
     randomSeed: () => randomInt(0, 2 ** 31),
-    // Rückenwind wie `RUECKENWIND=1` am PC (CHAOS-188); sonst Standardregeln.
-    ...(env.tailwind === true ? { game: { rules: withTailwind() } } : {}),
+    // Rückenwind wie `RUECKENWIND=1` am PC (CHAOS-188); Schnellfeuer wie `SCHNELLFEUER=an` am PC
+    // (CHAOS-90, Standard: Ereignis „Schnellfeuer!“, sonst im Finale).
+    game: {
+      rules: withRapidFire(undefined, env.tailwind === true ? withTailwind() : DEFAULT_RULES),
+    },
     logError: (error) => {
       log(`Session-Fehler: ${describe(error)}`);
     },

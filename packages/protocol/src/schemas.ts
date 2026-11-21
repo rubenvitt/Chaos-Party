@@ -69,6 +69,8 @@ export const BOARD_EVENT_KINDS = [
   'swap',
   'trophy-shuffle',
   'lucky-find',
+  /** v4-Nachtrag CHAOS-90: Das Minispiel der Runde wird Schnellfeuer. */
+  'rapid-fire',
 ] as const;
 /** `tailwind` (v4-Nachtrag CHAOS-125): Rückenwind-Münzen für Zurückliegende nach dem Minispiel. */
 export const COIN_REASONS = [

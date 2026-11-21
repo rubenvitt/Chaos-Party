@@ -5,9 +5,11 @@
 export { createGame, step } from './machine.ts';
 export {
   DEFAULT_RULES,
+  RAPID_FIRE_RULE,
   TAILWIND_RULE,
   ZERO_PACING,
   withRules,
+  withRapidFire,
   withTailwind,
   type RuleOverrides,
 } from './defaults.ts';

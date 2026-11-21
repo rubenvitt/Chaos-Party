@@ -7,6 +7,7 @@ import { kruemelKehraus } from './kruemel-kehraus/index.ts';
 import { kuckucksKlatsche } from './kuckucks-klatsche/index.ts';
 import { puddingGerangel } from './pudding-gerangel/index.ts';
 import { pumpParade } from './pump-parade/index.ts';
+import { schnellfeuer } from './schnellfeuer/index.ts';
 import { sockenregen } from './sockenregen/index.ts';
 import { wackelturm } from './wackelturm/index.ts';
 
@@ -20,6 +21,7 @@ export const MINIGAME_MODULES: readonly MinigameModule[] = [
   kuckucksKlatsche,
   kruemelKehraus,
   halloBaukasten,
+  schnellfeuer,
 ];
 
 export function getMinigameModule(id: string): MinigameModule | undefined {

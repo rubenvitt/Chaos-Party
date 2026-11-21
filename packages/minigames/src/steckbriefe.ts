@@ -76,6 +76,17 @@ export const STECKBRIEFE: Readonly<Record<string, Steckbrief>> = {
     tempo: 'wechselnd',
     ort: 'teich',
   },
+  // Rundenart aus fünf Mikro-Spielen (CHAOS-90); nicht in der Rotation, Auslöser in game-core.
+  schnellfeuer: {
+    kernverb: 'reagieren',
+    ziel: 'meiste',
+    arena: 'bahnen',
+    kamera: 'schraeg',
+    bedienung: 'SA',
+    spielform: 'Mikro',
+    tempo: 'hektisch',
+    ort: 'kueche',
+  },
 };
 
 export function getSteckbrief(id: string): Steckbrief | undefined {

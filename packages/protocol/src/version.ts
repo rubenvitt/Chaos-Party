@@ -42,6 +42,9 @@
  * (`minigame-intro`); `ControllerMinigameInfo.ready` (eigener Stand) und
  * `BoardView.minigame.ready` (bereite Slots), beide optional. Ältere Controller ohne Knopf
  * halten nichts auf: Nach der Sicherheitsfrist startet das Minispiel trotzdem.
+ * v4-Nachtrag (CHAOS-90, additiv, ohne Versionssprung): Brett-Ereignis `rapid-fire`
+ * („Schnellfeuer!“): Das Minispiel der Runde wird Schnellfeuer (`minigame.id` `schnellfeuer`).
+ * Kommt nur, wenn der Server Schnellfeuer per Ereignis auslöst.
  */
 export const PROTOCOL_VERSION = 4;
 

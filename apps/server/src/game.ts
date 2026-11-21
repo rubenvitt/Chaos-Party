@@ -26,7 +26,12 @@ import {
   type Slot,
 } from '@chaos-party/game-core';
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';
-import { getMinigameInfo, getSteckbrief, rotationInfos } from '@chaos-party/minigames/catalog';
+import {
+  getMinigameInfo,
+  getSteckbrief,
+  rotationInfos,
+  SCHNELLFEUER_INFO,
+} from '@chaos-party/minigames/catalog';
 import {
   MAX_BOARD_EVENTS,
   type BoardEvent,
@@ -61,6 +66,11 @@ export interface BoardGameSettings {
    * Partie aus Lobby-Einstellungen, Aufstellung und letzter Partie; fehlt = keine.
    */
   readonly minigameRotation?: MinigameRotationOptions | undefined;
+  /**
+   * Schnellfeuer (CHAOS-90): eigene Rundenart, nie in der Rotation. Wann es kommt, steht in
+   * `rules.rapidFire`; fehlt eines von beiden, gibt es kein Schnellfeuer.
+   */
+  readonly rapidFire?: MinigameSpec | undefined;
   /**
    * Vorschläge für die Rundenzahl in der Lobby (`lobby.settings.roundPresets`, aufsteigend).
    * `configure` erlaubt jede Zahl 1–`MAX_ROUNDS`.
@@ -149,6 +159,11 @@ export function catalogMinigames(): MinigameSpec[] {
   return rotationInfos().map(minigameSpecOf);
 }
 
+/** Schnellfeuer-Minispiel (CHAOS-90) für game-core. */
+export function catalogRapidFire(): MinigameSpec {
+  return minigameSpecOf(SCHNELLFEUER_INFO);
+}
+
 /** Spezifikation eines Minispiels aus dem Katalog (Übungsrunde, CHAOS-87) oder `undefined`. */
 export function catalogMinigame(id: string): MinigameSpec | undefined {
   const info = getMinigameInfo(id);
@@ -160,6 +175,7 @@ export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
   rules: DEFAULT_RULES,
   boardId: DEFAULT_BOARD.id,
   minigames: catalogMinigames(),
+  rapidFire: catalogRapidFire(),
   roundPresets: DEFAULT_ROUND_PRESETS,
 };
 
@@ -220,6 +236,9 @@ export class BoardGame {
       ...(settings.minigameRotation === undefined
         ? {}
         : { minigameRotation: settings.minigameRotation }),
+      ...(settings.rapidFire === undefined || settings.practice === true
+        ? {}
+        : { rapidFire: settings.rapidFire }),
     });
   }
 
