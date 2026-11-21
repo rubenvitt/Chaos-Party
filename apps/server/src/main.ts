@@ -1,10 +1,11 @@
 import { withTailwind } from '@chaos-party/game-core';
 import { existsSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
+import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boardChoices, isBoardChoice } from './boardChoice.ts';
 import { generateJoinCode } from './ids.ts';
+import { createFileRatingStore } from './ratingsFile.ts';
 import { resolveJoinTarget } from './network.ts';
 import { checkLocalhost } from './selfCheck.ts';
 import { createChaosServer } from './server.ts';
@@ -21,6 +22,8 @@ import { formatStartupLines, renderTerminalQr } from './startup.ts';
  *   Standard aus bis zum Playtest)
  * - `BRETT`: Brett-Wahl zu Beginn, eine Brett-ID (`wackelwald`) oder `zufall` (CHAOS-197);
  *   in der Lobby umstellbar
+ * - `STIMMEN_DATEI`: Datei der Daumen-Stimmen nach Minispielen (CHAOS-87), Standard
+ *   `~/.chaos-party/minispiel-stimmen.json`; Export unter `/ratings.json`
  */
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -47,6 +50,11 @@ const rounds = parseIntegerEnv('ROUNDS', 1, 20);
 const seed = parseIntegerEnv('SEED', 0, 2 ** 31 - 1);
 const tailwind = process.env.RUECKENWIND?.trim() === '1';
 const boardId = parseBoardEnv();
+const ratingsFileEnv = process.env.STIMMEN_DATEI?.trim();
+const ratingsFile =
+  ratingsFileEnv === undefined || ratingsFileEnv === ''
+    ? join(homedir(), '.chaos-party', 'minispiel-stimmen.json')
+    : ratingsFileEnv;
 
 const server = createChaosServer({
   staticDir,
@@ -60,7 +68,12 @@ const server = createChaosServer({
     ...(tailwind ? { rules: withTailwind() } : {}),
     ...(boardId === undefined ? {} : { boardId }),
   },
+  ratings: createFileRatingStore(ratingsFile),
   onGameStart: (info) => {
+    if (info.practice !== undefined) {
+      console.log(`Übungsrunde gestartet: ${info.practice}, ${String(info.slots.length)} Spieler`);
+      return;
+    }
     // Seed ausgeben: Mit SEED=<Wert> lässt sich dieselbe Partie nachstellen (M2).
     console.log(
       `Brettspiel gestartet: ${String(info.slots.length)} Spieler, ${String(info.rounds)} Runden, Brett ${info.boardId}, Seed ${String(info.seed)}${tailwind ? ', Rückenwind an' : ''}`,
@@ -74,6 +87,7 @@ const localhost = await checkLocalhost({ port: address.port, instanceId: server.
 for (const line of formatStartupLines({ listenPort: address.port, joinCode, target, localhost })) {
   console.log(line);
 }
+console.log(`Minispiel-Stimmen: ${ratingsFile} (Export unter /ratings.json)`);
 for (const [name, dir] of [
   ['Controller-App', staticDir],
   ['Host-App', hostDir],

@@ -58,14 +58,23 @@ import {
   type StartMessage,
   type ChooseMessage,
   type PickCharacterMessage,
+  type RateMessage,
+  type Vote,
 } from '@chaos-party/protocol';
 import type { MinigameRotationOptions } from '@chaos-party/game-core';
 import { getMinigameInfo } from '@chaos-party/minigames/catalog';
 import { randomInt } from 'node:crypto';
 import { boardChoiceName, isBoardChoice, lobbyBoards, resolveBoardChoice } from './boardChoice.ts';
-import { BoardGame, DEFAULT_GAME_SETTINGS, rulesForGame, type BoardGameSettings } from './game.ts';
+import {
+  BoardGame,
+  catalogMinigame,
+  DEFAULT_GAME_SETTINGS,
+  rulesForGame,
+  type BoardGameSettings,
+} from './game.ts';
 import { generateToken, isValidJoinCode } from './ids.ts';
 import { DEFAULT_RATE_LIMIT, TokenBucket, type RateLimitOptions } from './rate-limit.ts';
+import { createMemoryRatingStore, summarizeRatings, type RatingStore } from './ratings.ts';
 
 export type ConnectionId = number;
 
@@ -163,6 +172,11 @@ export interface SessionOptions {
   randomSeed?: (() => number) | undefined;
   /** Wird bei jedem Partiestart aufgerufen (z. B. Seed im Terminal ausgeben). */
   onGameStart?: ((info: GameStartInfo) => void) | undefined;
+  /**
+   * Speicher der Daumen-Stimmen (CHAOS-87). Standard: im Speicher (geht mit dem Prozess
+   * verloren); der Node-Server übergibt eine Datei (`ratingsFile.ts`).
+   */
+  ratings?: RatingStore | undefined;
 }
 
 export interface GameStartInfo {
@@ -171,6 +185,8 @@ export interface GameStartInfo {
   /** Gespieltes Brett (bei Zufall das ausgeloste). */
   readonly boardId: string;
   readonly slots: readonly SlotNumber[];
+  /** Übungsrunde der Galerie (CHAOS-87): das eine Minispiel; fehlt bei einer Partie. */
+  readonly practice?: string;
 }
 
 interface Connection {
@@ -253,7 +269,7 @@ export type PauseCause = 'host' | 'host-lost';
 
 type InputMessage = Exclude<
   SlotIntentMessage,
-  { type: 'ready' } | { type: 'choose' } | { type: 'pick-character' }
+  { type: 'ready' } | { type: 'choose' } | { type: 'pick-character' } | { type: 'rate' }
 >;
 
 interface SlotContext {
@@ -330,6 +346,15 @@ export class Session {
    */
   private hostReadyDeadline: number | null = null;
 
+  /** Daumen-Stimmen (CHAOS-87). */
+  private readonly ratings: RatingStore;
+  /** Zählt gestartete Partien und Übungsrunden; Teil der Lauf-Kennung einer Stimme. */
+  private gameCount = 0;
+  /** Kennung dieses Session-Prozesses in Lauf-Kennungen (Stimmen über Neustarts eindeutig). */
+  private readonly sessionKey: string;
+  /** Stimmen zum laufenden bzw. eben beendeten Minispiel-Lauf: Lauf-Kennung und Daumen je Slot. */
+  private currentVotes: { play: string; bySlot: Map<SlotNumber, Vote> } | null = null;
+
   /** Gesammelte Aktionen des laufenden Ereignisses. */
   private out: Outgoing[] = [];
   private lobbyDirty = false;
@@ -380,6 +405,8 @@ export class Session {
     this.board = this.gameSettings.boardId;
     this.randomSeed = options.randomSeed ?? (() => randomInt(0, 2 ** 31));
     this.onGameStart = options.onGameStart;
+    this.ratings = options.ratings ?? createMemoryRatingStore();
+    this.sessionKey = generateToken().slice(0, 12);
   }
 
   get phase(): Phase {
@@ -472,6 +499,11 @@ export class Session {
       }
       this.game?.apply({ type: 'tick', at: now });
     });
+  }
+
+  /** Gespeicherte Daumen-Stimmen (CHAOS-87), z. B. für den Export `/ratings.json`. */
+  ratingVotes(): ReturnType<RatingStore['votes']> {
+    return this.ratings.votes();
   }
 
   /** Lesender Zustand für Tests, Diagnose und spätere Spiellogik. */
@@ -572,6 +604,7 @@ export class Session {
         // Wiederholtes Hallo: Schnappschuss erneut senden.
         this.send(conn.id, this.lobbyMessage());
         this.sendBoardSnapshot(conn.id);
+        this.sendRatings(conn.id);
         return;
       case 'heartbeat':
         this.send(conn.id, createMessage('heartbeat-ack', { t: message.t }));
@@ -726,10 +759,20 @@ export class Session {
       this.reject(host, 'out-of-phase', 'Revanche erst nach dem Endstand');
       return;
     }
+    this.backToLobby();
+  }
+
+  /**
+   * Zurück in die Lobby (Revanche, Ende einer Übungsrunde): Spieler, Tokens und Figuren
+   * bleiben, `ready` wird zurückgesetzt; getrennte Plätze bekommen eine frische Schonfrist.
+   */
+  private backToLobby(): void {
     const now = this.now();
-    // Die nächste Partie soll möglichst andere Minispiele bringen (CHAOS-85).
-    this.recentMinigames = [...this.game.playedMinigames];
+    // Die nächste Partie soll möglichst andere Minispiele bringen (CHAOS-85). Eine Übungsrunde
+    // aus der Galerie (CHAOS-87) zählt dafür nicht.
+    if (this.game && !this.game.practice) this.recentMinigames = [...this.game.playedMinigames];
     this.game = null;
+    this.currentVotes = null;
     this.pauseCause = null;
     this.hostReadyDeadline = null;
     this.phaseValue = 'lobby';
@@ -757,6 +800,17 @@ export class Session {
     this.lobbyDirty = true;
     this.awaitHostReady();
     this.sendBoardSnapshot(conn.id);
+    this.sendRatings(conn.id);
+  }
+
+  /**
+   * Daumen-Übersicht an den Host (CHAOS-87). Ohne gespeicherte Stimmen schweigt der Server: Der
+   * Host zeigt dann „noch keine Stimmen“.
+   */
+  private sendRatings(to: ConnectionId): void {
+    const games = summarizeRatings(this.ratings.votes());
+    if (games.length === 0) return;
+    this.send(to, createMessage('ratings', { games }));
   }
 
   private join(conn: Connection, message: JoinMessage, now: number): void {
@@ -895,6 +949,11 @@ export class Session {
       return;
     }
 
+    if (message.type === 'rate') {
+      this.vote(conn, player, message);
+      return;
+    }
+
     if (this.game?.paused) {
       // Pause (ADR-015): Minispiel-Eingaben gehen nicht an den Host.
       this.reject(conn, 'paused', 'Spiel ist pausiert', seq);
@@ -915,6 +974,48 @@ export class Session {
       return;
     }
     this.send(this.hostId, createMessage('input', { intent: toIntent(message), at: now }));
+  }
+
+  /**
+   * Daumen hoch/runter (CHAOS-87): nur solange die Ergebnisanzeige des Minispiels läuft (der
+   * Kontext bietet `rate` an). Es wartet nichts darauf – die Frist der Anzeige läuft weiter.
+   * Erneutes Abstimmen ersetzt die Stimme.
+   */
+  private vote(conn: Connection, player: Player, message: RateMessage): void {
+    const { seq } = message;
+    if (!this.contextFor(player).actions.includes('rate')) {
+      this.reject(conn, 'out-of-phase', 'Gerade gibt es nichts zu bewerten', seq);
+      return;
+    }
+    const minigame = this.game?.state.minigame;
+    if (!this.game || minigame?.id !== message.minigameId || minigame.round !== message.round) {
+      this.reject(conn, 'invalid-choice', 'Stimme passt nicht zum letzten Minispiel', seq);
+      return;
+    }
+    if (!conn.seq.accept(seq)) {
+      this.reject(conn, 'stale-seq', 'Veraltete Sequenznummer', seq);
+      return;
+    }
+    const play = `${this.sessionKey}:${String(this.gameCount)}:${String(minigame.round)}`;
+    if (this.currentVotes?.play !== play) this.currentVotes = { play, bySlot: new Map() };
+    if (this.currentVotes.bySlot.get(player.slot) === message.vote) return;
+    this.currentVotes.bySlot.set(player.slot, message.vote);
+    this.ratings.record({
+      play,
+      slot: player.slot,
+      minigameId: minigame.id,
+      vote: message.vote,
+      practice: this.game.practice,
+    });
+    if (this.hostId !== null) this.sendRatings(this.hostId);
+  }
+
+  /** Eigene Stimme zum laufenden Minispiel-Lauf (CHAOS-87) oder `undefined`. */
+  private voteOf(slot: SlotNumber): Vote | undefined {
+    const minigame = this.game?.state.minigame;
+    if (!minigame || !this.currentVotes) return undefined;
+    const play = `${this.sessionKey}:${String(this.gameCount)}:${String(minigame.round)}`;
+    return this.currentVotes.play === play ? this.currentVotes.bySlot.get(slot) : undefined;
   }
 
   /**
@@ -968,10 +1069,22 @@ export class Session {
       this.reject(host, 'out-of-phase', 'Mindestens ein verbundener Spieler nötig');
       return;
     }
+    const mode = message.mode ?? 'board';
+    const practice = message.practice === undefined ? undefined : catalogMinigame(message.practice);
+    if (message.practice !== undefined && (practice === undefined || mode !== 'board')) {
+      this.reject(
+        host,
+        'bad-message',
+        practice === undefined
+          ? `Unbekanntes Minispiel: ${message.practice}`
+          : 'Übungsrunde nur im Brettmodus',
+      );
+      return;
+    }
     if (message.rounds !== undefined) this.rounds = message.rounds;
     this.assignCharacters(connected);
-    if ((message.mode ?? 'board') === 'board') {
-      this.startBoardGame(connected, this.rounds);
+    if (mode === 'board') {
+      this.startBoardGame(connected, practice === undefined ? this.rounds : 1, practice);
     } else {
       this.phaseValue = 'play';
     }
@@ -985,14 +1098,22 @@ export class Session {
    * Brettspiel mit allen verbundenen Spielern starten (M2). Reservierte, aber getrennte
    * Slots spielen nicht mit; ihre Controller sehen nach dem Wiederverbinden „warten“.
    */
-  private startBoardGame(players: Player[], rounds: number): void {
+  private startBoardGame(
+    players: Player[],
+    rounds: number,
+    practice?: BoardGameSettings['minigames'][number],
+  ): void {
     const seed = this.gameSettings.seed ?? this.randomSeed();
-    const settings = {
+    const settings: BoardGameSettings = {
       ...this.gameSettings,
       boardId: resolveBoardChoice(this.board, seed).id,
       rounds,
       rules: rulesForGame(this.gameSettings.rules, this.moreReactionTime),
-      minigameRotation: this.rotationOptions(players),
+      // Übungsrunde (CHAOS-87): nur dieses Minispiel, ohne Filter der Rotation (Spielerzahl,
+      // Sperrliste): In der Galerie lässt sich jedes Spiel üben.
+      ...(practice === undefined
+        ? { minigameRotation: this.rotationOptions(players) }
+        : { minigames: [practice], practice: true }),
     };
     const game = new BoardGame(
       players.map((player) => ({
@@ -1006,6 +1127,8 @@ export class Session {
     const started = game.apply({ type: 'start', at: this.now() });
     if (!started.ok) throw new Error(`Spielstart abgelehnt: ${started.error.message}`);
     this.game = game;
+    this.gameCount += 1;
+    this.currentVotes = null;
     this.phaseValue = 'board';
     this.contextKeys.clear();
     this.onGameStart?.({
@@ -1013,6 +1136,7 @@ export class Session {
       rounds: settings.rounds,
       boardId: settings.boardId,
       slots: players.map((p) => p.slot),
+      ...(practice === undefined ? {} : { practice: practice.id }),
     });
   }
 
@@ -1334,6 +1458,16 @@ export class Session {
     if (minigame?.stage === 'play') {
       return { layout: 'joystick-buttons', actions: game.minigameActions(), board, minigame };
     }
+    if (minigame?.stage === 'results') {
+      // Daumen (CHAOS-87): freiwillig, nur in der Ergebnisanzeige; die eigene Stimme steht dabei.
+      const vote = this.voteOf(slot);
+      return {
+        layout: 'board',
+        actions: ['rate'],
+        board,
+        minigame: vote === undefined ? minigame : { ...minigame, vote },
+      };
+    }
     if (minigame) {
       // CHAOS-214: In der Anleitung „Bereit“ anbieten, bis dieser Slot gedrückt hat.
       const actions: SlotContext['actions'] = game.awaitsReady(slot) ? ['ready'] : [];
@@ -1433,6 +1567,8 @@ export class Session {
     // `out` und `lobbyDirty` sind zwischen Ereignissen immer leer bzw. false.
     try {
       handler();
+      // Übungsrunde (CHAOS-87) vorbei – regulär oder per `end-game`: gleich zurück in die Lobby.
+      if (this.game?.practice && this.game.finished) this.backToLobby();
       this.syncContexts();
     } catch (error) {
       this.logError(error);

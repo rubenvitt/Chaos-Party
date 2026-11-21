@@ -71,6 +71,11 @@ export interface BoardGameSettings {
    * Fehlt = aus.
    */
   readonly moreReactionTime?: boolean | undefined;
+  /**
+   * Übungsrunde der Minispiel-Galerie (CHAOS-87): `minigames` enthält genau das eine Spiel,
+   * `rounds` ist 1. Nur in `BoardGame`, die Session setzt es beim Start mit `start.practice`.
+   */
+  readonly practice?: boolean | undefined;
 }
 
 /**
@@ -144,6 +149,12 @@ export function catalogMinigames(): MinigameSpec[] {
   return rotationInfos().map(minigameSpecOf);
 }
 
+/** Spezifikation eines Minispiels aus dem Katalog (Übungsrunde, CHAOS-87) oder `undefined`. */
+export function catalogMinigame(id: string): MinigameSpec | undefined {
+  const info = getMinigameInfo(id);
+  return info ? minigameSpecOf(info) : undefined;
+}
+
 export const DEFAULT_GAME_SETTINGS: BoardGameSettings = {
   rounds: DEFAULT_ROUNDS,
   rules: DEFAULT_RULES,
@@ -205,10 +216,16 @@ export class BoardGame {
       seed,
       players: players.map((player) => ({ slot: player.slot, name: player.name })),
       minigames: settings.minigames,
+      ...(settings.practice === true ? { practice: true } : {}),
       ...(settings.minigameRotation === undefined
         ? {}
         : { minigameRotation: settings.minigameRotation }),
     });
+  }
+
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87). */
+  get practice(): boolean {
+    return this.stateValue.config.practice === true;
   }
 
   get state(): GameState {
@@ -342,6 +359,7 @@ export class BoardGame {
         : null,
       paused: state.paused,
       endedEarly: state.endedEarly,
+      ...(this.practice ? { practice: true } : {}),
     };
   }
 
@@ -385,6 +403,7 @@ export class BoardGame {
       ...(prizes && prizes.length > 0 ? { prizes: [...prizes] } : {}),
       // CHAOS-66: lief schon in dieser Partie → kurzes Intro (nur Titel und Bedienlegende).
       repeat: minigame.repeat,
+      ...(this.practice ? { practice: true } : {}),
       // CHAOS-214: Anleitung wartet auf „Bereit“ – eigener Stand.
       ...(stage === 'intro' && minigame.ready ? { ready: minigame.ready.includes(slot) } : {}),
     };

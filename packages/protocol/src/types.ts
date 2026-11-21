@@ -60,6 +60,9 @@ import type {
   PromptSchema,
   RankingEntrySchema,
   ReactionMessageSchema,
+  RateMessageSchema,
+  RatingsMessageSchema,
+  MinigameRatingSchema,
   ReadyMessageSchema,
   ReconnectMessageSchema,
   ReleaseMessageSchema,
@@ -67,6 +70,7 @@ import type {
   ServerToControllerMessageSchema,
   ServerToHostMessageSchema,
   StartMessageSchema,
+  VOTES,
   WelcomeMessageSchema,
 } from './schemas.ts';
 
@@ -84,6 +88,7 @@ export type PromptKindName = (typeof PROMPT_KINDS)[number];
 export type BoardEventKindName = (typeof BOARD_EVENT_KINDS)[number];
 export type CoinReasonName = (typeof COIN_REASONS)[number];
 export type RankingCriterion = (typeof RANKING_CRITERIA)[number];
+export type Vote = (typeof VOTES)[number];
 
 // Controller → Server
 export type JoinMessage = z.infer<typeof JoinMessageSchema>;
@@ -96,6 +101,7 @@ export type GestureMessage = z.infer<typeof GestureMessageSchema>;
 export type ReactionMessage = z.infer<typeof ReactionMessageSchema>;
 export type ChooseMessage = z.infer<typeof ChooseMessageSchema>;
 export type PickCharacterMessage = z.infer<typeof PickCharacterMessageSchema>;
+export type RateMessage = z.infer<typeof RateMessageSchema>;
 export type HeartbeatMessage = z.infer<typeof HeartbeatMessageSchema>;
 export type ControllerMessage = z.infer<typeof ControllerMessageSchema>;
 
@@ -148,6 +154,8 @@ export type BoardEvent = z.infer<typeof BoardEventSchema>;
 export type BoardMessage = z.infer<typeof BoardMessageSchema>;
 export type MinigameRewardInfo = z.infer<typeof MinigameRewardSchema>;
 export type MinigameResultAckMessage = z.infer<typeof MinigameResultAckMessageSchema>;
+export type MinigameRating = z.infer<typeof MinigameRatingSchema>;
+export type RatingsMessage = z.infer<typeof RatingsMessageSchema>;
 export type ServerToHostMessage = z.infer<typeof ServerToHostMessageSchema>;
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

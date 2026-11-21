@@ -81,6 +81,8 @@ export const COIN_REASONS = [
   'tailwind',
 ] as const;
 export const BUTTONS = ['a', 'b'] as const;
+/** Daumen nach einem Minispiel (v4-Nachtrag CHAOS-87). */
+export const VOTES = ['up', 'down'] as const;
 export const GESTURE_KINDS = ['swipe-up', 'swipe-down', 'swipe-left', 'swipe-right'] as const;
 /** Was ein Controller-Slot in der aktuellen Phase anbieten soll. */
 export const ACTIONS = [
@@ -93,6 +95,8 @@ export const ACTIONS = [
   'choose',
   /** Lobby (v4): Figur wählen bzw. umwählen (`pick-character`). */
   'pick-character',
+  /** v4-Nachtrag (CHAOS-87): Daumen hoch/runter nach dem Minispiel (`rate`). */
+  'rate',
 ] as const;
 /** Bildschirmaufbau eines Controller-Slots. `board` = Brettphase (Status + ggf. Prompt). */
 export const LAYOUTS = ['wait', 'lobby', 'joystick-buttons', 'board'] as const;
@@ -135,6 +139,7 @@ export const ItemKindSchema = z.enum(ITEM_KINDS);
 export const PromptKindSchema = z.enum(PROMPT_KINDS);
 export const BoardEventKindSchema = z.enum(BOARD_EVENT_KINDS);
 export const CoinReasonSchema = z.enum(COIN_REASONS);
+export const VoteSchema = z.enum(VOTES);
 /** Figuren-ID (v4, Quelle `./characters.ts`). */
 export const CharacterIdSchema = z.enum(CHARACTER_IDS);
 /**
@@ -301,6 +306,16 @@ export const ControllerMinigameInfoSchema = z.strictObject({
    * (feste Anleitungszeit, ältere Server).
    */
   ready: z.boolean().optional(),
+  /**
+   * v4-Nachtrag (CHAOS-87, optional): Übungsrunde aus der Minispiel-Galerie (keine Münzen).
+   * Fehlt = `false`.
+   */
+  practice: z.boolean().optional(),
+  /**
+   * v4-Nachtrag (CHAOS-87, optional), nur in `results`: eigene Daumen-Stimme zu diesem Lauf.
+   * Fehlt = noch nicht abgestimmt. Abstimmen geht, solange `actions` `rate` enthält.
+   */
+  vote: VoteSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -430,6 +445,21 @@ export const PickCharacterMessageSchema = z.strictObject({
   character: CharacterIdSchema,
 });
 
+/**
+ * Daumen hoch/runter zum gerade beendeten Minispiel (v4-Nachtrag CHAOS-87). Freiwillig und nur,
+ * solange der Kontext `rate` anbietet (Ergebnisanzeige). Erneut senden ändert die Stimme.
+ * `minigameId` und `round` benennen den Lauf; passen sie nicht, antwortet der Server mit
+ * `invalid-choice`.
+ */
+export const RateMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('rate'),
+  ...slotSeq,
+  minigameId: MinigameIdSchema,
+  round: CountSchema,
+  vote: VoteSchema,
+});
+
 /** Herzschlag von Controller oder Host. `t` ist die Client-Uhr und wird nur zurückgespiegelt (B8). */
 export const HeartbeatMessageSchema = z.strictObject({
   v: VersionSchema,
@@ -448,6 +478,7 @@ const controllerMessageOptions = [
   ReactionMessageSchema,
   ChooseMessageSchema,
   PickCharacterMessageSchema,
+  RateMessageSchema,
   HeartbeatMessageSchema,
 ] as const;
 
@@ -480,6 +511,12 @@ export const StartMessageSchema = z.strictObject({
   mode: GameModeSchema.optional(),
   /** Rundenzahl des Brettspiels (fehlt = Lobby-Einstellung, siehe `configure`). */
   rounds: RoundsSchema.optional(),
+  /**
+   * v4-Nachtrag (CHAOS-87, optional): Übungsrunde aus der Minispiel-Galerie – nur dieses
+   * Minispiel, ohne Brett und Münzen, danach zurück in die Lobby. Nur mit `mode` `board`
+   * (oder ohne). Ein unbekanntes Minispiel lehnt der Server mit `bad-message` ab.
+   */
+  practice: MinigameIdSchema.optional(),
 });
 
 /**
@@ -964,6 +1001,11 @@ export const BoardViewSchema = z.strictObject({
         .optional(),
     })
     .nullable(),
+  /**
+   * v4-Nachtrag (CHAOS-87, optional): Übungsrunde aus der Minispiel-Galerie (ein Minispiel, keine
+   * Münzen; nach dem Ergebnis geht es zurück in die Lobby). Fehlt = `false`.
+   */
+  practice: z.boolean().optional(),
   /** v4: Partie pausiert; Restzeiten stehen still (`remainingMs`, `prompt`, Minispiel). */
   paused: z.boolean(),
   /** v4: Partie wurde vorzeitig beendet (nur in `game-results` `true`). */
@@ -1090,11 +1132,33 @@ export const MinigameResultAckMessageSchema = z.strictObject({
   code: ErrorCodeSchema.optional(),
 });
 
+/** Höchstzahl Minispiele in `ratings` (Katalog-Ziel ~200, mit Luft). */
+export const MAX_RATED_MINIGAMES = 512;
+
+/** Stimmen eines Minispiels (v4-Nachtrag CHAOS-87). */
+export const MinigameRatingSchema = z.strictObject({
+  id: MinigameIdSchema,
+  up: CountSchema,
+  down: CountSchema,
+});
+
+/**
+ * Daumen-Übersicht für die Minispiel-Galerie (v4-Nachtrag CHAOS-87): alle gespeicherten Stimmen
+ * je Minispiel (nur Minispiele mit mindestens einer Stimme). Der Server schickt sie nach
+ * `host-hello` und nach jeder angenommenen Stimme.
+ */
+export const RatingsMessageSchema = z.strictObject({
+  v: VersionSchema,
+  type: z.literal('ratings'),
+  games: z.array(MinigameRatingSchema).max(MAX_RATED_MINIGAMES),
+});
+
 export const ServerToHostMessageSchema = z.discriminatedUnion('type', [
   LobbyMessageSchema,
   BoardMessageSchema,
   InputMessageSchema,
   MinigameResultAckMessageSchema,
+  RatingsMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
 ]);
@@ -1107,6 +1171,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   BoardMessageSchema,
   InputMessageSchema,
   MinigameResultAckMessageSchema,
+  RatingsMessageSchema,
   ErrorMessageSchema,
   HeartbeatAckMessageSchema,
 ]);

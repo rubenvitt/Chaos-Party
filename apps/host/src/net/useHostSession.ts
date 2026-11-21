@@ -1,4 +1,4 @@
-import type { LobbyMessage, MinigameResultAckMessage } from '@chaos-party/protocol';
+import type { LobbyMessage, MinigameRating, MinigameResultAckMessage } from '@chaos-party/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createBoardDirector, type BoardDirector } from '../board/director.ts';
 import { createIntentHub, type IntentHub } from '../input/webSocketInputSource.ts';
@@ -48,7 +48,11 @@ export interface HostSession {
    * Server `host-ready`, der dann eine Auto-Pause nach Host-Verlust fortsetzt. Stabile Referenz.
    */
   readonly setSceneReady: (ready: boolean) => void;
+  /** Daumen je Minispiel laut Server (CHAOS-87); leer, solange keine Stimmen da sind. */
+  readonly ratings: readonly MinigameRating[];
 }
+
+const NO_RATINGS: readonly MinigameRating[] = [];
 
 /**
  * Hält die Server-Verbindung des Hosts (React-Seite von `connectHost`).
@@ -64,6 +68,7 @@ export function useHostSession(url: string | null): HostSession {
   const [status, setStatus] = useState<ConnectionStatus | null>(url === null ? null : 'connecting');
   const [lobby, setLobby] = useState<LobbyMessage | null>(null);
   const [resultAck, setResultAck] = useState<MinigameResultAckMessage | null>(null);
+  const [ratings, setRatings] = useState<readonly MinigameRating[]>(NO_RATINGS);
 
   useEffect(() => {
     if (url === null) return;
@@ -94,6 +99,9 @@ export function useHostSession(url: string | null): HostSession {
           );
         results.onAck(ack);
         setResultAck(ack);
+      },
+      onRatings: (message) => {
+        setRatings(message.games);
       },
     });
     connectionRef.current = connection;
@@ -139,5 +147,6 @@ export function useHostSession(url: string | null): HostSession {
     command,
     resultAck,
     setSceneReady,
+    ratings,
   };
 }

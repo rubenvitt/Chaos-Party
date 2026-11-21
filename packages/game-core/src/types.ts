@@ -284,6 +284,12 @@ export interface GameConfig {
    * bis alle dran waren). Leer oder fehlend = Platzhalter aus M2 (Rangfolge per Seed).
    */
   readonly minigames?: readonly MinigameSpec[];
+  /**
+   * Übungsmodus der Minispiel-Galerie (CHAOS-87): Die Partie besteht nur aus dem einen
+   * Minispiel in `minigames` – kein Brettzug, keine Münzen, keine Siege, keine Items. Nach dem
+   * Ergebnis endet sie (`game-results`). Verlangt genau ein Minispiel und `rounds: 1`.
+   */
+  readonly practice?: boolean;
   /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85). */
   readonly minigameRotation?: MinigameRotationOptions;
 }
@@ -508,6 +514,8 @@ export interface GameState {
     readonly seed: number;
     /** Minispiele der Partie (leer = Platzhalter). */
     readonly minigames: readonly MinigameSpec[];
+    /** Übungsmodus der Galerie (CHAOS-87, siehe `GameConfig.practice`). Fehlt = `false`. */
+    readonly practice?: boolean;
     /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85); fehlt = keine. */
     readonly minigameRotation?: MinigameRotationOptions;
   };

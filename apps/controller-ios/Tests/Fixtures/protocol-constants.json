@@ -28,7 +28,8 @@
       "gesture",
       "reaction",
       "choose",
-      "pick-character"
+      "pick-character",
+      "rate"
     ],
     "feedbackKinds": [
       "confirm",
