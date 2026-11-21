@@ -2607,6 +2607,31 @@ Feinabstimmung innerhalb von C:
 
 **Entscheidung:** **Behalten**, mit 12 empfohlenen Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §41): Ist die Stellung des Karussells am Fernseher klar, und fühlt sich die Ehrenrunde lustig oder ärgerlich an?
 
+## EXP-035: Echte Klänge statt Synthese (2026-11-20, CHAOS-223)
+
+**Hypothese / gewünschtes Spielerlebnis:** Echte Aufnahmen (Würfelklappern, Boing, Platschen, Fanfare, Jubel) machen die Partie am Fernseher lebendig und cartoonig. Die prozeduralen Rezepte (CHAOS-33) klangen nach Piepsen. Ruben nach einer Partie auf der Apple TV (2026-11-20): „Wir brauchen dringend VIEL BESSERE Töne. Das ist ja grauenhaft so.“
+
+**Varianten:**
+- **A (bisher):** 35 Rezepte aus Oszillator und Rauschen (`apps/host/src/fx/sounds.ts`), Synthese per WebAudio bzw. AVAudioEngine.
+- **B (gewählt):** CC0-Aufnahmen. Kenney-Pakete (Casino: Würfel; Interface: Bestätigen, Fehler, Glas, Pause/Weiter; Impact: Holz, Treffer; RPG: Münzbeutel; Music Jingles: Pizzicato-Läufe für Zugbeginn, Minispiel-Zeit, Münzverlust, ein Saxofon-Lauf abwärts für die Finte) und freesound.org für das, was Kenney nicht hat (Boing, Platschen, Wusch, Plopp, Münze, Trillerpfeife, Lotusflöte, Jubel, Fanfaren, Mausefalle). Je häufigem Klang zwei bis drei Varianten reihum, dazu ±2–10 % Tonhöhen-Streuung.
+- **Verworfen:** Kenney „Voiceover Pack“ (englische Ansagen „Go!“, „You win“) passt nicht zu deutschen Texten. Kenney „Digital Audio“ und „Sci-Fi Sounds“ klingen nach Weltraum, nicht nach Picknick. Sonniss-, BBC- und Pixabay-Sammlungen sind nicht CC0 und dürfen nicht als Rohdatei in ein öffentliches Repository.
+
+**Auswahl ohne Ohr:** Claude kann nicht hören. Grundlage waren Titel, Beschreibung und Downloadzahl auf freesound.org, die Paketstruktur bei Kenney und eine grobe Tonhöhen-Kontur der Jingles (dominante Frequenz je 50 ms): aufsteigend (+5 bis +9 Halbtöne) für Zugbeginn und Minispiel-Zeit, fallend (−9) für Münzverlust. Das Urteil liegt bei Ruben.
+
+**Objektive Messgrößen:** Dauer je Datei (häufige Klänge ≤ 0,3–0,6 s, längste 1,9 s), Spitzenpegel ≤ −0,1 dBFS, Effektivpegel nach dem Import (Ziel −18 dBFS, Würfel und Münzbeutel wegen Pausen zwischen den Anschlägen −21 bis −30 dBFS), Größe (40 Dateien, rund 310 KiB), verworfene Klänge je Minispiel (Logzeile „Minispiel-Klänge …: n gespielt, m verworfen“), Ladezeit der Dateien in Swift (Log „Klang-Dateien: n geladen in … ms“).
+
+**Subjektive Playtest-Fragen (für Ruben):** Klingt es jetzt nach Partyspiel? Welche Klänge nerven nach zehn Runden (Zugbeginn, Münzen, Würfel)? Ist etwas zu laut oder zu leise im Verhältnis? Passt die Trillerpfeife zum Minispiel-Start? Sind Jubel und Fanfare zu lang?
+
+**Testumgebung:** MacBook (Apple Silicon), Import mit ffmpeg 8 und libmp3lame (VBR q3, mono 44,1 kHz), Branch `claude/chaos-223-klaenge`. Unit-Tests `apps/host/src/fx/samples.test.ts`, `audio.test.ts`, `apps/apple-host/test/soundCue.test.ts`; Mac-App mit `--selftest` und Bot-Partie.
+
+**Ergebnisse:**
+- Mac-App (Release, `--autostart --runden=3`, vier Bots mit `--bunt`): „Klang-Dateien: 40 geladen in 126 ms“ (Hintergrund-Queue). Alle Minispiel-Klänge kamen aus Dateien, keiner wurde verworfen: Sockenregen 114 (whoosh×69, coin×20, bump×17), Kuckucks-Klatsche 223 (pop×46, tick×49, bump×35), Pudding-Gerangel 134 (whoosh×33, splash×31, pop×30).
+- Befund: Kuckucks-Klatsche spielt `lose` bei jeder Finte (8× in einem Spiel). Die erste Wahl, ein 1,9 s langes „Wah-wah-wah“ (freesound 835112), wäre dort nervig gewesen. Ersetzt durch einen Saxofon-Lauf abwärts (Kenney `jingles_SAX01`, 0,84 s), Test-Grenze für `lose` 1,2 s.
+- `--selftest` meldet 40 Klang-Dateien, Browser-Build und Apple-Host-Bündel im Budget (Apple-Host-Bündel enthält nur die Dateinamen, keine Tondaten).
+- Hörprobe alt gegen neu als Seite: https://claude.ai/artifact/WvAV3q58ah5VLnCRWTLMj7
+
+**Entscheidung:** B behalten, vorbehaltlich Rubens Hörprobe am Fernseher (Gerätecheckliste §44). Einzelne Klänge tauscht eine Zeile in `packages/assets/sounds.json`.
+
 ## EXP-036: Frostgipfel – Eis, Seilbahn und Lawinen (2026-11-20, CHAOS-198)
 
 **Hypothese / gewünschtes Spielerlebnis:** Ein zweites Themenbrett „Frostgipfel“ mit drei eigenen Mechaniken bringt Abwechslung, ohne die Wegwahl zu verzerren. Eisfelder sorgen für kleine Überraschungen (die Figur rutscht weiter, manchmal auf ein Minusfeld). Die Lawine ist eine angekündigte Gefahr: Wer in der Warnrunde am Hang stehen bleibt, verliert Münzen. Die Seilbahn ist eine teure Abkürzung, die sich gezielt lohnt (Trophäe vorn), aber nicht immer.
