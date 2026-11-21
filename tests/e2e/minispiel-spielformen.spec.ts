@@ -82,6 +82,8 @@ test.describe('Spielformen mit Teams (CHAOS-89)', () => {
     await expect(host.getByTestId('minigame-team-1')).toContainText('Team Mond');
     await expect(host.getByTestId('minigame-intro')).toHaveScreenshot(
       'spielform-2v2-anleitung.png',
+      // Mitglieder hängen an der Zufallszuteilung; Teams, Symbole und Anleitung bleiben im Bild.
+      { mask: [host.locator('.minigame-team-members')] },
     );
 
     for (const [index, phone] of phones.entries()) {
@@ -91,10 +93,13 @@ test.describe('Spielformen mit Teams (CHAOS-89)', () => {
       await expect(role).toHaveAttribute('data-role', 'team');
       await expect(role).toContainText(own === 0 ? 'Team Sonne' : 'Team Mond');
     }
-    const first = phones[0];
-    if (!first) throw new Error('kein Handy');
-    await expect(first.getByTestId('minigame-intro')).toHaveScreenshot(
+    // Die Zuteilung ist zufällig (Seed der Partie): Bild immer vom Handy in Team Sonne, die
+    // Namen von Mitspieler und Gegnern maskiert, damit es nicht an der Zuteilung hängt.
+    const sonne = phones[(teams?.teams[0]?.[0] ?? 1) - 1];
+    if (!sonne) throw new Error('kein Handy in Team Sonne');
+    await expect(sonne.getByTestId('minigame-intro')).toHaveScreenshot(
       'spielform-2v2-rolle-handy.png',
+      { mask: [sonne.locator('.minigame-team-role-text > span')] },
     );
 
     for (const phone of phones) {
