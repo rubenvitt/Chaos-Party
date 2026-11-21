@@ -105,7 +105,8 @@ export function wanderTrophy(ctx: Ctx, from?: string): void {
 
 /**
  * Schritte vorwärts von `from` bis `to` (mindestens 1: wer auf `to` steht, muss erst eine
- * Runde laufen). BFS über `next`; unerreichbar = `Infinity`.
+ * Runde laufen). BFS über `next`; unerreichbar = `Infinity`. Drehende Felder (Karussell,
+ * CHAOS-199) zählen mit allen Ausgängen: bis eine Figur dort ist, hat es sich oft weitergedreht.
  */
 export function stepsAhead(ctx: Ctx, from: string, to: string): number {
   const seen = new Set<string>();

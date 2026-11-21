@@ -423,6 +423,13 @@ export const BoardStateSchema = z.strictObject({
   sounds: z.array(SoundCueSchema),
   /** Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193). */
   light: LightSchema,
+  /**
+   * Fahrgeschäfte der Kulisse (CHAOS-199, `apps/host/src/board/rides.ts`): Knoten im USDZ
+   * (`karussell_dreh`, `riesenrad_rad`), Drehachse und Winkel in Babylon-Koordinaten (rad). Der
+   * Knoten steht im Export in Ruhe; Swift dreht ihn um `angle` um die Weltachse `axis`, relativ
+   * zur Ruhelage (Vorzeichen am Mac geprüft). Leer auf Brettern ohne Fahrgeschäfte.
+   */
+  rides: z.array(z.strictObject({ node: z.string(), axis: z.enum(['y', 'z']), angle: z.number() })),
 });
 
 /** Oberflächen aus `look.material` (`LookFinish` im minigame-sdk, CHAOS-62). */
@@ -573,6 +580,25 @@ export const MinigameResultRowSchema = z.strictObject({
   prizes: z.array(z.string()),
 });
 
+/** Ein Spieler in der Bereitschaft der Anleitung (CHAOS-214). */
+export const MinigameReadyPlayerSchema = z.strictObject({
+  ...playerLabel,
+  /** Hat auf dem Handy „Bereit!“ gedrückt. */
+  ready: z.boolean(),
+  connected: z.boolean(),
+  /** Anzeige: getrennt geht vor bereit (zählt beim Server als bereit), sonst wartend. */
+  state: z.enum(['ready', 'waiting', 'disconnected']),
+  /** „Bereit“, „Drückt Bereit …“ bzw. „getrennt“. */
+  text: z.string(),
+});
+
+/** `introReadiness` aus `apps/host/src/minigame/readiness.ts` (CHAOS-214). */
+export const MinigameReadinessSchema = z.strictObject({
+  /** „Alle bereit? Drückt „Bereit!“ auf dem Handy“ */
+  headline: z.string(),
+  players: z.array(MinigameReadyPlayerSchema),
+});
+
 /** `resultsDisplay` aus `apps/host/src/minigame/results.ts`. */
 export const MinigameResultsSchema = z.strictObject({
   aborted: z.boolean(),
@@ -595,8 +621,16 @@ export const MinigameStateSchema = z.strictObject({
   round: z.number().int().min(1),
   /** Lief in der Partie schon: kurze Anleitung (CHAOS-66). */
   repeat: z.boolean(),
-  /** Intro: ganze Sekunden bis zum Start, sonst `null`. */
+  /**
+   * Intro: ganze Sekunden bis zum Start, sonst `null`. Auch `null`, wenn die Anleitung auf
+   * „Bereit“ wartet (`readiness`, CHAOS-214): Dann gibt es keinen festen Start.
+   */
   countdown: z.number().int().min(0).nullable(),
+  /**
+   * CHAOS-214 (optional): Intro wartet auf „Bereit“ aller verbundenen Spieler; statt des
+   * Countdowns zeigt Swift diese Chips. Fehlt oder `null` = feste Anleitungszeit.
+   */
+  readiness: MinigameReadinessSchema.nullable().optional(),
   camera: MinigameCameraSchema.nullable(),
   backdrop: MinigameBackdropSchema.nullable(),
   figures: z.array(MinigameFigureSchema),
@@ -794,6 +828,7 @@ export type MinigameEffect = z.infer<typeof MinigameEffectSchema>;
 export type MinigameInfoView = z.infer<typeof MinigameInfoSchema>;
 export type MinigameScoreboard = z.infer<typeof MinigameScoreboardSchema>;
 export type MinigameResults = z.infer<typeof MinigameResultsSchema>;
+export type MinigameReadiness = z.infer<typeof MinigameReadinessSchema>;
 export type FinaleCard = z.infer<typeof FinaleCardSchema>;
 export type FinaleRank = z.infer<typeof FinaleRankSchema>;
 export type FinaleAward = z.infer<typeof FinaleAwardSchema>;

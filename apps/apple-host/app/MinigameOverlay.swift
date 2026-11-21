@@ -12,6 +12,8 @@ struct MinigameScreen: Equatable {
     var round: Int
     var isRepeat: Bool
     var countdown: Int?
+    /// CHAOS-214: Anleitung wartet auf „Bereit“; nil = fester Countdown.
+    var readiness: RenderState.Readiness?
     var scoreboard: RenderState.Scoreboard?
     var results: RenderState.Results?
 
@@ -23,6 +25,7 @@ struct MinigameScreen: Equatable {
         round = m.round ?? 0
         isRepeat = m.repeat ?? false
         countdown = m.countdown
+        readiness = m.readiness
         scoreboard = m.scoreboard
         results = m.results
     }
@@ -84,21 +87,80 @@ struct MinigameOverlayView: View {
                 }
             }
             controls
-            HStack(spacing: 18) {
-                ForEach(players.sorted { $0.slot < $1.slot }, id: \.slot) { player in
-                    HStack(spacing: 12) {
-                        badge(slot: player.slot, color: player.color)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(player.name ?? "Spieler \(player.slot)").font(.system(size: 26, weight: .heavy, design: .rounded))
-                            Text(player.character.flatMap { Self.names[$0] } ?? "").font(.system(size: 20, weight: .medium, design: .rounded))
-                                .foregroundStyle(Self.ink.opacity(0.7))
-                        }
+            if let readiness = screen.readiness {
+                readinessRow(readiness)
+            } else {
+                roster
+            }
+        }
+    }
+
+    /// Mitspieler ohne Bereitschaft (feste Anleitungszeit).
+    private var roster: some View {
+        HStack(spacing: 18) {
+            ForEach(players.sorted { $0.slot < $1.slot }, id: \.slot) { player in
+                HStack(spacing: 12) {
+                    badge(slot: player.slot, color: player.color)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(player.name ?? "Spieler \(player.slot)").font(.system(size: 26, weight: .heavy, design: .rounded))
+                        Text(player.character.flatMap { Self.names[$0] } ?? "").font(.system(size: 20, weight: .medium, design: .rounded))
+                            .foregroundStyle(Self.ink.opacity(0.7))
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(Color(platformColor(player.color ?? "#cccccc")).opacity(0.18), in: .rect(cornerRadius: 18))
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Color(platformColor(player.color ?? "#cccccc")).opacity(0.18), in: .rect(cornerRadius: 18))
+            }
+        }
+    }
+
+    private static let readyGreen = Color(red: 0x1f / 255, green: 0x9d / 255, blue: 0x55 / 255)
+
+    /// Bereitschaft (CHAOS-214) wie `ReadinessRow` im Browser-Host: Überschrift mit Zähler, je Spieler ein Chip mit
+    /// Häkchen + „Bereit“, „Drückt Bereit …“ oder „getrennt“. Kein Countdown (die Sicherheitsfrist ist keiner).
+    private func readinessRow(_ readiness: RenderState.Readiness) -> some View {
+        let list = (readiness.players ?? []).sorted { $0.slot < $1.slot }
+        let done = list.filter { $0.state != "waiting" }.count
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                Text(readiness.headline ?? "Alle bereit?").font(.system(size: 30, weight: .black, design: .rounded))
+                Text("\(done)/\(list.count)").font(.system(size: 24, weight: .black, design: .rounded)).monospacedDigit()
+                    .padding(.horizontal, 12).padding(.vertical, 2)
+                    .background(Color(red: 1, green: 0xd2 / 255, blue: 0x3f / 255), in: .rect(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Self.ink, lineWidth: 3))
+            }
+            HStack(spacing: 14) {
+                ForEach(list, id: \.slot) { player in
+                    readyChip(player)
                 }
             }
         }
+    }
+
+    private func readyChip(_ player: RenderState.ReadyPlayer) -> some View {
+        let state = player.state ?? (player.connected == false ? "disconnected" : player.ready == true ? "ready" : "waiting")
+        let isReady = state == "ready"
+        let mark = isReady ? "✓ " : state == "disconnected" ? "⚠ " : ""
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                badge(slot: player.slot, color: player.color, symbol: player.symbol)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(player.name ?? "Spieler \(player.slot)").font(.system(size: 24, weight: .heavy, design: .rounded)).lineLimit(1)
+                    Text(player.character ?? "").font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundStyle(Self.ink.opacity(0.7))
+                }
+            }
+            Text(mark + (player.text ?? "")).font(.system(size: 20, weight: .black, design: .rounded))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(isReady ? Self.readyGreen : Self.ink.opacity(0.08), in: .rect(cornerRadius: 12))
+                .foregroundStyle(isReady ? Color.white : Self.ink)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(width: 252, alignment: .leading)
+        .background(isReady ? Self.readyGreen.opacity(0.12) : Color.white, in: .rect(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20)
+            .stroke(isReady ? Self.readyGreen : Color(platformColor(player.color ?? "#888888")), lineWidth: 4))
+        .opacity(state == "disconnected" ? 0.6 : 1)
     }
 
     private var controls: some View {

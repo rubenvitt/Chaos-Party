@@ -2570,7 +2570,44 @@ Feinabstimmung innerhalb von C:
 
 **Offen für Playtest:** Der menschliche Spieltest am Fernseher (PC-Host und Apple TV) steht aus: Nähe, Tempo, Übelkeit und ob man die anderen Figuren vermisst. Randmarker für Figuren außerhalb des Bilds gibt es noch nicht. Betroffene Figuren werden stattdessen eingepasst; Folgeaufgabe CHAOS-210.
 
-## EXP-034: Echte Klänge statt Synthese (2026-11-20, CHAOS-223)
+## EXP-034: Rummelplatz – Karussell dreht den Weg (2026-11-20, CHAOS-199)
+
+**Hypothese / gewünschtes Spielerlebnis:** Ein drittes, großes Brett mit eigenem Thema bringt Abwechslung. Das Karussell in der Mitte ändert jede Runde, wohin seine Abkürzung führt. Spieler sehen die Stellung (Tor am Karussell, Zusatz an der Wegwahl) und planen danach. Die Wegwahl bleibt fair: Kein Weg gewinnt deutlich öfter, alle Trophäen-Kandidaten kommen ins Spiel.
+
+**Varianten:**
+- **Drehung je Runde, fest reihum (gewählt, ADR-022):** West (Spiegelkabinett) → Süd (Abkürzung zum Startplatz) → Ost (Ehrenrunde zurück in die Geisterbahn). Planbar, ohne Protokolländerung.
+- Drehung per Zufall je Runde: verworfen, nicht planbar.
+- Karussell als normale Gabel mit wechselnden Optionen: verworfen, dann entscheidet der Spieler statt des Karussells.
+- Losbude als neuer Feldtyp: zurückgestellt. Ein neuer `SpaceKind` hätte Protokoll, Controller und beide Hosts berührt. Die Losbudengasse ist stattdessen der Glücksweg (fünf Item- und zwei Ereignisfelder auf zehn Feldern).
+
+**Layout:** 81 Felder auf ≈ 44 × 24, drei Gabeln (Riesenradweg 10 / Geisterbahn 7 Felder, Zuckerwattenallee / Karussell, Losbudengasse 10 / Spiegelkabinett 7), neun Trophäen-Kandidaten, Runde über den Start 43–49 Felder (über das Karussell nach Westen 41–44), Schleife über das Karussell nach Süden 28–31.
+
+**Objektive Messgrößen:** gekaufte Trophäen je Partie, Abstand Platz 1/2 (Trophäen), gekaufte Kandidaten, Wegwahlen, Karussell-Ausfahrten, Siegquote nach Anteil riskanter Wege (Geisterbahn, Spiegelkabinett, Karussell bzw. im Wackelwald Sumpf und Brücke; Spieler unter/über dem Median).
+
+**Testumgebung:** `simulateGame` mit `DEFAULT_RULES`, 4 Bots, Seeds 1–300 je Zeile, MacBook (Node 26). Skript wie in CHAOS-199 beschrieben (Zähler `trophySpacesBought`, `pathsChosen`, `pathChoices`, `rotationExits` in `SimulationResult`).
+
+**Ergebnisse:**
+
+| Brett | Runden | Dauer (min) | Trophäen | Abstand 1/2 | Kandidaten gekauft | Sieg wenig/viel riskant |
+|---|---|---|---|---|---|---|
+| Wackelwald | 10 | 9,2 | 7,5 | 0,83 | 6/6 | 21 % / 29 % |
+| Wackelwald | 12 | 11,0 | 9,8 | 1,10 | 6/6 | 21 % / 29 % |
+| Rummelplatz | 10 | 9,1 | 5,6 | 0,73 | 9/9 | 27 % / 23 % |
+| Rummelplatz | 12 | 10,9 | 7,6 | 0,85 | 9/9 | 26 % / 24 % |
+| Rummelplatz | 16 | 14,6 | 11,3 | 0,88 | 9/9 | 28 % / 23 % |
+
+- Auf dem größeren Brett liegen Trophäen weiter auseinander: Mit 12 Runden werden so viele gekauft wie im Wackelwald mit 10. Darum empfiehlt das Register 12 Runden (`recommendedRounds`).
+- Alle neun Kandidaten werden gekauft. Am seltensten s52 (Ende der Losbudengasse, 0,2 je Partie bei 10 Runden) und s73 (Süd-Ausfahrt, nur in jeder dritten Runde erreichbar, 0,37).
+- Wegwahl je Partie (10 Runden): Gabel A 2,3 / 2,3, Gabel B 2,1 oben / 2,2 Karussell, Gabel C 0,9 / 0,9. Gabel C sehen Bots seltener, weil zwei Karussell-Ausfahrten an ihr vorbeiführen.
+- Karussell-Ausfahrten je Partie: West 0,7, Süd 0,6, Ost 0,8, also gleich verteilt.
+- Fairness: Wer viel riskant fährt, gewinnt auf dem Rummelplatz 3–5 Prozentpunkte seltener, im Wackelwald 4–8 Punkte öfter. Beides ist klein gegen die Grundquote von 25 %. Kein Weg dominiert.
+- Ganze Partien laufen auf PC-Host (Chromium, Metal), Mac-App und im tvOS-Simulator (Apple TV 4K, 3. Generation; je vier Bots mit `--bunt`, drei Runden bis zum Siegerbild, alle Minispiel-Ergebnisse angenommen, keine `FEHLER`) ohne Fehler.
+- Apple-Host: Kulisse Rummelplatz lädt am Mac in ≈ 1,0 s, im tvOS-Simulator in 4,2 s (in der Lobby vorgeladen, parallel zum Aufwärmen). Speicher im Simulator in der Lobby (`footprint`): nur Wackelwald 354 MB, Wackelwald und Rummelplatz geladen 365 MB; RSS-Spitze während der Partie 619 MB (ohne Vergleichswert, andere Messart als CHAOS-191). Mit „Zufall“ und sieben Revanchen am Mac wechselte die Kulisse sechsmal in beide Richtungen ohne Neustart (CHAOS-212).
+- Ausfahrt-Tor im Apple-Host: Mit dem gerechneten Vorzeichen (`-angle` wegen der x-Spiegelung) zeigte es am Mac zum Gegen-Ausgang (Osten statt Westen in Runde 1). Mit `+angle` zeigt es im tvOS-Simulator richtig nach Westen. Bilder: [`chaos199-rummelplatz-pc-ueberblick.jpg`](screenshots/chaos199-rummelplatz-pc-ueberblick.jpg), [`chaos199-rummelplatz-pc-gabel.jpg`](screenshots/chaos199-rummelplatz-pc-gabel.jpg), [`chaos199-rummelplatz-mac.jpg`](screenshots/chaos199-rummelplatz-mac.jpg), [`chaos199-rummelplatz-apple-tv-sim.jpg`](screenshots/chaos199-rummelplatz-apple-tv-sim.jpg).
+
+**Entscheidung:** **Behalten**, mit 12 empfohlenen Runden. Die Zahlen sind Bot-Simulation, kein Spieltest. Offen für Ruben (Gerätecheckliste §41): Ist die Stellung des Karussells am Fernseher klar, und fühlt sich die Ehrenrunde lustig oder ärgerlich an?
+
+## EXP-035: Echte Klänge statt Synthese (2026-11-20, CHAOS-223)
 
 **Hypothese / gewünschtes Spielerlebnis:** Echte Aufnahmen (Würfelklappern, Boing, Platschen, Fanfare, Jubel) machen die Partie am Fernseher lebendig und cartoonig. Die prozeduralen Rezepte (CHAOS-33) klangen nach Piepsen. Ruben nach einer Partie auf der Apple TV (2026-11-20): „Wir brauchen dringend VIEL BESSERE Töne. Das ist ja grauenhaft so.“
 
@@ -2593,4 +2630,4 @@ Feinabstimmung innerhalb von C:
 - `--selftest` meldet 40 Klang-Dateien, Browser-Build und Apple-Host-Bündel im Budget (Apple-Host-Bündel enthält nur die Dateinamen, keine Tondaten).
 - Hörprobe alt gegen neu als Seite: https://claude.ai/artifact/WvAV3q58ah5VLnCRWTLMj7
 
-**Entscheidung:** B behalten, vorbehaltlich Rubens Hörprobe am Fernseher (Gerätecheckliste §39). Einzelne Klänge tauscht eine Zeile in `packages/assets/sounds.json`.
+**Entscheidung:** B behalten, vorbehaltlich Rubens Hörprobe am Fernseher (Gerätecheckliste §43). Einzelne Klänge tauscht eine Zeile in `packages/assets/sounds.json`.

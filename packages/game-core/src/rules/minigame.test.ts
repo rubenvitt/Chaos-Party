@@ -289,3 +289,87 @@ describe('Minispiele in den Regeln (M3)', () => {
     expect(() => game({ specs: [{ id: 'X', playMs: 5000, scoring: 'higher' }] })).toThrow();
   });
 });
+
+describe('Übungsmodus der Minispiel-Galerie (CHAOS-87)', () => {
+  function practice(players = 2) {
+    const rules = withRules(
+      {
+        economy: { minigameRewards: [10, 5, 3, 0] },
+        items: { startItems: 2, minigameWinItems: 1, minigameLastItems: 1 },
+        pacing: { ...ZERO_PACING, minigameIntroMs: INTRO, minigameResultsMs: RESULTS },
+      },
+      TEST_RULES,
+    );
+    const spec = SPECS[1];
+    if (!spec) throw new Error('Spezifikation fehlt');
+    return createGame({
+      board: loopBoard(['start', 'start', 'start', 'start']),
+      rules,
+      rounds: 1,
+      seed: 5,
+      players: ([1, 2, 3, 4] as const)
+        .slice(0, players)
+        .map((slot) => ({ slot, name: NAMES[slot - 1] ?? 'X' })),
+      minigames: [spec],
+      practice: true,
+    });
+  }
+
+  it('startet ohne Brettzug direkt mit der Anleitung des gewählten Minispiels', () => {
+    const started = start(practice(), 0);
+    expect(started.state.phase).toBe('minigame-intro');
+    expect(started.state.round).toBe(1);
+    expect(started.state.minigame?.id).toBe('wackel-floss');
+    expect(started.state.minigame?.repeat).toBe(false);
+    expect(started.state.config.practice).toBe(true);
+    // Keine Start-Items, kein Zug.
+    expect(started.state.players.every((p) => p.items.length === 0)).toBe(true);
+    expect(ofType(started.events, 'turn-started')).toHaveLength(0);
+  });
+
+  it('wertet ohne Münzen, Siege und Items und endet nach der Ergebnisanzeige', () => {
+    let state = start(practice(), 0).state;
+    const coins = state.players.map((p) => p.coins);
+    state = tick(state, INTRO).state;
+    expect(state.phase).toBe('minigame-play');
+    state = result(state, [
+      { slot: 2, place: 1, score: 9 },
+      { slot: 1, place: 2, score: 4 },
+    ]).state;
+    expect(state.phase).toBe('minigame-results');
+    expect(state.minigame?.placements?.map((p) => p.slot)).toEqual([2, 1]);
+    expect(state.minigame?.rewards).toEqual([
+      { slot: 2, coins: 0 },
+      { slot: 1, coins: 0 },
+    ]);
+    expect(state.players.map((p) => p.coins)).toEqual(coins);
+    expect(state.players.every((p) => p.minigameWins === 0 && p.items.length === 0)).toBe(true);
+    const ended = tick(state, state.resumeAt ?? state.now);
+    expect(ended.state.phase).toBe('game-results');
+    expect(ended.state.endedEarly).toBe(false);
+    expect(ofType(ended.events, 'round-ended')).toHaveLength(0);
+    expect(ofType(ended.events, 'game-ended')).toHaveLength(1);
+  });
+
+  it('bricht ohne Ergebnis nach der Frist ab und endet ebenfalls', () => {
+    let state = tick(start(practice(), 0).state, INTRO).state;
+    state = tick(state, INTRO + 30_000 + DEFAULT_MINIGAME_RESULT_GRACE_MS).state;
+    expect(state.phase).toBe('minigame-results');
+    expect(state.minigame?.aborted).toBe(true);
+    expect(tick(state, state.resumeAt ?? state.now).state.phase).toBe('game-results');
+  });
+
+  it('verlangt genau ein Minispiel und eine Runde', () => {
+    const base = {
+      board: loopBoard(['start', 'start']),
+      rules: TEST_RULES,
+      seed: 1,
+      players: [{ slot: 1 as const, name: 'A' }],
+      practice: true,
+    };
+    expect(() => createGame({ ...base, rounds: 1, minigames: SPECS })).toThrow(/genau ein/);
+    expect(() => createGame({ ...base, rounds: 2, minigames: SPECS.slice(0, 1) })).toThrow(
+      /eine Runde/,
+    );
+  });
+});

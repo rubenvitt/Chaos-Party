@@ -74,7 +74,11 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Bot-Profile** (Neuling, Normal, Profi, Störenfried) über eine gemeinsame Schnittstelle, damit jedes Spiel ohne Extra-Code in die Fairness-Messung kann.
 - **Highlights** aus Ereignissen („Rot wurde dreimal geplättet“) per Vorlage.
 
+**Umgesetzt (CHAOS-83, ADR-021):** Paket `packages/minigame-kit` (rein) und `@chaos-party/minigame-kit/babylon` (Optik). Sockenregen nutzt den Baukasten ohne Verhaltensänderung; das Muster-Minispiel „Hallo Baukasten“ (`packages/minigames/src/hallo-baukasten/`, nicht in der Rotation) zeigt die Aufteilung in 300 Zeilen. Die Steckbriefe aller Spiele stehen in `packages/minigames/src/steckbriefe.ts`, die Felder in ADR-020 §3.
+
 ### 5.2 Gemeinsame Prüfungen
+
+Umgesetzt in `CHAOS-84`; Regeln, Tische, Schwellen mit Begründung und Ausnahmen in [`pruefungen.md`](pruefungen.md), Messwerte in [`pruefbericht.md`](pruefbericht.md).
 
 - **Vertragstest für alle Spiele:** Ein Test läuft automatisch über `MINIGAME_INFOS` und prüft Textlängen, Dauer, Ende spätestens nach `durationMs`, Ergebnis mit allen Slots, 2/3/4 Spieler, Disconnect mitten im Spiel, Aufräumen der Szene.
 - **Bot-Fairness je Spiel:** gleiche Kennzahlen wie EXP-005/EXP-016 (Gleichstand, Abstand Platz 1–2, Siegquote Neuling, Eindringling-Test gegen Dauerdrücken). Schwellen gelten für alle, Ausnahmen werden begründet.
@@ -82,8 +86,8 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 
 ### 5.3 Definition of Done je Minispiel
 
-1. `info.ts` mit Anleitung ≤ 3 Zeilen, Bedienung, Dauer, Kategorie, Familie, Spielform.
-2. Logik rein und deterministisch (Seed), Unit-Tests für Wertung und Sonderfälle.
+1. `info.ts` mit Anleitung ≤ 3 Zeilen, Bedienung, Dauer, Kategorie, Familie, Spielform; Vielfalts-Steckbrief in `packages/minigames/src/steckbriefe.ts` (Felder: ADR-021 §3).
+2. Logik rein und deterministisch (Seed), Unit-Tests für Wertung und Sonderfälle. Unterbau aus dem Baukasten (`@chaos-party/minigame-kit`), Bot über `MinigameBot`/`BotMatchAdapter` (Muster: `hallo-baukasten/`).
 3. Besteht Vertragstest und Bot-Fairness-Schwellen.
 4. Läuft am geteilten iPad (Zone) bedienbar, sonst als „nur iPhone“ markiert und von der Rotation bei iPad-Zonen ausgeschlossen.
 5. Screenshot-Baseline, kurzer Eintrag im Katalog (Status, Zahlen).
@@ -99,6 +103,8 @@ Heute baut jedes Minispiel Arena, Spawner, Zeitanzeige, Punkte-Schilder, Highlig
 - **Spielbar:** mit Szene im Baukasten, über die **Minispiel-Galerie** am Host einzeln startbar (Übungsmodus).
 - **Rotation:** in echten Partien. Nach jedem Minispiel können alle am Controller **Daumen hoch / runter** geben. Die Stimmen werden lokal gesammelt; Spiele mit vielen Daumen runter fallen aus der Rotation und gehen zurück in den Trichter.
 
+**Umgesetzt (CHAOS-87, 2026-11-20):** Die Galerie steht in der PC-Lobby („Minispiel-Galerie“): alle Spiele mit Status (`rotation`/`spielbar`, abgeleitet aus `ROTATION` im Katalog), Kategorie, Familie (sobald CHAOS-85 sie in den Steckbrief bringt), Spielzeit, Bedienung und Daumen. „Üben“ startet eine Übungsrunde (`start.practice`): nur dieses Spiel, keine Münzen, Siege oder Items, danach zurück in die Lobby. Daumen gibt es am iPhone in der Ergebnisanzeige jedes Minispiels (Partie und Übung, Controller-Nachricht `rate`); nichts wartet darauf. Der Server speichert die Stimmen in `~/.chaos-party/minispiel-stimmen.json` (`STIMMEN_DATEI`), der Export liegt unter `/ratings.json`. Rauswurf-Vorschlag ab **6 Stimmen mit ≥ 60 % Daumen runter** (`packages/minigames/src/gallery.ts`); er gilt nur für Spiele der Rotation, entscheiden tut Ruben. Offen: Daumen in iPad-Zonen und in der nativen Controller-App, Galerie am Apple-Host.
+
 ### 5.5 Gegen Gleichförmigkeit
 
 Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Spiele „einem Muster folgen“. Die Fabrik ist nur dann freigegeben, wenn das nicht passiert. Darum gelten diese Regeln:
@@ -113,7 +119,7 @@ Rubens Sorge beim Konzept-Gate (2026-11-16): Mit einem Baukasten könnten die Sp
 
 ## 6. Folgen für den Rest des Spiels
 
-- **Rotation:** Bei 200 Spielen kommt in einer Partie (10–20 Runden) fast nie ein Spiel doppelt. Die Auswahl braucht: Ziehen ohne Wiederholung (auch über Partien hinweg), Mischen über die Achsen, Filter nach Spielerzahl und iPad-Zonen, Sperrliste/Favoriten.
+- **Rotation:** Bei 200 Spielen kommt in einer Partie (10–20 Runden) fast nie ein Spiel doppelt. Die Auswahl braucht: Ziehen ohne Wiederholung (auch über Partien hinweg), Mischen über die Achsen, Filter nach Spielerzahl und iPad-Zonen, Sperrliste/Favoriten. Umgesetzt in `CHAOS-85` (ADR-012 Nachtrag 6): Felder `family`, `minPlayers`/`maxPlayers`, `ipadZone`, `secretChoice` in `MinigameInfo`, Kernverb/Spielform/Bedienung aus dem Vielfalts-Steckbrief (ADR-021); Auswahl in `packages/game-core/src/rules/rotation.ts`; Sperrliste und Favoriten im Lobby-Dialog „Minispiele“ am PC.
 - **Anleitungen:** Bei vielen neuen Spielen ist fast jedes Spiel neu für die Runde. Kurze, klare Anleitung und eine **Probephase** (5 s üben vor dem Start) werden wichtiger als die verkürzte Anleitung bei Wiederholung (CHAOS-66).
 - **Assets:** Viele Spiele brauchen Requisiten (Toaster, Melone, Gießkanne). Weiter mit dem eigenen Blender-Skript-Generator (ADR-013) und CC0-Quellen; je Familie ein **Requisiten-Set**, keine Einzelanfertigung je Spiel. Umgesetzt in CHAOS-88: Art-Kit `packages/assets/blender/requisitkit.py`, Sets und Budget je Spiel in `packages/assets/src/props.ts`, Regeln in `docs/art-direction.md` („Requisiten der Minispiele“).
 - **Ladezeit und Bundle:** 200 Spiele dürfen den Host nicht aufblähen. Minispiel-Module werden **erst bei Bedarf geladen** (dynamischer Import je Spiel).

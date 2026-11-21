@@ -258,10 +258,11 @@ describe('Reconnect in jeder Phase (CHAOS-38)', () => {
     // Intro.
     h.runUntil((x) => x.gamePhase === 'minigame-intro');
     reconnectSlot(h, 2);
+    // CHAOS-214: Nach der Rückkehr wird „Bereit“ weiter angeboten.
     expect(context(h, 2)).toMatchObject({
       layout: 'board',
-      actions: [],
-      minigame: { id, stage: 'intro', aborted: false },
+      actions: ['ready'],
+      minigame: { id, stage: 'intro', aborted: false, ready: false },
     });
 
     // Spiel: getrennt während des Spiels, zurück mit Joystick/Knöpfen; Eingabe kommt an.
@@ -289,7 +290,8 @@ describe('Reconnect in jeder Phase (CHAOS-38)', () => {
     const own = lastView(h).minigame?.placements?.find((p) => p.slot === 2);
     expect(context(h, 2)).toMatchObject({
       layout: 'board',
-      actions: [],
+      // Daumen nach dem Minispiel (CHAOS-87) bleiben nach der Rückkehr möglich.
+      actions: ['rate'],
       minigame: { stage: 'results', place: own?.place, aborted: false },
     });
     expect(context(h, 2).minigame?.reward).toBeTypeOf('number');

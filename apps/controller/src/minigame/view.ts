@@ -14,17 +14,33 @@ import type {
   ControllerMinigameInfo,
   ItemKindName,
   MinigameControlsInfo,
+  Vote,
 } from '@chaos-party/protocol';
 import type { SlotContext } from '../state/reducer.ts';
 
 export type MinigameStage = ControllerMinigameInfo['stage'];
 
-/** Schlusszeile im Intro. */
+/** Schlusszeile im Intro (feste Anleitungszeit, ältere Server). */
 export const INTRO_READY = 'Gleich geht’s los!';
+/** Knopf in der Anleitung, wenn sie auf Bereitschaft wartet (CHAOS-214). */
+export const INTRO_READY_BUTTON = 'Bereit!';
+/** Bestätigung nach „Bereit!“ in der Anleitung (CHAOS-214), zweizeilig: Kopf und Hinweis. */
+export const INTRO_READY_DONE_HEAD = 'Bereit!';
+export const INTRO_READY_DONE_HINT = 'Warte auf die anderen …';
+export const INTRO_READY_DONE = `${INTRO_READY_DONE_HEAD} ${INTRO_READY_DONE_HINT}`;
+/**
+ * Schonfrist nach dem Erscheinen der Anleitung (CHAOS-214): So lange ist „Bereit!“ sichtbar
+ * gesperrt, damit ein Tipper vom vorigen Bildschirm (Würfeln, Wahl) nicht durchrutscht.
+ */
+export const INTRO_READY_GUARD_MS = 600;
 /** Kurzes Intro (CHAOS-66): Minispiel lief in der Partie schon, nur Titel und Bedienlegende. */
 export const REPEAT_KICKER = 'Nochmal!';
 /** Hinweis unter dem Ergebnis: Danach geht es am PC weiter. */
 export const RESULTS_LEAD = 'Gleich geht’s auf dem Brett weiter.';
+/** Hinweis unter dem Ergebnis einer Übungsrunde aus der Galerie (CHAOS-87). */
+export const PRACTICE_LEAD = 'Übungsrunde ohne Münzen – gleich geht’s zurück in die Lobby.';
+/** Frage über den Daumen-Knöpfen (CHAOS-87). */
+export const VOTE_QUESTION = 'Hat’s Spaß gemacht?';
 export const ABORTED_HEADLINE = 'Minispiel abgebrochen';
 export const ABORTED_LEAD = 'Keine Wertung – gleich geht’s auf dem Brett weiter.';
 /** Joystick-Hinweis ohne Minispiel (M1-Arena). */
@@ -38,6 +54,64 @@ export function minigameIn(
   const minigame = context?.minigame;
   if (!minigame) return undefined;
   return stage === undefined || minigame.stage === stage ? minigame : undefined;
+}
+
+/**
+ * „Bereit“ in der Anleitung (CHAOS-214):
+ * - `timer`: Anleitung wartet nicht (feste Zeit, älterer Server) – Schlusszeile {@link INTRO_READY}.
+ * - `guard`: Knopf angeboten, aber noch in der Schonfrist ({@link INTRO_READY_GUARD_MS}) gesperrt.
+ * - `button`: Knopf angeboten und antippbar.
+ * - `done`: gedrückt (lokal gesendet oder vom Server bestätigt) – „Warte auf die anderen“.
+ */
+export type IntroReadyState = 'timer' | 'guard' | 'button' | 'done';
+
+export interface IntroReadyLocal {
+  /** `ready` in genau dieser Anleitung schon gesendet (Antwort des Servers steht noch aus). */
+  readonly sent: boolean;
+  /** Schonfrist vorbei. */
+  readonly armed: boolean;
+}
+
+/**
+ * Zustand des Bereit-Knopfs in der Anleitung allein aus Kontext und lokalem Stand. Der Server
+ * bietet `ready` an (`actions`), bis der Slot gedrückt hat; `minigame.ready` ist dann `true`.
+ * Fehlt beides, wartet die Anleitung nicht (ältere Server).
+ */
+export function introReadyState(
+  context: Pick<SlotContext, 'actions' | 'minigame'> | undefined,
+  local: IntroReadyLocal,
+): IntroReadyState {
+  const minigame = context?.minigame;
+  if (minigame?.stage !== 'intro') return 'timer';
+  if (minigame.ready === true) return 'done';
+  if (!context?.actions.includes('ready')) return 'timer';
+  if (local.sent) return 'done';
+  return local.armed ? 'button' : 'guard';
+}
+
+/**
+ * Kennung einer Anleitung, die gerade „Bereit“ anbietet (Runde + Minispiel), sonst `null`.
+ * Die iPad-Zonen messen die Schonfrist je Kennung: Eine neue Anleitung beginnt von vorn.
+ */
+export function readyIntroToken(
+  context: Pick<SlotContext, 'actions' | 'minigame' | 'board'> | undefined,
+): string | null {
+  if (introReadyState(context, { sent: false, armed: true }) !== 'button') return null;
+  return `${String(context?.board?.round ?? 0)}:${context?.minigame?.id ?? ''}`;
+}
+
+/**
+ * Gleiche Anleitung, die auf „Bereit“ wartet: Meldet sich ein anderer Platz bereit, kommt ein
+ * neuer Kontext mit gleichem Angebot – ein schon gesendetes „Bereit“ gilt dann weiter.
+ */
+export function sameReadyIntro(a: SlotContext, b: SlotContext): boolean {
+  return (
+    a.minigame?.stage === 'intro' &&
+    b.minigame?.stage === 'intro' &&
+    a.minigame.id === b.minigame.id &&
+    a.actions.includes('ready') &&
+    b.actions.includes('ready')
+  );
 }
 
 /** Eintrag der Bedienlegende im Intro (nur angebotene Elemente, feste Reihenfolge). */
@@ -125,6 +199,8 @@ export type ResultView =
       readonly reward: string | null;
       /** Trostpreis-Items aus dem Ergebnis (CHAOS-51, EXP-019); leer, wenn keine. */
       readonly prizes: readonly ItemKindName[];
+      /** Zeile unter dem Ergebnis (Brett bzw. zurück in die Lobby nach einer Übungsrunde). */
+      readonly lead: string;
     }
   | { readonly kind: 'aborted'; readonly headline: string; readonly lead: string };
 
@@ -161,8 +237,29 @@ export function describeResult(minigame: ControllerMinigameInfo): ResultView {
     headline: tied ? `Geteilter Platz ${String(place)}!` : `Platz ${String(place)}!`,
     cheer: tied && place === 1 ? 'Gemeinsam gewonnen!' : (CHEERS[place] ?? 'Gut gespielt!'),
     score: minigame.score === undefined ? null : formatScore(minigame.score, minigame.scoreUnit),
-    reward: rewardText(minigame.reward),
+    // Übungsrunde (CHAOS-87): keine Münzen, also auch kein „Keine Münzen“.
+    reward: minigame.practice === true ? null : rewardText(minigame.reward),
     prizes: [...(minigame.prizes ?? [])],
+    lead: minigame.practice === true ? PRACTICE_LEAD : RESULTS_LEAD,
+  };
+}
+
+/** Daumen-Knöpfe nach dem Minispiel (CHAOS-87). */
+export interface VoteView {
+  /** Der Server bietet `rate` gerade an (Ergebnisanzeige, nicht pausiert). */
+  readonly open: boolean;
+  /** Eigene Stimme: gesendet und noch unbestätigt, sonst die vom Server, sonst `null`. */
+  readonly selected: Vote | null;
+}
+
+export function describeVote(
+  context: Pick<SlotContext, 'actions' | 'minigame'>,
+  pending: Vote | null = null,
+): VoteView {
+  const minigame = context.minigame?.stage === 'results' ? context.minigame : undefined;
+  return {
+    open: minigame !== undefined && context.actions.includes('rate'),
+    selected: pending ?? minigame?.vote ?? null,
   };
 }
 

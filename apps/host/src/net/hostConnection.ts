@@ -30,6 +30,7 @@ import {
   type LobbyMessage,
   type MinigameResultAckMessage,
   type MinigameResultMessage,
+  type RatingsMessage,
   type StartMessage,
 } from '@chaos-party/protocol';
 
@@ -38,7 +39,7 @@ export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
  * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl, „Mehr Zeit zum Reagieren“
- * (CHAOS-124) und Brett (CHAOS-197) in der Lobby (`configure`, je Befehl mindestens eines davon),
+ * (CHAOS-124), Brett (CHAOS-197) sowie Sperrliste/Favoriten der Minispiele (CHAOS-85) in der Lobby (`configure`, je Befehl mindestens eines davon),
  * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
  */
 export type HostCommand =
@@ -48,6 +49,9 @@ export type HostCommand =
       readonly moreReactionTime?: boolean | undefined;
       /** Brett-Wahl (CHAOS-197): Brett-ID oder `RANDOM_BOARD`. */
       readonly board?: string | undefined;
+      /** Sperrliste und Favoriten der Minispiel-Rotation (CHAOS-85), je ganze Liste. */
+      readonly minigameBlocklist?: readonly string[] | undefined;
+      readonly minigameFavorites?: readonly string[] | undefined;
     }
   | { readonly type: 'pause' }
   | { readonly type: 'resume' }
@@ -65,6 +69,12 @@ export function createHostCommandMessage(command: HostCommand) {
           ? {}
           : { moreReactionTime: command.moreReactionTime }),
         ...(command.board === undefined ? {} : { board: command.board }),
+        ...(command.minigameBlocklist === undefined
+          ? {}
+          : { minigameBlocklist: [...command.minigameBlocklist] }),
+        ...(command.minigameFavorites === undefined
+          ? {}
+          : { minigameFavorites: [...command.minigameFavorites] }),
       });
     case 'pause':
       return createMessage('pause', {});
@@ -137,6 +147,8 @@ export interface HostConnectionHandlers {
   onServerError?(error: ErrorMessage): void;
   /** Antwort auf ein gesendetes Minispiel-Ergebnis (v4, CHAOS-55). */
   onResultAck?(ack: MinigameResultAckMessage): void;
+  /** Daumen-Übersicht für die Minispiel-Galerie (CHAOS-87). */
+  onRatings?(ratings: RatingsMessage): void;
 }
 
 export interface HostConnectionOptions {
@@ -159,6 +171,8 @@ export interface HostConnectionOptions {
 export interface StartOptions {
   readonly mode?: GameMode;
   readonly rounds?: number;
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87): Kennung des Minispiels. */
+  readonly practice?: string;
 }
 
 /** Baut die `start`-Nachricht; fehlende Optionen bleiben weg (Server-Standard). */
@@ -166,6 +180,7 @@ export function createStartMessage(options: StartOptions = {}): StartMessage {
   return createMessage('start', {
     ...(options.mode === undefined ? {} : { mode: options.mode }),
     ...(options.rounds === undefined ? {} : { rounds: options.rounds }),
+    ...(options.practice === undefined ? {} : { practice: options.practice }),
   });
 }
 
@@ -357,6 +372,9 @@ export function connectHost(
           break;
         case 'minigame-result-ack':
           handlers.onResultAck?.(message);
+          break;
+        case 'ratings':
+          handlers.onRatings?.(message);
           break;
         case 'heartbeat-ack':
           break;

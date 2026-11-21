@@ -18,6 +18,7 @@ import {
   type InputMessage,
   type LobbyMessage,
   type MinigameResultAckMessage,
+  type RatingsMessage,
   type ServerMessage,
   type SlotNumber,
 } from '@chaos-party/protocol';
@@ -41,6 +42,8 @@ export interface BotPolicy {
   /** Setzt Items ein, sobald angeboten (für Sabotage-Abdeckung). */
   readonly useItems: boolean;
   readonly reaction: ReactionPolicy;
+  /** CHAOS-214: In der Minispiel-Anleitung „Bereit“ drücken (Standard ja). */
+  readonly minigameReady?: boolean;
 }
 
 export interface Controller {
@@ -69,6 +72,8 @@ export class Harness {
   readonly lobbies: LobbyMessage[] = [];
   /** Bestätigungen auf `minigame-result` (v4, CHAOS-55). */
   readonly acks: MinigameResultAckMessage[] = [];
+  /** Daumen-Übersichten an den Host (CHAOS-87). */
+  readonly ratings: RatingsMessage[] = [];
   /** Vom Server an den Host weitergeleitete Controller-Eingaben (Minispiele, M3). */
   readonly hostInputs: InputMessage[] = [];
   /** Vom Server geschlossene Verbindungen (Close-Code, Grund). */
@@ -133,6 +138,9 @@ export class Harness {
         return;
       case 'minigame-result-ack':
         if (to === HOST) this.acks.push(message);
+        return;
+      case 'ratings':
+        if (to === HOST) this.ratings.push(message);
         return;
       case 'context':
         this.contexts.set(message.slot, { context: message, at: this.clock });
@@ -217,6 +225,32 @@ export class Harness {
     this.send(
       HOST,
       createMessage('start', rounds === undefined ? { mode: 'board' } : { mode: 'board', rounds }),
+    );
+  }
+
+  /** Übungsrunde der Minispiel-Galerie (CHAOS-87) mit diesem Minispiel starten. */
+  startPractice(minigameId: string): void {
+    this.answered.clear();
+    this.send(HOST, createMessage('start', { practice: minigameId }));
+  }
+
+  /** Daumen (CHAOS-87) für das Minispiel im letzten Kontext dieses Slots. */
+  rate(
+    slot: SlotNumber,
+    vote: 'up' | 'down',
+    override: { minigameId?: string; round?: number } = {},
+  ): void {
+    const controller = this.controllerOf(slot);
+    const minigame = this.boards.at(-1)?.view.minigame;
+    this.send(
+      controller.id,
+      createMessage('rate', {
+        slot,
+        seq: ++controller.seq,
+        minigameId: override.minigameId ?? minigame?.id ?? 'unbekannt',
+        round: override.round ?? minigame?.round ?? 0,
+        vote,
+      }),
     );
   }
 
@@ -345,8 +379,23 @@ export class Harness {
     return null;
   }
 
+  /** „Bereit“ in der Minispiel-Anleitung für einen Slot (CHAOS-214). */
+  minigameReady(slot: SlotNumber): void {
+    const controller = this.controllerOf(slot);
+    this.send(controller.id, createMessage('ready', { slot, seq: ++controller.seq }));
+  }
+
   /** Bots beantworten offene Prompts nach ihrer Bedenkzeit. */
   answerPrompts(): void {
+    if (this.policy.minigameReady !== false) {
+      for (const [slot, { context, at }] of this.contexts) {
+        if (context.phase !== 'board' || !context.actions.includes('ready')) continue;
+        if (!this.controllerOf(slot).connected || this.clock - at < THINK_MS) continue;
+        // Kontext sofort als erledigt merken; der Server schickt den neuen ohne `ready`.
+        this.contexts.set(slot, { context: { ...context, actions: [] }, at });
+        this.minigameReady(slot);
+      }
+    }
     for (const late of this.lateReactions.filter((entry) => this.clock >= entry.sendAt)) {
       this.lateReactions.splice(this.lateReactions.indexOf(late), 1);
       this.choose(this.controllerOf(late.slot).id, late.slot, late.promptId, 'brace');
@@ -526,6 +575,7 @@ export function setupMinigameGame(
   players: number,
   seed: number,
   rounds = 2,
+  policy: Partial<BotPolicy> = {},
 ): Harness {
   const info = getMinigameInfo(minigameId);
   if (!info) throw new Error(`Unbekanntes Minispiel ${minigameId}`);
@@ -537,7 +587,7 @@ export function setupMinigameGame(
         minigames: [{ id: info.id, playMs: info.durationMs, scoring: info.scoring }],
       },
     },
-    { useItems: false, reaction: 'brace' },
+    { useItems: false, reaction: 'brace', ...policy },
     seed,
   );
   h.host();

@@ -270,6 +270,8 @@ protocol ControllerSessionProtocol: AnyObject, Observable {
     /// probe the socket with a heartbeat (`probeTimeout`) or reconnect immediately.
     func wake()
 
+    /// Sends `ready`: in the lobby, and in the minigame intro while the context offers the
+    /// action `ready` (CHAOS-214).
     func setReady(slot: Int)
     func pickCharacter(slot: Int, _ character: CharacterId)
     /// Sends `choose` for the slot's current prompt; `false` if not offered, already locked
@@ -312,8 +314,14 @@ final class FakeControllerSession: ControllerSessionProtocol {
 
     func setReady(slot: Int) {
         sent.append("ready \(slot)")
-        state.contexts[slot]?.layout = .wait
         state.contexts[slot]?.actions.removeAll { $0 == .ready }
+        // Like the server: the lobby switches to `wait`, the minigame intro (CHAOS-214)
+        // stays and reports the own ready state.
+        if state.contexts[slot]?.phase == .lobby {
+            state.contexts[slot]?.layout = .wait
+        } else if state.contexts[slot]?.minigame?.stage == .intro {
+            state.contexts[slot]?.minigame?.ready = true
+        }
     }
 
     func pickCharacter(slot: Int, _ character: CharacterId) {
@@ -429,6 +437,26 @@ extension ControllerState {
             SlotContext(
                 phase: .board, layout: .board, actions: [], board: board(.minigameIntro, activeSlot: nil),
                 minigame: minigame))
+    }()
+
+    /// CHAOS-214: the intro waits for „Bereit“; the button is offered.
+    static let minigameIntroReadySample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.ready = false
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [.ready],
+                board: board(.minigameIntro, activeSlot: nil), minigame: minigame))
+    }()
+
+    /// CHAOS-214: „Bereit“ pressed, waiting for the others.
+    static let minigameIntroWaitingSample: ControllerState = {
+        var minigame = sampleMinigame
+        minigame.ready = true
+        return online(
+            SlotContext(
+                phase: .board, layout: .board, actions: [],
+                board: board(.minigameIntro, activeSlot: nil), minigame: minigame))
     }()
 
     static let minigamePlaySample: ControllerState = {

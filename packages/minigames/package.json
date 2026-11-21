@@ -7,13 +7,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./catalog": "./src/catalog.ts"
+    "./catalog": "./src/catalog.ts",
+    "./gallery": "./src/gallery.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@babylonjs/core": "^9.35.0",
+    "@chaos-party/minigame-kit": "workspace:*",
     "@chaos-party/minigame-sdk": "workspace:*"
   },
   "devDependencies": {

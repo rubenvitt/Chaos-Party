@@ -39,12 +39,27 @@ export interface BoardSpace {
   readonly label?: string;
 }
 
+/**
+ * Drehendes Feld (CHAOS-199, ADR-022), z. B. das Karussell des Rummelplatzes: Sein Ausgang
+ * wechselt jede Runde reihum, ohne Zufall. In Runde `r` gilt `exits[(r - 1) % exits.length]`;
+ * wer das Feld betritt oder verlässt, nimmt genau diesen Ausgang (keine Wegwahl). `next` des
+ * Felds nennt alle Ausgänge (statische Topologie für Prüfung, Wege und Deko).
+ */
+export interface BoardRotation {
+  /** Feld, dessen Ausgang sich dreht. */
+  readonly space: string;
+  /** Ausgänge in Drehreihenfolge, als Menge gleich `next` des Felds, mindestens zwei. */
+  readonly exits: readonly string[];
+}
+
 export interface BoardDefinition {
   readonly id: string;
   readonly name: string;
   readonly spaces: readonly BoardSpace[];
   /** Startfeld aller Spieler. */
   readonly start: string;
+  /** Drehende Felder (CHAOS-199); fehlt = keine, alle Kanten sind fest. */
+  readonly rotations?: readonly BoardRotation[];
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +86,19 @@ export interface Pacing {
    * und Bedienlegende. Fehlt = `minigameIntroMs` (jedes Mal die volle Anleitung).
    */
   readonly minigameRepeatIntroMs?: number;
+  /**
+   * CHAOS-214: Die Anleitung wartet, bis alle verbundenen Spieler „Bereit“ gedrückt haben
+   * (`minigame-ready`); spätestens nach dieser Sicherheitsfrist startet das Minispiel trotzdem
+   * (Controller ohne Knopf, Handy weggelegt). Fehlt oder 0 = feste Anleitungszeit
+   * (`minigameIntroMs`/`minigameRepeatIntroMs`) ohne Warten, wie vor CHAOS-214.
+   */
+  readonly minigameReadyTimeoutMs?: number;
+  /**
+   * CHAOS-214: Mindestdauer der wartenden Anleitung. Sind alle früher bereit, startet das
+   * Minispiel erst danach: Zeit zum Ansehen, kein versehentliches Durchtippen, und der Host baut
+   * die Bühne in Ruhe auf (ADR-012 Nachtrag 3). Fehlt = 0.
+   */
+  readonly minigameReadyMinMs?: number;
   readonly minigamePlayMs: number;
   readonly minigameResultsMs: number;
   /**
@@ -205,6 +233,42 @@ export interface MinigameSpec {
   /** Reine Spielzeit in ms (der Host meldet das Ergebnis spätestens kurz danach). */
   readonly playMs: number;
   readonly scoring: 'higher' | 'lower';
+
+  // --- Achsen und Tauglichkeit für die Rotation (CHAOS-85), alle optional ---
+  // Ohne Angaben zieht die Rotation genau wie vor CHAOS-85 (gemischte Liste per Seed).
+
+  /** Kategorie (`arcade`, `physics`, `hybrid`); weiche Mischachse. */
+  readonly category?: string;
+  /** Bedienungs-Kürzel (`A`, `AB`, `S`, `SA`, `SAB` …); weiche Mischachse. */
+  readonly controls?: string;
+  /** Mechanik-Familie; nie zweimal hintereinander. */
+  readonly family?: string;
+  /** Kernverb; nie zweimal hintereinander. */
+  readonly verb?: string;
+  /** Spielform (`ffa`, `1v3`, `2v2`, `koop`); weiche Mischachse. */
+  readonly form?: string;
+  /** Spielerzahl, für die das Spiel taugt (fehlt = 1 bzw. 4). */
+  readonly minPlayers?: number;
+  readonly maxPlayers?: number;
+  /** `false` = nur iPhone: fällt weg, wenn jemand an einer iPad-Zone spielt. */
+  readonly ipadZone?: boolean;
+  /** Geheime Wahl: bei iPad-Zonen deutlich seltener (Gewicht). */
+  readonly secretChoice?: boolean;
+}
+
+/**
+ * Einstellungen der Minispiel-Rotation einer Partie (CHAOS-85). Alles optional; ohne sie
+ * zieht game-core wie bisher.
+ */
+export interface MinigameRotationOptions {
+  /** Spielt jemand an einer Zone eines geteilten iPads? */
+  readonly ipadZones?: boolean;
+  /** Minispiele der letzten Partie: kommen erst, wenn alle anderen dran waren. */
+  readonly recent?: readonly string[];
+  /** Am Host gesperrt: werden nicht gezogen (außer es bliebe sonst keines übrig). */
+  readonly blocked?: readonly string[];
+  /** Am Host als Favorit markiert: werden öfter (früher) gezogen. */
+  readonly favorites?: readonly string[];
 }
 
 export interface GameConfig {
@@ -220,6 +284,14 @@ export interface GameConfig {
    * bis alle dran waren). Leer oder fehlend = Platzhalter aus M2 (Rangfolge per Seed).
    */
   readonly minigames?: readonly MinigameSpec[];
+  /**
+   * Übungsmodus der Minispiel-Galerie (CHAOS-87): Die Partie besteht nur aus dem einen
+   * Minispiel in `minigames` – kein Brettzug, keine Münzen, keine Siege, keine Items. Nach dem
+   * Ergebnis endet sie (`game-results`). Verlangt genau ein Minispiel und `rounds: 1`.
+   */
+  readonly practice?: boolean;
+  /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85). */
+  readonly minigameRotation?: MinigameRotationOptions;
 }
 
 /** Platz im Minispiel (gleich `MinigamePlacement` aus dem minigame-sdk). */
@@ -242,6 +314,11 @@ export interface MinigameState {
    * (`minigameRepeatIntroMs`) und Host und Controller zeigen nur Titel und Bedienlegende.
    */
   readonly repeat: boolean;
+  /**
+   * CHAOS-214: Slots, die in der Anleitung „Bereit“ gedrückt haben (aufsteigend). Fehlt = die
+   * Anleitung wartet nicht auf Bereitschaft (feste Anleitungszeit).
+   */
+  readonly ready?: readonly Slot[];
   /** Beginn von `minigame-play` (Server-Uhr) oder `null` davor. */
   readonly playStartedAt: number | null;
   /** Ergebnis nach `minigame-play`; `null` solange offen. */
@@ -437,6 +514,10 @@ export interface GameState {
     readonly seed: number;
     /** Minispiele der Partie (leer = Platzhalter). */
     readonly minigames: readonly MinigameSpec[];
+    /** Übungsmodus der Galerie (CHAOS-87, siehe `GameConfig.practice`). Fehlt = `false`. */
+    readonly practice?: boolean;
+    /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85); fehlt = keine. */
+    readonly minigameRotation?: MinigameRotationOptions;
   };
   /** Interner Zustand der Regeln (Bewegung, RNG, Zähler). Form bestimmt game-core. */
   readonly internal: Readonly<Record<string, unknown>>;
@@ -466,6 +547,11 @@ export type GameCommand =
       readonly connected: boolean;
       readonly at: number;
     }
+  /**
+   * Spieler ist nach der Minispiel-Anleitung bereit (CHAOS-214). Nur in `minigame-intro` mit
+   * `minigame.ready`; doppelt ist harmlos. Sind alle verbundenen Spieler bereit, startet das Spiel.
+   */
+  | { readonly type: 'minigame-ready'; readonly slot: Slot; readonly at: number }
   /** Ergebnis des laufenden Minispiels vom Host (M3); wird vollständig geprüft. */
   | {
       readonly type: 'minigame-result';

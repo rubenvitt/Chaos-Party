@@ -10,9 +10,9 @@ import type { Slot } from '../types.ts';
 import { buyTrophy, canAffordTrophy } from './economy.ts';
 import {
   activePlayer,
+  nextOf,
   playerOf,
   schedule,
-  spaceOf,
   type Ctx,
   type MovePending,
 } from './internal.ts';
@@ -43,7 +43,8 @@ function walkSegment(ctx: Ctx, t: number): void {
   let current = player.spaceId;
   let pending: MovePending = 'land';
   while (move.stepsLeft > 0) {
-    const next = spaceOf(ctx, current).next;
+    // Drehendes Feld (Karussell): nur der Ausgang dieser Runde, keine Wegwahl.
+    const next = nextOf(ctx, current);
     const only = next.length === 1 ? next[0] : undefined;
     let to: string;
     if (move.chosenNext !== null) {
@@ -137,13 +138,16 @@ export function decideTrophy(ctx: Ctx, buy: boolean, t: number): void {
   schedule(ctx, 'move', t, buy ? ctx.rules.pacing.spaceEventMs : 0);
 }
 
-/** Windstoß: 1–2 Felder vorwärts (an Verzweigungen zufällig), ohne erneute Feldwirkung. */
+/**
+ * Windstoß: 1–2 Felder vorwärts (an Verzweigungen zufällig, am Karussell der Ausgang der Runde),
+ * ohne erneute Feldwirkung.
+ */
 export function gustForward(ctx: Ctx, slot: Slot, steps: number): void {
   const player = playerOf(ctx, slot);
   const path: string[] = [];
   let current = player.spaceId;
   for (let i = 0; i < steps; i++) {
-    const next = spaceOf(ctx, current).next;
+    const next = nextOf(ctx, current);
     if (next.length === 0) break;
     // Ein Nachfolger: ohne Zufall; Verzweigung: seeded.
     current = (next.length === 1 ? next[0] : undefined) ?? pickOne(ctx.rng, next);

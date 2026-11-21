@@ -214,3 +214,68 @@ export function cardCharacter(
   }
   return { character: suggestion, chosen: false, text: 'wählt noch …' };
 }
+
+/** Sperrliste und Favoriten der Minispiel-Rotation (CHAOS-85). */
+export interface MinigamePrefs {
+  readonly blocklist: readonly string[];
+  readonly favorites: readonly string[];
+}
+
+/** Stand aus `lobby.settings.minigames` (Server ist die Quelle). Ohne Liste: leer. */
+export function minigamePrefs(settings: LobbySettings): MinigamePrefs {
+  const games = settings.minigames ?? [];
+  return {
+    blocklist: games.filter((game) => game.blocked).map((game) => game.id),
+    favorites: games.filter((game) => game.favorite).map((game) => game.id),
+  };
+}
+
+/**
+ * Favorit bzw. Sperre eines Minispiels umschalten. Beides schließt sich aus: Wer ein Spiel
+ * sperrt, nimmt es aus den Favoriten und umgekehrt. Reihenfolge wie in `order` (Katalog).
+ */
+export function toggleMinigame(
+  prefs: MinigamePrefs,
+  id: string,
+  kind: 'blocked' | 'favorite',
+  order: readonly string[],
+): MinigamePrefs {
+  const blocked = new Set(prefs.blocklist);
+  const favorites = new Set(prefs.favorites);
+  const [own, other] = kind === 'blocked' ? [blocked, favorites] : [favorites, blocked];
+  if (own.has(id)) {
+    own.delete(id);
+  } else {
+    own.add(id);
+    other.delete(id);
+  }
+  const sorted = (ids: ReadonlySet<string>) => order.filter((entry) => ids.has(entry));
+  return { blocklist: sorted(blocked), favorites: sorted(favorites) };
+}
+
+/** Stand für den Knopf „Minispiele“: kurz mit Symbolen und ausgeschrieben fürs Vorlesen. */
+export interface MinigameSummary {
+  /** „4 im Topf · 2 ★ · 1 ⦸“ (Symbole wie im Dialog). */
+  readonly short: string;
+  /** „4 im Topf, 1 gesperrt, 2 Favoriten“. */
+  readonly long: string;
+}
+
+export function minigameSummary(settings: LobbySettings): MinigameSummary | null {
+  const games = settings.minigames;
+  if (games === undefined || games.length === 0) return null;
+  const blocked = games.filter((game) => game.blocked).length;
+  const favorites = games.filter((game) => game.favorite).length;
+  const pool = `${String(games.length - blocked)} im Topf`;
+  const short = [pool];
+  const long = [pool];
+  if (favorites > 0) {
+    short.push(`${String(favorites)} ★`);
+    long.push(favorites === 1 ? '1 Favorit' : `${String(favorites)} Favoriten`);
+  }
+  if (blocked > 0) {
+    short.push(`${String(blocked)} ⦸`);
+    long.push(`${String(blocked)} gesperrt`);
+  }
+  return { short: short.join(' · '), long: long.join(', ') };
+}

@@ -106,8 +106,30 @@ describe('resultsDisplay', () => {
   it('Abbruch: Hinweis ohne Plätze und Münzen', () => {
     const view = minigameView('minigame-results', { placements: [], aborted: true });
     const display = resultsDisplay(view, INFO, { 1: 10 });
-    expect(display).toEqual({ aborted: true, headline: ABORTED_TEXT, rows: [], highlights: [] });
+    expect(display).toEqual({
+      aborted: true,
+      headline: ABORTED_TEXT,
+      rows: [],
+      highlights: [],
+      practice: false,
+    });
     expect(ABORTED_TEXT).toBe('Minispiel abgebrochen – keine Münzen');
+  });
+
+  it('Übungsrunde (CHAOS-87): Plätze ohne Münzspalte', () => {
+    const base = minigameView('minigame-results', {
+      placements: [
+        { slot: 1, place: 1, score: 5 },
+        { slot: 2, place: 2, score: 3 },
+      ],
+      rewards: [
+        { slot: 1, coins: 0 },
+        { slot: 2, coins: 0 },
+      ],
+    });
+    const display = resultsDisplay({ ...base, practice: true }, INFO, null);
+    expect(display.practice).toBe(true);
+    expect(display.rows.map((row) => row.coins)).toEqual([null, null]);
   });
 
   it('joinNames', () => {

@@ -106,6 +106,8 @@ describe('DEFAULT_RULES und withRules', () => {
         turnEndMs: 600,
         minigameIntroMs: 7000,
         minigameRepeatIntroMs: 3000,
+        minigameReadyTimeoutMs: 60_000,
+        minigameReadyMinMs: 3000,
         minigamePlayMs: 3000,
         minigameResultsMs: 6000,
         roundEndMs: 1500,

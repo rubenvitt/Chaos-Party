@@ -42,7 +42,10 @@ import {
   type SoundId,
   type VisualTag,
 } from '@chaos-party/minigame-sdk/babylon';
+import type { BoardView } from '@chaos-party/protocol';
 import type { PlayOptions } from '../../host/src/fx/sounds.ts';
+import { minigameStageOf } from '../../host/src/minigame/plan.ts';
+import { waitsForReady } from '../../host/src/minigame/readiness.ts';
 import type {
   Body,
   BodyShape,
@@ -97,6 +100,14 @@ export const PREPARE_BUDGET_MS = 2;
 /** Höchstes Aufbau-Budget je `tick` bei langsamem Takt (CHAOS-205). */
 export const PREPARE_BUDGET_MAX_MS = 20;
 
+/**
+ * Höchstes Aufbau-Budget je `tick` bei knapper Bühne (CHAOS-227). Seit CHAOS-214 endet die
+ * Anleitung schon nach 3 s, wenn alle bereit sind; bei 10 Hz reichten 20 ms je Takt (600 ms in
+ * 3 s) nicht immer. 50 ms sind bei 10 Hz die halbe Tick-Dauer; ein einzelner Hänger bleibt
+ * gedeckelt.
+ */
+export const PREPARE_URGENT_MAX_MS = 50;
+
 /** Abstand zweier `tick` bei 60 Hz (ms). */
 const FRAME_MS = 1000 / 60;
 
@@ -120,6 +131,23 @@ export const FRAME_RESERVE_MS = 10;
 export const PREPARE_URGENT_MS = 2_000;
 
 /**
+ * Ist die Zeit für eine noch nicht fertige Bühne knapp (CHAOS-205)? Ja, wenn das Spiel schon
+ * läuft oder die Anleitung in höchstens `PREPARE_URGENT_MS` endet. Wartet die Anleitung auf
+ * „Bereit“ (CHAOS-214), kann sie schon nach der Mindestzeit (3 s, `minigameReadyMinMs`) enden,
+ * sobald alle bereit sind; `remainingMs` sagt dann nichts über das Ende. Wie bei der kurzen
+ * Anleitung (3 s) gilt die Bühne deshalb von Anfang an als knapp.
+ */
+export function stageUrgentFor(view: BoardView, receivedAt: number, nowMs: number): boolean {
+  const stageName = minigameStageOf(view);
+  if (stageName === 'play') return true;
+  if (stageName !== 'intro') return false;
+  if (waitsForReady(view)) return true;
+  if (view.remainingMs === null) return false;
+  const left = view.remainingMs - (view.paused ? 0 : nowMs - receivedAt);
+  return left <= PREPARE_URGENT_MS;
+}
+
+/**
  * Aufbau-Budget (ms) für einen `tick`, der `tickIntervalMs` nach dem vorigen kommt (CHAOS-205).
  * - Normal derselbe Anteil der Tick-Dauer wie `PREPARE_BUDGET_MS` bei 60 Hz (12 %): So kommt der
  *   Aufbau je Sekunde gleich weit, ob die App mit 60 Hz tickt oder gedrosselt mit 10 Hz (vorher
@@ -128,7 +156,8 @@ export const PREPARE_URGENT_MS = 2_000;
  * - `urgent` (Anleitung fast vorbei oder Spiel schon gestartet, Bühne nicht fertig): die halbe
  *   Tick-Dauer, aber höchstens so viel, dass `FRAME_RESERVE_MS` frei bleiben (CHAOS-209). Bei
  *   60 Hz sind das 6,7 ms statt 8,3 ms, ab 40 Hz wieder die halbe Tick-Dauer.
- * - Immer mindestens `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS`. Ein einzelner langer
+ * - Immer mindestens `PREPARE_BUDGET_MS`, höchstens `PREPARE_BUDGET_MAX_MS` (knapp:
+ *   `PREPARE_URGENT_MAX_MS`, CHAOS-227, bei 10 Hz die halbe Tick-Dauer). Ein einzelner langer
  *   Tick (Hänger) gibt dem nächsten mehr Budget, gedeckelt.
  */
 export function prepareBudgetMs(tickIntervalMs: number, urgent = false): number {
@@ -136,7 +165,8 @@ export function prepareBudgetMs(tickIntervalMs: number, urgent = false): number 
   const budget = urgent
     ? Math.min(interval * URGENT_SHARE, interval - FRAME_RESERVE_MS)
     : interval * PREPARE_SHARE;
-  return Math.min(PREPARE_BUDGET_MAX_MS, Math.max(PREPARE_BUDGET_MS, budget));
+  const max = urgent ? PREPARE_URGENT_MAX_MS : PREPARE_BUDGET_MAX_MS;
+  return Math.min(max, Math.max(PREPARE_BUDGET_MS, budget));
 }
 
 export interface HeadlessStage {

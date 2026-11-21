@@ -63,6 +63,23 @@ describe('Chaos-Party-Server', () => {
     });
   });
 
+  it('liefert die Daumen-Stimmen als JSON-Export (CHAOS-87)', async () => {
+    const res = await fetch(`${baseUrl}/ratings.json`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    expect(res.headers.get('content-disposition')).toMatch(
+      /attachment; filename="minispiel-stimmen-/,
+    );
+    const body = (await res.json()) as {
+      format: string;
+      games: { id: string }[];
+      votes: unknown[];
+    };
+    expect(body.format).toBe('chaos-party-minigame-ratings');
+    expect(body.games.map((game) => game.id)).toContain('sockenregen');
+    expect(body.votes).toEqual([]);
+  });
+
   it('liefert die Controller-App unter /', async () => {
     const res = await fetch(`${baseUrl}/`);
     expect(res.status).toBe(200);

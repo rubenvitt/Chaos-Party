@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { PROTOCOL_VERSION } from '@chaos-party/protocol';
 import { generateJoinCode } from './ids.ts';
+import { ratingsExport, type RatingsExport, type RatingStore } from './ratings.ts';
 import type { RateLimitOptions } from './rate-limit.ts';
 import { Session, type SessionOptions, type SessionTimeouts } from './session.ts';
 import { attachWebSocket } from './socket.ts';
@@ -36,6 +37,11 @@ export interface ChaosServerOptions {
   game?: SessionOptions['game'];
   /** Wird bei jedem Partiestart aufgerufen (Seed ausgeben). */
   onGameStart?: SessionOptions['onGameStart'];
+  /**
+   * Speicher der Daumen-Stimmen (CHAOS-87); `main.ts` übergibt eine Datei. Standard: im Speicher.
+   * Export unter `/ratings.json`.
+   */
+  ratings?: RatingStore | undefined;
   /** Takt der Timeout-Prüfung und des Brettspiels in ms (Standard 100). */
   tickMs?: number | undefined;
   /**
@@ -84,7 +90,12 @@ interface StaticRoots {
   readonly host: string | undefined;
   /** Kennung für `/health`. */
   readonly instanceId: string;
+  /** Export der Daumen-Stimmen für `/ratings.json` (CHAOS-87). */
+  readonly ratings: () => RatingsExport;
 }
+
+/** Export der Daumen-Stimmen (CHAOS-87): JSON für den Katalog, am Host als Download verlinkt. */
+export const RATINGS_PATH = '/ratings.json';
 
 /**
  * Ein Prozess, ein Port: Controller-App unter `/`, Host-App unter `/host/`,
@@ -95,6 +106,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     controller: resolve(options.staticDir),
     host: options.hostDir === undefined ? undefined : resolve(options.hostDir),
     instanceId: options.instanceId ?? randomBytes(9).toString('base64url'),
+    ratings: () => ratingsExport(session.ratingVotes(), new Date()),
   };
   const session = new Session({
     joinCode: options.joinCode ?? generateJoinCode(),
@@ -107,6 +119,7 @@ export function createChaosServer(options: ChaosServerOptions): ChaosServer {
     timeouts: options.timeouts,
     game: options.game,
     onGameStart: options.onGameStart,
+    ratings: options.ratings,
   });
 
   const server = createServer((req, res) => {
@@ -173,6 +186,16 @@ async function handleRequest(roots: StaticRoots, req: IncomingMessage, res: Serv
         instance: roots.instanceId,
       }),
     );
+    return;
+  }
+
+  if (url.pathname === RATINGS_PATH) {
+    const body = `${JSON.stringify(roots.ratings(), null, 2)}\n`;
+    const day = new Date().toISOString().slice(0, 10);
+    send(res, 200, 'application/json; charset=utf-8', body, {
+      'Cache-Control': 'no-store',
+      'Content-Disposition': `attachment; filename="minispiel-stimmen-${day}.json"`,
+    });
     return;
   }
 

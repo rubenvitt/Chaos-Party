@@ -391,11 +391,12 @@ while now < limitMs {
 }
 
 if geometryDecoded == 0 { fail("keine Minispiel-Geometrie dekodiert") }
-// CHAOS-190: je Minispiel Start und Countdown der Anleitung, „go“, „win“ und Jubel im Ergebnis.
+// CHAOS-190: je Minispiel Start der Anleitung, „go“, „win“ und Jubel im Ergebnis. Ticks: In der
+// wartenden Anleitung (CHAOS-214) tickt jedes „Bereit“ statt des Countdowns, bei zwei Bots also 2×.
 out("Minispiel-Klänge (jede ID einmal):")
 for (game, names) in soundsByGame.sorted(by: { $0.key < $1.key }) {
   out("  \(game): " + names.sorted { $0.key < $1.key }.map { "\($0.key)×\($0.value)" }.joined(separator: " "))
-  let expected = ["minigame-start": 1, "tick": 3, "go": 1, "win": 1, "cheer": 1]
+  let expected = ["minigame-start": 1, "tick": 2, "go": 1, "win": 1, "cheer": 1]
   for (name, count) in expected where (names[name] ?? 0) < count {
     fail("\(game): Klang \(name) \(names[name] ?? 0)×, erwartet mindestens \(count)×")
   }
