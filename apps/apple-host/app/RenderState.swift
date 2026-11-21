@@ -78,6 +78,8 @@ struct RenderState: Decodable, Equatable {
         var sounds: [SoundCue]?
         /// Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193).
         var light: Light?
+        /// Rides of the scenery (CHAOS-199): node in the USDZ, axis (`y`/`z`) and angle in Babylon coordinates (rad).
+        var rides: [Ride]?
     }
 
     /// Lichtstimmung (CHAOS-193): `LightState` des Browser-Hosts, im JS-Kern gerechnet. Farben `#rrggbb` (sRGB),
@@ -115,6 +117,12 @@ struct RenderState: Decodable, Equatable {
     struct Point: Decodable, Equatable {
         var x: Float
         var z: Float
+    }
+
+    struct Ride: Decodable, Equatable {
+        var node: String
+        var axis: String
+        var angle: Float
     }
 
     struct Trap: Decodable, Equatable {

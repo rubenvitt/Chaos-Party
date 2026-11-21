@@ -78,3 +78,19 @@ describe('Lichtstimmungen als Daten (CHAOS-60)', () => {
     expect(resolveMood('verlauf', context).id).toBe('nacht');
   });
 });
+
+describe('Stimmungsverlauf je Brett (CHAOS-199)', () => {
+  it('Rummelplatz: Dämmerung zu Beginn, ab dem ersten Drittel Nacht; Lobby nachts', () => {
+    expect(Array.from({ length: 12 }, (_, i) => moodForRound(i + 1, 12, 'rummelplatz'))).toEqual([
+      'daemmerung',
+      'daemmerung',
+      'daemmerung',
+      ...Array<string>(9).fill('nacht'),
+    ]);
+    expect(moodForBoard('rummelplatz')).toBe('nacht');
+  });
+
+  it('andere Bretter behalten den Tagesverlauf', () => {
+    expect([1, 2, 3, 4, 5].map((r) => moodForRound(r, 5, 'wackelwald'))).toEqual([...ROUND_ARC]);
+  });
+});

@@ -145,6 +145,7 @@ const BOARD: BoardState = {
   sounds: [],
   // Runde 3 von 10: Mittag (CHAOS-193).
   light: moodLight('mittag'),
+  rides: [],
 };
 
 /** Mitten in der Regie: Ben hüpft, Würfel- und Münz-Popup, Klang, Anna weht davon. */

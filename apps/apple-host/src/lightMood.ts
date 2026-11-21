@@ -73,8 +73,8 @@ export function moodLight(id: LightMoodId): Light {
 const fixed = new Map<LightMoodId, Light>();
 
 /** Stimmung eines Minispiels in Runde `round` von `rounds`, ohne Überblendung. */
-export function minigameLight(round: number, rounds: number): Light {
-  const id = moodForRound(round, rounds);
+export function minigameLight(round: number, rounds: number, boardId?: string): Light {
+  const id = moodForRound(round, rounds, boardId);
   let light = fixed.get(id);
   if (!light) {
     light = moodLight(id);
@@ -86,6 +86,8 @@ export function minigameLight(round: number, rounds: number): Light {
 export interface ShownRound {
   readonly round: number;
   readonly rounds: number;
+  /** Brett der Partie (CHAOS-199: eigener Stimmungsverlauf je Brett). */
+  readonly boardId?: string;
 }
 
 export interface BoardLight {
@@ -104,7 +106,7 @@ export function createBoardLight(): BoardLight {
   return {
     advance(ms, shown, visible) {
       if (!shown || shown.rounds <= 0) return;
-      const target = moodForRound(shown.round, shown.rounds);
+      const target = moodForRound(shown.round, shown.rounds, shown.boardId);
       if (!transition) {
         // Erster Stand: sofort in der Stimmung der Runde (kein Rundenwechsel).
         transition = createMoodTransition(target);
@@ -115,7 +117,7 @@ export function createBoardLight(): BoardLight {
       transition.advance(Math.max(0, ms));
     },
     current(fallback) {
-      if (!transition) return minigameLight(fallback.round, fallback.rounds);
+      if (!transition) return minigameLight(fallback.round, fallback.rounds, fallback.boardId);
       const snapshot = transition.current;
       if (cache?.snapshot !== snapshot) cache = { snapshot, light: lightOf(snapshot) };
       return cache.light;

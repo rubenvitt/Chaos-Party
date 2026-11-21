@@ -4,7 +4,12 @@ import {
   BOARDS,
   DEFAULT_BOARD,
   getBoard,
+  activeNext,
+  CAROUSEL_SPACE,
+  isChoiceFork,
   MIN_SPACE_DISTANCE,
+  rotationExit,
+  RUMMELPLATZ,
   validateBoard,
   WACKELWALD,
 } from './index.ts';
@@ -245,5 +250,77 @@ describe('validateBoard', () => {
       replace(replace(s, 'a', { next: ['a'] }), 'e', { next: ['nix'] }),
     );
     expect(errorsOf(board).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('Brett „Rummelplatz“ (CHAOS-199)', () => {
+  it('ist gültig, im Register und hat 70–90 Felder mit IDs wie s01', () => {
+    expect(validateBoard(RUMMELPLATZ)).toEqual({ ok: true });
+    expect(getBoard('rummelplatz')).toBe(RUMMELPLATZ);
+    expect(RUMMELPLATZ.spaces.length).toBeGreaterThanOrEqual(70);
+    expect(RUMMELPLATZ.spaces.length).toBeLessThanOrEqual(90);
+    for (const space of RUMMELPLATZ.spaces) expect(space.id).toMatch(/^s\d{2}$/);
+  });
+
+  it('hat drei Gabeln mit Wegwahl, beschriftete Wege und neun Trophäen-Kandidaten', () => {
+    const forks = RUMMELPLATZ.spaces.filter((s) => isChoiceFork(RUMMELPLATZ, s.id));
+    expect(forks.map((s) => s.id)).toEqual(['s07', 's31', 's39']);
+    const byId = new Map(RUMMELPLATZ.spaces.map((s) => [s.id, s]));
+    for (const fork of forks) {
+      for (const next of fork.next) expect(byId.get(next)?.label).toBeTruthy();
+    }
+    expect(countKinds(RUMMELPLATZ).trophy).toBe(9);
+  });
+
+  it('das Karussell ist kein Wegwahl-Feld und dreht reihum West → Süd → Ost', () => {
+    expect(isChoiceFork(RUMMELPLATZ, CAROUSEL_SPACE)).toBe(false);
+    const rotation = RUMMELPLATZ.rotations?.[0];
+    expect(rotation?.space).toBe(CAROUSEL_SPACE);
+    if (!rotation) return;
+    expect([1, 2, 3, 4, 5, 6].map((round) => rotationExit(rotation, round))).toEqual([
+      's68',
+      's73',
+      's77',
+      's68',
+      's73',
+      's77',
+    ]);
+    expect(activeNext(RUMMELPLATZ, CAROUSEL_SPACE, 2)).toEqual(['s73']);
+    expect(activeNext(RUMMELPLATZ, 's07', 2)).toEqual(['s08', 's18']);
+  });
+});
+
+describe('validateBoard: drehende Felder (CHAOS-199)', () => {
+  /** Mini-Brett mit Drehfeld b: Ausgang c oder d, beide zurück zum Start. */
+  function rotating(exits: string[] = ['c', 'd']): BoardDefinition {
+    return { ...tinyBoard(), rotations: [{ space: 'b', exits }] };
+  }
+
+  it('akzeptiert eine Drehung, deren Ausgänge zu next passen', () => {
+    // tinyBoard hat sonst keine Wegwahl: eine zweite Gabel dazu.
+    const board = withSpaces(rotating(), (spaces) => replace(spaces, 'a', { next: ['b', 'e'] }));
+    expect(errorsOf(board)).toEqual([]);
+  });
+
+  it('zählt ein drehendes Feld nicht als Verzweigung', () => {
+    expect(errorsOf(rotating())).toContain('Brett hat keine Verzweigung');
+  });
+
+  it('meldet unbekanntes Feld, zu wenige, doppelte und unpassende Ausgänge', () => {
+    const unknown = { ...tinyBoard(), rotations: [{ space: 'zz', exits: ['c', 'd'] }] };
+    expect(errorsOf(unknown)).toContain('Drehung an unbekanntem Feld „zz“');
+    expect(errorsOf(rotating(['c']))).toContain('Drehung an b braucht mindestens zwei Ausgänge');
+    expect(errorsOf(rotating(['c', 'c']))).toContain('Drehung an b nennt einen Ausgang doppelt');
+    expect(errorsOf(rotating(['c', 'e']))).toContain(
+      'Ausgänge der Drehung an b passen nicht zu „next“',
+    );
+  });
+
+  it('meldet eine Stellung, in der Felder nicht mehr zum Start zurückkommen', () => {
+    // d führt nur zurück auf b: In der Runde, in der b nach d dreht, kreist man b → d → b.
+    const board = withSpaces(rotating(), (spaces) => replace(spaces, 'd', { next: ['b'] }));
+    expect(errorsOf(board)).toContainEqual(
+      expect.stringMatching(/^In Runde 2 führt von .*b.* kein Weg zurück zum Start$/),
+    );
   });
 });

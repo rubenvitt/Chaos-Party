@@ -6,7 +6,7 @@
  * Alle Nachrichten sind gültige `board`-Nachrichten des Protokolls (unit-getestet) – so
  * würde sie auch der Server schicken. Ausgedacht, nicht von game-core berechnet.
  */
-import type { BoardDefinition } from '@chaos-party/game-core';
+import { isChoiceFork, type BoardDefinition } from '@chaos-party/game-core';
 import {
   createMessage,
   type BoardEvent,
@@ -254,7 +254,7 @@ export const DEMO_DELAYS_MS: readonly number[] = [0, 1500, 2500, 1200, 3000, 150
 export function demoStartMessage(board: BoardDefinition): BoardMessage {
   if (board.id === DEMO_VIEW.boardId) return message(DEMO_VIEW, [], 0);
   const spaces = board.spaces;
-  const fork = spaces.find((s) => s.next.length >= 2) ?? spaces[0];
+  const fork = spaces.find((s) => isChoiceFork(board, s.id)) ?? spaces[0];
   if (!fork) throw new Error(`Brett ${board.id} hat keine Felder`);
   const others = spaces.filter((s) => s.id !== fork.id && s.kind !== 'trophy');
   const spread = [1, 2, 3].map((i) => others[Math.floor((i * others.length) / 4)]?.id ?? fork.id);

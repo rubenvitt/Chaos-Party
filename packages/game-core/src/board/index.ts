@@ -2,7 +2,7 @@
  * Brett-Topologie als Daten und ihre Validierung (CHAOS-18, ADR-011), dazu das Brett-Register
  * für die Lobby-Auswahl (CHAOS-197).
  * Exporte: `DEFAULT_BOARD`, `BOARDS`, `getBoard`, `validateBoard`, `BOARD_REGISTRY`,
- * `getBoardInfo`, `randomBoard`.
+ * `getBoardInfo`, `randomBoard`; drehende Felder (CHAOS-199): `activeNext`, `rotationExit` u. a.
  */
 import type { BoardDefinition } from '../types.ts';
 import { BOARD_REGISTRY } from './registry.ts';
@@ -23,6 +23,8 @@ export {
   type BoardTheme,
 } from './registry.ts';
 export { WACKELWALD } from './wackelwald.ts';
+export { CAROUSEL_SPACE, RUMMELPLATZ } from './rummelplatz.ts';
+export { activeNext, isChoiceFork, rotationAt, rotationExit, rotationIndex } from './rotation.ts';
 
 /** Standardbrett jeder Partie. */
 export const DEFAULT_BOARD: BoardDefinition = WACKELWALD;
