@@ -111,8 +111,11 @@ describe('Team-Ergebnisse prüfen (CHAOS-89)', () => {
     expect(checkResult({ ...result(0), outcome: { kind: 'teams', winner: 2 } }, expected).ok).toBe(
       false,
     );
-    const { outcome: _omit, ...without } = result(0);
-    expect(checkResult(without, expected).ok).toBe(false);
+    const withoutOutcome: MinigameResult = {
+      minigameId: 'test-teams',
+      placements: result(0).placements,
+    };
+    expect(checkResult(withoutOutcome, expected).ok).toBe(false);
     expect(checkResult(result(0), { ...expected, teams: null }).ok).toBe(false);
   });
 
@@ -128,7 +131,12 @@ describe('Team-Ergebnisse prüfen (CHAOS-89)', () => {
       ],
       outcome: { kind: 'koop', tier },
     });
-    const koopExpected = { minigameId: 'test-koop', slots: ALL, scoring: 'higher' as const, teams: koop };
+    const koopExpected = {
+      minigameId: 'test-koop',
+      slots: ALL,
+      scoring: 'higher' as const,
+      teams: koop,
+    };
     expect(checkResult(koopResult(2), koopExpected)).toEqual({ ok: true });
     expect(checkResult(koopResult(4), koopExpected).ok).toBe(false);
     expect(checkResult(koopResult(1.5), koopExpected).ok).toBe(false);
@@ -155,8 +163,11 @@ describe('Steckbrief mit Spielform (CHAOS-89)', () => {
     const fourOnly: MinigameTeamPlay = { form: '2v2', withThree: false, withTwo: false };
     expect(checkInfo({ ...base, teamPlay: fourOnly, minPlayers: 4 })).toEqual({ ok: true });
     expect(
-      checkInfo({ ...base, teamPlay: { form: '2v2', withThree: false, withTwo: true }, minPlayers: 2 })
-        .ok,
+      checkInfo({
+        ...base,
+        teamPlay: { form: '2v2', withThree: false, withTwo: true },
+        minPlayers: 2,
+      }).ok,
     ).toBe(false);
   });
 });

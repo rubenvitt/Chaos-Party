@@ -10,11 +10,7 @@
  * Änderungen nur additiv und abgestimmt (Koordinator).
  */
 
-import type {
-  MinigameOutcome,
-  MinigameTeamPlay,
-  MinigameTeams,
-} from '@chaos-party/minigame-sdk';
+import type { MinigameOutcome, MinigameTeamPlay, MinigameTeams } from '@chaos-party/minigame-sdk';
 
 export type { MinigameOutcome, MinigameTeamPlay, MinigameTeams };
 

@@ -96,6 +96,12 @@ function send(
   });
 }
 
+function soloOf(teams: readonly (readonly Slot[])[]): Slot {
+  const solo = teams[0]?.[0];
+  if (solo === undefined) throw new Error('keine Einzelperson');
+  return solo;
+}
+
 const scoresOf = (state: GameState) =>
   state.players.map((p) => ({ slot: p.slot, score: p.slot * 2 }));
 
@@ -123,13 +129,16 @@ describe('Teams beim Start (CHAOS-89)', () => {
     [2, '1v1'],
     [3, '1v2'],
     [4, '1v3'],
-  ] as const)('1 gegen 3 mit %i Personen: Aufstellung %s, gleich bei gleichem Seed', (players, layout) => {
-    const a = play(ONE_V_THREE, players, 11);
-    const b = play(ONE_V_THREE, players, 11);
-    expect(a.minigame?.teams?.layout).toBe(layout);
-    expect(a.minigame?.teams).toEqual(b.minigame?.teams);
-    expect(a.minigame?.teams?.teams[0]).toHaveLength(1);
-  });
+  ] as const)(
+    '1 gegen 3 mit %i Personen: Aufstellung %s, gleich bei gleichem Seed',
+    (players, layout) => {
+      const a = play(ONE_V_THREE, players, 11);
+      const b = play(ONE_V_THREE, players, 11);
+      expect(a.minigame?.teams?.layout).toBe(layout);
+      expect(a.minigame?.teams).toEqual(b.minigame?.teams);
+      expect(a.minigame?.teams?.teams[0]).toHaveLength(1);
+    },
+  );
 
   it.each([2, 3, 4])('Koop mit %i Personen: ein Team mit allen', (players) => {
     const state = play(KOOP, players);
@@ -160,7 +169,8 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
     for (const slot of teams.teams[1] ?? []) expect(coins[slot]).toBe(DEFAULT_TEAM_REWARDS.win);
     for (const slot of teams.teams[0] ?? []) expect(coins[slot]).toBe(DEFAULT_TEAM_REWARDS.lose);
     if (!result.ok) return;
-    for (const slot of teams.teams[1] ?? []) expect(playerAt(result.state, slot).minigameWins).toBe(1);
+    for (const slot of teams.teams[1] ?? [])
+      expect(playerAt(result.state, slot).minigameWins).toBe(1);
     expect(result.state.minigame?.outcome).toEqual({ kind: 'teams', winner: 1 });
   });
 
@@ -168,7 +178,7 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
     const state = play(ONE_V_THREE, 4);
     const teams = state.minigame?.teams;
     if (!teams) throw new Error('keine Teams');
-    const solo = teams.teams[0]?.[0] as Slot;
+    const solo = soloOf(teams.teams);
     const win = coinsAfter(
       state,
       send(state, teamPlacements(teams, 0, scoresOf(state)), { kind: 'teams', winner: 0 }),
@@ -185,7 +195,7 @@ describe('Ergebnis und Münzen (CHAOS-89)', () => {
     const state = play(ONE_V_THREE, 2);
     const teams = state.minigame?.teams;
     if (!teams) throw new Error('keine Teams');
-    const solo = teams.teams[0]?.[0] as Slot;
+    const solo = soloOf(teams.teams);
     const coins = coinsAfter(
       state,
       send(state, teamPlacements(teams, 0, scoresOf(state)), { kind: 'teams', winner: 0 }),

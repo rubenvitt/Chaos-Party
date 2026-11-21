@@ -166,9 +166,28 @@ export function checkTeams(teams: MinigameTeams, slots: readonly Slot[]): TeamCh
   if (all.length !== slots.length || new Set(all).size !== all.length) {
     return { ok: false, reason: 'Teams decken die Teilnehmer nicht genau ab' };
   }
-  if (all.some((slot) => !slots.includes(slot))) return { ok: false, reason: 'Fremder Slot im Team' };
+  if (all.some((slot) => !slots.includes(slot)))
+    return { ok: false, reason: 'Fremder Slot im Team' };
   if (teams.teams.some((team) => team.length === 0)) return { ok: false, reason: 'Leeres Team' };
   const expectedTeams = teams.layout === 'koop' ? 1 : 2;
   if (teams.teams.length !== expectedTeams) return { ok: false, reason: 'Falsche Zahl an Teams' };
   return { ok: true };
+}
+
+/**
+ * Erkennungszeichen der Teams für Host und Controller (CHAOS-89): Name, Symbol und Farbe, damit
+ * Teams nie nur an der Farbe unterscheidbar sind (M1-Regel „Farbe + Symbol“). Index wie
+ * `MinigameTeams.teams`; bei Einzelperson gegen den Rest steht Team 0 für die Einzelperson.
+ */
+export const TEAM_MARKS = [
+  { name: 'Sonne', symbol: '☀', color: '#f2a33a' },
+  { name: 'Mond', symbol: '☾', color: '#5b7bd5' },
+] as const;
+
+/** Kurzer Name eines Teams in seiner Aufstellung („Allein“, „Team Sonne“, „Alle zusammen“). */
+export function teamLabel(teams: MinigameTeams, index: number): string {
+  if (teams.layout === 'koop') return 'Alle zusammen';
+  if (teams.layout !== '2v2' && index === 0) return 'Allein';
+  if (teams.layout !== '2v2') return 'Die anderen';
+  return `Team ${TEAM_MARKS[index]?.name ?? String(index + 1)}`;
 }

@@ -35,6 +35,7 @@ export {
   slotOption,
 } from './prompts.ts';
 export {
+  copyTeams,
   toPublicView,
   viewClock,
   type PublicGameView,
