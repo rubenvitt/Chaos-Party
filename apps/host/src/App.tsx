@@ -34,7 +34,9 @@ import {
   loadMinigameScreen,
   prefetchGameScenes,
 } from './lazyScenes.ts';
+import type { MinigamePrefs } from './lobby/lobbyState.ts';
 import { LobbyPanel } from './lobby/LobbyPanel.tsx';
+import { loadMinigamePrefs, saveMinigamePrefs } from './lobby/minigamePrefs.ts';
 import { PlayerToasts } from './lobby/PlayerToasts.tsx';
 import { stageKeyOf } from './minigame/plan.ts';
 import { useHostSession } from './net/useHostSession.ts';
@@ -357,6 +359,40 @@ export function App({ config }: AppProps) {
     },
     [command],
   );
+  // Sperrliste und Favoriten der Minispiele (CHAOS-85): lokal gemerkt, beim ersten Lobby-Stand
+  // jeder Session (Join-Code) an den Server geschickt; danach zeigt die Lobby den Server-Stand.
+  const lobbyJoinCode = session.lobby?.joinCode;
+  const hasRotation = session.lobby?.settings.minigames !== undefined;
+  const rotationSentFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (lobbyPhase !== 'lobby' || !hasRotation || lobbyJoinCode === undefined) return;
+    if (rotationSentFor.current === lobbyJoinCode) return;
+    const stored = loadMinigamePrefs();
+    if (stored === null || (stored.blocklist.length === 0 && stored.favorites.length === 0)) {
+      rotationSentFor.current = lobbyJoinCode;
+      return;
+    }
+    if (
+      command({
+        type: 'configure',
+        minigameBlocklist: stored.blocklist,
+        minigameFavorites: stored.favorites,
+      })
+    ) {
+      rotationSentFor.current = lobbyJoinCode;
+    }
+  }, [command, lobbyPhase, hasRotation, lobbyJoinCode]);
+  const onMinigames = useCallback(
+    (prefs: MinigamePrefs) => {
+      saveMinigamePrefs(prefs);
+      command({
+        type: 'configure',
+        minigameBlocklist: prefs.blocklist,
+        minigameFavorites: prefs.favorites,
+      });
+    },
+    [command],
+  );
   const onStart = useCallback(() => {
     // Der Klick auf „Los geht’s!“ ist die Nutzer-Geste, die den Ton freischaltet (CHAOS-33).
     soundEngine().unlock();
@@ -470,6 +506,7 @@ export function App({ config }: AppProps) {
           onRounds={onRounds}
           onMoreReactionTime={onMoreReactionTime}
           onBoard={onBoard}
+          onMinigames={onMinigames}
         />
       )}
     </main>

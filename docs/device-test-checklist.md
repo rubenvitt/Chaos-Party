@@ -759,7 +759,20 @@ Automatisch geprüft (Linux-CI): Regeln, Server und Bots (Unit- und Integrations
 | BR7 | Geteiltes iPad (2 Zonen) | Jede Zone hat ihren eigenen „Bereit!“-Knopf, Druck in einer Zone wirkt nur dort | | Foto |
 | BR8 | Pause am Host während der Anleitung | Kein „Bereit!“ angeboten; nach dem Fortsetzen wieder da, schon gedrückte bleiben bereit | | |
 
-## 40. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
+## 40. Minispiel-Rotation: Sperrliste, Favoriten, iPad-Zonen (für CHAOS-85)
+
+**Stand:** 2026-11-20 · **Aufgabe:** CHAOS-85
+
+Automatisch geprüft: Auswahl ohne Wiederholung, Familien und Kernverben nie direkt hintereinander, Filter für Spielerzahl und iPad-Zonen, Gewichte, letzte Partie (`packages/game-core/src/rules/rotation.test.ts`, 200 Dummy-Steckbriefe); Sperrliste/Favoriten über die Session und die Revanche (`apps/server/src/minigameRotation.integration.test.ts`); Dialog „Minispiele“ am PC per Maus und Escape, lokale Speicherung und erneutes Senden an eine frische Session (`tests/e2e/host-minispiel-rotation.spec.ts`). **Nicht** automatisch prüfbar: ob die Mischung sich am Abend abwechslungsreich anfühlt (bei fünf Spielen kaum sichtbar, erst mit der Pilotwelle CHAOS-91) und die Erkennung eines echten geteilten iPads.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| RO1 | PC-Lobby: „Minispiele ›“ öffnen, ein Spiel sperren, eines als Favorit markieren, „Fertig“ | Knopf zeigt „4 im Topf · 1 ★ · 1 ⦸“ | | Foto |
+| RO2 | Partie mit 10 Runden spielen | Das gesperrte Minispiel kommt nicht vor | | |
+| RO3 | Browser schließen, Server neu starten, Host wieder öffnen | Sperre und Favorit sind wieder gesetzt | | |
+| RO4 | Partie mit geteiltem iPad (zwei Zonen) und einem iPhone | Startet normal; alle Minispiele bleiben an den Zonen bedienbar (heute sind alle als iPad-tauglich markiert) | | |
+
+## 41. Rummelplatz: Karussell, Kulisse und Nacht (für CHAOS-199)
 
 **Stand:** 2026-11-20 · **Aufgabe:** CHAOS-199 · **Entscheidung:** ADR-022 · **Experiment:** EXP-034
 

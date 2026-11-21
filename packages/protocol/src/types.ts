@@ -14,6 +14,7 @@ import type {
   EndGameMessageSchema,
   LobbySettingsSchema,
   LobbyBoardSchema,
+  LobbyMinigameSchema,
   MinigameResultAckMessageSchema,
   MinigameRewardSchema,
   PauseMessageSchema,
@@ -135,6 +136,8 @@ export type LobbyMessage = z.infer<typeof LobbyMessageSchema>;
 export type LobbySettings = z.infer<typeof LobbySettingsSchema>;
 /** Wählbares Brett in `lobby.settings.boards` (CHAOS-197). */
 export type LobbyBoard = z.infer<typeof LobbyBoardSchema>;
+/** Minispiel der Rotation in `lobby.settings.minigames` (CHAOS-85). */
+export type LobbyMinigame = z.infer<typeof LobbyMinigameSchema>;
 export type InputIntent = z.infer<typeof InputIntentSchema>;
 export type InputIntentType = InputIntent['type'];
 export type InputMessage = z.infer<typeof InputMessageSchema>;

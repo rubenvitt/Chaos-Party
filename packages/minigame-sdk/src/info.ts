@@ -60,7 +60,53 @@ export interface MinigameInfo {
   readonly scoring: 'higher' | 'lower';
   /** Einheit der Punkte für die Anzeige („Punkte“, „Sekunden“, „Meter“). */
   readonly scoreUnit: string;
+
+  // --- Tauglichkeit und Familie für die Rotation (CHAOS-85, docs/minigames/README.md §3–§6) ---
+  // Alle optional (additiv). Kernverb, Spielform und Bedienung stehen im Vielfalts-Steckbrief
+  // (`packages/minigames/src/steckbriefe.ts`, ADR-021); die Rotation liest beides.
+
+  /** Mechanik-Familie (README §4); nie zwei Spiele derselben Familie hintereinander. */
+  readonly family?: MinigameFamily;
+  /** Kleinste/größte Spielerzahl, für die das Spiel taugt; fehlt = 1 bzw. 4. */
+  readonly minPlayers?: number;
+  readonly maxPlayers?: number;
+  /**
+   * Am geteilten iPad (Zone) bedienbar? `false` = „nur iPhone“: Die Rotation lässt das Spiel
+   * weg, sobald jemand an einer iPad-Zone spielt (README §5.3 Punkt 4). Fehlt = tauglich.
+   */
+  readonly ipadZone?: boolean;
+  /**
+   * Geheime Wahl am Controller (Familie Bluff, README §7 Nr. 4): Bei iPad-Zonen in der
+   * Aufstellung zieht die Rotation das Spiel deutlich seltener (Gewicht, kein Ausschluss).
+   */
+  readonly secretChoice?: boolean;
 }
+
+/** Die 20 Mechanik-Familien aus README §4 (Kennung für Steckbrief und Rotation). */
+export const MINIGAME_FAMILIES = [
+  'fangen-sammeln',
+  'ausweichen-ueberleben',
+  'rempeln-schubsen',
+  'timing-rhythmus',
+  'reflex-reaktion',
+  'pumpen-dosieren',
+  'zielen-werfen',
+  'balance-stapeln',
+  'rennen-parcours',
+  'gedaechtnis-muster',
+  'zocken',
+  'bluff-geheime-wahl',
+  'revier-malen',
+  'fahrzeuge-schwung',
+  'schaetzen-wahrnehmung',
+  'hektik-kueche',
+  'einer-gegen-alle',
+  'zwei-gegen-zwei',
+  'koop-chaos',
+  'mikro',
+] as const;
+
+export type MinigameFamily = (typeof MINIGAME_FAMILIES)[number];
 
 /** Eingabe eines Slots, wie die Laufzeit sie an das Minispiel gibt (ohne `seq`/Umschlag). */
 export type MinigameInput =

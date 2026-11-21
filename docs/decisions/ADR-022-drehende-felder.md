@@ -43,4 +43,4 @@ Randbedingungen: Der Regelkern bleibt deterministisch und seed-basiert (gleicher
 
 ## Überprüfung
 
-Nach dem Spieltest am Fernseher (Gerätecheckliste §40): Ist die Stellung lesbar, und fühlt sich die Ost-Ausfahrt („Ehrenrunde“ zurück in die Geisterbahn) eher lustig als unfair an? Sonst Drehung je Zug oder andere Ausgänge.
+Nach dem Spieltest am Fernseher (Gerätecheckliste §41): Ist die Stellung lesbar, und fühlt sich die Ost-Ausfahrt („Ehrenrunde“ zurück in die Geisterbahn) eher lustig als unfair an? Sonst Drehung je Zug oder andere Ausgänge.
