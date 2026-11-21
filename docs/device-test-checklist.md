@@ -805,3 +805,17 @@ Automatisch geprüft (Linux): Übungsrunde in game-core (ohne Münzen, Siege, It
 | GA7 | „Stimmen exportieren“ | Browser lädt `minispiel-stimmen-<Datum>.json` mit allen Spielen und Einzelstimmen | | Datei |
 | GA8 | Server beenden und neu starten (`pnpm play`), Galerie öffnen | Stimmen sind noch da (Datei `~/.chaos-party/minispiel-stimmen.json`, Pfad steht beim Start im Terminal) | | |
 | GA9 | Ruben: Urteil | Sind die Daumen am Handy schnell genug erreichbar? Schwelle für den Rauswurf-Vorschlag (6 Stimmen, ≥ 60 % runter) sinnvoll? | | Kommentar an CHAOS-87 |
+
+## 43. Spielformen mit Teams und Koop (für CHAOS-89)
+
+**Stand:** 2026-11-21 · **Aufgabe:** CHAOS-89 · **Protokoll:** v4-Nachtrag CHAOS-89 (`teams`, `outcome`, Kontext `team`)
+
+Automatisch geprüft (Linux): Zuteilung, Ersatz zu zweit und zu dritt, Prüfung des Ausgangs und Münzen in game-core; Session mit Pump-Duell, Pump-Solo und Riesenballon für 2, 3 und 4 Personen; Headless-Läufe der drei Testspiele; E2E: Galerie → Pump-Duell mit vier iPhones (Chromium-Emulation) → Team-Ansage am PC, Rolle am Handy, Team-Ergebnis (Bilder `tests/e2e/__screenshots__/minispiel-spielformen.spec.ts/`). **Nicht** automatisch geprüft: Lesbarkeit am Fernseher, ob Teams Spaß machen. **Noch nicht umgesetzt:** Rolle in der nativen Controller-App (CHAOS-229), Team-Ansage am Apple-Host (CHAOS-230).
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| SF1 | PC: Galerie, vier iPhones, „Üben“ bei Pump-Duell | Anleitung zeigt „2 gegen 2“, Team ☀ Sonne und Team ☾ Mond mit Namen; jedes Handy zeigt „Team Sonne“ bzw. „Team Mond“ und „Du und … gegen …“ | | Foto |
+| SF2 | Nur ein Team pumpt | PC: „☾ Team Mond gewinnt: …“; Handys: „Dein Team hat gewonnen!“ bzw. „verloren“ | | Foto |
+| SF3 | Pump-Solo mit drei Handys | „Einer gegen zwei“, Hinweis „… spielt allein und hat einen Vorteil“; Handy der Einzelperson „Allein gegen alle“ | | Foto |
+| SF4 | Riesenballon mit zwei Handys | „Alle zusammen“, Banner „Stufe … von 3“ im Spiel, Ergebnis „Gut geschafft – Stufe 2 von 3“ o. ä. | | Foto |
+| SF5 | Ruben: Urteil | Team-Sieg mit 7 Münzen lohnend? „Letzter gegen alle“ spannend oder demütigend? Koop für alle lohnend? (EXP-035) | | Kommentar an CHAOS-89 |
