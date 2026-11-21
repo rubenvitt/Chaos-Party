@@ -92,7 +92,7 @@ export function withTailwind(base: RuleSet = DEFAULT_RULES): RuleSet {
 }
 
 /**
- * Schnellfeuer im Spiel (CHAOS-90, EXP-RAPID Ra5f): Brett-Ereignis „Schnellfeuer!“ mit 5 Losen,
+ * Schnellfeuer im Spiel (CHAOS-90, EXP-037 Ra5f): Brett-Ereignis „Schnellfeuer!“ mit 5 Losen,
  * höchstens einmal je Partie, sonst im Finale. So kommt es in jeder Partie genau einmal, meist
  * überraschend (2 Sp. 53 %, 4 Sp. 79 % per Ereignis), ohne Partiedauer oder Sieg zu verschieben.
  */

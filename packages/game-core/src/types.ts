@@ -266,7 +266,7 @@ export interface RuleSet {
 }
 
 /**
- * Auslöser für Schnellfeuer (CHAOS-90, EXP-…): `event` = Brett-Ereignis „Schnellfeuer!“ (gilt
+ * Auslöser für Schnellfeuer (CHAOS-90, EXP-037): `event` = Brett-Ereignis „Schnellfeuer!“ (gilt
  * für das Minispiel derselben Runde), `halftime` = feste Runde zur Halbzeit, `finale` = letzte
  * Runde.
  */

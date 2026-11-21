@@ -1,5 +1,5 @@
 /**
- * Schnellfeuer-Auslöser (CHAOS-90, EXP-RAPID). Smoke-Test immer; volle Tabelle nur mit
+ * Schnellfeuer-Auslöser (CHAOS-90, EXP-037). Smoke-Test immer; volle Tabelle nur mit
  *
  * ```sh
  * EXPERIMENTS=rapidfire pnpm exec vitest run packages/game-core/src/rules/experimentsRapidFire.test.ts --silent=false

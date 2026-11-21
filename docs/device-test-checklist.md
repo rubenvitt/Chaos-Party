@@ -821,3 +821,21 @@ Automatisch geprüft (Mac): Regeln und Validierung (Unit- und Integrationstests,
 | FG5 | Runde 3 beginnt | Einblendung „Lawinengefahr am Gletscherpfad!“; zu Beginn von Runde 4 „Lawine am Gletscherpfad!“, Kamera zeigt den Hang, Figuren dort verlieren 5 Münzen | | Video |
 | FG6 | Apple TV: ganze Partie mit 4 Spielern | Bildrate wie auf dem Wackelwald (Gerätecheckliste §34), Log „Brett frostgipfel geladen … in … ms“ notieren | | Log |
 | FG7 | Spieltest-Frage | Ist die Lawinen-Warnung verständlich? Lohnt sich die Seilbahn gezielt? Fühlt sich das Rutschen lustig oder zufällig an? | | Notiz |
+
+## 44. Schnellfeuer: fünf Mikro-Spiele als eigene Rundenart (für CHAOS-90)
+
+**Stand:** 2026-11-21 · **Aufgabe:** CHAOS-90 · **Entscheidung:** ADR-024 · **Experiment:** EXP-037
+
+Automatisch geprüft (Mac): Mikro-Vertrag, Kette, Bots und Fairness-Vorlage (Unit-Tests), Auslöser im Regelkern samt Bot-Simulation, E2E mit 2, 3 und 4 Personen am PC-Host (SwiftShader, Testmodus) bis zum angenommenen Ergebnis, Apple-Host-Bot-Partie im Node-Kern mit Schnellfeuer in Runde 6. **Nicht** geprüft: echtes Spieltempo mit Menschen, Lesbarkeit des Bildworts am Fernseher, Apple-Host-App am Mac und auf der Apple TV, Spielspaß.
+
+| ID  | Schritt | Erwartung | Ergebnis | Nachweis |
+| --- | ------- | --------- | -------- | -------- |
+| SF1 | Partie am PC mit 3–4 Personen, 10 Runden (Standard `SCHNELLFEUER=an`) | Spätestens in der letzten Runde kommt Schnellfeuer; mit Ereignisfeld vorher Popup „Schnellfeuer!“ und Tickerzeile „… löst Schnellfeuer aus“ | | Foto |
+| SF2 | Anleitung von Schnellfeuer | Titel „Schnellfeuer!“, drei Zeilen, Stick „Zielen“ und A „Los!“ am iPhone | | Foto |
+| SF3 | Bildwort vor jedem Mikro-Spiel (1,3 s) | „1/5 ⏰ HAUEN!“ o. Ä. ist vom Sofa aus lesbar, bevor das Spiel startet; Knöpfe im Bildwort wirken nicht | | Video |
+| SF4 | Mikro-Spiele durchspielen | Wecker: zu früh drücken = „zu früh!“; Spaghetti: Hämmern spritzt Soße; Kerze: nur bei kleiner Flamme pusten; Fliege: Hand führen und zuschnappen; Kuchen: ein Schnitt, Prozent im Status | | Video |
+| SF5 | Auswertung nach jedem Mikro-Spiel | Banner „… holt’s!“, Gewinner jubeln, Punkte springen; letztes Mikro-Spiel mit „×2“ | | Video |
+| SF6 | Ergebnis | Münzen nach Platz über alle fünf wie nach jedem Minispiel | | Foto |
+| SF7 | Apple TV: dieselbe Partie | Gegenstände sichtbar, Bildwort im Banner, kein Ruckeln beim Wechsel der Mikro-Spiele | | Log |
+| SF8 | Spieltest-Frage (CHAOS-92) | Ist das Tempo lustig oder zu hektisch? Versteht man das Bildwort ohne Anleitung? Gewinnt immer dieselbe Person? Lieber Ereignis, Halbzeit oder Finale (`SCHNELLFEUER=ereignis|halbzeit|finale`)? | | Notiz |
+
