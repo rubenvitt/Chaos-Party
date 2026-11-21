@@ -53,6 +53,43 @@ describe('eventNotice (CHAOS-120)', () => {
   });
 });
 
+describe('Lawinen-Ansage am Frostgipfel (CHAOS-198)', () => {
+  const frost = { boardId: 'frostgipfel', rounds: 12 };
+
+  it('kündigt die Lawine eine Runde vorher an und meldet sie beim Abgang', () => {
+    expect(eventNotice({ type: 'round-started', round: 3 }, frost)).toEqual({
+      title: 'Lawinengefahr am Gletscherpfad!',
+      detail: 'Nach dieser Runde geht sie ab – dort nicht stehen bleiben',
+    });
+    expect(eventNotice({ type: 'round-started', round: 4 }, frost)).toEqual({
+      title: 'Lawine am Gletscherpfad!',
+      detail: 'Wer dort steht, verliert 5 Münzen',
+    });
+    expect(eventNotice({ type: 'round-started', round: 5 }, frost)).toBeNull();
+    expect(eventNotice({ type: 'round-started', round: 6 }, frost)?.title).toBe(
+      'Lawinengefahr am Nordhang!',
+    );
+    // Letzte Runde: keine Warnung mehr; andere Bretter und ohne Kontext: nichts.
+    expect(eventNotice({ type: 'round-started', round: 6 }, { ...frost, rounds: 6 })).toBeNull();
+    expect(
+      eventNotice({ type: 'round-started', round: 3 }, { boardId: 'wackelwald', rounds: 12 }),
+    ).toBeNull();
+    expect(eventNotice({ type: 'round-started', round: 3 })).toBeNull();
+  });
+
+  it('Sabotage-Ansage hat Vorrang, der Ticker nennt die Lawine', () => {
+    const event: BoardEvent = { type: 'round-started', round: 6, sabotage: { steal: 6, trap: 5 } };
+    expect(eventNotice(event, frost)?.title).toBe('Sabotage wird stärker!');
+    const view = { ...DEMO_VIEW, boardId: 'frostgipfel', rounds: 12 };
+    expect(eventText({ type: 'round-started', round: 4 }, view)).toEqual({
+      text: 'Runde 4 beginnt – Lawine am Gletscherpfad!',
+      slot: null,
+      tone: 'bad',
+    });
+    expect(eventText({ type: 'round-started', round: 2 }, view)?.text).toBe('Runde 2 beginnt!');
+  });
+});
+
 describe('eventText', () => {
   it('meldet Münzklau und Falle wie im Konzept', () => {
     expect(text({ type: 'coins-stolen', from: 1, to: 3, amount: 6 })).toBe(

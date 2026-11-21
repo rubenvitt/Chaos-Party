@@ -5,12 +5,14 @@
  * (d) bei `trapTrigger: 'pass'` auf einer fremden Falle mit Restschritten (Falle löst aus).
  * Je Abschnitt ein `moved`-Ereignis; der Host animiert es mit `stepMs` je Feld.
  */
+import { cableCarAt, isCableEdge, isIce } from '../board/hazards.ts';
 import { pickOne } from '../rng.ts';
 import type { Slot } from '../types.ts';
-import { buyTrophy, canAffordTrophy } from './economy.ts';
+import { buyTrophy, canAffordTrophy, changeCoins } from './economy.ts';
 import {
   activePlayer,
   nextOf,
+  pathOptions,
   playerOf,
   schedule,
   type Ctx,
@@ -43,8 +45,9 @@ function walkSegment(ctx: Ctx, t: number): void {
   let current = player.spaceId;
   let pending: MovePending = 'land';
   while (move.stepsLeft > 0) {
-    // Drehendes Feld (Karussell): nur der Ausgang dieser Runde, keine Wegwahl.
-    const next = nextOf(ctx, current);
+    // Drehendes Feld (Karussell): nur der Ausgang dieser Runde, keine Wegwahl. Zu teure
+    // Seilbahn (CHAOS-198): nicht im Angebot, bleibt ein Weg, läuft die Figur ohne Wahl weiter.
+    const next = pathOptions(ctx, current, player.slot);
     const only = next.length === 1 ? next[0] : undefined;
     let to: string;
     if (move.chosenNext !== null) {
@@ -123,6 +126,9 @@ export function choosePath(ctx: Ctx, spaceId: string, t: number): void {
   if (!move) throw new Error('Keine Bewegung aktiv');
   const player = activePlayer(ctx);
   ctx.events.push({ type: 'path-chosen', slot: player.slot, spaceId });
+  // Seilbahn (CHAOS-198): Fahrpreis beim Einsteigen (nur angeboten, wenn bezahlbar).
+  const car = cableCarAt(ctx.d.internal.board, player.spaceId, spaceId);
+  if (car) changeCoins(ctx, player.slot, -car.price, 'event');
   move.chosenNext = spaceId;
   move.pending = null;
   schedule(ctx, 'move', t, 0);
@@ -139,15 +145,17 @@ export function decideTrophy(ctx: Ctx, buy: boolean, t: number): void {
 }
 
 /**
- * Windstoß: 1–2 Felder vorwärts (an Verzweigungen zufällig, am Karussell der Ausgang der Runde),
- * ohne erneute Feldwirkung.
+ * Windstoß: 1–2 Felder vorwärts (an Verzweigungen zufällig, am Karussell der Ausgang der Runde,
+ * nie gratis mit der Seilbahn), ohne erneute Feldwirkung.
  */
 export function gustForward(ctx: Ctx, slot: Slot, steps: number): void {
   const player = playerOf(ctx, slot);
+  const board = ctx.d.internal.board;
   const path: string[] = [];
   let current = player.spaceId;
   for (let i = 0; i < steps; i++) {
-    const next = nextOf(ctx, current);
+    const from = current;
+    const next = nextOf(ctx, from).filter((to) => !isCableEdge(board, from, to));
     if (next.length === 0) break;
     // Ein Nachfolger: ohne Zufall; Verzweigung: seeded.
     current = (next.length === 1 ? next[0] : undefined) ?? pickOne(ctx.rng, next);
@@ -167,4 +175,30 @@ export function swapPlaces(ctx: Ctx, a: Slot, b: Slot): void {
   pb.spaceId = spaceA;
   ctx.events.push({ type: 'moved', slot: a, path: [pa.spaceId] });
   ctx.events.push({ type: 'moved', slot: b, path: [pb.spaceId] });
+}
+
+/** Höchstens so viele Felder rutscht eine Figur am Stück (Schutz, `validateBoard` prüft Eis). */
+const MAX_SLIDE = 16;
+
+/**
+ * Eisfelder (CHAOS-198): Steht die Figur am Ende ihres Wurfs auf Eis, rutscht sie ein Feld
+ * weiter, auf Eis wieder eins, bis sie auf festem Feld steht (ein `moved`, ohne Fallen
+ * unterwegs). Die Feldwirkung gilt danach dort. Liefert die gerutschten Felder.
+ */
+export function slideOnIce(ctx: Ctx, slot: Slot): number {
+  const board = ctx.d.internal.board;
+  if (!board.ice) return 0;
+  const player = playerOf(ctx, slot);
+  const path: string[] = [];
+  let current = player.spaceId;
+  while (isIce(board, current) && path.length < MAX_SLIDE) {
+    const to = nextOf(ctx, current)[0];
+    if (to === undefined) break;
+    current = to;
+    path.push(to);
+  }
+  if (path.length === 0) return 0;
+  player.spaceId = current;
+  ctx.events.push({ type: 'moved', slot, path });
+  return path.length;
 }

@@ -130,7 +130,23 @@ Leuchten (keine zusätzlichen Punktlichter). Hohe Teile stehen hinten oder zwisc
 vorn nur Flaches (Autoscooter). Lichtstimmung: Dämmerung zu Beginn, ab dem ersten Drittel
 Nacht (`BOARD_ROUND_ARCS`), Lobby nachts. Alles aus Grundkörpern, keine fremden Assets.
 
- über die gemeinsame Bühnen-Kulisse
+**Frostgipfel** (CHAOS-198, `apps/host/src/board/frostpeak.ts`): gleiche Insel, Felder und
+Wege, aber Winter. Thema per `BoardInfo.theme` (`frost`). Boden bläulich-weißer Schnee (`#e9eef4`,
+Struktur aus den Normalen der Erdtextur) statt Wiese, nur wenige bereifte Grasbüschel, keine
+Blumen; Erdkante kühler. Palette Schnee `#f1f5fa`, Fels `#7f838c`, Eis `#a7dcf2`, Gletscher
+`#c4e6f5`, Akzente Rettungsrot `#d4473d` (Seilbahn, Schal) und Warngelb `#f2c14e`
+(Lawinenschilder). **Eisfelder** tragen statt der Feldtyp-Einlage ein hellblaues Sechseck mit
+weißer Schneeflocke (man bleibt dort nie stehen); glänzende Eisstreifen verbinden sie mit dem
+Folgefeld (Rodelbahn, Gletscherpfad). Gipfel mit Schneehaube und Gipfelkreuz in der Mitte (der
+Gipfelweg führt vorn herum, hinten ist kein Feld verdeckt), Bergkette weit hinter der Insel,
+Seilbahn mit Tal- und Bergstation, Stütze, zwei Seilen und roter Gondel (ihre Kante bekommt
+keinen Wegpfeil, das Schild „Seilbahn“ steht an der Talstation), Gletscherblöcke neben dem
+Gletscherpfad, Schneewechten bergseitig an den Lawinenhängen und gelbe Warndreiecke an deren
+Enden, zugefrorener See unten links, verschneite Tannen am Rand und zwischen den Wegen,
+Schneemann am Start. Lichtstimmung: Wintertag Morgen → Mittag → Wolken → Abend
+(`BOARD_ROUND_ARCS`), Lobby morgens. Alles aus Grundkörpern, keine fremden Assets.
+
+**Minispiele** (`apps/host/src/minigame/natureLook.ts` über die gemeinsame Bühnen-Kulisse
 `apps/host/src/nature/stageLook.ts`, Vertrag `MinigameLook`): Das Minispiel nennt seine Spielfläche (`backdrop({ halfX, halfZ, groundY, surface })`), der Host baut eine
 kleine Insel mit Wiese oder Picknickdecke, Bäumen hinten und seitlich, Felsen, Blumen und vier
 Laternen. Sockenregen: Badvorleger auf der Wiese (statt Waschküche). Pudding-Gerangel: Pudding

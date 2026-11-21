@@ -5,6 +5,7 @@
  * Regelmodule arbeiten darauf und sammeln Ereignisse; am Ende wird daraus wieder ein
  * `GameState`. Der Eingangszustand wird nie verändert.
  */
+import { cableCarAt } from '../board/hazards.ts';
 import { activeNext } from '../board/rotation.ts';
 import { createRng, type Rng } from '../rng.ts';
 import type {
@@ -218,6 +219,17 @@ export function spaceOf(ctx: Ctx, id: string): BoardSpace {
  */
 export function nextOf(ctx: Ctx, id: string): readonly string[] {
   return activeNext(ctx.d.internal.board, id, ctx.d.round);
+}
+
+/**
+ * Wege, die `slot` ab `id` gehen kann: {@link nextOf} ohne Seilbahnen, die zu teuer sind
+ * (CHAOS-198). Bleibt einer übrig, gibt es keine Wegwahl.
+ */
+export function pathOptions(ctx: Ctx, id: string, slot: Slot): readonly string[] {
+  const next = nextOf(ctx, id);
+  if (!ctx.d.internal.board.cableCars) return next;
+  const coins = playerOf(ctx, slot).coins;
+  return next.filter((to) => (cableCarAt(ctx.d.internal.board, id, to)?.price ?? 0) <= coins);
 }
 
 export function schedule(ctx: Ctx, phase: GamePhase, t: number, ms: number): void {

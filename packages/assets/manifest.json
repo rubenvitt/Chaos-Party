@@ -1410,6 +1410,38 @@
           "budgetBytes": 33554432
         },
         {
+          "id": "apple-brett-frostgipfel",
+          "path": "bretter/frostgipfel/brett.usdz",
+          "description": "Brett-Kulisse Frostgipfel (CHAOS-198, Grafikstufe hoch) als USDZ: Schneegelände, Felder mit Eisfeldern, Gipfel mit Gipfelkreuz, Bergkette, Seilbahn (Stationen, Seile, Gondel), Gletscher, Schneewechten und Warnschilder, zugefrorener See, verschneite Tannen, Schneemann, Wegweiser, Feld-Anker feld_<id>; ohne Figuren und Instanzen (die liegen als Matrizen in brett.instanzen.json).",
+          "license": "GPL-3.0-only",
+          "from": [
+            "brett-felder",
+            "brett-marker",
+            "brett-fallen",
+            "brett-sockel",
+            "schrift-nunito",
+            "natur-leafy-grass-diff",
+            "natur-leafy-grass-nor",
+            "natur-leafy-grass-arm",
+            "natur-brown-mud-rocks-01-diff",
+            "natur-brown-mud-rocks-01-nor",
+            "natur-brown-mud-rocks-01-arm",
+            "natur-bark-brown-02-diff",
+            "natur-bark-brown-02-nor",
+            "natur-bark-brown-02-arm",
+            "natur-mossy-rock-diff",
+            "natur-mossy-rock-nor",
+            "natur-mossy-rock-arm",
+            "natur-oak-veneer-01-diff",
+            "natur-oak-veneer-01-nor",
+            "natur-oak-veneer-01-arm",
+            "natur-brown-planks-05-diff",
+            "natur-brown-planks-05-nor",
+            "natur-brown-planks-05-arm"
+          ],
+          "budgetBytes": 33554432
+        },
+        {
           "id": "apple-figur-robot",
           "path": "figuren/robot.usdz",
           "description": "Figur Schraubi als USDZ direkt aus dem bpy-Skript: Vertexfarben als Farbtextur gebacken, UsdPreviewSurface mit Rauheit, Clearcoat, Metall, Leuchten und Normal-Textur der Feinstruktur (UV-Map struktur, CHAOS-172); alle Clips auf einer Zeitleiste (robot.clips.json).",

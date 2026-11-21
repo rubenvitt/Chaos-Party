@@ -6,6 +6,9 @@ import {
   getBoard,
   activeNext,
   CAROUSEL_SPACE,
+  FROSTGIPFEL,
+  isCableEdge,
+  isIce,
   isChoiceFork,
   MIN_SPACE_DISTANCE,
   rotationExit,
@@ -321,6 +324,85 @@ describe('validateBoard: drehende Felder (CHAOS-199)', () => {
     const board = withSpaces(rotating(), (spaces) => replace(spaces, 'd', { next: ['b'] }));
     expect(errorsOf(board)).toContainEqual(
       expect.stringMatching(/^In Runde 2 führt von .*b.* kein Weg zurück zum Start$/),
+    );
+  });
+});
+
+describe('Brett „Frostgipfel“ (CHAOS-198)', () => {
+  it('ist gültig, im Register und hat 70–90 Felder', () => {
+    expect(validateBoard(FROSTGIPFEL)).toEqual({ ok: true });
+    expect(getBoard('frostgipfel')).toBe(FROSTGIPFEL);
+    expect(FROSTGIPFEL.spaces.length).toBeGreaterThanOrEqual(70);
+    expect(FROSTGIPFEL.spaces.length).toBeLessThanOrEqual(90);
+  });
+
+  it('hat vier Gabeln (eine davon die Seilbahn), beschriftete Wege und neun Kandidaten', () => {
+    const forks = FROSTGIPFEL.spaces.filter((s) => isChoiceFork(FROSTGIPFEL, s.id));
+    expect(forks.map((s) => s.id)).toEqual(['f04', 'f07', 'f31', 'f39']);
+    const byId = new Map(FROSTGIPFEL.spaces.map((s) => [s.id, s]));
+    for (const fork of forks) {
+      for (const next of fork.next) expect(byId.get(next)?.label).toBeTruthy();
+    }
+    expect(countKinds(FROSTGIPFEL).trophy).toBe(9);
+    expect(isCableEdge(FROSTGIPFEL, 'f04', 'g06')).toBe(true);
+    expect(isCableEdge(FROSTGIPFEL, 'f04', 'f05')).toBe(false);
+  });
+
+  it('hat Eis am Gletscherpfad, am Gipfelweg und auf der Rodelbahn', () => {
+    expect(FROSTGIPFEL.ice).toEqual(['f18', 'f21', 'g08', 'r1', 'r2', 'r3', 'r7']);
+    expect(isIce(FROSTGIPFEL, 'r2')).toBe(true);
+    expect(isIce(FROSTGIPFEL, 'r4')).toBe(false);
+  });
+});
+
+describe('validateBoard: Eis, Seilbahn, Lawine (CHAOS-198)', () => {
+  it('akzeptiert gültige Mechaniken auf dem Mini-Brett', () => {
+    const board: BoardDefinition = {
+      ...tinyBoard(),
+      ice: ['a'],
+      cableCars: [{ from: 'b', to: 'd', price: 3 }],
+      avalanche: { every: 2, coins: 4, zones: [{ name: 'Hang', spaces: ['c', 'd'] }] },
+    };
+    expect(errorsOf(board)).toEqual([]);
+  });
+
+  it('meldet ungültige Eisfelder', () => {
+    const errors = (ice: string[], board = tinyBoard()) => errorsOf({ ...board, ice });
+    expect(errors(['zz'])).toContain('Eisfeld „zz“ existiert nicht');
+    expect(errors(['a', 'a'])).toContain('Eisfeld a ist doppelt');
+    expect(errors(['st'])).toContain('Eisfeld st darf kein Start- oder Trophäenfeld sein');
+    expect(errors(['b'])).toContain('Eisfeld b braucht genau einen Nachfolger');
+    // d → e → st: e auf Eis endet auf dem Start (erlaubt), c ist ein Trophäenfeld.
+    const toTrophy = withSpaces(tinyBoard(), (spaces) => replace(spaces, 'e', { next: ['c'] }));
+    expect(errors(['e'], toTrophy)).toContain('Rutschpartie ab e endet auf dem Trophäenfeld c');
+    const loop = withSpaces(tinyBoard(), (spaces) => replace(spaces, 'e', { next: ['d'] }));
+    expect(errors(['d', 'e'], loop)).toContain('Eis ab d läuft im Kreis');
+  });
+
+  it('meldet ungültige Seilbahnen', () => {
+    const errors = (from: string, to: string, price = 3) =>
+      errorsOf({ ...tinyBoard(), cableCars: [{ from, to, price }] });
+    expect(errors('a', 'zz')).toContain('Seilbahn a → zz verbindet unbekannte Felder');
+    expect(errors('a', 'b')).toContain('Seilbahn a → b ist keine Kante einer Gabel mit Wegwahl');
+    expect(errors('b', 'c')).toContain('Seilbahn b → c darf nicht der erste Weg der Gabel sein');
+    expect(errors('b', 'd', 0)).toContain('Seilbahn b → d braucht einen Preis ≥ 1');
+  });
+
+  it('meldet ungültige Lawinen', () => {
+    const errors = (avalanche: NonNullable<BoardDefinition['avalanche']>) =>
+      errorsOf({ ...tinyBoard(), avalanche });
+    expect(errors({ every: 0, coins: 0, zones: [] })).toEqual(
+      expect.arrayContaining([
+        'Lawine braucht einen Abstand von mindestens einer Runde',
+        'Lawine braucht einen Münzverlust ≥ 1',
+        'Lawine braucht mindestens eine Zone',
+      ]),
+    );
+    expect(errors({ every: 2, coins: 3, zones: [{ name: 'Hang', spaces: ['zz', 'st'] }] })).toEqual(
+      expect.arrayContaining([
+        'Lawinenzone „Hang“: Feld „zz“ existiert nicht',
+        'Lawinenzone „Hang“ enthält den Start',
+      ]),
     );
   });
 });

@@ -389,7 +389,7 @@ function create(env: HostEnv): ChaosHostInstance {
     for (const event of fresh) {
       const text = eventText(event, view, labelOf);
       if (text) messages.push(text.text);
-      notices.push(event, receivedAt);
+      notices.push(event, receivedAt, view);
     }
     messages.splice(0, Math.max(0, messages.length - MAX_MESSAGES));
     direction.receive(message);
