@@ -552,6 +552,7 @@ export function controllerTeamOf(
   return {
     layout: teams.layout,
     role: koop ? 'koop' : solo ? 'solo' : 'team',
+    index: index === 1 ? 1 : 0,
     mates: [...mates],
     opponents: [...opponents],
     advantage: solo && teams.soloAdvantage,

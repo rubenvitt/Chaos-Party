@@ -63,7 +63,14 @@ describe('v4-Nachtrag CHAOS-89: Spielformen mit Teams und Koop', () => {
   });
 
   it('Rolle am Controller', () => {
-    const role = { layout: '1v3', role: 'solo', mates: [], opponents: [2, 3, 4], advantage: false };
+    const role = {
+      layout: '1v3',
+      role: 'solo',
+      index: 0,
+      mates: [],
+      opponents: [2, 3, 4],
+      advantage: false,
+    };
     expect(ControllerMinigameTeamSchema.safeParse(role).success).toBe(true);
     expect(ControllerMinigameTeamSchema.safeParse({ ...role, result: 'won' }).success).toBe(true);
     expect(ControllerMinigameTeamSchema.safeParse({ ...role, role: 'chef' }).success).toBe(false);

@@ -312,6 +312,8 @@ export const MinigameOutcomeSchema = z.discriminatedUnion('kind', [
 export const ControllerMinigameTeamSchema = z.strictObject({
   layout: z.enum(MINIGAME_TEAM_LAYOUTS),
   role: z.enum(['solo', 'team', 'koop']),
+  /** Index des eigenen Teams (Erkennungszeichen wie am PC: 0 = ☀ Sonne, 1 = ☾ Mond). */
+  index: z.int().min(0).max(1),
   mates: z.array(SlotSchema).max(MAX_PLAYERS - 1),
   opponents: z.array(SlotSchema).max(MAX_PLAYERS - 1),
   /** Zu dritt: Die Einzelperson hat einen Vorteil im Spiel. */
