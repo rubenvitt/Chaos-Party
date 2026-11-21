@@ -82,6 +82,12 @@ export interface BotPolicy {
    */
   readonly avoidTrapChance: number;
   /**
+   * Feste Wegwahl je Slot (CHAOS-196, EXP-037: Ist die Wegwahl fair?): `short` nimmt an jeder
+   * Gabel den Weg mit der kürzesten Strecke zurück zum Start, `long` den längsten. Geht vor
+   * Fallen und Trophäe und zieht keine Zufallszahl; Slots ohne Eintrag wählen wie bisher.
+   */
+  readonly routes: Readonly<Partial<Record<Slot, 'short' | 'long'>>>;
+  /**
    * Echte Minispiele (M3/M4): So lange nach Ende der Spielzeit meldet der „Host“ das Ergebnis
    * (Abschlussbild, Netz). Nur mit `SimulationOptions.minigames`.
    */
@@ -104,6 +110,7 @@ export const DEFAULT_BOT_POLICY: BotPolicy = {
   decisionMs: [800, 2500],
   trophyPathChance: 0,
   avoidTrapChance: 0,
+  routes: {},
   minigameResultDelayMs: 500,
   // Gleichstand auf Platz 1 bei 4 Spielern ≈ 4 %, wie die echten Minispiele (EXP-005 … 007).
   minigameScoreSpread: 40,
@@ -276,6 +283,12 @@ function choosePath(
   policy: BotPolicy,
   rng: Rng,
 ): string {
+  const route = state.prompt ? policy.routes[state.prompt.slot] : undefined;
+  if (route) {
+    const lengths = candidates.map((id) => distanceTo(board, id, [board.start], state.round));
+    const pick = route === 'short' ? Math.min(...lengths) : Math.max(...lengths);
+    return candidates[lengths.indexOf(pick)] ?? pickOne(rng, candidates);
+  }
   let ids = candidates;
   if (policy.avoidTrapChance > 0 && rng.next() < policy.avoidTrapChance) {
     const slot = state.prompt?.slot;
