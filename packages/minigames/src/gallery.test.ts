@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MINIGAME_INFOS, ROTATION } from './catalog.ts';
 import {
   describeControls,
+  FAMILY_LABELS,
   galleryEntries,
   REMOVAL_DOWN_SHARE,
   REMOVAL_MIN_VOTES,
@@ -37,5 +38,15 @@ describe('Minispiel-Galerie (CHAOS-87)', () => {
     expect(suggestsRemoval({ up: 0, down: REMOVAL_MIN_VOTES - 1 })).toBe(false);
     expect(suggestsRemoval({ up: REMOVAL_MIN_VOTES, down: REMOVAL_MIN_VOTES })).toBe(false);
     expect(suggestsRemoval({ up: 0, down: 0 })).toBe(false);
+  });
+});
+
+describe('Familie in der Galerie (CHAOS-87 mit CHAOS-85)', () => {
+  it('zeigt die Familie des Steckbriefs als Namen', () => {
+    for (const entry of galleryEntries()) {
+      if (entry.info.family === undefined) expect(entry.family).toBeNull();
+      else expect(entry.family).toBe(FAMILY_LABELS[entry.info.family]);
+    }
+    expect(Object.keys(FAMILY_LABELS)).toHaveLength(20);
   });
 });

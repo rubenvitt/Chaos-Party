@@ -39,7 +39,7 @@ export type MinigameResultPayload = Omit<MinigameResultMessage, 'v' | 'type'>;
 
 /**
  * Steuerbefehle des Hosts (Protokoll v4, ADR-015): Rundenzahl, „Mehr Zeit zum Reagieren“
- * (CHAOS-124) und Brett (CHAOS-197) in der Lobby (`configure`, je Befehl mindestens eines davon),
+ * (CHAOS-124), Brett (CHAOS-197) sowie Sperrliste/Favoriten der Minispiele (CHAOS-85) in der Lobby (`configure`, je Befehl mindestens eines davon),
  * Pause/Fortsetzen/vorzeitiges Ende in der Brettphase, Revanche nach dem Endstand.
  */
 export type HostCommand =
@@ -49,6 +49,9 @@ export type HostCommand =
       readonly moreReactionTime?: boolean | undefined;
       /** Brett-Wahl (CHAOS-197): Brett-ID oder `RANDOM_BOARD`. */
       readonly board?: string | undefined;
+      /** Sperrliste und Favoriten der Minispiel-Rotation (CHAOS-85), je ganze Liste. */
+      readonly minigameBlocklist?: readonly string[] | undefined;
+      readonly minigameFavorites?: readonly string[] | undefined;
     }
   | { readonly type: 'pause' }
   | { readonly type: 'resume' }
@@ -66,6 +69,12 @@ export function createHostCommandMessage(command: HostCommand) {
           ? {}
           : { moreReactionTime: command.moreReactionTime }),
         ...(command.board === undefined ? {} : { board: command.board }),
+        ...(command.minigameBlocklist === undefined
+          ? {}
+          : { minigameBlocklist: [...command.minigameBlocklist] }),
+        ...(command.minigameFavorites === undefined
+          ? {}
+          : { minigameFavorites: [...command.minigameFavorites] }),
       });
     case 'pause':
       return createMessage('pause', {});

@@ -19,4 +19,6 @@ export const WACKELTURM_INFO: MinigameInfo = {
   physics: false,
   scoring: 'higher',
   scoreUnit: 'Punkte',
+  family: 'balance-stapeln',
+  ipadZone: true,
 };

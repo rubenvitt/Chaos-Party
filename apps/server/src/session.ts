@@ -46,6 +46,7 @@ import {
   type JoinMessage,
   type Layout,
   type LobbyMessage,
+  type LobbyMinigame,
   type LobbyPlayer,
   type Phase,
   type ProtocolError,
@@ -60,6 +61,8 @@ import {
   type RateMessage,
   type Vote,
 } from '@chaos-party/protocol';
+import type { MinigameRotationOptions } from '@chaos-party/game-core';
+import { getMinigameInfo } from '@chaos-party/minigames/catalog';
 import { randomInt } from 'node:crypto';
 import { boardChoiceName, isBoardChoice, lobbyBoards, resolveBoardChoice } from './boardChoice.ts';
 import {
@@ -246,6 +249,9 @@ export interface SessionSnapshot {
   moreReactionTime: boolean;
   /** Brett-Wahl der nächsten Partie: Brett-ID oder `RANDOM_BOARD` (Lobby-Einstellung, CHAOS-197). */
   board: string;
+  /** Sperrliste und Favoriten der Minispiel-Rotation (Lobby-Einstellung, CHAOS-85). */
+  minigameBlocklist: string[];
+  minigameFavorites: string[];
   /**
    * Wer die laufende Pause ausgelöst hat: `host` (Befehl `pause`), `host-lost` (Auto-Pause,
    * weil der Host die Verbindung verlor, CHAOS-38) oder `null` (keine Pause).
@@ -322,6 +328,14 @@ export class Session {
    * und bleibt über `rematch` erhalten; Zufall würfelt bei jeder Partie neu (Seed der Partie).
    */
   private board: string;
+  /**
+   * Sperrliste und Favoriten der Minispiel-Rotation (CHAOS-85, `configure`): nur Kennungen aus
+   * `gameSettings.minigames`, gelten ab dem nächsten Start und bleiben über `rematch` erhalten.
+   */
+  private minigameBlocklist: string[] = [];
+  private minigameFavorites: string[] = [];
+  /** Minispiele der letzten Partie dieser Session: kommen in der nächsten möglichst nicht. */
+  private recentMinigames: string[] = [];
   /** Zuletzt gesendeter Kontext je Slot (nur bei Änderung neu senden). */
   private readonly contextKeys = new Map<SlotNumber, string>();
   /** Auslöser der laufenden Pause (`null` = keine). */
@@ -513,6 +527,8 @@ export class Session {
       rounds: this.rounds,
       moreReactionTime: this.moreReactionTime,
       board: this.board,
+      minigameBlocklist: [...this.minigameBlocklist],
+      minigameFavorites: [...this.minigameFavorites],
       pausedBy: this.game?.paused ? this.pauseCause : null,
       awaitingHostReady: this.hostReadyDeadline !== null,
     };
@@ -635,6 +651,21 @@ export class Session {
           this.board = message.board;
           this.lobbyDirty = true;
         }
+        // Sperrliste und Favoriten der Rotation (CHAOS-85); fremde Kennungen fallen weg.
+        if (message.minigameBlocklist !== undefined) {
+          const blocklist = this.rotationIds(message.minigameBlocklist);
+          if (blocklist.join() !== this.minigameBlocklist.join()) {
+            this.minigameBlocklist = blocklist;
+            this.lobbyDirty = true;
+          }
+        }
+        if (message.minigameFavorites !== undefined) {
+          const favorites = this.rotationIds(message.minigameFavorites);
+          if (favorites.join() !== this.minigameFavorites.join()) {
+            this.minigameFavorites = favorites;
+            this.lobbyDirty = true;
+          }
+        }
         return;
       case 'pause':
       case 'resume':
@@ -737,6 +768,9 @@ export class Session {
    */
   private backToLobby(): void {
     const now = this.now();
+    // Die nächste Partie soll möglichst andere Minispiele bringen (CHAOS-85). Eine Übungsrunde
+    // aus der Galerie (CHAOS-87) zählt dafür nicht.
+    if (this.game && !this.game.practice) this.recentMinigames = [...this.game.playedMinigames];
     this.game = null;
     this.currentVotes = null;
     this.pauseCause = null;
@@ -1075,8 +1109,11 @@ export class Session {
       boardId: resolveBoardChoice(this.board, seed).id,
       rounds,
       rules: rulesForGame(this.gameSettings.rules, this.moreReactionTime),
-      // Übungsrunde (CHAOS-87): nur dieses Minispiel, auch wenn es nicht in der Rotation ist.
-      ...(practice === undefined ? {} : { minigames: [practice], practice: true }),
+      // Übungsrunde (CHAOS-87): nur dieses Minispiel, ohne Filter der Rotation (Spielerzahl,
+      // Sperrliste): In der Galerie lässt sich jedes Spiel üben.
+      ...(practice === undefined
+        ? { minigameRotation: this.rotationOptions(players) }
+        : { minigames: [practice], practice: true }),
     };
     const game = new BoardGame(
       players.map((player) => ({
@@ -1101,6 +1138,42 @@ export class Session {
       slots: players.map((p) => p.slot),
       ...(practice === undefined ? {} : { practice: practice.id }),
     });
+  }
+
+  /** Nur Kennungen aus der Rotation, in Katalog-Reihenfolge, ohne Doppelte (CHAOS-85). */
+  private rotationIds(ids: readonly string[]): string[] {
+    const wanted = new Set(ids);
+    return this.gameSettings.minigames.map((spec) => spec.id).filter((id) => wanted.has(id));
+  }
+
+  /**
+   * Einstellungen der Minispiel-Rotation für eine Partie (CHAOS-85): iPad-Zonen = eine
+   * Verbindung mit mehreren mitspielenden Slots (geteiltes iPad), dazu Sperrliste, Favoriten und
+   * die Minispiele der letzten Partie.
+   */
+  private rotationOptions(players: readonly Player[]): MinigameRotationOptions {
+    const playing = new Set(players.map((player) => player.slot));
+    const ipadZones = [...this.tokens.values()].some(
+      (slots) => slots.filter((slot) => playing.has(slot)).length >= 2,
+    );
+    return {
+      ipadZones,
+      ...(this.recentMinigames.length === 0 ? {} : { recent: [...this.recentMinigames] }),
+      ...(this.minigameBlocklist.length === 0 ? {} : { blocked: [...this.minigameBlocklist] }),
+      ...(this.minigameFavorites.length === 0 ? {} : { favorites: [...this.minigameFavorites] }),
+    };
+  }
+
+  /** Rotation mit Sperr- und Favoriten-Stand für `lobby.settings.minigames` (CHAOS-85). */
+  private lobbyMinigames(): LobbyMinigame[] {
+    const blocked = new Set(this.minigameBlocklist);
+    const favorites = new Set(this.minigameFavorites);
+    return this.gameSettings.minigames.map((spec) => ({
+      id: spec.id,
+      title: (getMinigameInfo(spec.id)?.title ?? spec.id).slice(0, 24),
+      blocked: blocked.has(spec.id),
+      favorite: favorites.has(spec.id),
+    }));
   }
 
   /** „Bereit“ in der Minispiel-Anleitung (CHAOS-214); verspätet/doppelt ist kein Missbrauch. */
@@ -1480,6 +1553,7 @@ export class Session {
         moreReactionTime: this.moreReactionTime,
         board: this.board,
         boards: lobbyBoards(),
+        ...(this.gameSettings.minigames.length === 0 ? {} : { minigames: this.lobbyMinigames() }),
       },
     });
   }

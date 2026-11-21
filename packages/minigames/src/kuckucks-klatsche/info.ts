@@ -20,4 +20,6 @@ export const KUCKUCKS_KLATSCHE_INFO: MinigameInfo = {
   physics: false,
   scoring: 'higher',
   scoreUnit: 'Punkte',
+  family: 'reflex-reaktion',
+  ipadZone: true,
 };

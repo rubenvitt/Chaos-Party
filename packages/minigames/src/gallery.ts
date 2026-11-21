@@ -5,7 +5,7 @@
  *
  * Die Entscheidung über den Rauswurf bleibt bei Ruben; die Galerie zeigt nur den Vorschlag.
  */
-import type { MinigameControls, MinigameInfo } from '@chaos-party/minigame-sdk';
+import type { MinigameControls, MinigameFamily, MinigameInfo } from '@chaos-party/minigame-sdk';
 import { MINIGAME_INFOS, ROTATION } from './catalog.ts';
 
 /**
@@ -23,10 +23,7 @@ export const GALLERY_STATUS_LABELS: Readonly<Record<GalleryStatus, string>> = {
 export interface GalleryEntry {
   readonly info: MinigameInfo;
   readonly status: GalleryStatus;
-  /**
-   * Familie aus dem Steckbrief, sobald er sie trägt (CHAOS-85 erweitert `MinigameInfo`), sonst
-   * `null`.
-   */
+  /** Familie aus dem Steckbrief (CHAOS-85) als Anzeigename, `null` ohne Angabe. */
   readonly family: string | null;
   /** Bedienung in Worten, z. B. „Stick: Laufen · A: Springen“. */
   readonly controls: string;
@@ -41,10 +38,32 @@ export function describeControls(controls: MinigameControls): string {
   return parts.length > 0 ? parts.join(' · ') : 'ohne Eingabe';
 }
 
+/** Anzeigenamen der 20 Familien (README §4, Familien-Wellen CHAOS-94 … CHAOS-113). */
+export const FAMILY_LABELS: Readonly<Record<MinigameFamily, string>> = {
+  'fangen-sammeln': 'Fangen & Sammeln',
+  'ausweichen-ueberleben': 'Ausweichen & Überleben',
+  'rempeln-schubsen': 'Rempeln & Runterschubsen',
+  'timing-rhythmus': 'Timing & Rhythmus',
+  'reflex-reaktion': 'Reflex & Reaktion',
+  'pumpen-dosieren': 'Pumpen, Kurbeln, Dosieren',
+  'zielen-werfen': 'Zielen & Werfen',
+  'balance-stapeln': 'Balance & Stapeln',
+  'rennen-parcours': 'Rennen & Parcours',
+  'gedaechtnis-muster': 'Gedächtnis & Muster',
+  zocken: 'Zocken & Push-your-luck',
+  'bluff-geheime-wahl': 'Bluff & geheime Wahl',
+  'revier-malen': 'Revier & Malen',
+  'fahrzeuge-schwung': 'Fahrzeuge & Schwung',
+  'schaetzen-wahrnehmung': 'Schätzen & Wahrnehmung',
+  'hektik-kueche': 'Hektik-Küche & Laden',
+  'einer-gegen-alle': 'Einer gegen alle',
+  'zwei-gegen-zwei': 'Zwei gegen zwei',
+  'koop-chaos': 'Gemeinsam gegen das Chaos',
+  mikro: 'Mikro-Spiele',
+};
+
 function familyOf(info: MinigameInfo): string | null {
-  // Vorwärtskompatibel: CHAOS-85 ergänzt `family` im Steckbrief.
-  const family: unknown = (info as { readonly family?: unknown }).family;
-  return typeof family === 'string' && family !== '' ? family : null;
+  return info.family === undefined ? null : FAMILY_LABELS[info.family];
 }
 
 /** Alle startbaren Minispiele: zuerst die Rotation, dann die übrigen, je nach Titel. */

@@ -218,6 +218,42 @@ export interface MinigameSpec {
   /** Reine Spielzeit in ms (der Host meldet das Ergebnis spätestens kurz danach). */
   readonly playMs: number;
   readonly scoring: 'higher' | 'lower';
+
+  // --- Achsen und Tauglichkeit für die Rotation (CHAOS-85), alle optional ---
+  // Ohne Angaben zieht die Rotation genau wie vor CHAOS-85 (gemischte Liste per Seed).
+
+  /** Kategorie (`arcade`, `physics`, `hybrid`); weiche Mischachse. */
+  readonly category?: string;
+  /** Bedienungs-Kürzel (`A`, `AB`, `S`, `SA`, `SAB` …); weiche Mischachse. */
+  readonly controls?: string;
+  /** Mechanik-Familie; nie zweimal hintereinander. */
+  readonly family?: string;
+  /** Kernverb; nie zweimal hintereinander. */
+  readonly verb?: string;
+  /** Spielform (`ffa`, `1v3`, `2v2`, `koop`); weiche Mischachse. */
+  readonly form?: string;
+  /** Spielerzahl, für die das Spiel taugt (fehlt = 1 bzw. 4). */
+  readonly minPlayers?: number;
+  readonly maxPlayers?: number;
+  /** `false` = nur iPhone: fällt weg, wenn jemand an einer iPad-Zone spielt. */
+  readonly ipadZone?: boolean;
+  /** Geheime Wahl: bei iPad-Zonen deutlich seltener (Gewicht). */
+  readonly secretChoice?: boolean;
+}
+
+/**
+ * Einstellungen der Minispiel-Rotation einer Partie (CHAOS-85). Alles optional; ohne sie
+ * zieht game-core wie bisher.
+ */
+export interface MinigameRotationOptions {
+  /** Spielt jemand an einer Zone eines geteilten iPads? */
+  readonly ipadZones?: boolean;
+  /** Minispiele der letzten Partie: kommen erst, wenn alle anderen dran waren. */
+  readonly recent?: readonly string[];
+  /** Am Host gesperrt: werden nicht gezogen (außer es bliebe sonst keines übrig). */
+  readonly blocked?: readonly string[];
+  /** Am Host als Favorit markiert: werden öfter (früher) gezogen. */
+  readonly favorites?: readonly string[];
 }
 
 export interface GameConfig {
@@ -239,6 +275,8 @@ export interface GameConfig {
    * Ergebnis endet sie (`game-results`). Verlangt genau ein Minispiel und `rounds: 1`.
    */
   readonly practice?: boolean;
+  /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85). */
+  readonly minigameRotation?: MinigameRotationOptions;
 }
 
 /** Platz im Minispiel (gleich `MinigamePlacement` aus dem minigame-sdk). */
@@ -463,6 +501,8 @@ export interface GameState {
     readonly minigames: readonly MinigameSpec[];
     /** Übungsmodus der Galerie (CHAOS-87, siehe `GameConfig.practice`). Fehlt = `false`. */
     readonly practice?: boolean;
+    /** Filter, Gewichte und Gedächtnis der Minispiel-Auswahl (CHAOS-85); fehlt = keine. */
+    readonly minigameRotation?: MinigameRotationOptions;
   };
   /** Interner Zustand der Regeln (Bewegung, RNG, Zähler). Form bestimmt game-core. */
   readonly internal: Readonly<Record<string, unknown>>;

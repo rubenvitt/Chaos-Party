@@ -21,4 +21,6 @@ export const KRUEMEL_KEHRAUS_INFO: MinigameInfo = {
   physics: true,
   scoring: 'higher',
   scoreUnit: 'Krümel',
+  family: 'fangen-sammeln',
+  ipadZone: true,
 };

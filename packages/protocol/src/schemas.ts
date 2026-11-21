@@ -198,6 +198,16 @@ export const MAX_BOARD_TAGLINE_LENGTH = 80;
 export const MAX_BOARD_EVENTS = 64;
 /** Kennung eines Minispiels (gleich `MINIGAME_ID_PATTERN` im minigame-sdk). */
 export const MinigameIdSchema = z.string().regex(/^[a-z0-9-]{3,32}$/);
+/**
+ * Höchstzahl Minispiele in Sperrliste, Favoriten und `lobby.settings.minigames` (CHAOS-85;
+ * Ziel des Katalogs sind ~200 volle Minispiele).
+ */
+export const MAX_ROTATION_MINIGAMES = 256;
+/** Liste von Minispiel-Kennungen ohne Doppelte (Sperrliste, Favoriten). */
+const MinigameIdListSchema = z
+  .array(MinigameIdSchema)
+  .max(MAX_ROTATION_MINIGAMES)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'Minispiele doppelt' });
 /** Seed eines Minispiels (uint32). */
 export const MinigameSeedSchema = z.int().min(0).max(0xffff_ffff);
 /** Punktzahl im Minispiel (ganzzahlig, wie `MAX_SCORE` im minigame-sdk). */
@@ -525,13 +535,25 @@ export const ConfigureMessageSchema = z
      * unbekanntes Brett lehnt der Server mit `bad-message` ab.
      */
     board: BoardChoiceSchema.optional(),
+    /**
+     * v4-Nachtrag (CHAOS-85): Sperrliste der Minispiel-Rotation (ersetzt die ganze Liste;
+     * `[]` leert sie). Kennungen, die der Server nicht in der Rotation hat, ignoriert er.
+     */
+    minigameBlocklist: MinigameIdListSchema.optional(),
+    /** v4-Nachtrag (CHAOS-85): Favoriten der Rotation (ersetzt die ganze Liste). */
+    minigameFavorites: MinigameIdListSchema.optional(),
   })
   .refine(
     (message) =>
       message.rounds !== undefined ||
       message.moreReactionTime !== undefined ||
-      message.board !== undefined,
-    { message: 'configure braucht rounds, moreReactionTime oder board' },
+      message.board !== undefined ||
+      message.minigameBlocklist !== undefined ||
+      message.minigameFavorites !== undefined,
+    {
+      message:
+        'configure braucht rounds, moreReactionTime, board, minigameBlocklist oder minigameFavorites',
+    },
   );
 
 /** Partie anhalten (v4, CHAOS-36): Fristen und Spielzeit stehen, bis `resume` kommt. */
@@ -778,6 +800,19 @@ export const LobbyBoardSchema = z.strictObject({
   recommendedRounds: RoundsSchema,
 });
 
+/**
+ * Ein Minispiel der Rotation in `lobby.settings.minigames` (v4-Nachtrag CHAOS-85): Der Host
+ * zeigt damit Sperrliste und Favoriten an.
+ */
+export const LobbyMinigameSchema = z.strictObject({
+  id: MinigameIdSchema,
+  title: displayText(24),
+  /** Am Host gesperrt: kommt in keiner Partie (außer alle wären gesperrt). */
+  blocked: z.boolean(),
+  /** Am Host als Favorit markiert: kommt öfter. */
+  favorite: z.boolean(),
+});
+
 /** Lobby-Einstellungen (v4, CHAOS-36). */
 export const LobbySettingsSchema = z
   .strictObject({
@@ -808,6 +843,17 @@ export const LobbySettingsSchema = z
       .max(MAX_BOARDS)
       .refine((boards) => new Set(boards.map((b) => b.id)).size === boards.length, {
         message: 'Brett-IDs doppelt',
+      })
+      .optional(),
+    /**
+     * v4-Nachtrag (CHAOS-85, optional): Minispiele der Rotation mit Sperr- und Favoriten-Stand
+     * (Reihenfolge wie im Katalog). Fehlt = älterer Server, keine Auswahl.
+     */
+    minigames: z
+      .array(LobbyMinigameSchema)
+      .max(MAX_ROTATION_MINIGAMES)
+      .refine((games) => new Set(games.map((g) => g.id)).size === games.length, {
+        message: 'Minispiele doppelt',
       })
       .optional(),
   })
