@@ -1,4 +1,4 @@
-import type { CatchUpRules, Pacing, RuleSet } from '../types.ts';
+import type { CatchUpRules, Pacing, RuleSet, TeamRewards } from '../types.ts';
 
 /**
  * Standardregeln. Festgelegt per Bot-Simulation in CHAOS-24 (`docs/experiments.md`,
@@ -120,3 +120,16 @@ export function withRules(overrides: RuleOverrides, base: RuleSet = DEFAULT_RULE
       : {}),
   };
 }
+
+/**
+ * Münz-Regel für Teams und Koop (CHAOS-89), solange `economy.teamRewards` fehlt. Startwert aus
+ * dem Konzept (README §7 Nr. 2): Siegerteam je Person wie Platz 1, Einzelsieg doppelt; Koop =
+ * Einzelwertung wie jeder gegen jeden, anteilig zur Stufe. EXP-035 prüft das mit Bots.
+ */
+export const DEFAULT_TEAM_REWARDS: TeamRewards = {
+  win: 10,
+  lose: 0,
+  draw: 3,
+  soloWinFactor: 2,
+  koop: [10, 5, 3, 0],
+};
