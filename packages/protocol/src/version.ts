@@ -32,6 +32,16 @@
  * `lobby.settings.board` (Brett-ID oder `RANDOM_BOARD` „zufall“) und `lobby.settings.boards`
  * (wählbare Bretter), `configure.board` und `ControllerLobbyInfo.board` (alle optional). Ein
  * unbekanntes Brett in `configure` lehnt der Server mit `bad-message` ab.
+ * v4-Nachtrag (CHAOS-87, additiv, ohne Versionssprung): Minispiel-Galerie und Daumen –
+ * `start.practice` (Übungsrunde mit einem Minispiel), `BoardView.practice`, Minispiel-Kontext
+ * `practice`/`vote`, Aktion `rate` und Controller-Nachricht `rate` (Brettphase, nur in der
+ * Ergebnisanzeige), Host-Nachricht `ratings` (Stimmen je Minispiel). Gegenstellen ohne den
+ * Nachtrag ignorieren `ratings` bzw. senden kein `rate`.
+ * v4-Nachtrag (CHAOS-214, additiv, ohne Versionssprung): „Bereit“ in der Minispiel-Anleitung –
+ * `ready` ist auch in der Brettphase erlaubt, wenn der Kontext die Aktion `ready` anbietet
+ * (`minigame-intro`); `ControllerMinigameInfo.ready` (eigener Stand) und
+ * `BoardView.minigame.ready` (bereite Slots), beide optional. Ältere Controller ohne Knopf
+ * halten nichts auf: Nach der Sicherheitsfrist startet das Minispiel trotzdem.
  */
 export const PROTOCOL_VERSION = 4;
 

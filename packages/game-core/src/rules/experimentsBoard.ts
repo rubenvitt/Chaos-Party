@@ -1,5 +1,5 @@
 /**
- * Brett-Experiment EXP-034 (CHAOS-196, `docs/experiments.md`): der vergrößerte Wackelwald
+ * Brett-Experiment EXP-035 (CHAOS-196, `docs/experiments.md`): der vergrößerte Wackelwald
  * (74 Felder, vier Gabeln) gegen den alten (43 Felder, zwei Gabeln), mit den aktuellen
  * Standardregeln und echter Minispiel-Rotation.
  *
@@ -97,7 +97,7 @@ export function boardSizeExperiment(
     }
   }
   return {
-    title: `EXP-034 Brettgröße (Standardregeln + Rotation, ${seedText(setup)})`,
+    title: `EXP-035 Brettgröße (Standardregeln + Rotation, ${seedText(setup)})`,
     headers: [
       'Brett',
       'Runden',
@@ -196,7 +196,7 @@ export function routeFairnessExperiment(
     }
   }
   return {
-    title: `EXP-034 Wegwahl: immer kurz gegen immer lang (Rollen getauscht, ${seedText(setup)} × 2)`,
+    title: `EXP-035 Wegwahl: immer kurz gegen immer lang (Rollen getauscht, ${seedText(setup)} × 2)`,
     headers: [
       'Brett',
       'Runden',
@@ -240,7 +240,7 @@ export function routeUsageExperiment(
     bought.map((b) => `${b.id} ${pct(b.count / totalBought)}`).join(' · '),
   ]);
   return {
-    title: `EXP-034 Wegwahl und Trophäenfelder (${String(setup.rounds)} Runden, 2–4 Sp., ${seedText(setup)})`,
+    title: `EXP-035 Wegwahl und Trophäenfelder (${String(setup.rounds)} Runden, 2–4 Sp., ${seedText(setup)})`,
     headers: ['Gabel / Feld', 'Anteil'],
     rows,
   };

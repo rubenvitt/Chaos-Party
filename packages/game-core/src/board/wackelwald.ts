@@ -29,7 +29,7 @@
  *   über den Bäumen: kurz, riskant).
  * - Gabel C (s29): Pilzpfad 6 (sicher, Item) / Wackelbrücke 4 (Minus, Ereignis).
  *
- * Feldverteilung nach EXP-034 (CHAOS-196, `docs/experiments.md`): Jeder Zweig hat einen
+ * Feldverteilung nach EXP-035 (CHAOS-196, `docs/experiments.md`): Jeder Zweig hat einen
  * Trophäen-Kandidaten, lange Wege bringen mehr Münzen, kurze mehr Risiko. 13 Kandidaten
  * (vier davon auf gemeinsamen Stücken: s05, s18, s42, s73), damit eine wandernde Trophäe auch auf dem
  * großen Brett in Reichweite landet; zehn Item-Felder etwa alle sieben Felder. In Bot-Partien

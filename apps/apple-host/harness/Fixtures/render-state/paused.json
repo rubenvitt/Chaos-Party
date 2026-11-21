@@ -222,7 +222,8 @@
       "lanternIntensity": 0,
       "lanternRange": 0,
       "grassTip": "#acd462"
-    }
+    },
+    "rides": []
   },
   "minigame": null,
   "pause": {

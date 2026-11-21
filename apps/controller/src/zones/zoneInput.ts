@@ -4,7 +4,7 @@
 import type { CharacterId, SlotNumber } from '@chaos-party/protocol';
 import { describePrompt, isLocked, ownPrompt } from '../board/prompt.ts';
 import { describeLobby, type SiblingCharacter } from '../lobby/view.ts';
-import { offeredActions } from '../minigame/view.ts';
+import { introReadyState, offeredActions } from '../minigame/view.ts';
 import type { PendingChoice, SlotContext } from '../state/reducer.ts';
 import type { ZoneChoicesInput, ZoneControlsInput, ZoneLobbyInput } from './geometry.ts';
 
@@ -51,6 +51,8 @@ export interface ZoneExtras {
   readonly pending?: PendingChoice | undefined;
   readonly pick?: CharacterId | undefined;
   readonly siblings?: readonly SiblingCharacter[];
+  /** Schonfrist der Anleitung vorbei: „Bereit!“ antippbar (CHAOS-214). */
+  readonly introArmed?: boolean;
 }
 
 /**
@@ -69,6 +71,10 @@ export function zoneControlsInput(
   const choices = slot === undefined ? undefined : zoneChoicesInput(slot, context, pending);
   const readySent = readySentFor !== undefined && readySentFor === contextKey(context);
   const lobby = zoneLobbyInput(context, readySent, extras.pick, extras.siblings);
+  const introReady =
+    context.layout === 'board'
+      ? introReadyState(context, { sent: readySent, armed: extras.introArmed === true })
+      : 'timer';
   return {
     layout: context.layout,
     // Minispiel (CHAOS-33): nur Elemente, die der Steckbrief auch beschriftet.
@@ -76,5 +82,6 @@ export function zoneControlsInput(
     readySent,
     ...(choices !== undefined && { choices }),
     ...(lobby !== undefined && { lobby }),
+    ...(introReady !== 'timer' && { introReady }),
   };
 }

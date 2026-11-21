@@ -78,6 +78,8 @@ struct RenderState: Decodable, Equatable {
         var sounds: [SoundCue]?
         /// Lichtstimmung der gezeigten Runde, beim Rundenwechsel überblendet (CHAOS-193).
         var light: Light?
+        /// Rides of the scenery (CHAOS-199): node in the USDZ, axis (`y`/`z`) and angle in Babylon coordinates (rad).
+        var rides: [Ride]?
     }
 
     /// Lichtstimmung (CHAOS-193): `LightState` des Browser-Hosts, im JS-Kern gerechnet. Farben `#rrggbb` (sRGB),
@@ -115,6 +117,12 @@ struct RenderState: Decodable, Equatable {
     struct Point: Decodable, Equatable {
         var x: Float
         var z: Float
+    }
+
+    struct Ride: Decodable, Equatable {
+        var node: String
+        var axis: String
+        var angle: Float
     }
 
     struct Trap: Decodable, Equatable {
@@ -269,8 +277,11 @@ struct RenderState: Decodable, Equatable {
         var round: Int?
         /// Ran before in this match: short instructions (CHAOS-66).
         var `repeat`: Bool?
-        /// Intro: whole seconds until the start.
+        /// Intro: whole seconds until the start; nil while the intro waits for „Bereit“ (`readiness`).
         var countdown: Int?
+        /// CHAOS-214: the intro waits until every connected player pressed „Bereit“ on the phone; chips instead of
+        /// the countdown. nil = fixed intro time.
+        var readiness: Readiness?
         var camera: Camera?
         var backdrop: Backdrop?
         var figures: [Figure]?
@@ -366,6 +377,26 @@ struct RenderState: Decodable, Equatable {
         var score: Double?
         var status: String?
         var connected: Bool?
+    }
+
+    /// CHAOS-214: `introReadiness` (`apps/host/src/minigame/readiness.ts`).
+    struct Readiness: Decodable, Equatable {
+        var headline: String?
+        var players: [ReadyPlayer]?
+    }
+
+    struct ReadyPlayer: Decodable, Equatable {
+        var slot: Int
+        var name: String?
+        var character: String?
+        var color: String?
+        var symbol: String?
+        var ready: Bool?
+        var connected: Bool?
+        /// ready, waiting, disconnected
+        var state: String?
+        /// „Bereit“, „Drückt Bereit …“, „getrennt“
+        var text: String?
     }
 
     struct Results: Decodable, Equatable {

@@ -69,8 +69,10 @@ struct Action: OpenStringEnum {
     static let buttonA: Self = "button-a", buttonB: Self = "button-b"
     static let gesture: Self = "gesture", reaction: Self = "reaction", choose: Self = "choose"
     static let pickCharacter: Self = "pick-character"
+    /// Thumbs up/down after a minigame (CHAOS-87); no UI yet (CHAOS-219).
+    static let rate: Self = "rate"
     static let known: [Self] = [
-        .ready, .move, .buttonA, .buttonB, .gesture, .reaction, .choose, .pickCharacter,
+        .ready, .move, .buttonA, .buttonB, .gesture, .reaction, .choose, .pickCharacter, .rate,
     ]
 }
 
@@ -272,6 +274,10 @@ struct ControllerMinigameInfo: Codable, Equatable, Sendable {
     /// v4 addendum (CHAOS-66, optional): the minigame already ran this match, so the intro
     /// shows title and controls only. Missing = `false` (full instructions).
     var `repeat`: Bool?
+    /// v4 addendum (CHAOS-214, optional): only in `intro` while the intro waits for „Bereit“:
+    /// `true` = this slot already pressed it. Missing = the intro does not wait (fixed timer,
+    /// older servers): no button.
+    var ready: Bool?
 }
 
 /// Element of `ControllerLobbyInfoSchema.takenBy`.
@@ -428,12 +434,14 @@ enum SlotIntent: Equatable, Sendable {
     case reaction(slot: Int, windowId: Int)
     case choose(slot: Int, promptId: Int, option: String)
     case pickCharacter(slot: Int, character: CharacterId)
+    /// Thumbs after a minigame (CHAOS-87): `vote` is `up` or `down` (`VOTES`). No UI yet (CHAOS-219).
+    case rate(slot: Int, minigameId: String, round: Int, vote: String)
 
     var slot: Int {
         switch self {
         case .ready(let slot), .move(let slot, _, _), .press(let slot, _),
             .release(let slot, _), .gesture(let slot, _), .reaction(let slot, _),
-            .choose(let slot, _, _), .pickCharacter(let slot, _):
+            .choose(let slot, _, _), .pickCharacter(let slot, _), .rate(let slot, _, _, _):
             slot
         }
     }
@@ -448,6 +456,7 @@ enum SlotIntent: Equatable, Sendable {
         case .reaction: "reaction"
         case .choose: "choose"
         case .pickCharacter: "pick-character"
+        case .rate: "rate"
         }
     }
 }
@@ -488,6 +497,7 @@ extension ControllerMessage: Codable {
     private enum Key: String, CodingKey {
         case v, type, joinCode, seats, names, sessionToken, t, slot, seq
         case x, y, button, kind, windowId, promptId, option, character
+        case minigameId, round, vote
     }
 
     func encode(to encoder: Encoder) throws {
@@ -522,6 +532,10 @@ extension ControllerMessage: Codable {
                 try c.encode(option, forKey: .option)
             case .pickCharacter(_, let character):
                 try c.encode(character, forKey: .character)
+            case .rate(_, let minigameId, let round, let vote):
+                try c.encode(minigameId, forKey: .minigameId)
+                try c.encode(round, forKey: .round)
+                try c.encode(vote, forKey: .vote)
             }
         }
     }
@@ -570,6 +584,11 @@ extension ControllerMessage: Codable {
         case "pick-character":
             intent = .pickCharacter(
                 slot: slot, character: try c.decode(CharacterId.self, forKey: .character))
+        case "rate":
+            intent = .rate(
+                slot: slot, minigameId: try c.decode(String.self, forKey: .minigameId),
+                round: try c.decode(Int.self, forKey: .round),
+                vote: try c.decode(String.self, forKey: .vote))
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .type, in: c, debugDescription: "Unbekannter Controller-Typ \(type)")

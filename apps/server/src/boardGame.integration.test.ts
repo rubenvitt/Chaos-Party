@@ -23,7 +23,6 @@ import {
   pressInMinigame,
   setupGame,
   setupMinigameGame,
-  TICK_MS,
   turnsPerSlot,
   type ReactionPolicy,
 } from './testHarness.ts';
@@ -385,15 +384,10 @@ describe('Minispiele über die Session (M3, CHAOS-34)', () => {
     expect(h.gamePhase).toBe('game-results');
     const pacing = DEFAULT_RULES.pacing;
     expect(intros.get(1)?.repeat).toBe(false);
-    // Die Anleitung beginnt zwischen zwei Takten des Harness: Restzeit höchstens einen Takt kürzer.
-    const shortBy = (round: number, full: number | undefined): number =>
-      (full ?? NaN) - (intros.get(round)?.remainingMs ?? NaN);
-    expect(shortBy(1, pacing.minigameIntroMs)).toBeGreaterThanOrEqual(0);
-    expect(shortBy(1, pacing.minigameIntroMs)).toBeLessThan(TICK_MS);
+    // CHAOS-214: Die Anleitung wartet auf „Bereit“; zuerst läuft ihre Mindestdauer.
+    expect(intros.get(1)?.remainingMs).toBe(pacing.minigameReadyMinMs);
     expect(intros.get(2)?.repeat).toBe(true);
-    expect(shortBy(2, pacing.minigameRepeatIntroMs)).toBeGreaterThanOrEqual(0);
-    expect(shortBy(2, pacing.minigameRepeatIntroMs)).toBeLessThan(TICK_MS);
-    expect(pacing.minigameRepeatIntroMs).toBeLessThan(pacing.minigameIntroMs);
+    expect(intros.get(2)?.remainingMs).toBe(pacing.minigameReadyMinMs);
     expect(new Set(contexts.get(1))).toEqual(new Set([false]));
     expect(new Set(contexts.get(2))).toEqual(new Set([true]));
   });

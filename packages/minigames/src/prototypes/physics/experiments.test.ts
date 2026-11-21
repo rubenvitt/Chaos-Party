@@ -18,15 +18,12 @@ import {
   type Prototype,
   type RunMetrics,
 } from './shared.ts';
-import { PuddingGerangel } from '../../pudding-gerangel/index.ts';
-import { PUDDING_GERANGEL_INFO } from '../../pudding-gerangel/info.ts';
-import { TUNING } from '../../pudding-gerangel/logic.ts';
+import { createPuddingGerangelPrototype } from './puddingGerangelView.ts';
 import {
   createWackelPrototype,
   wackelBot,
   type WackelConfig,
   type WackelTuning,
-  type WackelView,
 } from './wackel.ts';
 
 const DURATION_MS = 30_000;
@@ -43,46 +40,6 @@ const CHAOS: Partial<WackelTuning> = {
   whiskHeight: 0.7,
   bonkBoost: 1.3,
 };
-
-/** Das umgesetzte Minispiel mit denselben Bots wie die Prototypen (Zeile „Z“). */
-function createFinalPrototype(): Prototype<WackelView> {
-  let game: PuddingGerangel | null = null;
-  return {
-    module: {
-      info: PUDDING_GERANGEL_INFO,
-      create: () => {
-        game = new PuddingGerangel();
-        return game;
-      },
-    },
-    peek: () => {
-      if (!game) return null;
-      const snap = game.snapshot();
-      return {
-        pawns: snap.pawns.map(({ slot, x, y, z, vx, vy, vz, out, canDash }) => ({
-          slot,
-          x,
-          y,
-          z,
-          vx,
-          vy,
-          vz,
-          out,
-          canDash,
-        })),
-        props: [],
-        killY: TUNING.killY,
-        tunneled: () =>
-          snap.pawns.filter((p) => !p.out && p.localR < TUNING.radius - 0.8 && p.localY < 0).length,
-        counters: { ...snap.counters },
-        tilt: snap.tilt,
-        whiskAngle: snap.spoonAngle,
-        zone: snap.zone,
-        leader: snap.leader,
-      };
-    },
-  };
-}
 
 interface Variant {
   readonly name: string;
@@ -146,7 +103,7 @@ export const VARIANTS: readonly Variant[] = [
   }),
   {
     name: 'Z: Pudding-Gerangel (Umsetzung)',
-    make: createFinalPrototype,
+    make: createPuddingGerangelPrototype,
     policy: wackelBot as BotPolicy<ProtoView>,
   },
   {

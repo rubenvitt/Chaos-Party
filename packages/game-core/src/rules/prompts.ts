@@ -4,7 +4,8 @@
  */
 import type { GamePhase, ItemKind, PromptKind, PromptOption, Slot } from '../types.ts';
 import { sabotageAmount } from './economy.ts';
-import { activePlayer, playerOf, spaceOf, type Ctx } from './internal.ts';
+import { rotationAt, rotationExit } from '../board/rotation.ts';
+import { activePlayer, nextOf, playerOf, spaceOf, type Ctx } from './internal.ts';
 import { trophyPrice } from './economy.ts';
 import {
   coinsText,
@@ -146,13 +147,40 @@ export function openTargetPrompt(ctx: Ctx, t: number): void {
   );
 }
 
+/** So weit schaut die Wegwahl voraus, ob ein Weg in ein drehendes Feld (Karussell) führt. */
+const ROTATION_LOOKAHEAD = 6;
+
+/**
+ * Zusatz zur Wegwahl (CHAOS-199): Führt der Weg ab `id` ohne weitere Gabel in ein drehendes
+ * Feld, nennt er, wohin es in dieser Runde dreht („Karussell → Riesenrad“). Sonst `undefined`.
+ */
+function rotationDetail(ctx: Ctx, id: string): string | undefined {
+  const board = ctx.d.internal.board;
+  let current = id;
+  for (let i = 0; i < ROTATION_LOOKAHEAD; i++) {
+    const rotation = rotationAt(board, current);
+    if (rotation) {
+      const exit = spaceOf(ctx, rotationExit(rotation, ctx.d.round));
+      return exit.label === undefined
+        ? undefined
+        : displayText(`Karussell → ${exit.label}`, 48, '');
+    }
+    const next = spaceOf(ctx, current).next;
+    const only = next.length === 1 ? next[0] : undefined;
+    if (only === undefined) return undefined;
+    current = only;
+  }
+  return undefined;
+}
+
 export function openPathPrompt(ctx: Ctx, t: number): void {
   const player = activePlayer(ctx);
-  const here = spaceOf(ctx, player.spaceId);
-  const options: PromptOption[] = here.next.map((id, index) => ({
-    id,
-    label: pathLabel(spaceOf(ctx, id).label, index),
-  }));
+  const next = nextOf(ctx, player.spaceId);
+  const options: PromptOption[] = next.map((id, index) => {
+    const label = pathLabel(spaceOf(ctx, id).label, index);
+    const detail = rotationDetail(ctx, id);
+    return detail === undefined ? { id, label } : { id, label, detail };
+  });
   openPrompt(
     ctx,
     {
@@ -161,7 +189,7 @@ export function openPathPrompt(ctx: Ctx, t: number): void {
       kind: 'path',
       title: TEXT.pathTitle,
       options,
-      defaultOption: here.next[0] ?? '',
+      defaultOption: next[0] ?? '',
       deadline: null,
     },
     t,

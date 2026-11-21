@@ -83,6 +83,7 @@ import {
   type Point2,
 } from './layout.ts';
 import { buildNatureBoard, TILE_TOP, type NatureBoardWorld } from './natureBoard.ts';
+import { createRideMotion } from './rides.ts';
 import type { MessageTone } from './texts.ts';
 import type { BoardScene, BoardSceneOptions } from './types.ts';
 import { createWebGlEngine, rendererInfo, rendererName } from '../scene/engineFactory.ts';
@@ -220,7 +221,7 @@ export function createBoardScene(
   const upcoming =
     look.fixedMood || !startRound
       ? []
-      : moodsForBoardRound(startRound.round, startRound.rounds)
+      : moodsForBoardRound(startRound.round, startRound.rounds, board.id)
           .filter((id) => id !== look.mood.id)
           .map((id) => LIGHT_MOODS[id]);
   applyRenderScale(engine, look);
@@ -373,7 +374,7 @@ export function createBoardScene(
     if (!lighting || look.fixedMood || !view || view.rounds <= 0 || view.round >= view.rounds) {
       return;
     }
-    const next = LIGHT_MOODS[moodForRound(view.round + 1, view.rounds)];
+    const next = LIGHT_MOODS[moodForRound(view.round + 1, view.rounds, board.id)];
     const cancelled = (): boolean => disposed || !hidden;
     try {
       if (!(await lighting.prepareMood(next)) || cancelled()) return;
@@ -1045,10 +1046,21 @@ export function createBoardScene(
     lighting?.setFocusDistance(distance);
   }
 
+  /** Karussell (zeigt auf den Ausgang der Runde) und Riesenrad (CHAOS-199, `./rides.ts`). */
+  const rides = createRideMotion(board);
+  function syncRides(dtMs: number, view: BoardFrame['view']): void {
+    const fair = world?.fair;
+    if (!fair) return;
+    rides.advance(dtMs, view ? view.round : null);
+    const state = rides.state;
+    if (fair.carousel && state.carousel !== null) fair.carousel.rotation.y = state.carousel;
+    fair.wheel.rotation.z = state.wheel;
+  }
+
   /** Lichtverlauf: Rundenwechsel im übernommenen Stand startet die Überblendung. */
   function syncMood(view: BoardFrame['view']): void {
     if (look.fixedMood || !view || view.rounds <= 0 || !lighting) return;
-    const next = moodForRound(view.round, view.rounds);
+    const next = moodForRound(view.round, view.rounds, board.id);
     // Ohne Stand beim Aufbau: der erste Stand setzt die Stimmung sofort (kein Rundenwechsel).
     const first = !moodSynced && !startRound;
     moodSynced = true;
@@ -1063,6 +1075,7 @@ export function createBoardScene(
     source.advance(dtMs);
     const frame = source.getFrame();
     const view = frame.view;
+    syncRides(dtMs, view);
     syncPawns(frame.pawns, dtMs);
     syncTrophies(view?.trophySpaces ?? []);
     syncTraps(view?.traps ?? []);

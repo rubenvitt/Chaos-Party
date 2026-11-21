@@ -21,7 +21,12 @@ import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import type { Scene } from '@babylonjs/core/scene.js';
-import type { BoardDefinition, BoardSpace, SpaceKind } from '@chaos-party/game-core';
+import {
+  getBoardInfo,
+  type BoardDefinition,
+  type BoardSpace,
+  type SpaceKind,
+} from '@chaos-party/game-core';
 import {
   buildIsland,
   displace,
@@ -39,6 +44,7 @@ import {
 import type { NatureMaterials, PlainOptions } from '../nature/materials.ts';
 import { seeded } from '../nature/noise.ts';
 import { createTerrain, type Terrain } from '../nature/terrain.ts';
+import { buildFairground, type FairgroundWorld } from './fairground.ts';
 import { boardBounds, type Point2 } from './layout.ts';
 import {
   buildFairyRing,
@@ -88,6 +94,8 @@ export interface NatureBoardWorld {
   readonly casters: readonly Mesh[];
   readonly lanterns: readonly { readonly light: Vector3; readonly glass: Mesh }[];
   readonly grass: Grass;
+  /** Fahrgeschäfte des Rummelplatzes (CHAOS-199), sonst `null`. */
+  readonly fair: FairgroundWorld | null;
   /**
    * Eigenleuchten der Feld-Einlagen, Ränder und Symbole setzen (Anteil der eigenen Farbe,
    * `LightMood.night.tileGlow`); für die Überblendung je Runde (CHAOS-63), ohne Shaderwechsel.
@@ -343,6 +351,13 @@ export function buildNatureBoard(
     }
   }
 
+  // Rummelplatz (CHAOS-199): Karussell, Riesenrad, Geisterbahn, Buden, Lichterketten.
+  const fair =
+    getBoardInfo(board.id)?.theme === 'rummel'
+      ? buildFairground(scene, board, statics, { mats, terrain, rnd })
+      : null;
+  if (fair) casters.push(...fair.casters);
+
   // Felsen verstreut am Rand vorn (niedrig, verdecken nichts).
   for (let i = 0; i < 9; i++) {
     const a = -Math.PI / 2 + (rnd() - 0.5) * 2.4;
@@ -403,7 +418,7 @@ export function buildNatureBoard(
     scale: 1.25,
   });
 
-  return { terrain, trees, trophies, casters, lanterns, grass, setTileGlow };
+  return { terrain, trees, trophies, casters, lanterns, grass, fair, setTileGlow };
 }
 
 /** Felder ab `start` bis zur nächsten Zusammenführung (beschrifteter Abzweig einer Gabel). */

@@ -145,6 +145,7 @@ const BOARD: BoardState = {
   sounds: [],
   // Runde 3 von 10: Mittag (CHAOS-193).
   light: moodLight('mittag'),
+  rides: [],
 };
 
 /** Mitten in der Regie: Ben hüpft, Würfel- und Münz-Popup, Klang, Anna weht davon. */
@@ -804,6 +805,58 @@ const EXAMPLES: Readonly<Record<string, ExampleBase>> = {
           ],
         },
       ],
+    },
+  },
+  // CHAOS-214: Anleitung wartet auf „Bereit“ – kein Countdown, Chips je Spieler.
+  'minigame-ready': {
+    phase: 'minigame',
+    lobby: { ...JOIN, players: PLAYERS_FINALE },
+    board: { ...BOARD, activeSlot: null },
+    minigame: {
+      ...MINIGAME_PLAY,
+      stage: 'intro',
+      elapsedMs: 0,
+      hud: '',
+      countdown: null,
+      readiness: {
+        headline: 'Alle bereit? Drückt „Bereit!“ auf dem Handy',
+        players: [
+          { slot: 1, name: 'Anna', character: 'Wusel', color: '#0072B2', symbol: '●', ready: true },
+          {
+            slot: 2,
+            name: 'Ben',
+            character: 'Socke Sigi',
+            color: '#E69F00',
+            symbol: '▲',
+            ready: false,
+          },
+          {
+            slot: 3,
+            name: 'Cleo',
+            character: 'Schraubi',
+            color: '#009E73',
+            symbol: '■',
+            ready: true,
+          },
+          {
+            slot: 4,
+            name: 'Dana',
+            character: 'Kalle Kaktus',
+            color: '#CC79A7',
+            symbol: '★',
+            ready: false,
+          },
+        ].map((player) => {
+          const connected = player.slot !== 4;
+          const state = !connected ? 'disconnected' : player.ready ? 'ready' : 'waiting';
+          const text = { ready: 'Bereit', waiting: 'Drückt Bereit …', disconnected: 'getrennt' };
+          return { ...player, connected, state, text: text[state] } as const;
+        }),
+      },
+      scoreboard: null,
+      effects: [],
+      geometry: [],
+      sounds: [],
     },
   },
   'minigame-play': {

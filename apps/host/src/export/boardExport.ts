@@ -26,6 +26,7 @@ import { createBoardScene } from '../board/createBoardScene.ts';
 import { demoStartMessage } from '../board/demo.ts';
 import { createBoardDirector } from '../board/director.ts';
 import { TILE_TOP } from '../board/natureBoard.ts';
+import { CAROUSEL_NODE, WHEEL_NODE } from '../board/rides.ts';
 import { FIELD_ANCHOR_GROUP, fieldAnchors } from './anchors.ts';
 
 declare global {
@@ -68,6 +69,11 @@ async function run(): Promise<void> {
   // Render-Schleife anhalten: Unter Software-Rendering kostet ein Bild der Stufe `hoch`
   // Sekunden und würde den Export (Texturen auslesen) aushungern.
   scene.getEngine().stopRenderLoop();
+  // Fahrgeschäfte (CHAOS-199) in Ruhe exportieren: Der Apple-Host dreht sie relativ dazu.
+  for (const name of [CAROUSEL_NODE, WHEEL_NODE]) {
+    const node = scene.getTransformNodeByName(name);
+    if (node) node.rotation.set(0, 0, 0);
+  }
 
   // Figuren (Skelett, Animationen) lädt Bevy aus den Original-GLBs; hier nur ihr Ort.
   // Ihre Wurzelknoten heißen `figur-<slot>` (createBoardScene).

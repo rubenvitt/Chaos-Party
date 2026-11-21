@@ -145,7 +145,8 @@ jobs:
   apple-assets:
     name: Apple-Assets (USDZ)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Je Brett ≈ 3–10 min Export unter Software-Rendering (CHAOS-212/199: zwei Bretter).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 

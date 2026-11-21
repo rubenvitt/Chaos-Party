@@ -108,6 +108,7 @@ Der Server wählt automatisch (Regeln in [ADR-007](decisions/ADR-007-lan-join.md
 | `JOIN_CODE` | zufällig (4 Zeichen) | Fester Join-Code (4–8 Zeichen `A–Z`, `0–9`), z. B. für Demos |
 | `TERMINAL_QR` | an | `0` = keinen QR-Code im Terminal zeichnen |
 | `RUECKENWIND` | aus | `1` = Rückenwind-Münzen für Zurückliegende nach dem Minispiel, mit Ansage (CHAOS-125, Playtest) |
+| `STIMMEN_DATEI` | `~/.chaos-party/minispiel-stimmen.json` | Datei der Daumen-Stimmen nach Minispielen (CHAOS-87); Export unter `/ratings.json` |
 
 ## Entwicklung (Vite-Dev-Server)
 

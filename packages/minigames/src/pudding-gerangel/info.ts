@@ -20,4 +20,6 @@ export const PUDDING_GERANGEL_INFO: MinigameInfo = {
   physics: true,
   scoring: 'higher',
   scoreUnit: 'Punkte',
+  family: 'rempeln-schubsen',
+  ipadZone: true,
 };

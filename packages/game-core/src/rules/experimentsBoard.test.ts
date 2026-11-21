@@ -1,5 +1,5 @@
 /**
- * Brett-Experiment EXP-034 (CHAOS-196). Der Smoke-Test läuft immer (wenige Seeds); die vollen
+ * Brett-Experiment EXP-035 (CHAOS-196). Der Smoke-Test läuft immer (wenige Seeds); die vollen
  * Tabellen für `docs/experiments.md` nur mit Umgebungsvariable:
  *
  * ```sh
@@ -25,7 +25,7 @@ const runtime = globalThis as {
   console?: { log: (...values: unknown[]) => void };
 };
 
-describe('EXP-034: Grundlagen', () => {
+describe('EXP-035: Grundlagen', () => {
   it('Rundenlängen: altes Brett 32–36, neues 37–47 Felder', () => {
     const old = lapLengths(WACKELWALD_M2);
     expect([old[0], old[old.length - 1], old.length]).toEqual([32, 36, 4]);
@@ -75,7 +75,7 @@ describe('EXP-034: Grundlagen', () => {
   });
 });
 
-describe('EXP-034: Smoke-Test mit wenigen Seeds', () => {
+describe('EXP-035: Smoke-Test mit wenigen Seeds', () => {
   const setup = { seeds: seedRange(4), players: [2, 4] as const, rounds: 5 };
 
   it('Tabellen entstehen und Trophäen fallen auf dem neuen Brett', () => {
@@ -92,7 +92,7 @@ describe('EXP-034: Smoke-Test mit wenigen Seeds', () => {
 });
 
 describe.runIf(runtime.process?.env?.EXPERIMENTS === 'brett')(
-  'EXP-034: volle Tabellen (EXPERIMENTS=brett)',
+  'EXP-035: volle Tabellen (EXPERIMENTS=brett)',
   () => {
     it('druckt die Tabellen', () => {
       runtime.console?.log(runBoardExperiments());

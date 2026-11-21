@@ -47,6 +47,10 @@ export const DEFAULT_RULES: RuleSet = {
     minigameIntroMs: 7000,
     // CHAOS-66: Wiederholung eines Minispiels in derselben Partie, nur Titel + Bedienlegende.
     minigameRepeatIntroMs: 3000,
+    // CHAOS-214: Anleitung wartet auf „Bereit“ aller; nach 60 s geht es trotzdem los. Mindestens
+    // 3 s, damit die Bühne steht (wie die kurze Anleitung, ADR-012 Nachtrag 3).
+    minigameReadyTimeoutMs: 60_000,
+    minigameReadyMinMs: 3000,
     minigamePlayMs: 3000,
     minigameResultsMs: 6000,
     roundEndMs: 1500,
@@ -67,6 +71,8 @@ export const ZERO_PACING: Pacing = {
   turnEndMs: 0,
   minigameIntroMs: 0,
   minigameRepeatIntroMs: 0,
+  minigameReadyTimeoutMs: 0,
+  minigameReadyMinMs: 0,
   minigamePlayMs: 0,
   minigameResultsMs: 0,
   roundEndMs: 0,

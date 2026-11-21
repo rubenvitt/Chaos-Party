@@ -204,6 +204,8 @@ export class FakeSession {
         this.welcome();
         return;
       case 'ready':
+        // Minispiel-Anleitung (CHAOS-214): Der Test antwortet selbst mit dem nächsten Kontext.
+        if (this.phase === 'board') return;
         // Erst wenn alle Plätze bereit sind, beginnt das Spiel (bei einem Platz sofort).
         this.readySlots.add(message.slot);
         if (!this.autoStart || this.readySlots.size < this.seats) {

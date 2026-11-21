@@ -5,6 +5,7 @@
  * Regelmodule arbeiten darauf und sammeln Ereignisse; am Ende wird daraus wieder ein
  * `GameState`. Der Eingangszustand wird nie verändert.
  */
+import { activeNext } from '../board/rotation.ts';
 import { createRng, type Rng } from '../rng.ts';
 import type {
   BoardDefinition,
@@ -63,8 +64,15 @@ export interface Internal {
   minigameBag: string[];
   /** Zuletzt gespieltes Minispiel (keine direkte Wiederholung beim Neumischen). */
   minigameLast: string | null;
+  /** Zuletzt gezogene Minispiele, neuestes zuerst (Mischregeln der Rotation, CHAOS-85). */
+  minigameHistory: string[];
   /** Schon gestartete Minispiele dieser Partie (CHAOS-66: kurze Anleitung bei Wiederholung). */
   minigamePlayed: string[];
+  /**
+   * CHAOS-214: Mindestdauer der wartenden Anleitung vorbei; ab jetzt startet das letzte
+   * „Bereit“ das Minispiel sofort. Fehlt in Zuständen von vor CHAOS-214 (= `false`).
+   */
+  minigameReadyOpen?: boolean;
 }
 
 export type MutablePlayer = {
@@ -144,6 +152,7 @@ export function openDraft(state: GameState): Ctx {
     internal: {
       ...internal,
       minigameBag: [...internal.minigameBag],
+      minigameHistory: [...internal.minigameHistory],
       minigamePlayed: [...internal.minigamePlayed],
       move: internal.move ? { ...internal.move } : null,
       reaction: internal.reaction ? { ...internal.reaction } : null,
@@ -203,6 +212,14 @@ export function spaceOf(ctx: Ctx, id: string): BoardSpace {
 }
 
 /** Automatische Phase setzen: läuft bis `t + ms`, kein Prompt offen. */
+/**
+ * Offene Nachfolger eines Felds in der laufenden Runde: bei einem drehenden Feld (Karussell,
+ * CHAOS-199) nur der aktuelle Ausgang, sonst `next`.
+ */
+export function nextOf(ctx: Ctx, id: string): readonly string[] {
+  return activeNext(ctx.d.internal.board, id, ctx.d.round);
+}
+
 export function schedule(ctx: Ctx, phase: GamePhase, t: number, ms: number): void {
   ctx.d.phase = phase;
   ctx.d.prompt = null;

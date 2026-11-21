@@ -63,7 +63,9 @@ export function lookMood(
   }
   if (scene) return { mood: LIGHT_MOODS[SCENE_MOODS[scene]], fixed: true };
   const id =
-    round && round.rounds > 0 ? moodForRound(round.round, round.rounds) : moodForBoard(boardId);
+    round && round.rounds > 0
+      ? moodForRound(round.round, round.rounds, boardId)
+      : moodForBoard(boardId);
   return { mood: LIGHT_MOODS[id], fixed: false };
 }
 
