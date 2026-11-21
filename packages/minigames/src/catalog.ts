@@ -1,10 +1,12 @@
 /**
  * Reiner Katalog aller Minispiele (nur Steckbriefe, kein Babylon). Server, game-core-
- * Konfiguration und Controller nutzen ihn; der Host holt die Module aus `./index.ts`.
+ * Konfiguration und Controller nutzen ihn; der Host im Browser lädt die Module je Spiel über
+ * `./lazy.ts` (CHAOS-86), Apple-Host und Werkzeuge synchron über `./index.ts`.
  *
  * Neues Minispiel: Ordner `src/<id>/` mit `info.ts` (rein) und `index.ts` (Modul), hier in
  * `MINIGAME_INFOS` und – wenn es in Partien vorkommen soll – in `ROTATION` eintragen, in
- * `index.ts` das Modul registrieren und in `steckbriefe.ts` den Vielfalts-Steckbrief anlegen.
+ * `index.ts` das Modul registrieren, in `lazy.ts` eine Lade-Funktion ergänzen und in
+ * `steckbriefe.ts` den Vielfalts-Steckbrief anlegen.
  * Bausteine dafür im Baukasten `@chaos-party/minigame-kit` (ADR-021); Muster: `hallo-baukasten/`.
  */
 import type { MinigameInfo } from '@chaos-party/minigame-sdk';

@@ -1,5 +1,9 @@
 /**
- * Babylon-Module aller Minispiele für den Host. Reihenfolge wie `MINIGAME_INFOS`.
+ * Babylon-Module aller Minispiele, synchron. Reihenfolge wie `MINIGAME_INFOS`.
+ *
+ * Für den Apple-Host (ein JavaScriptCore-Bündel), Tests und Werkzeuge in Node. Der Host im
+ * Browser importiert diese Datei **nicht**, sondern lädt je Spiel über `./lazy.ts`
+ * (CHAOS-86, ESLint-Regel in `eslint.config.js`, `pnpm check:bundle`).
  */
 import type { MinigameModule } from '@chaos-party/minigame-sdk/babylon';
 import { halloBaukasten } from './hallo-baukasten/index.ts';
